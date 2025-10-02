@@ -1,6 +1,0 @@
-/data
-/.env
-/graph 
-/preprocessing
-/chroma_db 
-/neo4j-docker/neo4j.dump

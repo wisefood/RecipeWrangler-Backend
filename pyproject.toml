@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "recipe-wrangler"
+version = "0.0.0"
+description = "RecipeWrangler backend"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.23.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "langchain>=0.3.0,<0.4.0",
+    "langchain-openai>=0.1.0,<0.4.0",
+    "langchain-ollama>=0.1.0,<0.4.0",
+    "langchain-huggingface>=0.3.0,<0.4.0",
+    "langchain-neo4j>=0.1.0,<0.4.0",
+    "langgraph>=1.0.0",
+    "langserve>=0.1.0",
+    "neo4j>=5.20.0",
+    "neo4j-graphrag>=1.6.0,<1.8.0",
+    "chromadb==0.4.24",
+    "numpy>=1.26.0,<2.0.0",
+    "qdrant-client>=1.7.0",
+    "huggingface-hub>=0.23.0",
+    "sentence-transformers>=3.0.0",
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.0",
+    "tqdm>=4.66.0",
+    "ollama>=0.3.0",
+    "dspy>=3.0.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,6 @@
+services:
+  chromadb:
+    image: local/chromadb:0.4.24
+    container_name: chromadb
+    ports:
+      - "8000:8000"

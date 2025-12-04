@@ -1,0 +1,199 @@
+from pathlib import Path
+
+import chromadb
+import numpy as np
+import recipe_wrangler
+from recipe_wrangler.utils.chroma_client import get_chroma_client
+from recipe_wrangler.utils.get_embeddings import get_embeddings
+from recipe_wrangler.tools.ingredient_embeddings_tool import (
+    ensure_ingredients_in_collection,
+)
+
+REPO_ROOT = Path(recipe_wrangler.__file__).resolve().parents[2]  # package -> src -> repo
+PERSIST_PATH = REPO_ROOT / "chroma_db"
+
+def get_ingredient_embedding(ingredient_name: str):
+    """
+    Function that returns the embeddings of an existing ingredient of the chromadb ingredients collection
+    """
+    client = get_chroma_client()
+    collection = client.get_collection(name="ingredients")
+
+    res = collection.get(
+        where={"name": ingredient_name},
+        include=["embeddings", "metadatas"]
+    )
+
+    embs = res.get("embeddings")
+    if embs is None or len(embs) == 0:
+        raise ValueError(f"No embedding found for {ingredient_name!r}")
+
+    vec = embs[0]  # first embedding
+
+    # Normalize to a flat Python list
+    if isinstance(vec, np.ndarray):
+        vec = vec.ravel().tolist()
+    elif isinstance(vec, list) and len(vec) == 1 and isinstance(vec[0], (list, np.ndarray)):
+        vec = np.asarray(vec).ravel().tolist()
+    elif not isinstance(vec, list):
+        vec = list(vec)
+
+    return vec  # 1-D list[float]
+
+def query_ingredients_db(query: str):
+    """
+    Function that queries the chromadb ingredients collection with input ingredient
+    """
+
+    COLLECTION_NAME = "ingredients"
+
+    client = get_chroma_client()
+    collection = client.get_collection(name=COLLECTION_NAME)
+
+    vec = get_embeddings(query)
+
+    results = collection.query(
+        query_embeddings=[vec],
+        n_results=5,
+        include=["documents", "metadatas", "distances"]
+    )
+
+    hits = []
+    for doc, meta, dist in zip(results["documents"][0],
+                               results["metadatas"][0],
+                               results["distances"][0]):
+        hits.append({
+            "document": doc,
+            "metadata": meta,
+            "distance": dist
+        })
+    return hits
+
+def query_sustainability_db(query: str):
+    """
+    Function that queries the chromadb sustainability collection with input ingredient
+    """
+
+    COLLECTION_NAME = "sustainability_ingredients"
+
+    client = get_chroma_client()
+    collection = client.get_collection(name=COLLECTION_NAME)
+
+    ensure_ingredients_in_collection.invoke({
+        "ingredient_names": [query],
+        "state": {"persist_path": PERSIST_PATH, "collection_name": "ingredients", "debug": False}
+    })
+
+    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
+    vec = get_embeddings(query)
+
+    results = collection.query(
+        query_embeddings=[vec],
+        n_results=5,
+        include=["documents", "metadatas", "distances"]
+    )
+    
+    hits = [
+        {
+            "document": doc,
+            "metadata": meta,
+            "distance": dist,
+        }
+        for doc, meta, dist in zip(results["documents"][0],
+                                results["metadatas"][0],
+                                results["distances"][0])
+    ]
+
+    hits.sort(key=lambda h: h["distance"])
+    return hits
+
+def query_nutritional_db_irish(query: str):
+    """
+    Function that queries the chromadb irish nutritional collection with input ingredient
+    """
+
+    COLLECTION_NAME = "nutritional_ingredients_irish"
+
+    client = get_chroma_client()
+    collection = client.get_collection(name=COLLECTION_NAME)
+
+    
+    ensure_ingredients_in_collection.invoke({
+        "ingredient_names": [query],
+        "state": {"persist_path": PERSIST_PATH, "collection_name": "ingredients", "debug": False}
+    })
+    
+    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
+    vec = get_ingredient_embedding(query)  # comes from "ingredients" collection
+
+    results = collection.query(
+        query_embeddings=[vec],
+        n_results=10,  # fetch more to allow filtering
+        include=["documents", "metadatas", "distances"]
+    )
+
+    hits = []
+    for doc, meta, dist in zip(results["documents"][0],
+                               results["metadatas"][0],
+                               results["distances"][0]):
+        hits.append({"document": doc, "metadata": meta, "distance": dist})
+    return hits
+
+def query_density_db(query: str):
+    """
+    Function that queries the chromadb density of foods collection with input ingredient
+    """
+
+    COLLECTION_NAME = "foods_density_v1"
+
+    client = get_chroma_client()
+    collection = client.get_collection(name=COLLECTION_NAME)
+
+
+    ensure_ingredients_in_collection.invoke({
+        "ingredient_names": [query],
+        "state": {"persist_path": PERSIST_PATH, "collection_name": "ingredients", "debug": False}
+    })
+
+    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
+    vec = get_ingredient_embedding(query) 
+
+    results = collection.query(
+        query_embeddings=[vec],
+        n_results=10,  
+        include=["documents", "metadatas", "distances"]
+    )
+
+    hits = []
+    for doc, meta, dist in zip(results["documents"][0],
+                               results["metadatas"][0],
+                               results["distances"][0]):
+        hits.append({"document": doc, "metadata": meta, "distance": dist})
+    return hits
+
+def query_common_units_db(query: str):
+    """
+    Function that queries the chromadb density of foods collection with input ingredient.
+    Returns only the closest match.
+    """
+
+    COLLECTION_NAME = "common_units"
+
+    client = get_chroma_client()
+    collection = client.get_collection(name=COLLECTION_NAME)
+
+    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
+    vec = get_embeddings(query, model_name ="sentence-transformers/all-MiniLM-L6-v2") 
+
+    results = collection.query(
+        query_embeddings=[vec],
+        n_results=10,  
+        include=["documents", "metadatas", "distances"]
+    )
+
+    hits = []
+    for doc, meta, dist in zip(results["documents"][0],
+                               results["metadatas"][0],
+                               results["distances"][0]):
+        hits.append({"document": doc, "metadata": meta, "distance": dist})
+    return hits[0]

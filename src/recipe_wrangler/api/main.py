@@ -117,7 +117,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     @app.post(
-        "/api/recipes/parse",
+        "/api/v1/recipes/parse",
         response_model=ParseRecipeResponse,
         tags=["recipes"],
         summary="Parse unstructured recipe text into structured fields",
@@ -150,7 +150,7 @@ def create_app() -> FastAPI:
         return ParseRecipeResponse(**response_payload)
 
     @app.get(
-        "/api/recipes/{recipe_id}",
+        "/api/v1/recipes/{recipe_id}",
         response_model=RecipeDetailResponse,
         tags=["recipes"],
         summary="Retrieve a recipe with full metadata by id",
@@ -173,7 +173,7 @@ def create_app() -> FastAPI:
         return RecipeDetailResponse(**recipe)
 
     @app.post(
-        "/api/recipes/search",
+        "/api/v1/recipes/search",
         response_model=RecipeSearchResponse,
         tags=["recipes"],
         summary="Search recipes via the knowledge graph",
@@ -211,7 +211,7 @@ def create_app() -> FastAPI:
         return RecipeSearchResponse(**response_payload)
 
     @app.post(
-        "/api/recipes/profile",
+        "/api/v1/recipes/profile",
         response_model=RecipeProfileResponse,
         tags=["recipes"],
         summary="Run parsing + profiling pipeline on raw recipe text",

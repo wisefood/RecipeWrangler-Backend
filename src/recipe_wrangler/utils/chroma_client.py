@@ -1,4 +1,11 @@
+# Purpose: Shared Chroma HTTP client configured via env vars.
+
 import os
+
+# Disable Chroma telemetry to avoid noisy ClientStartEvent capture errors.
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "FALSE")
+os.environ.setdefault("CHROMA_TELEMETRY", "FALSE")
+
 import chromadb
 
 # Default connection to the Dockerized Chroma server; override via env vars if needed.

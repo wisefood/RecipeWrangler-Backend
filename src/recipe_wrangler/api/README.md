@@ -14,13 +14,13 @@ Swagger UI: http://127.0.0.1:8001/docs
 
 Environment:
 - `NEO4J_URI` (and `NEO4J_USERNAME`/`NEO4J_PASSWORD` if auth)
-- `OPENAI_API_KEY` for LLM-backed tools
+- `GROQ_API_KEY` for LLM-backed tools
 - `CHROMA_HOST`/`CHROMA_PORT` if different from defaults (localhost:8000)
 
 ## Endpoints
 - `GET /health` — readiness probe
 - `POST /api/recipes/parse` — parse unstructured recipe text into title, ingredient names, measurements, directions, total_time
-- `GET /api/recipes/{recipe_id}` — fetch recipe metadata by Neo4j element id
+- `GET /api/recipes/{recipe_id}` — fetch recipe metadata by recipe_id
 - `POST /api/recipes/search` — LangGraph search over the recipe graph; returns results + cypher_statement + steps
 - `POST /api/recipes/profile` — run the parsing + profiling chain on raw recipe text (may be GPU-heavy)
 

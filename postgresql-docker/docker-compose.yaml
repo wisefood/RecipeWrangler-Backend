@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: wisefood-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nutrients
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nutrients"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: nutrients-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8090:80"
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:

@@ -28,8 +28,10 @@ docker compose -f neo4j-docker/docker-compose.yml up -d
 
 ## Run the API locally
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv venv
+source .venv/bin/activate
+uv pip install -e .
+# optional: uv lock && uv sync
 export NEO4J_URI=bolt://localhost:7687  # adjust if needed
 export OPENAI_API_KEY=...               # required for LLM-backed tools
 PYTHONPATH=src uvicorn recipe_wrangler.api.main:app --reload --port 8001  # 8000 is used by Chroma
@@ -38,8 +40,9 @@ Swagger UI: http://127.0.0.1:8000/docs
 
 Or install the package in editable mode so `recipe_wrangler` imports work everywhere without `PYTHONPATH`:
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
+uv venv
+source .venv/bin/activate
+uv pip install -e .
 ```
 Then run scripts/notebooks directly (they resolve imports via the editable install).
 
@@ -69,5 +72,5 @@ OPENAI_API_KEY=sk-...
 - Keep secrets in `.env`; `.env` files are ignored.
 
 ## Notes
-- All Python code lives under `src/recipe_wrangler/`; set `PYTHONPATH=src` or install in editable mode (`pip install -e .`).
+- All Python code lives under `src/recipe_wrangler/`; set `PYTHONPATH=src` or install in editable mode (`uv pip install -e .`).
 - If you add new pipelines or data scripts, place them under `tools/`, `utils/`, or `services/` to keep the layout tidy.

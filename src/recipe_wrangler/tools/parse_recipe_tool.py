@@ -1,71 +1,61 @@
-from typing import TypedDict, List, Dict, Any
-from langchain.tools import tool
-import requests
-import json
+# Purpose: LLM-based parser from raw recipe text to structured fields.
 
+from typing import Any, List
+import os
+
+from langchain.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_groq import ChatGroq
+from pydantic import BaseModel, Field
+
+from recipe_wrangler.schemas import RecipeState
 
 @tool
-def parse_recipe_tool_open(raw_recipe: str) -> dict:
-    """
-    Parses a raw recipe string into structured components: title, ingredients, measurements, and directions.
-    """
+def parse_recipe_tool(recipe: str) -> dict:
+    """Parses a raw recipe text into structured fields."""
+    model_name = os.getenv("PARSE_LLM")
+    
+    if not model_name:
+        raise ValueError("Please set PARSE_LLM to a valid model name.")
 
-    response = requests.post(
-        "http://localhost:11434/api/generate",
-        json={
-            "model": "qwen3:8b",
-            "prompt": (
-                "Parse this recipe's info in a structured JSON with keys: "
-                "title[str], ingredient_names[list], measurements[list], "
-                "directions[list], total_time[int], serves[int]. "
-                f"Recipe: {raw_recipe}"
-            ),
-            "stream": False,
-            "format": "json",
-        },
+    class ParsedRecipe(BaseModel):
+        title: str = Field(min_length=1)
+        ingredient_names: List[str] = Field(min_length=1)
+        measurements: List[str] = Field(min_length=1)
+        directions: List[str] = Field(min_length=1)
+        total_time: int = Field(ge=0)
+        serves: int = Field(ge=0)
+
+    llm = ChatGroq(model=model_name, temperature=0.0, max_retries=2)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "Parse this recipe's info into structured fields."),
+            ("human", "Recipe: {recipe}"),
+        ]
     )
+    chain = prompt | llm.with_structured_output(ParsedRecipe, method="json_schema")
+    result = chain.invoke({"recipe": recipe})
+    return result.model_dump()
 
-    # Decode the response from the model server; bubble clear errors.
-    response.raise_for_status()
-    try:
-        response_data = response.json()
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON from model server: {response.text}") from exc
 
-    if "error" in response_data:
-        raise RuntimeError(f"Model server error: {response_data['error']}")
-    if "response" not in response_data:
-        raise KeyError(f"Missing 'response' field in model reply: {response_data}")
-
-    try:
-        result = json.loads(response_data["response"])
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Model 'response' is not valid JSON: {response_data['response']}") from exc
-
-    return result
-
-def Recipe_Parser_Node(state: Dict[str, Any]) -> Dict[str, Any]:
+def Recipe_Parser_Node(state: RecipeState) -> RecipeState:
     """
     Node that converts raw recipe text in state into structured fields 
     (title, ingredients, measurements, directions, total_time, serves).
     """
-    debug = state.get("debug", False)   
+    debug = bool(state.debug)
 
-    result = parse_recipe_tool_open.invoke({
-        "raw_recipe": state["raw_recipe"]
-    })
+    result = parse_recipe_tool.invoke({"recipe": state.raw_recipe})
 
-    state.update({
-        "title": result["title"],
-        "ingredient_names": result["ingredient_names"],
-        "measurements": result["measurements"],
-        "directions": result["directions"],
-        "total_time": result["total_time"],
-        "serves": result["serves"]
-    })
+    state.title = result["title"]
+    state.ingredient_names = result["ingredient_names"]
+    state.measurements = result["measurements"]
+    state.directions = result["directions"]
+    state.total_time = result["total_time"]
+    state.serves = result["serves"]
 
     
     if debug:
-        print("[Recipe_Parser_Node] Updated State Keys:", state.keys())
+        print("[Recipe_Parser_Node] Updated State Keys:", list(state.model_dump().keys()))
         
     return state

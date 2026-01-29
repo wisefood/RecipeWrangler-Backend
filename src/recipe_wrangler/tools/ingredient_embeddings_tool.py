@@ -1,5 +1,13 @@
+# Purpose: Ensure ingredient embeddings exist in Chroma and upsert missing ones.
+
 from typing import List, Dict, Any, Tuple
 from langchain.tools import tool
+import os
+
+# Disable Chroma telemetry before importing chromadb.
+os.environ.setdefault("CHROMA_TELEMETRY", "FALSE")
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "FALSE")
+
 import chromadb
 import time
 from pathlib import Path

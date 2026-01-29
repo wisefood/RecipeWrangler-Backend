@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     )
 
     neo4j_uri: str = Field(..., alias="NEO4J_URI")
-    search_chat_model: str = Field("gpt-oss:20b", alias="SEARCH_CHAT_MODEL")
-    openai_model: Optional[str] = Field("gpt-4o", alias="OPENAI_MODEL")
+    search_main_model: str = Field("gpt-oss:20b", alias="SEARCH_MAIN_MODEL")
+    guardrails_model: str = Field("llama-3.1-8b-instant", alias="GUARDRAILS_MODEL")
     search_temperature: float = Field(0.0, alias="SEARCH_TEMPERATURE")
     strict_value_mapping: bool = Field(True, alias="STRICT_VALUE_MAPPING")
     neo4j_connect_timeout: float = Field(5.0, alias="NEO4J_CONNECT_TIMEOUT")
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
             raise ValueError("NEO4J_URI must start with bolt://")
         return value
 
-    @field_validator("search_chat_model", "openai_model", mode="before")
+    @field_validator("search_main_model", "guardrails_model", mode="before")
     def _strip_models(cls, value: Optional[str]):  # noqa: N805
         if isinstance(value, str):
             value = value.strip()

@@ -1,4 +1,11 @@
+# Purpose: Runtime Chroma query helpers for ingredients/nutrition/sustainability.
+
 from pathlib import Path
+import os
+
+# Disable Chroma telemetry before importing chromadb.
+os.environ.setdefault("CHROMA_TELEMETRY", "FALSE")
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "FALSE")
 
 import chromadb
 import numpy as np
@@ -26,7 +33,8 @@ def get_ingredient_embedding(ingredient_name: str):
 
     embs = res.get("embeddings")
     if embs is None or len(embs) == 0:
-        raise ValueError(f"No embedding found for {ingredient_name!r}")
+        # Fallback to on-the-fly embeddings so profiling doesn't fail on missing entries.
+        return get_embeddings(ingredient_name)
 
     vec = embs[0]  # first embedding
 

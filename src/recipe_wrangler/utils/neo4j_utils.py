@@ -1,15 +1,19 @@
+# Purpose: Neo4j driver/session helpers and run_query.
+
+import os
 from neo4j import GraphDatabase
 from typing import Optional
 
-# Set up the connection
-uri = "bolt://localhost:7687"  # Change if using a remote server or different port
+# Set up the connection (override via env vars)
+uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+username = os.getenv("NEO4J_USER", "neo4j")
+password = os.getenv("NEO4J_PASSWORD", "")
 
-# Create the driver instance
+auth = None
+if password and password.lower() != "none":
+    auth = (username, password)
 
-username = "neo4j"
-password = "password123"
-
-driver = GraphDatabase.driver(uri, auth=(username, password))
+driver = GraphDatabase.driver(uri, auth=auth)
 
 # Function to run a Cypher query
 def run_query(query, parameters=None):

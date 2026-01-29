@@ -1,20 +1,24 @@
+# Purpose: Text-to-Cypher LangGraph pipeline for recipe search.
+
 import os
 import sys
 from dataclasses import dataclass
 from operator import add
 from collections.abc import Mapping
 from typing import Annotated, Any, Dict, List, Literal, Optional, TypedDict
-from langchain_ollama import ChatOllama
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 NEO4J_URI = os.getenv("NEO4J_URI")
+NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 # ---- LangChain / LangGraph / Neo4j imports ----
-from langchain_neo4j import Neo4jGraph, Neo4jVector
-from langchain_openai import OpenAIEmbeddings
+from langchain_neo4j import Neo4jGraph
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.example_selectors import SemanticSimilarityExampleSelector
 
 from langgraph.graph import END, START, StateGraph
 from langchain_neo4j.chains.graph_qa.cypher_utils import CypherQueryCorrector, Schema
@@ -22,6 +26,18 @@ from neo4j.exceptions import CypherSyntaxError
 from pydantic import BaseModel, Field
 
 from recipe_wrangler.tools.fetch_recipe_info import fetch_recipe_info
+from recipe_wrangler.utils.examples import TEXT2CYPHER_FEWSHOT_EXAMPLES
+from recipe_wrangler.utils.prompts import (
+    CORRECT_CYPHER_HUMAN_PROMPT,
+    CORRECT_CYPHER_SYSTEM_PROMPT,
+    FINAL_HUMAN_PROMPT,
+    FINAL_SYSTEM_PROMPT,
+    GUARDRAILS_SYSTEM_PROMPT,
+    TEXT2CYPHER_HUMAN_PROMPT,
+    TEXT2CYPHER_SYSTEM_PROMPT,
+    VALIDATE_CYPHER_HUMAN_PROMPT,
+    VALIDATE_CYPHER_SYSTEM_PROMPT,
+)
 
 
 # ---------------------------
@@ -45,24 +61,6 @@ class OutputState(TypedDict):
     results: List[dict] | str
     steps: List[str]
     cypher_statement: str
-
-
-# ---------------------------
-# Config / constants
-# ---------------------------
-
-TAGS_TEXT = """Available Tags:
-Diet Type: Vegan, Vegetarian, Meat-based, Seafood
-Nutritional: High Protein, Low Fat, Low Carb, High Fiber, Low Sugar, Keto Friendly, Balanced
-Health: Heart Healthy, Low Cholesterol, Low Sodium, Diabetic Friendly, Weight Loss Friendly, Highly Nutritious, General
-Time: 15-minutes-or-less, 30-minutes-or-less, 60-minutes-or-less, 4-hours-or-less, 1-day-or-less
-Difficulty: 5-ingredients-or-less, Easy
-Dish Type: Appetizer, Main Course, Side Dish, Breakfast, Lunch, Dinner, Desserts, Snacks, Brunch, Salads, Soups & Stews, Beverages and Cocktails
-Main Ingredient: Chicken, Beef, etc.
-Special Dietary: Dairy Free, Gluten Free
-Techniques: Boil, Bake, Grill, Roast, Sauté, Steam, Fry, etc.
-Region: Greek, Indian, Italian, etc.
-"""
 
 
 # ---------------------------
@@ -91,41 +89,40 @@ class ValidateCypherOutput(BaseModel):
         description="Property filters applied in the Cypher statement"
     )
 
-
 # ---------------------------
-# RecipeGraphApp
+# RecipeSearchApp
 # ---------------------------
 
 @dataclass
 class RecipeSearchApp:
     neo4j_uri: str
-    openai_model: str = "gpt-4o"
+    main_model: str = "gpt-oss:20b"
+    guardrails_model: str = "llama-3.1-8b-instant"
     temperature: float = 0.0
     strict_value_mapping: bool = True  # if True, mapping misses short-circuit to 'end'
 
     def __post_init__(self):
         # Neo4j connections
-        self.base_graph = Neo4jGraph(
-            url=self.neo4j_uri,
-            refresh_schema=True,
-        )
         self.enhanced_graph = Neo4jGraph(
             url=self.neo4j_uri,
             refresh_schema=True,
             enhanced_schema=True,
         )
+        
+        from langchain_groq import ChatGroq
 
-        self.llm = ChatOllama(model="gpt-oss:20b", temperature=self.temperature) # or qwen3:8b gpt-oss:20b
-
-        # Example selector (requires embeddings + vector backend)
-        self.example_selector = SemanticSimilarityExampleSelector.from_examples(
-            self._fewshot_examples(),
-            OpenAIEmbeddings(),
-            Neo4jVector,
-            k=5,
-            input_keys=["question"],
+        self.llm = ChatGroq(
+            model=self.main_model,
+            temperature=self.temperature,
+            max_retries=2,
         )
 
+        self.guardrails_llm = ChatGroq(
+            model=self.guardrails_model,
+            temperature=self.temperature,
+            max_retries=2,
+        )
+        
         # Build chains + compiled graph
         self._build_chains()
         self.langgraph = self._build_state_graph().compile()
@@ -134,44 +131,29 @@ class RecipeSearchApp:
     def invoke(self, question: str) -> OutputState:
         return self.langgraph.invoke({"question": question})
 
-    # ---------- Public Stage Runners (for testing each node) ----------
     def run_guardrails(self, question: str) -> OverallState:
-        """Run only the guardrails node and return its partial state."""
         return self._guardrails({"question": question})
 
     def run_generate_cypher(self, question: str) -> OverallState:
-        """Run only the text-to-cypher node and return cypher + next action."""
         return self._generate_cypher({"question": question})
 
     def run_validate_cypher(self, question: str, cypher: str) -> OverallState:
-        """Run only the validate-cypher node for a given question/cypher."""
-        return self._validate_cypher({
-            "question": question,
-            "cypher_statement": cypher,
-        })
+        return self._validate_cypher({"question": question, "cypher_statement": cypher})
 
     def run_correct_cypher(self, question: str, cypher: str, errors: List[str]) -> OverallState:
-        """Run only the correct-cypher node, providing errors and prior cypher."""
-        return self._correct_cypher({
-            "question": question,
-            "cypher_statement": cypher,
-            "cypher_errors": errors,
-        })
+        return self._correct_cypher(
+            {"question": question, "cypher_statement": cypher, "cypher_errors": errors}
+        )
 
     def run_execute_cypher(self, cypher: str) -> OverallState:
-        """Run only the execute-cypher node using the provided cypher."""
-        return self._execute_cypher({
-            "cypher_statement": cypher,
-        })
+        return self._execute_cypher({"cypher_statement": cypher})
 
-    def run_generate_final_answer(self, question: str, results: List[dict] | str, cypher: str = "") -> OutputState:
-        """Run only the final-answer node with provided results (and optional cypher)."""
-        return self._generate_final_answer({
-            "question": question,
-            "database_records": results,
-            "cypher_statement": cypher,
-            "steps": [],
-        })
+    def run_generate_final_answer(
+        self, question: str, results: List[dict] | str, cypher: str
+    ) -> OutputState:
+        return self._generate_final_answer(
+            {"question": question, "database_records": results, "cypher_statement": cypher}
+        )
 
     def save_graph_png(self, output_path: str = "recipe_langgraph.png") -> None:
         """
@@ -196,203 +178,29 @@ class RecipeSearchApp:
         return cleaned
 
     # ---------- Internals ----------
-    def _fewshot_examples(self):
-        return [
-            {
-                "question": "Tell me a recipe with chicken under 30 minutes",
-                "query": """MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)
-WHERE toLower(i.name) CONTAINS 'chicken' AND r.Duration < 30
-RETURN DISTINCT r.title""",
-            },
-            {
-                "question": "Tell me a recipe with rice and beef",
-                "query": """MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i1:Ingredient), (r)-[:HAS_INGREDIENT]->(i2:Ingredient)
-WHERE toLower(i1.name) CONTAINS 'rice'
-  AND toLower(i2.name) CONTAINS 'beef'
-RETURN DISTINCT r.title""",
-            },
-            {
-                "question": "Tell me a Greek salad",
-                "query": """MATCH (r:Recipe)-[:HAS_TAG]->(t:Tag)
-WITH r, collect(t.name) AS tags
-WHERE 'Greek' IN tags AND 'Salads' IN tags
-RETURN DISTINCT r.title""",
-            },
-            {
-                "question": "Tell me a high-protein dairy free recipe with chicken under 1 hour.",
-                "query": """MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)
-MATCH (r)-[:HAS_TAG]->(t:Tag)
-WHERE toLower(i.name) CONTAINS 'chicken'
-WITH r, collect(t.name) AS tags
-WHERE 'High Protein' IN tags AND 'Dairy Free' IN tags AND r.Duration < 60
-RETURN DISTINCT r.title""",
-            },
-            {
-                "question": "Tell me a dairy free salad with seafood",
-                "query": """MATCH (r:Recipe)-[:HAS_TAG]->(t:Tag)
-WITH r, collect(t.name) AS tags
-WHERE 'Seafood' IN tags AND 'Salads' IN tags AND 'Dairy Free' IN tags
-RETURN DISTINCT r.title""",
-            },
-            {
-                "question": "Give me a high-protein vegan recipe that takes less than 30 minutes.",
-                "query": """MATCH (r:Recipe)-[:HAS_TAG]->(t:Tag)
-WITH r, collect(t.name) AS tags
-WHERE 'High Protein' IN tags AND 'Vegan' IN tags AND r.Duration < 30
-RETURN DISTINCT r.title""",
-            },
-            {
-                "question": "Which Indian dessert has the highest WhoScore?",
-                "query": """MATCH (r:Recipe)-[:HAS_TAG]->(t:Tag)
-WITH r, collect(t.name) AS tags
-WHERE 'Indian' IN tags AND 'Desserts' IN tags
-RETURN r.title
-ORDER BY r.WhoScore DESC
-LIMIT 1""",
-            },
-            {
-                "question": "Find me a gluten-free seafood main course for dinner.",
-                "query": """MATCH (r:Recipe)-[:HAS_TAG]->(t:Tag)
-WITH r, collect(t.name) AS tags
-WHERE 'Gluten Free' IN tags AND 'Seafood' IN tags AND 'Main Course' IN tags AND 'Dinner' IN tags
-RETURN DISTINCT r.title""",
-            },
-            {
-                "question": "Find recipes with at least 100 grams of chicken and tagged as low carb.",
-                "query": """MATCH (r:Recipe)-[rel:HAS_INGREDIENT]->(i:Ingredient)
-MATCH (r)-[:HAS_TAG]->(t:Tag)
-WHERE toLower(i.name) CONTAINS 'chicken' AND rel.weight >= 100
-WITH r, collect(t.name) AS tags
-WHERE 'Low Carb' IN tags
-RETURN DISTINCT r.title""",
-            },
-            {
-                "question": "Tell me a high protein recipe with chicken",
-                "query": """MATCH (r:Recipe)-[:HAS_TAG]->(t:Tag),
-      (r)-[:HAS_INGREDIENT]->(i:Ingredient)
-WHERE t.name = 'High Protein' AND toLower(i.name) CONTAINS 'chicken'
-RETURN r
-LIMIT 5""",
-            },
-            {
-                "question": "pizza",
-                "query": """MATCH (r:Recipe)-[:HAS_TAG]->(t:Tag)
-WHERE toLower(r.title) CONTAINS 'pizza'
-RETURN DISTINCT r.title""",
-            },
-            {
-                "question": "Show me quick vegan breakfast recipes",
-                "query": """MATCH (r:Recipe)-[:HAS_TAG]->(t:Tag)
-WITH r, collect(t.name) AS tags
-WHERE 'Vegan' IN tags AND 'Breakfast' IN tags AND r.Duration <= 20
-RETURN DISTINCT r.title""",
-            },
-            {
-                "question": "Tell me a low-fat recipe with chicken and rice",
-                "query": """WITH ['chicken','rice'] AS required
-MATCH (r:Recipe)
-WHERE ALL(ing IN required WHERE
-  EXISTS {
-    MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
-    WHERE toLower(i.name) CONTAINS toLower(ing)
-  }
-)
-MATCH (r)-[:HAS_TAG]->(t:Tag)
-WHERE t.name = 'Low Fat'
-RETURN DISTINCT r.title
-LIMIT 25""",
-            },
-            {
-                "question": "Show me low-carb mains that use beef or chicken",
-                "query": """MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)
-WHERE ANY(x IN ['beef','chicken'] WHERE toLower(i.name) CONTAINS x)
-MATCH (r)-[:HAS_TAG]->(t:Tag)
-WITH r, collect(DISTINCT t.name) AS tags
-WHERE 'Low Carb' IN tags AND 'Main Course' IN tags
-RETURN DISTINCT r.title
-LIMIT 25""",
-            },
-        ]
-
     def _build_chains(self) -> None:
         # ---- Guardrails ----
-        guardrails_system = """
-As an intelligent assistant, your primary objective is to decide whether a given question is related to food recipes or not. 
-If the question is related to food recipes, output "recipe". Otherwise, output "end".
-To make this decision, assess the content of the question and determine if it refers to any recipe, ingredient or diet type.
-Provide only the specified output: "recipe" or "end".
-"""
         guardrails_prompt = ChatPromptTemplate.from_messages(
-            [("system", guardrails_system), ("human", "{question}")]
+            [("system", GUARDRAILS_SYSTEM_PROMPT), ("human", "{question}")]
         )
-        self.guardrails_chain = guardrails_prompt | self.llm | StrOutputParser()
+        self.guardrails_chain = guardrails_prompt | self.guardrails_llm | StrOutputParser()
 
         # ---- Text2Cypher ----
         text2cypher_prompt = ChatPromptTemplate.from_messages(
             [
-                (
-                    "system",
-                    "Given an input question, convert it to a Cypher query. No pre-amble."
-                    "Do not wrap the response in any backticks or anything else. Respond with a Cypher statement only!"
-                    "Property names are case-sensitive; copy them exactly as they appear in the schema.",
-                ),
-                (
-                    "human",
-                """You are a Neo4j expert. Given an input question, create a syntactically correct Cypher query to run.
-                Do not wrap the response in any backticks or anything else. Respond with a Cypher statement only!
-                Property names are case-sensitive. Use the exact casing from the schema (e.g., use Duration, not duration).
-                Here is the schema information
-                {schema}
-
-                And all the available tags:
-                {tags}
-
-                Below are a number of examples of questions and their corresponding Cypher queries.
-
-                {fewshot_examples}
-
-                User input: {question}
-                Cypher query:""",
-                ),
+                ("system", TEXT2CYPHER_SYSTEM_PROMPT),
+                ("human", TEXT2CYPHER_HUMAN_PROMPT),
             ]
         )
         self.text2cypher_chain = text2cypher_prompt | self.llm | StrOutputParser()
 
         # ---- Validate Cypher ----
-        validate_cypher_system = "You are a Cypher expert reviewing a statement written by a junior developer."
-        validate_cypher_user = """You must check the following:
-* Are there any syntax errors or misspelings in the Cypher statement?
-* Are there any missing or undefined variables in the Cypher statement?
-* Are any node labels missing from the schema?
-* Are any relationship types missing from the schema?
-* Are any of the properties not included in the schema?
-* Does the Cypher statement include enough information to answer the question?
-
-Examples of good errors:
-* Label (:Foo) does not exist, did you mean (:Bar)?
-* Property bar does not exist for label Foo, did you mean baz?
-* Relationship FOO does not exist, did you mean FOO_BAR?
-
-If there are errors, explain them. 
-
-Schema:
-{schema}
-
-And all the available tags:
-{tags}
-
-The question is:
-{question}
-
-The Cypher statement is:
-{cypher}
-
-Make sure you don't make any mistakes!"""
         validate_cypher_prompt = ChatPromptTemplate.from_messages(
-            [("system", validate_cypher_system), ("human", validate_cypher_user)]
+            [("system", VALIDATE_CYPHER_SYSTEM_PROMPT), ("human", VALIDATE_CYPHER_HUMAN_PROMPT)]
         )
         self.validate_cypher_chain = validate_cypher_prompt | self.llm.with_structured_output(
-            ValidateCypherOutput
+            ValidateCypherOutput,
+            method="json_schema",
         )
 
         # ---- Corrector (directional) ----
@@ -402,19 +210,7 @@ Make sure you don't make any mistakes!"""
 
         # ---- Final Answer ----
         generate_final_prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", "You are a helpful assistant"),
-                (
-                    "human",
-                    """Use the following results retrieved from a database to provide
-a succinct, definitive answer to the user's question.
-
-Respond as if you are answering the question directly.
-
-Results: {results}
-Question: {question}""",
-                ),
-            ]
+            [("system", FINAL_SYSTEM_PROMPT), ("human", FINAL_HUMAN_PROMPT)]
         )
         self.generate_final_chain = generate_final_prompt | self.llm | StrOutputParser()
 
@@ -449,7 +245,7 @@ Question: {question}""",
 
     def _generate_cypher(self, state: OverallState) -> OverallState:
         NL = "\n"
-        examples = self._fewshot_examples()
+        examples = TEXT2CYPHER_FEWSHOT_EXAMPLES
         q_tokens = (state.get("question") or "").lower().split()
         def score(ex):
             return len(set(q_tokens) & set(ex["question"].lower().split()))
@@ -464,7 +260,6 @@ Question: {question}""",
                 "question": state.get("question"),
                 "fewshot_examples": fewshot_examples,
                 "schema": schema_text,
-                "tags": TAGS_TEXT,
             }
         )
         normalized = self._normalize_cypher_statement(cypher)
@@ -523,7 +318,6 @@ Question: {question}""",
             llm_out = self.validate_cypher_chain.invoke({
                 "question": state.get("question"),
                 "schema": self.enhanced_graph.schema,
-                "tags": TAGS_TEXT,
                 "cypher": cypher_to_use,
             })
         except Exception:
@@ -572,38 +366,7 @@ Question: {question}""",
 
     def _correct_cypher(self, state: OverallState) -> OverallState:
         correct_cypher_prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    "You are a Cypher expert reviewing a statement written by a junior developer. "
-                    "You need to correct the Cypher statement based on the provided errors. No pre-amble."
-                    "Do not wrap the response in any backticks or anything else. Respond with a Cypher statement only!",
-                ),
-                (
-                    "human",
-                    """Check for invalid syntax or semantics and return a corrected Cypher statement.
-
-Schema:
-{schema}
-
-Note: Do not include any explanations or apologies in your responses.
-Do not wrap the response in any backticks or anything else.
-Respond with a Cypher statement only!
-
-Do not respond to any questions that might ask anything else than for you to construct a Cypher statement.
-
-The question is:
-{question}
-
-The Cypher statement is:
-{cypher}
-
-The errors are:
-{errors}
-
-Corrected Cypher statement: """,
-                ),
-            ]
+            [("system", CORRECT_CYPHER_SYSTEM_PROMPT), ("human", CORRECT_CYPHER_HUMAN_PROMPT)]
         )
         correct_cypher_chain = correct_cypher_prompt | self.llm | StrOutputParser()
 
@@ -623,6 +386,17 @@ Corrected Cypher statement: """,
 
     def _execute_cypher(self, state: OverallState) -> OverallState:
         cypher = self._normalize_cypher_statement(state.get("cypher_statement"))
+        # TEMP: widen LIMIT to allow filtering for duration/serves while still returning 10.
+        if cypher:
+            import re
+            limit_match = re.search(r"(?i)\bLIMIT\s+(\d+)\b", cypher)
+            if limit_match:
+                try:
+                    limit_value = int(limit_match.group(1))
+                except ValueError:
+                    limit_value = None
+                if limit_value == 10:
+                    cypher = re.sub(r"(?i)\bLIMIT\s+10\b", "LIMIT 50", cypher, count=1)
         records = self.enhanced_graph.query(cypher)
         no_results = "I couldn't find any relevant information in the database"
         return {
@@ -716,16 +490,65 @@ Corrected Cypher statement: """,
                 return lower_map[lowered_candidate]
         return None
 
+    def _summarize_records(self, records: List[dict]) -> List[dict]:
+        cache: Dict[str, Dict[str, Any]] = {}
+        summarized: List[dict] = []
+
+        for record in records:
+            if not isinstance(record, dict):
+                summarized.append(record)
+                continue
+
+            recipe_id = record.get("recipe_id") if isinstance(record.get("recipe_id"), str) else None
+            title = self._extract_title_from_record(record)
+            cache_key = recipe_id or title
+
+            if not cache_key:
+                summarized.append(record)
+                continue
+
+            if cache_key not in cache:
+                metadata: Dict[str, Any] = {}
+                try:
+                    if recipe_id:
+                        metadata = fetch_recipe_info(recipe_id=recipe_id) or {}
+                    if not metadata and title:
+                        metadata = fetch_recipe_info(title) or {}
+                except Exception:
+                    metadata = {}
+                cache[cache_key] = metadata
+
+            metadata = cache.get(cache_key) or {}
+            duration = metadata.get("duration")
+            serves = metadata.get("serves")
+            # TEMP: enforce presence of duration + serves in search results (remove later).
+            if duration is None or serves is None:
+                continue
+
+            summarized.append(
+                {
+                    "recipe_id": recipe_id or metadata.get("recipe_id"),
+                    "title": title or metadata.get("title"),
+                    "duration": duration,
+                    "serves": serves,
+                }
+            )
+
+        # TEMP: keep search results capped at 10 after filtering (remove later).
+        return summarized[:10]
+
     def _generate_final_answer(self, state: OverallState) -> OutputState:
         # For now, skip LLM summarization and return raw results directly
-        steps = (state.get("steps") or []) + ["generate_final_answer"]
         database_records = state.get("database_records")
-        if isinstance(database_records, list):
-            database_records = self._enrich_records_with_recipe_info(database_records)
+        # Guarantee we return a string when no records were produced (e.g., validation short-circuit)
+        if database_records is None:
+            database_records = "I couldn't find any relevant information in the database"
+        elif isinstance(database_records, list):
+            database_records = self._summarize_records(database_records)
         return {
             "results": database_records,
-            "steps": steps,
-            "cypher_statement": self._normalize_cypher_statement(state.get("cypher_statement", "")),
+            "steps": ["generate_final_answer"],
+            "cypher_statement": "",
         }
 
 
@@ -776,10 +599,6 @@ Corrected Cypher statement: """,
         elif state.get("next_action") == "execute_cypher":
             return "execute_cypher"
 
-
-# Backwards compatibility: expose expected class name
-RecipeGraphApp = RecipeSearchApp
-
 # ---------------------------
 # CLI entry point
 # ---------------------------
@@ -810,7 +629,7 @@ def _main(argv: list[str]) -> int:
         print("Please set NEO4J_URI, NEO4J_USERNAME, and NEO4J_PASSWORD in your environment.", file=sys.stderr)
         return 2
 
-    app = RecipeGraphApp(
+    app = RecipeSearchApp(
         neo4j_uri=NEO4J_URI,
         strict_value_mapping=not args.non_strict_mapping,
     )

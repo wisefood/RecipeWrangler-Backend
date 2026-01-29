@@ -14,7 +14,7 @@ from recipe_wrangler.utils.neo4j_utils import run_query
 
 
 _RECIPE_INFO_QUERY = """
-# Purpose: Fetch recipe metadata from Neo4j (title, ingredients, instructions, duration, serves).
+// Purpose: Fetch recipe metadata from Neo4j (title, ingredients, instructions, duration, serves).
 
 MATCH (r:Recipe)
 WHERE {match_predicate}
@@ -81,7 +81,13 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def fetch_recipe_info(recipe_title: str | None = None, recipe_id: str | None = None) -> Dict[str, Any]:
-    """Fetch recipe metadata by title or Neo4j element id."""
+    """Fetch recipe metadata by title or recipe_id property."""
+
+    if recipe_id is None and recipe_title is not None:
+        import re
+        if re.match(r"^[0-9a-f]{10}$", recipe_title.strip()):
+            recipe_id = recipe_title.strip()
+            recipe_title = None
 
     if recipe_id is not None:
         match_predicate = "r.recipe_id = $recipe_id OR r.id = $recipe_id"
@@ -102,7 +108,7 @@ def fetch_recipe_info(recipe_title: str | None = None, recipe_id: str | None = N
 
 
 def fetch_recipe_info_by_id(recipe_id: str) -> Dict[str, Any]:
-    """Fetch recipe metadata by Neo4j element id."""
+    """Fetch recipe metadata by recipe_id property."""
 
     return fetch_recipe_info(recipe_id=recipe_id)
 

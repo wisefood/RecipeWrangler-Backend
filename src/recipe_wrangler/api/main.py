@@ -16,7 +16,6 @@ load_dotenv(API_DIR / ".env")
 load_dotenv()  # fallback to repo-level .env
 
 from recipe_wrangler.tools.text2cypher import RecipeSearchApp
-from recipe_wrangler.tools.parse_recipe_tool import parse_recipe_tool
 from recipe_wrangler.tools.recipe_profiling_chain import Recipe_Profiling_Chain
 from recipe_wrangler.tools.fetch_recipe_info import fetch_recipe_info_by_id
 from recipe_wrangler.utils.nutrition_postgres import fetch_recipe_nutrition_by_id
@@ -24,8 +23,6 @@ from recipe_wrangler.utils.nutrition_postgres import fetch_recipe_nutrition_by_i
 from .config import get_settings
 from .dependencies import get_recipe_search_app
 from recipe_wrangler.schemas import (
-    ParseRecipeRequest,
-    ParseRecipeResponse,
     RecipeDetailResponse,
     RecipeProfileRequest,
     RecipeProfileResponse,
@@ -234,39 +231,6 @@ def create_app() -> FastAPI:
         """Simple readiness probe."""
 
         return {"status": "ok"}
-
-    @app.post(
-        "/api/recipes/parse",
-        response_model=ParseRecipeResponse,
-        tags=["recipes"],
-        summary="Parse unstructured recipe text into structured fields",
-    )
-    def recipe_parse(payload: ParseRecipeRequest) -> ParseRecipeResponse:
-        """Call the parse recipe tool and normalize its output."""
-
-        try:
-            result = parse_recipe_tool.invoke({"recipe": payload.raw_recipe})
-        except Exception as exc:  # noqa: BLE001
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Recipe parsing failed: {exc}",
-            ) from exc
-
-        if not isinstance(result, dict):
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Recipe parser returned unexpected payload",
-            )
-
-        response_payload = {
-            "title": result.get("title", ""),
-            "ingredient_names": result.get("ingredient_names", []),
-            "measurements": result.get("measurements", []),
-            "directions": result.get("directions", []),
-            "total_time": result.get("total_time"),
-        }
-
-        return ParseRecipeResponse(**response_payload)
 
     @app.get(
         "/api/recipes/{recipe_id}",

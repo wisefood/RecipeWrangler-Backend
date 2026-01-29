@@ -4,8 +4,7 @@ import os
 import sys
 from dataclasses import dataclass
 from operator import add
-from collections.abc import Mapping
-from typing import Annotated, Any, Dict, List, Literal, Optional, TypedDict
+from typing import Annotated, List, Literal, Optional, TypedDict
 from dotenv import load_dotenv
 
 
@@ -25,13 +24,10 @@ from langchain_neo4j.chains.graph_qa.cypher_utils import CypherQueryCorrector, S
 from neo4j.exceptions import CypherSyntaxError
 from pydantic import BaseModel, Field
 
-from recipe_wrangler.tools.fetch_recipe_info import fetch_recipe_info
 from recipe_wrangler.utils.examples import TEXT2CYPHER_FEWSHOT_EXAMPLES
 from recipe_wrangler.utils.prompts import (
     CORRECT_CYPHER_HUMAN_PROMPT,
     CORRECT_CYPHER_SYSTEM_PROMPT,
-    FINAL_HUMAN_PROMPT,
-    FINAL_SYSTEM_PROMPT,
     GUARDRAILS_SYSTEM_PROMPT,
     TEXT2CYPHER_HUMAN_PROMPT,
     TEXT2CYPHER_SYSTEM_PROMPT,
@@ -53,7 +49,7 @@ class OverallState(TypedDict):
     next_action: str
     cypher_statement: str
     cypher_errors: List[str]
-    database_records: List[dict] | str
+    results: List[dict] | str
     steps: Annotated[List[str], add]
 
 
@@ -66,12 +62,6 @@ class OutputState(TypedDict):
 # ---------------------------
 # Pydantic models for guardrail + validation
 # ---------------------------
-
-class GuardrailsOutput(BaseModel):
-    decision: Literal["recipe", "end"] = Field(
-        description="Decision on whether the question is related to recipes"
-    )
-
 
 class Property(BaseModel):
     node_label: str
@@ -96,7 +86,9 @@ class ValidateCypherOutput(BaseModel):
 @dataclass
 class RecipeSearchApp:
     neo4j_uri: str
-    main_model: str = "gpt-oss:20b"
+    # Defaults are only used when this class is instantiated directly.
+    # API wiring (api/config.py + api/dependencies.py) overrides these via env settings.
+    main_model: str = "openai/gpt-oss-20b"
     guardrails_model: str = "llama-3.1-8b-instant"
     temperature: float = 0.0
     strict_value_mapping: bool = True  # if True, mapping misses short-circuit to 'end'
@@ -147,13 +139,6 @@ class RecipeSearchApp:
 
     def run_execute_cypher(self, cypher: str) -> OverallState:
         return self._execute_cypher({"cypher_statement": cypher})
-
-    def run_generate_final_answer(
-        self, question: str, results: List[dict] | str, cypher: str
-    ) -> OutputState:
-        return self._generate_final_answer(
-            {"question": question, "database_records": results, "cypher_statement": cypher}
-        )
 
     def save_graph_png(self, output_path: str = "recipe_langgraph.png") -> None:
         """
@@ -208,12 +193,6 @@ class RecipeSearchApp:
         corrector_schema = [Schema(el["start"], el["type"], el["end"]) for el in relationships]
         self.cypher_query_corrector = CypherQueryCorrector(corrector_schema)
 
-        # ---- Final Answer ----
-        generate_final_prompt = ChatPromptTemplate.from_messages(
-            [("system", FINAL_SYSTEM_PROMPT), ("human", FINAL_HUMAN_PROMPT)]
-        )
-        self.generate_final_chain = generate_final_prompt | self.llm | StrOutputParser()
-
     # ---------------------------
     # Node functions
     # ---------------------------
@@ -233,12 +212,13 @@ class RecipeSearchApp:
             ]
             decision = "recipe" if any(k in q for k in recipe_keywords) else "end"
 
-        db = None
+        db = ""
         if decision == "end":
             db = "This questions is not about recipes or their ingredients. Therefore I cannot answer this question."
         return {
             "next_action": decision,
-            "database_records": db,
+            "results": db,
+            "cypher_statement": "",
             "steps": ["guardrail"],
         }
 
@@ -361,6 +341,7 @@ class RecipeSearchApp:
             "next_action": next_action,
             "cypher_statement": cypher_to_use,
             "cypher_errors": errors,
+            "results": "; ".join(mapping_errors) if mapping_errors else "",
             "steps": ["validate_cypher"],
         }
 
@@ -400,156 +381,12 @@ class RecipeSearchApp:
         records = self.enhanced_graph.query(cypher)
         no_results = "I couldn't find any relevant information in the database"
         return {
-            "database_records": records if records else no_results,
+            "results": records if records else no_results,
             "next_action": "end",
             "steps": ["execute_cypher"],
+            "cypher_statement": cypher,
         }
 
-    def _enrich_records_with_recipe_info(self, records: List[dict]) -> List[dict]:
-        if not fetch_recipe_info:
-            return records
-
-        info_cache: Dict[str, Dict[str, Any]] = {}
-        enriched: List[dict] = []
-
-        for record in records:
-            if not isinstance(record, dict):
-                enriched.append(record)
-                continue
-
-            title = self._extract_title_from_record(record)
-            if not title:
-                enriched.append(record)
-                continue
-
-            cached_info = info_cache.get(title)
-            if cached_info is None:
-                try:
-                    cached_info = fetch_recipe_info(title) or {}
-                except Exception:
-                    cached_info = {}
-                info_cache[title] = cached_info
-
-            enriched.append(self._merge_recipe_info(record, title, cached_info))
-
-        return enriched
-
-    def _extract_title_from_record(self, record: Mapping[str, Any]) -> Optional[str]:
-        for key, value in record.items():
-            if isinstance(value, str) and "title" in key.lower():
-                return value
-
-        direct_title = record.get("title")
-        if isinstance(direct_title, str):
-            return direct_title
-
-        for value in record.values():
-            if isinstance(value, Mapping):
-                nested_title = value.get("title")
-                if isinstance(nested_title, str):
-                    return nested_title
-            else:
-                try:
-                    value_dict = dict(value)
-                except Exception:
-                    continue
-                nested_title = value_dict.get("title")
-                if isinstance(nested_title, str):
-                    return nested_title
-
-        return None
-
-    def _merge_recipe_info(self, record: Mapping[str, Any], title: str, info: Mapping[str, Any]) -> dict:
-        merged = dict(record)
-        merged.setdefault("title", title)
-
-        nutri_value = self._get_case_insensitive(info, ["nutri_score", "nutriscore", "NutriScore"])
-        sustain_value = self._get_case_insensitive(info, ["sustainability_score", "sustainabilityperkg", "Sustainability_per_kg"])
-        duration_value = self._get_case_insensitive(info, ["duration", "Duration"])
-
-        if nutri_value is not None:
-            merged["nutri_score"] = nutri_value
-        if sustain_value is not None:
-            merged["sustainability_score"] = sustain_value
-        if duration_value is not None:
-            merged["duration"] = duration_value
-
-        return merged
-
-    @staticmethod
-    def _get_case_insensitive(data: Mapping[str, Any], candidates: List[str]) -> Any:
-        if not isinstance(data, Mapping):
-            return None
-
-        lower_map = {str(key).lower(): value for key, value in data.items()}
-        for candidate in candidates:
-            if candidate in data:
-                return data[candidate]
-            lowered_candidate = candidate.lower()
-            if lowered_candidate in lower_map:
-                return lower_map[lowered_candidate]
-        return None
-
-    def _summarize_records(self, records: List[dict]) -> List[dict]:
-        cache: Dict[str, Dict[str, Any]] = {}
-        summarized: List[dict] = []
-
-        for record in records:
-            if not isinstance(record, dict):
-                summarized.append(record)
-                continue
-
-            recipe_id = record.get("recipe_id") if isinstance(record.get("recipe_id"), str) else None
-            title = self._extract_title_from_record(record)
-            cache_key = recipe_id or title
-
-            if not cache_key:
-                summarized.append(record)
-                continue
-
-            if cache_key not in cache:
-                metadata: Dict[str, Any] = {}
-                try:
-                    if recipe_id:
-                        metadata = fetch_recipe_info(recipe_id=recipe_id) or {}
-                    if not metadata and title:
-                        metadata = fetch_recipe_info(title) or {}
-                except Exception:
-                    metadata = {}
-                cache[cache_key] = metadata
-
-            metadata = cache.get(cache_key) or {}
-            duration = metadata.get("duration")
-            serves = metadata.get("serves")
-            # TEMP: enforce presence of duration + serves in search results (remove later).
-            if duration is None or serves is None:
-                continue
-
-            summarized.append(
-                {
-                    "recipe_id": recipe_id or metadata.get("recipe_id"),
-                    "title": title or metadata.get("title"),
-                    "duration": duration,
-                    "serves": serves,
-                }
-            )
-
-        # TEMP: keep search results capped at 10 after filtering (remove later).
-        return summarized[:10]
-
-    def _generate_final_answer(self, state: OverallState) -> OutputState:
-        # For now, skip LLM summarization and return raw results directly
-        database_records = state.get("database_records")
-        # Guarantee we return a string when no records were produced (e.g., validation short-circuit)
-        if database_records is None:
-            database_records = "I couldn't find any relevant information in the database"
-        elif isinstance(database_records, list):
-            database_records = self._summarize_records(database_records)
-        return {
-            "results": database_records,
-            "steps": ["generate_final_answer"],
-            "cypher_statement": "",
-        }
 
 
 # ---------------------------
@@ -564,16 +401,13 @@ class RecipeSearchApp:
         g.add_node("validate_cypher", self._validate_cypher)
         g.add_node("correct_cypher", self._correct_cypher)
         g.add_node("execute_cypher", self._execute_cypher)
-        g.add_node("generate_final_answer", self._generate_final_answer)
-
         # Edges must use the string keys
         g.add_edge(START, "guardrails")
         g.add_conditional_edges("guardrails", self._guardrails_condition)
         g.add_edge("generate_cypher", "validate_cypher")
         g.add_conditional_edges("validate_cypher", self._validate_cypher_condition)
-        g.add_edge("execute_cypher", "generate_final_answer")
+        g.add_edge("execute_cypher", END)
         g.add_edge("correct_cypher", "validate_cypher")
-        g.add_edge("generate_final_answer", END)
 
         return g
 
@@ -583,17 +417,17 @@ class RecipeSearchApp:
     # ---------------------------
     def _guardrails_condition(
         self, state: OverallState
-    ) -> Literal["generate_cypher", "generate_final_answer"]:
+    ) -> Literal["generate_cypher", "__end__"]:
         if state.get("next_action") == "end":
-            return "generate_final_answer"
+            return END
         elif state.get("next_action") == "recipe":
             return "generate_cypher"
 
     def _validate_cypher_condition(
         self, state: OverallState
-    ) -> Literal["generate_final_answer", "correct_cypher", "execute_cypher"]:
+    ) -> Literal["__end__", "correct_cypher", "execute_cypher"]:
         if state.get("next_action") == "end":
-            return "generate_final_answer"
+            return END
         elif state.get("next_action") == "correct_cypher":
             return "correct_cypher"
         elif state.get("next_action") == "execute_cypher":
@@ -617,11 +451,9 @@ def _main(argv: list[str]) -> int:
         "validate_cypher",
         "correct_cypher",
         "execute_cypher",
-        "final_answer",
     ], help="Run a specific stage instead of the full graph")
-    parser.add_argument("--cypher", type=str, help="Cypher to use for validate/correct/execute/final stages")
+    parser.add_argument("--cypher", type=str, help="Cypher to use for validate/correct/execute stages")
     parser.add_argument("--errors", type=str, help="Comma-separated or JSON list of errors for correct_cypher stage")
-    parser.add_argument("--results", type=str, help="JSON list of records or a string for final_answer stage")
 
     args = parser.parse_args(argv)
 
@@ -665,14 +497,6 @@ def _main(argv: list[str]) -> int:
             if not args.cypher:
                 parser.error("--stage execute_cypher requires --cypher")
             pprint(app.run_execute_cypher(args.cypher))
-        elif args.stage == "final_answer":
-            if not (args.question and args.results is not None):
-                parser.error("--stage final_answer requires --question and --results (JSON or string)")
-            try:
-                results = json.loads(args.results)
-            except Exception:
-                results = args.results
-            pprint(app.run_generate_final_answer(args.question, results, args.cypher or ""))
         return 0
 
     # Full-graph execution

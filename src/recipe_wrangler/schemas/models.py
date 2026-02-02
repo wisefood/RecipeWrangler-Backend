@@ -74,6 +74,10 @@ class RecipeSearchRequest(BaseModel):
     """Incoming payload for the recipe search endpoint."""
 
     question: str = Field(..., min_length=1, description="Natural language recipe question")
+    exclude_allergens: List[str] = Field(
+        default_factory=list,
+        description="Allergen names to exclude (e.g., ['peanut', 'tree_nut'])",
+    )
 
 
 class RecipeSearchResponse(BaseModel):
@@ -121,6 +125,7 @@ class RecipeDetailResponse(BaseModel):
 
     recipe_id: Optional[str]
     title: Optional[str]
+    image_url: Optional[str] = None
     ingredients: List[Dict[str, Any]]
     instructions: List[str]
     duration: Optional[float]

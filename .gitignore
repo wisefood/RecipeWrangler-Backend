@@ -8,7 +8,11 @@
 /api/.env
 /src/recipe_wrangler/api/.env
 /.venv
+
 /foodkg.github.io
+venv/
+venv
+
 /neo4j-docker/neo4j.dump
 /postgresql-docker/data/
 /chroma_db

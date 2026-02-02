@@ -14,13 +14,12 @@ from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info,
     fetch_recipe_info_by_id,
 )
+from recipe_wrangler.utils.nutrition_postgres import fetch_recipe_nutrition_by_id
 from recipe_wrangler.tools.recipe_profiling_chain import Recipe_Profiling_Chain
 
 from .generic import render
 from ..dependencies import get_recipe_search_app
 from ..schemas import (
-    ParseRecipeRequest,
-    ParseRecipeResponse,
     RecipeProfileRequest,
     RecipeProfileResponse,
     RecipeSearchRequest,
@@ -91,92 +90,308 @@ def _attach_recipe_metadata(results: list[object]) -> list[object]:
     return enriched
 
 
-@router.post(
-    "/parse",
-    response_model=ParseRecipeResponse,
-    summary="Parse unstructured recipe text into structured fields",
-)
-@render()
-def recipe_parse(payload: ParseRecipeRequest) -> ParseRecipeResponse:
-    """Call the parse recipe tool and normalize its output."""
+def _nutri_color_from_score(nutri_score: object) -> str | None:
+    if isinstance(nutri_score, dict):
+        color = nutri_score.get("color")
+        return color if isinstance(color, str) and color.strip() else None
 
-    try:
-        result = parse_recipe_tool_open.invoke({"raw_recipe": payload.raw_recipe})
-    except Exception as exc:  # noqa: BLE001
-        raise InternalError(
-            detail=f"Recipe parsing failed: {exc}",
-        ) from exc
+    if isinstance(nutri_score, str):
+        score = nutri_score.strip()
+        mapping = {
+            "Nutriscore_A": "dark green",
+            "Nutriscore_B": "green",
+            "Nutriscore_C": "yellow",
+            "Nutriscore_D": "orange",
+            "Nutriscore_E": "dark orange",
+        }
+        return mapping.get(score)
 
-    if not isinstance(result, dict):
-        raise InternalError(
-            detail="Recipe parser returned unexpected payload",
+    return None
+
+
+def _attach_nutri_colors(results: list[object]) -> list[object]:
+    """Add nutri_score color from Postgres nutrition data when available."""
+
+    cache: dict[str, str | None] = {}
+    enriched: list[object] = []
+
+    for entry in results:
+        if not isinstance(entry, dict):
+            enriched.append(entry)
+            continue
+
+        recipe_id = (
+            entry.get("recipe_id") if isinstance(entry.get("recipe_id"), str) else None
         )
+        if not recipe_id:
+            enriched.append(entry)
+            continue
 
-    response_payload = {
-        "title": result.get("title", ""),
-        "ingredient_names": result.get("ingredient_names", []),
-        "measurements": result.get("measurements", []),
-        "directions": result.get("directions", []),
-        "total_time": result.get("total_time"),
-    }
+        if recipe_id not in cache:
+            color = None
+            try:
+                nutrition = fetch_recipe_nutrition_by_id(recipe_id)
+            except Exception:
+                nutrition = None
+            if nutrition:
+                color = _nutri_color_from_score(nutrition.get("nutri_score"))
+            cache[recipe_id] = color
 
-    return ParseRecipeResponse(**response_payload)
+        combined = dict(entry)
+        combined["nutri_color"] = cache.get(recipe_id)
+        enriched.append(combined)
+
+    return enriched
+
+
+def _coerce_float(value: object) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _normalize_nutrients(total_nutrients: object) -> list[dict[str, object]]:
+    if not isinstance(total_nutrients, dict):
+        return []
+
+    nutrients = total_nutrients.get("nutrients", total_nutrients)
+    if isinstance(nutrients, dict):
+        normalized = []
+        for name, info in nutrients.items():
+            if not name:
+                continue
+            if isinstance(info, dict):
+                value = info.get("value")
+                if value is None:
+                    value = info.get("nutrient_value")
+                if value is None:
+                    value = info.get("amount")
+                unit = info.get("unit") or info.get("nutrient_unit")
+            else:
+                value = info
+                unit = None
+            normalized.append({"name": str(name), "value": value, "unit": unit})
+        return normalized
+
+    if isinstance(nutrients, list):
+        normalized = []
+        for item in nutrients:
+            if not isinstance(item, dict):
+                continue
+            name = (
+                item.get("nutrient_description")
+                or item.get("nutrient_name")
+                or item.get("name")
+            )
+            if not name:
+                continue
+            value = item.get("value")
+            if value is None:
+                value = item.get("nutrient_value")
+            if value is None:
+                value = item.get("amount")
+            unit = item.get("unit") or item.get("nutrient_unit")
+            normalized.append({"name": str(name), "value": value, "unit": unit})
+        return normalized
+
+    return []
+
+
+def _extract_nutrient_value(total_nutrients: object, names: list[str]) -> float | None:
+    candidates = {name.lower() for name in names}
+    for entry in _normalize_nutrients(total_nutrients):
+        name = entry.get("name")
+        if not isinstance(name, str):
+            continue
+        if name.lower() not in candidates:
+            continue
+        value = entry.get("value")
+        parsed = _coerce_float(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _per_serving(value: float | None, serves: object) -> float | None:
+    if value is None:
+        return None
+    servings = _coerce_float(serves)
+    if servings is None or servings <= 0:
+        return value
+    return value / servings
+
+
+def _coerce_nutri_score(nutri_score: object) -> float | None:
+    numeric = _coerce_float(nutri_score)
+    if numeric is not None:
+        return numeric
+
+    if isinstance(nutri_score, dict):
+        numeric = _coerce_float(nutri_score.get("score"))
+        if numeric is not None:
+            return numeric
+        grade = nutri_score.get("nutri_score")
+        if isinstance(grade, str):
+            nutri_score = grade
+
+    if isinstance(nutri_score, str):
+        mapping = {
+            "Nutriscore_A": 1.0,
+            "Nutriscore_B": 0.75,
+            "Nutriscore_C": 0.5,
+            "Nutriscore_D": 0.25,
+            "Nutriscore_E": 0.0,
+            "A": 1.0,
+            "B": 0.75,
+            "C": 0.5,
+            "D": 0.25,
+            "E": 0.0,
+        }
+        return mapping.get(nutri_score.strip())
+
+    return None
 
 
 @router.get(
-    "/{recipe_id}",
+    "/api/recipes/{recipe_id}",
     response_model=RecipeDetailResponse,
+    tags=["recipes"],
     summary="Retrieve a recipe with full metadata by id",
 )
-@render()
 def get_recipe(recipe_id: str) -> RecipeDetailResponse:
-    """Fetch recipe details by ID."""
     try:
         recipe = fetch_recipe_info_by_id(recipe_id)
     except Exception as exc:  # noqa: BLE001
-        raise InternalError(
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch recipe: {exc}",
         ) from exc
 
     if not recipe:
-        raise NotFoundError(
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Recipe not found",
         )
 
-    return RecipeDetailResponse(**recipe)
+    nutrition = None
+    try:
+        nutrition = fetch_recipe_nutrition_by_id(recipe_id)
+    except Exception:
+        nutrition = None
+
+    payload = dict(recipe)
+    if nutrition:
+        total_nutrients = nutrition.get("total_nutrients")
+        serves = payload.get("serves")
+        payload.update(
+            {
+                "total_kcal_per_serving": _extract_nutrient_value(
+                    total_nutrients,
+                    ["Energy", "Energy (kcal)", "Energy, kcal"],
+                ),
+                "total_protein_g_per_serving": _extract_nutrient_value(
+                    total_nutrients,
+                    ["Protein"],
+                ),
+                "total_carbs_g_per_serving": _extract_nutrient_value(
+                    total_nutrients,
+                    [
+                        "Carbohydrate",
+                        "Carbohydrate, by difference",
+                        "Carbohydrate, by diff.",
+                    ],
+                ),
+                "total_fat_g_per_serving": _extract_nutrient_value(
+                    total_nutrients,
+                    ["Total lipid (fat)", "Fat", "Total fat"],
+                ),
+                "total_fiber_g_per_serving": _extract_nutrient_value(
+                    total_nutrients,
+                    ["Fiber, total dietary", "Dietary Fiber", "Fiber"],
+                ),
+                "total_sugar_g_per_serving": _extract_nutrient_value(
+                    total_nutrients,
+                    [
+                        "Sugars, total",
+                        "Sugars, total including NLEA",
+                        "Sugars, total NLEA",
+                    ],
+                ),
+                "total_sodium_mg_per_serving": _extract_nutrient_value(
+                    total_nutrients,
+                    ["Sodium, Na", "Sodium"],
+                ),
+                "total_cholesterol_mg_per_serving": _extract_nutrient_value(
+                    total_nutrients,
+                    ["Cholesterol"],
+                ),
+                "nutri_score": _coerce_nutri_score(nutrition.get("nutri_score")),
+            }
+        )
+        payload["total_kcal_per_serving"] = _per_serving(
+            payload.get("total_kcal_per_serving"), serves
+        )
+        payload["total_protein_g_per_serving"] = _per_serving(
+            payload.get("total_protein_g_per_serving"), serves
+        )
+        payload["total_carbs_g_per_serving"] = _per_serving(
+            payload.get("total_carbs_g_per_serving"), serves
+        )
+        payload["total_fat_g_per_serving"] = _per_serving(
+            payload.get("total_fat_g_per_serving"), serves
+        )
+        payload["total_fiber_g_per_serving"] = _per_serving(
+            payload.get("total_fiber_g_per_serving"), serves
+        )
+        payload["total_sugar_g_per_serving"] = _per_serving(
+            payload.get("total_sugar_g_per_serving"), serves
+        )
+        payload["total_sodium_mg_per_serving"] = _per_serving(
+            payload.get("total_sodium_mg_per_serving"), serves
+        )
+        payload["total_cholesterol_mg_per_serving"] = _per_serving(
+            payload.get("total_cholesterol_mg_per_serving"), serves
+        )
+
+    return RecipeDetailResponse(**payload)
 
 
 @router.post(
-    "/search",
+    "/api/recipes/search",
     response_model=RecipeSearchResponse,
+    tags=["recipes"],
     summary="Search recipes via the knowledge graph",
 )
-@render()
 def recipe_search(
     payload: RecipeSearchRequest,
     recipe_search_app: RecipeSearchApp = Depends(get_recipe_search_app),
 ) -> RecipeSearchResponse:
     """Invoke the recipe search LangGraph pipeline and return its output."""
+
     try:
         result = recipe_search_app.invoke(payload.question)
-    except Exception as exc:  # noqa: BLE001
-        raise InternalError(
+    except Exception as exc:  # noqa: BLE001 - bubble up as HTTP error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Recipe search failed: {exc}",
         ) from exc
-
     if not isinstance(result, dict):
-        raise InternalError(
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Recipe search returned unexpected payload",
         )
 
     raw_results = result.get("results", [])
     if isinstance(raw_results, list):
-        hydrated_results = _attach_recipe_metadata(raw_results)
-    else:
-        hydrated_results = raw_results
+        raw_results = _attach_nutri_colors(raw_results)
 
     response_payload = {
-        "results": hydrated_results,
+        "results": raw_results,
         "steps": result.get("steps", []),
         "cypher_statement": result.get("cypher_statement", ""),
     }
@@ -184,11 +399,11 @@ def recipe_search(
 
 
 @router.post(
-    "/profile",
+    "/api/recipes/profile",
     response_model=RecipeProfileResponse,
+    tags=["recipes"],
     summary="Run parsing + profiling pipeline on raw recipe text",
 )
-@render()
 def recipe_profile(payload: RecipeProfileRequest) -> RecipeProfileResponse:
     """Execute the Recipe_Profiling_Chain on raw recipe text."""
 
@@ -197,12 +412,14 @@ def recipe_profile(payload: RecipeProfileRequest) -> RecipeProfileResponse:
             {"recipe_text": payload.raw_recipe, "debug": False}
         )
     except Exception as exc:  # noqa: BLE001
-        raise InternalError(
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Recipe profiling failed: {exc}",
         ) from exc
 
     if not isinstance(profile_result, dict):
-        raise InternalError(
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Recipe profiling returned unexpected payload",
         )
 
@@ -220,7 +437,9 @@ def recipe_profile(payload: RecipeProfileRequest) -> RecipeProfileResponse:
     if isinstance(directions, list):
         normalized_directions = [str(step) for step in directions]
     elif isinstance(directions, str):
-        normalized_directions = [step.strip() for step in directions.split("\n") if step.strip()]
+        normalized_directions = [
+            step.strip() for step in directions.split("\n") if step.strip()
+        ]
     else:
         normalized_directions = []
 
@@ -231,7 +450,9 @@ def recipe_profile(payload: RecipeProfileRequest) -> RecipeProfileResponse:
         "ingredients_grams": ingredient_weights,
         "directions": normalized_directions,
         "profiling_totals": profile_result.get("profiling_totals") or {},
-        "tags": [str(tag) for tag in profile_result.get("tags", []) if str(tag).strip()],
+        "tags": [
+            str(tag) for tag in profile_result.get("tags", []) if str(tag).strip()
+        ],
     }
 
     return RecipeProfileResponse(**response_payload)

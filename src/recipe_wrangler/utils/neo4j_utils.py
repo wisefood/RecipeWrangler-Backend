@@ -3,6 +3,7 @@
 import os
 from neo4j import GraphDatabase
 from typing import Optional
+import os
 
 # Set up the connection (override via env vars)
 uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")

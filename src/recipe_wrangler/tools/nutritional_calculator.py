@@ -108,13 +108,33 @@ def nutritional_tool_chroma(
             sodium_per_100g_mg = 0.0
 
         # Try to read kcal/100g from metadata; if missing, approximate via 4/4/9
-        try:
-            energy_kcal_per_100g = float(meta.get("Energy (kcal)", 0.0))
-        except (TypeError, ValueError):
-            energy_kcal_per_100g = 0.0
+        energy_kcal_per_100g = meta.get("Energy (kcal)")
         if energy_kcal_per_100g is None:
-            # Atwater factors (approximate): 4 kcal/g protein, 4 kcal/g carbs, 9 kcal/g fat
-            energy_kcal_per_100g = 4.0 * protein_per_100g + 4.0 * carbs_per_100g + 9.0 * fat_per_100g
+            energy_kcal_per_100g = meta.get("Energy (kcal) (kcal)")
+        try:
+            energy_kcal_per_100g = (
+                float(energy_kcal_per_100g) if energy_kcal_per_100g is not None else None
+            )
+        except (TypeError, ValueError):
+            energy_kcal_per_100g = None
+
+        if not energy_kcal_per_100g:
+            energy_kj_per_100g = meta.get("Energy (kJ)")
+            if energy_kj_per_100g is None:
+                energy_kj_per_100g = meta.get("Energy (kJ) (kJ)")
+            try:
+                energy_kj_per_100g = (
+                    float(energy_kj_per_100g) if energy_kj_per_100g is not None else None
+                )
+            except (TypeError, ValueError):
+                energy_kj_per_100g = None
+            if energy_kj_per_100g:
+                energy_kcal_per_100g = energy_kj_per_100g / 4.184
+            else:
+                # Atwater factors (approximate): 4 kcal/g protein, 4 kcal/g carbs, 9 kcal/g fat
+                energy_kcal_per_100g = (
+                    4.0 * protein_per_100g + 4.0 * carbs_per_100g + 9.0 * fat_per_100g
+                )
 
         scale = float(weight_g) / 100.0
         protein_g = scale * protein_per_100g

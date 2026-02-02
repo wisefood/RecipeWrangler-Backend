@@ -73,6 +73,7 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "recipe_id": recipe_props.get("recipe_id") or recipe_props.get("id"),
         "title": recipe_props.get("title"),
+        "image_url": recipe_props.get("image_url"),
         "ingredients": record.get("ingredients") or [],
         "instructions": instructions,
         "duration": recipe_props.get("duration"),

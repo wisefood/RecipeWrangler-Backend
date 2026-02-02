@@ -1,6 +1,11 @@
+# Purpose: Compute sustainability/carbon footprint totals via Chroma matches.
+
 from typing import Dict, List, Optional
 from textwrap import shorten
+
 from langchain.tools import tool
+
+from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.utils.query_chromadb import query_sustainability_db
 
 SOURCE_SUSTAINABILITY = "Sustainable FooDB"
@@ -97,23 +102,23 @@ def sustainability_tool_chroma(
     }
 
 
-def Sustainability_Node(state: dict) -> dict:
+def Sustainability_Node(state: RecipeState) -> RecipeState:
     """
     Node to compute carbon footprint via Chroma, scale by ingredient weight/serves, 
     and store per-ingredient details plus per-serving/total CO2e in state.
     """
-    debug = bool(state.get("debug", False))
+    debug = bool(state.debug)
 
-    ingredient_names = state.get("ingredient_names") or []
+    ingredient_names = state.ingredient_names or []
     if not isinstance(ingredient_names, list):
         raise ValueError("Sustainability_Node: 'ingredient_names' must be a list of strings.")
 
     # Pull gram weights from Weight_Calculator output
     weights_g = None
-    if isinstance(state.get("weights"), dict):
-        weights_g = state["weights"].get("weights")
-    elif isinstance(state.get("weights"), list):
-        weights_g = state["weights"]
+    if isinstance(state.weights, dict):
+        weights_g = state.weights.get("weights")
+    elif isinstance(state.weights, list):
+        weights_g = state.weights
 
     if weights_g is None:
         raise ValueError("Sustainability_Node: missing 'weights' (grams) from Weight_Calculator.")
@@ -129,24 +134,22 @@ def Sustainability_Node(state: dict) -> dict:
     weights_g = weights_g[:n]
 
     res = sustainability_tool_chroma.invoke({
-        "title": state["title"],
+        "title": state.title,
         "ingredient_names": ingredient_names,
         "weights": weights_g,                       # ✅ correct param name
-        "min_similarity": state.get("min_similarity", 0.5),
-        "serving_size_g": state.get("serving_size_g"),
-        "serves": state.get("serves"),
+        "min_similarity": state.min_similarity if state.min_similarity is not None else 0.5,
+        "serving_size_g": state.serving_size_g,
+        "serves": state.serves,
     })
 
-    state.update({
-        "total_sustainability": res["total_sustainability"],                # kg CO2e
-        "total_sustainability_per_serving": res["total_sustainability_per_serving"],
-        "sustainability_per_kg": res["sustainability_per_kg"],              # kg CO2e/kg
-        "sustainability_details": res["details"],
-        "sustainability_serves": res.get("serves"),
-    })
+    state.total_sustainability = res["total_sustainability"]                # kg CO2e
+    state.total_sustainability_per_serving = res["total_sustainability_per_serving"]
+    state.sustainability_per_kg = res["sustainability_per_kg"]              # kg CO2e/kg
+    state.sustainability_details = res["details"]
+    state.sustainability_serves = res.get("serves")
 
     if debug:
-        print(f"\n[Sustainability_Node] Computed (ChromaDB) for recipe '{state['title']}'.")
+        print(f"\n[Sustainability_Node] Computed (ChromaDB) for recipe '{state.title}'.")
         print(f"   total_sustainability = {res['total_sustainability']:.4f} kg CO2e")
         per_serving = res.get("total_sustainability_per_serving")
         if per_serving is not None:
@@ -157,6 +160,6 @@ def Sustainability_Node(state: dict) -> dict:
             print(f"   sustainability_per_kg = {res['sustainability_per_kg']:.4f} kg CO2e/kg")
         else:
             print("   sustainability_per_kg = None (serving info missing)")
-        print(f"\n[Sustainability_Node] Updated State Keys: {list(state.keys())}")
+        print(f"\n[Sustainability_Node] Updated State Keys: {list(state.model_dump().keys())}")
 
     return state

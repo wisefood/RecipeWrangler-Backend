@@ -1,7 +1,10 @@
+# Purpose: Merge nutrition + sustainability results into a unified profile.
+
 # recipe_profiling.py
 
 from typing import Any, Dict
 
+from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_chroma
 from recipe_wrangler.tools.sustainability_calculator import (
     sustainability_tool_chroma,
@@ -82,32 +85,32 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 from typing import Any, Dict, List, cast
 
-def Recipe_Profiling_Node(state: "State") -> "State":
+def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     """
     ode that runs nutrition + sustainability profiling for the recipe and writes the merged ingredient details, 
     totals, and source info back into the flow state.
     """
-    serves = state.get("serves", 1) or 1
-    names: List[str] = state.get("ingredient_names", []) or []
-    measurements: List[str] = state.get("measurements", []) or []
-    weights: List[float] = state.get("weights", []) or []
+    serves = state.serves or 1
+    names: List[str] = state.ingredient_names or []
+    measurements: List[str] = state.measurements or []
+    weights: List[float] = state.weights or []
 
     nutrition_source = (
-        state.get("nutrition_source")
-        or state.get("nutritional_source")
-        or state.get("source")
+        getattr(state, "nutrition_source", None)
+        or getattr(state, "nutritional_source", None)
+        or getattr(state, "source", None)
         or "irish"
     )
 
     payload: Dict[str, Any] = {
-        "title": state.get("title") or "Untitled Recipe",
+        "title": state.title or "Untitled Recipe",
         "ingredient_names": names,
         "measurements": measurements,
         "weights": weights,
-        "serving_size_g": state.get("serving_size_g")
+        "serving_size_g": state.serving_size_g
             or (sum(weights) / serves if weights else 0.0),
         "serves": serves,
-        "min_similarity": state.get("min_similarity", 0.5),
+        "min_similarity": state.min_similarity if state.min_similarity is not None else 0.5,
         "source": nutrition_source,
     }
 
@@ -132,7 +135,7 @@ def Recipe_Profiling_Node(state: "State") -> "State":
     total_sustainability = totals.get("total_sustainability")
     total_sustainability_per_serving = totals.get("total_sustainability_per_serving")
 
-    out: "State" = {
+    out = {
         "ingredients": merged,
 
         # keep convenient totals (flattened)
@@ -151,5 +154,6 @@ def Recipe_Profiling_Node(state: "State") -> "State":
         # keep entire tool output (optional, handy for debugging)
         "full_profile": profile,
     }
-    return out
- 
+    for key, value in out.items():
+        setattr(state, key, value)
+    return state

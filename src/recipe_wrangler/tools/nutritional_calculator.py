@@ -1,5 +1,10 @@
+# Purpose: Compute nutrition totals from ingredient weights via Chroma matches.
+
 from typing import Dict, List, Optional
+
 from langchain.tools import tool
+
+from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.utils.query_chromadb import query_nutritional_db_irish
 
 SOURCE_NUTRITION = "Irish Composition Table"
@@ -182,22 +187,22 @@ def nutritional_tool_chroma(
     return result
 
 
-def Nutrition_Node(state: dict) -> dict:
+def Nutrition_Node(state: RecipeState) -> RecipeState:
     """
     Node to compute nutrition via Chroma, scale by weight/serves, store totals and details in state.
     """
     
-    debug = bool(state.get("debug", False))
+    debug = bool(state.debug)
 
-    ingredient_names = state.get("ingredient_names") or []
+    ingredient_names = state.ingredient_names or []
     if not isinstance(ingredient_names, list):
         raise ValueError("Nutrition_Node: 'ingredient_names' must be a list of strings.")
 
     weights = None
-    if isinstance(state.get("weights"), dict):
-        weights = state["weights"].get("weights")
-    elif isinstance(state.get("weights"), list):
-        weights = state["weights"]
+    if isinstance(state.weights, dict):
+        weights = state.weights.get("weights")
+    elif isinstance(state.weights, list):
+        weights = state.weights
 
     if weights is None:
         raise ValueError("Nutrition_Node: missing 'weights' (grams) next to 'ingredient_names'.")
@@ -212,19 +217,19 @@ def Nutrition_Node(state: dict) -> dict:
     weights = weights[:n]
 
     source = (
-        state.get("nutrition_source")
-        or state.get("nutritional_source")
-        or state.get("source")
+        getattr(state, "nutrition_source", None)
+        or getattr(state, "nutritional_source", None)
+        or getattr(state, "source", None)
         or "irish"
     )
 
     res = nutritional_tool_chroma.invoke({
-        "title": state.get("title", "Untitled Recipe"),
+        "title": state.title or "Untitled Recipe",
         "ingredient_names": ingredient_names,
         "weights": weights,
-        "min_similarity": state.get("min_similarity", 0.5),
+        "min_similarity": state.min_similarity if state.min_similarity is not None else 0.5,
         "source": source,
-        "serves": state.get("serves"),
+        "serves": state.serves,
     })
 
     source_key = res.get("source_key") or (source or "unknown")
@@ -241,15 +246,16 @@ def Nutrition_Node(state: dict) -> dict:
         f"sodium_mg{per_serving_suffix}": res.get(f"total_sodium_mg{per_serving_suffix}"),
     }
 
-    state.update({
-        "nutritional_totals": totals_per_serving,
-        "nutritional_details": res["details"],
-        "nutritional_source": source,
-        "nutrition_serves": res.get("serves"),
-    })
+    state.nutritional_totals = totals_per_serving
+    state.nutritional_details = res["details"]
+    state.nutritional_source = source
+    state.nutrition_serves = res.get("serves")
 
     if debug:
-        print(f"\n[Nutrition_Node] Computed (ChromaDB) for recipe '{state.get('title', 'Untitled Recipe')}'.")
+        print(
+            f"\n[Nutrition_Node] Computed (ChromaDB) for recipe "
+            f"'{state.title or 'Untitled Recipe'}'."
+        )
         serves = res.get("serves")
         if serves:
             print(f"   Serves:             {serves:.2f}")
@@ -269,6 +275,6 @@ def Nutrition_Node(state: dict) -> dict:
                 print(f"   {label} / serving:  {value:.2f} {unit}")
             else:
                 print(f"   {label} / serving:  N/A")
-        print(f"\n[Nutrition_Node] Updated State Keys: {list(state.keys())}")
+        print(f"\n[Nutrition_Node] Updated State Keys: {list(state.model_dump().keys())}")
 
     return state

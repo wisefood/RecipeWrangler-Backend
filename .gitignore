@@ -8,9 +8,13 @@
 /api/.env
 /src/recipe_wrangler/api/.env
 /.venv
+
+/foodkg.github.io
 venv/
 venv
+
 /neo4j-docker/neo4j.dump
+/postgresql-docker/data/
 /chroma_db
 __pycache__/
 *.pyc
@@ -21,4 +25,9 @@ __pycache__/
 *.xlsx
 .idea/
 /deployment
-src/recipe_wrangler.egg-info/
+
+DATASET_NOTES.md
+neo4j-query-examples.md
+recipe-kg.md
+# Python build metadata
+*.egg-info/

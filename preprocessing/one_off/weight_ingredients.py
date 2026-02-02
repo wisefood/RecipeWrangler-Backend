@@ -1,7 +1,7 @@
 import ast
 from tqdm.auto import trange
 from recipe_wrangler.tools.ingredient_weight_tool import (
-    ingredient_weight_tool_open as weight_tool,
+    ingredient_weight_tool_usda as weight_tool,
 )
 
 import pandas as pd

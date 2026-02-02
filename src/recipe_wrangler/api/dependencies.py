@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import socket
 from functools import lru_cache
 
@@ -30,9 +31,11 @@ def _get_recipe_search_app_cached() -> RecipeSearchApp:
 
     settings = get_settings()
     _assert_neo4j_reachable(str(settings.neo4j_uri), settings.neo4j_connect_timeout)
+    _assert_groq_key()
     return RecipeSearchApp(
         neo4j_uri=str(settings.neo4j_uri),
-        openai_model=settings.openai_model or "gpt-4o",
+        main_model=settings.search_main_model,
+        guardrails_model=settings.guardrails_model,
         temperature=settings.search_temperature,
         strict_value_mapping=settings.strict_value_mapping,
     )
@@ -53,3 +56,10 @@ def _assert_neo4j_reachable(neo4j_uri: str, timeout: float) -> None:
             return
     except OSError as exc:  # bubble up as runtime error so FastAPI can convert
         raise RuntimeError(f"Unable to reach Neo4j at {host}:{port}: {exc}") from exc
+
+
+def _assert_groq_key() -> None:
+    """Fail fast if the GROQ_API_KEY env var is missing."""
+
+    if not os.getenv("GROQ_API_KEY"):
+        raise RuntimeError("GROQ_API_KEY is not set; add it to your environment or .env.")

@@ -1,33 +1,29 @@
-# Use official Python runtime as base image
-FROM python:3.10-slim
+FROM python:3.10
 
-# Set working directory in container
 WORKDIR /app
 
-# Install system dependencies
+ENV PYTHONUNBUFFERED=1
+ENV TMPDIR=/var/tmp
+ENV PORT=8001
+
 RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    git \
+    gcc g++ git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy project files
 COPY pyproject.toml ./
 COPY src/ ./src/
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -e .
+RUN pip install --upgrade pip
 
-# Create directory for .env file (optional, can be mounted)
-RUN mkdir -p /app/src/recipe_wrangler/api
+# Install CPU-only torch FIRST
+RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-# Expose port (default FastAPI port)
+# Install your app without re-pulling deps
+RUN pip install . --no-deps
+
 EXPOSE 8001
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8001
-
-# Run the FastAPI application
 CMD ["python", "-m", "uvicorn", "recipe_wrangler.api.main:app", "--host", "0.0.0.0", "--port", "8001"]
+
+
+

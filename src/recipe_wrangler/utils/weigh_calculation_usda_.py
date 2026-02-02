@@ -85,6 +85,25 @@ def _parse_quantity(value) -> float:
         return float(num) / den_f
     return float(text)
 
+def _combine_measurement(quantity: object, unit: object) -> Optional[str]:
+    qty = "" if quantity is None else str(quantity).strip()
+    unit_s = "" if unit is None else str(unit).strip()
+    combined = f"{qty} {unit_s}".strip()
+    return combined or None
+
+def _parse_measurement(measurement: object) -> tuple[Optional[str], Optional[str]]:
+    if measurement is None:
+        return None, None
+    text = str(measurement).strip()
+    if not text:
+        return None, None
+    match = re.match(r"^([0-9./\\s-]+)\\s*(.*)$", text)
+    if not match:
+        return None, None
+    qty = match.group(1).strip() or None
+    unit = match.group(2).strip() or None
+    return qty, unit
+
 
 def grams_for_food_id(
     usda_id: str,
@@ -161,6 +180,20 @@ def weight_from_ingredient(
     unit = ingredient.get("unit")
     quantity = ingredient.get("quantity")
     name = ingredient.get("name")
+    measurement = ingredient.get("measurement")
+
+    if not measurement:
+        measurement = _combine_measurement(quantity, unit)
+        if measurement:
+            ingredient["measurement"] = measurement
+
+    if (unit is None or str(unit).strip() == "" or quantity is None) and measurement:
+        parsed_qty, parsed_unit = _parse_measurement(measurement)
+        if quantity is None and parsed_qty is not None:
+            quantity = parsed_qty
+        if (unit is None or str(unit).strip() == "") and parsed_unit is not None:
+            unit = parsed_unit
+
     if not usda_id or unit is None or quantity is None:
         raise ValueError("Ingredient must include usda_id, unit, and quantity")
 

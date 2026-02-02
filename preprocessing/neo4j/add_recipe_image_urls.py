@@ -65,7 +65,7 @@ def _write_batch(session, rows):
     result = session.run(
         """
         UNWIND $rows AS row
-        MATCH (r:Recipe {id: row.id})
+        MATCH (r:Recipe {recipe_id: row.id})
         SET r.image_url = row.url
         RETURN count(r) AS matched
         """,

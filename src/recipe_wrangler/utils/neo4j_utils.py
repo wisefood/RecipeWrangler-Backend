@@ -12,8 +12,9 @@ else:
 
 driver = GraphDatabase.driver(uri, auth=(username, password))
 
+
 # Function to run a Cypher query
 def run_query(query, parameters=None):
     with driver.session() as session:
         result = session.run(query, parameters)  # Pass parameters directly
-        return list(result) #list(result)
+        return list(result)  # list(result)

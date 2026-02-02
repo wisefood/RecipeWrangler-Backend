@@ -14,9 +14,15 @@ LIMIT_FOR_TESTING = None           # set e.g. 10 while testing; None = all
 
 # --- imports ---
 from typing import Iterable, List
+import os
 import pandas as pd
 import ast
 from tqdm import tqdm
+
+# Disable Chroma telemetry before importing chromadb.
+os.environ.setdefault("CHROMA_TELEMETRY", "FALSE")
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "FALSE")
+
 import chromadb
 
 # your project tools

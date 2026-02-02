@@ -15,7 +15,6 @@ dependencies = [
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.0",
     "langchain>=0.3.0,<0.4.0",
-    "langchain-openai>=0.1.0,<0.4.0",
     "langchain-ollama>=0.1.0,<0.4.0",
     "langchain-huggingface>=0.3.0,<0.4.0",
     "langchain-neo4j>=0.1.0,<0.4.0",
@@ -26,13 +25,15 @@ dependencies = [
     "chromadb==1.4.0",
     "numpy>=1.26.0,<2.0.0",
     "qdrant-client>=1.7.0",
-    "huggingface-hub>=0.23.0",
-    "sentence-transformers>=3.0.0",
     "pandas>=2.2.0",
     "openpyxl>=3.1.0",
     "tqdm>=4.66.0",
     "ollama>=0.3.0",
-    "dspy>=3.0.0",
+    "ipykernel>=7.1.0",
+    "groq>=0.4.1,<1.0.0",
+    "langchain-groq>=0.3.8,<1.0.0",
+    "sentencepiece>=0.2.1",
+    "sentence-transformers>=5.2.2",
 ]
 
 [tool.setuptools]

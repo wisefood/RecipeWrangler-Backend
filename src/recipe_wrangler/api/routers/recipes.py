@@ -9,17 +9,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from recipe_wrangler.api.exceptions import InternalError, NotFoundError
 
 from recipe_wrangler.tools.text2cypher import RecipeSearchApp
-from recipe_wrangler.tools.parse_recipe_tool import parse_recipe_tool_open
 from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info,
     fetch_recipe_info_by_id,
 )
+from recipe_wrangler.utils.neo4j_utils import run_query
 from recipe_wrangler.utils.nutrition_postgres import fetch_recipe_nutrition_by_id
 from recipe_wrangler.tools.recipe_profiling_chain import Recipe_Profiling_Chain
 
 from .generic import render
 from ..dependencies import get_recipe_search_app
-from ..schemas import (
+from recipe_wrangler.schemas import (
     RecipeProfileRequest,
     RecipeProfileResponse,
     RecipeSearchRequest,
@@ -27,7 +27,7 @@ from ..schemas import (
     RecipeDetailResponse,
 )
 
-router = APIRouter(prefix="/api/v1/recipes", tags=["recipes"])
+router = APIRouter(prefix="/recipes", tags=["recipes"])
 
 
 def _extract_title(candidate: dict[str, object]) -> str | None:
@@ -86,6 +86,110 @@ def _attach_recipe_metadata(results: list[object]) -> list[object]:
             enriched.append(combined)
         else:
             enriched.append(entry)
+
+    return enriched
+
+
+def _attach_recipe_scores(results: list[object]) -> list[object]:
+    """Attach nutri_score and sust_score (per serving) from Neo4j when possible."""
+
+    if not results:
+        return results
+
+    ids: list[str] = []
+    for entry in results:
+        if not isinstance(entry, dict):
+            continue
+        candidate = entry.get("recipe_id") if isinstance(entry.get("recipe_id"), str) else None
+        if not candidate:
+            candidate = entry.get("id") if isinstance(entry.get("id"), str) else None
+        if candidate:
+            ids.append(candidate)
+
+    if not ids:
+        return results
+
+    query = """
+    UNWIND $ids AS rid
+    MATCH (r:Recipe)
+    WHERE r.recipe_id = rid OR r.id = rid
+    RETURN rid AS recipe_id,
+           r.nutriscore AS nutri_score,
+           r.totalsustainabilityperserving AS sust_score,
+           r.duration AS duration,
+           r.serves AS serves,
+           r.title AS title
+    """
+    rows = run_query(query, {"ids": ids})
+    score_map = {
+        str(record.get("recipe_id")): record
+        for record in rows
+        if record.get("recipe_id") is not None
+    }
+
+    enriched: list[object] = []
+    for entry in results:
+        if not isinstance(entry, dict):
+            enriched.append(entry)
+            continue
+        rid = entry.get("recipe_id") if isinstance(entry.get("recipe_id"), str) else None
+        if not rid:
+            rid = entry.get("id") if isinstance(entry.get("id"), str) else None
+        combined = dict(entry)
+        if rid and rid in score_map:
+            record = score_map[rid]
+            for key in ("nutri_score", "sust_score", "duration", "serves", "title"):
+                if combined.get(key) in (None, "") and record.get(key) is not None:
+                    combined[key] = record.get(key)
+        enriched.append(combined)
+
+    return enriched
+
+
+def _attach_image_urls(results: list[object]) -> list[object]:
+    """Attach image_url for recipe rows by recipe_id/id when possible."""
+
+    if not results:
+        return results
+
+    ids: list[str] = []
+    for entry in results:
+        if not isinstance(entry, dict):
+            continue
+        candidate = entry.get("recipe_id") if isinstance(entry.get("recipe_id"), str) else None
+        if not candidate:
+            candidate = entry.get("id") if isinstance(entry.get("id"), str) else None
+        if candidate:
+            ids.append(candidate)
+
+    if not ids:
+        return results
+
+    query = """
+    UNWIND $ids AS rid
+    MATCH (r:Recipe)
+    WHERE r.recipe_id = rid OR r.id = rid
+    RETURN rid AS recipe_id, r.image_url AS image_url
+    """
+    image_rows = run_query(query, {"ids": ids})
+    image_map = {
+        str(record.get("recipe_id")): record.get("image_url")
+        for record in image_rows
+        if record.get("recipe_id") is not None
+    }
+
+    enriched: list[object] = []
+    for entry in results:
+        if not isinstance(entry, dict):
+            enriched.append(entry)
+            continue
+        rid = entry.get("recipe_id") if isinstance(entry.get("recipe_id"), str) else None
+        if not rid:
+            rid = entry.get("id") if isinstance(entry.get("id"), str) else None
+        combined = dict(entry)
+        if rid and "image_url" not in combined:
+            combined["image_url"] = image_map.get(rid)
+        enriched.append(combined)
 
     return enriched
 
@@ -258,7 +362,7 @@ def _coerce_nutri_score(nutri_score: object) -> float | None:
 
 
 @router.get(
-    "/api/recipes/{recipe_id}",
+    "/{recipe_id}",
     response_model=RecipeDetailResponse,
     tags=["recipes"],
     summary="Retrieve a recipe with full metadata by id",
@@ -362,15 +466,15 @@ def get_recipe(recipe_id: str) -> RecipeDetailResponse:
 
 
 @router.post(
-    "/api/recipes/search",
-    response_model=RecipeSearchResponse,
+    "/search",
+    response_model=None,
     tags=["recipes"],
     summary="Search recipes via the knowledge graph",
 )
 def recipe_search(
     payload: RecipeSearchRequest,
     recipe_search_app: RecipeSearchApp = Depends(get_recipe_search_app),
-) -> RecipeSearchResponse:
+) -> dict[str, Any]:
     """Invoke the recipe search LangGraph pipeline and return its output."""
 
     try:
@@ -389,17 +493,32 @@ def recipe_search(
     raw_results = result.get("results", [])
     if isinstance(raw_results, list):
         raw_results = _attach_nutri_colors(raw_results)
+        raw_results = _attach_recipe_scores(raw_results)
+        raw_results = _attach_image_urls(raw_results)
+        allowed_keys = {
+            "recipe_id",
+            "title",
+            "duration",
+            "serves",
+            "nutri_score",
+            "sust_score",
+            "image_url",
+        }
+        filtered_results = []
+        for entry in raw_results:
+            if isinstance(entry, dict):
+                filtered_results.append(
+                    {key: entry.get(key) for key in allowed_keys if key in entry}
+                )
+            else:
+                filtered_results.append(entry)
+        raw_results = filtered_results
 
-    response_payload = {
-        "results": raw_results,
-        "steps": result.get("steps", []),
-        "cypher_statement": result.get("cypher_statement", ""),
-    }
-    return RecipeSearchResponse(**response_payload)
+    return {"results": raw_results}
 
 
 @router.post(
-    "/api/recipes/profile",
+    "/profile",
     response_model=RecipeProfileResponse,
     tags=["recipes"],
     summary="Run parsing + profiling pipeline on raw recipe text",

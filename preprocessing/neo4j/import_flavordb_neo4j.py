@@ -129,6 +129,36 @@ def _import_nodes(
                 session.run(query, rows=batch)
 
 
+def _backfill_ingredient_attributes(
+    driver: GraphDatabase.driver,
+    categories: Dict[str, str],
+    hub_classes: Dict[str, List[str]],
+    batch_size: int,
+) -> None:
+    names = set(categories) | set(hub_classes)
+    if not names:
+        print("No ingredient attributes found to backfill.")
+        return
+
+    rows = [
+        {
+            "name": name,
+            "category": categories.get(name),
+            "hub_categories": hub_classes.get(name, []),
+        }
+        for name in sorted(names)
+    ]
+    query = """
+    UNWIND $rows AS row
+    MATCH (n:FlavorIngredient {name: row.name})
+    SET n.category = row.category,
+        n.hub_categories = row.hub_categories
+    """
+    with driver.session() as session:
+        for batch in _chunks(rows, batch_size):
+            session.run(query, rows=batch)
+
+
 def _import_edges(
     driver: GraphDatabase.driver,
     edges_path: Path,
@@ -292,6 +322,11 @@ def main() -> None:
         help="Skip creating uniqueness constraints.",
     )
     parser.add_argument(
+        "--only-backfill-ingredient-attrs",
+        action="store_true",
+        help="Only backfill FlavorIngredient category/hub_categories from mapping files.",
+    )
+    parser.add_argument(
         "--processed-map",
         type=Path,
         default=Path("data/MISKG/processed_id_recipe1m_map.json"),
@@ -312,10 +347,13 @@ def main() -> None:
 
     driver = _connect(args.neo4j_uri, args.neo4j_user, args.neo4j_password, args.no_auth)
     try:
-        if not args.skip_constraints:
+        if not args.skip_constraints and not args.only_backfill_ingredient_attrs:
             _ensure_constraints(driver)
         categories = _load_ingredient_categories(args.ingredient_categories)
         hub_classes = _load_hub_classifications(args.hub_classifications)
+        if args.only_backfill_ingredient_attrs:
+            _backfill_ingredient_attributes(driver, categories, hub_classes, args.batch_size)
+            return
         _import_nodes(driver, args.nodes, categories, hub_classes, args.batch_size)
         _import_edges(driver, args.edges, args.batch_size)
         if not args.skip_ingredient_links:

@@ -31,6 +31,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    return app
 
 
 from .config import get_settings
@@ -45,7 +46,7 @@ install_error_handler(app)
 
 # Register routers
 app.include_router(health.router)
-app.include_router(recipes.router)
+app.include_router(recipes.router, prefix="/api/v1")
 
 if __name__ == "__main__":
     uvicorn.run(

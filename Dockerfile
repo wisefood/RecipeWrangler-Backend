@@ -18,8 +18,8 @@ RUN pip install --upgrade pip
 # Install CPU-only torch FIRST
 RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-# Install your app without re-pulling deps
-RUN pip install . --no-deps
+# Install your app with dependencies
+RUN pip install .
 
 EXPOSE 8001
 

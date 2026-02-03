@@ -7,7 +7,7 @@ ENV TMPDIR=/var/tmp
 ENV PORT=8001
 
 RUN apt-get update && apt-get install -y \
-    gcc g++ git \
+    gcc g++ git postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./

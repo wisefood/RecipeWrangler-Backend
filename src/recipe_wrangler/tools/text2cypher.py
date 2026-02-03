@@ -34,6 +34,7 @@ from recipe_wrangler.utils.prompts import (
     VALIDATE_CYPHER_HUMAN_PROMPT,
     VALIDATE_CYPHER_SYSTEM_PROMPT,
 )
+from recipe_wrangler.utils.user_preferences import get_user_preferences
 
 
 # ---------------------------
@@ -42,6 +43,7 @@ from recipe_wrangler.utils.prompts import (
 
 class InputState(TypedDict):
     question: str
+    exclude_allergens: Optional[List[str]]
 
 
 class OverallState(TypedDict):
@@ -51,6 +53,7 @@ class OverallState(TypedDict):
     cypher_errors: List[str]
     results: List[dict] | str
     steps: Annotated[List[str], add]
+    exclude_allergens: Optional[List[str]]
 
 
 class OutputState(TypedDict):
@@ -120,8 +123,10 @@ class RecipeSearchApp:
         self.langgraph = self._build_state_graph().compile()
 
     # ---------- Public API ----------
-    def invoke(self, question: str) -> OutputState:
-        return self.langgraph.invoke({"question": question})
+    def invoke(self, question: str, exclude_allergens: Optional[List[str]] = None) -> OutputState:
+        return self.langgraph.invoke(
+            {"question": question, "exclude_allergens": exclude_allergens}
+        )
 
     def run_guardrails(self, question: str) -> OverallState:
         return self._guardrails({"question": question})
@@ -219,6 +224,7 @@ class RecipeSearchApp:
             "next_action": decision,
             "results": db,
             "cypher_statement": "",
+            "exclude_allergens": state.get("exclude_allergens"),
             "steps": ["guardrail"],
         }
 
@@ -244,6 +250,93 @@ class RecipeSearchApp:
         )
         normalized = self._normalize_cypher_statement(cypher)
         return {"cypher_statement": normalized, "steps": ["generate_cypher"]}
+
+    def _inject_filters(self, state: OverallState) -> OverallState:
+        cypher = self._normalize_cypher_statement(state.get("cypher_statement"))
+        prefs = get_user_preferences()
+        exclude_allergens = [
+            a.strip().casefold()
+            for a in (state.get("exclude_allergens") or []) + (prefs.get("allergens") or [])
+            if str(a).strip()
+        ]
+        preferred_ingredients = [
+            i.strip().casefold()
+            for i in (prefs.get("preferred_ingredients") or prefs.get("prefered_ingredients") or [])
+            if str(i).strip()
+        ]
+        diets = prefs.get("diet") or []
+        if isinstance(diets, str):
+            diets = [diets]
+        diet_tags = [str(d).strip().casefold() for d in diets if str(d).strip()]
+
+        if not cypher or "Recipe" not in cypher:
+            return {"cypher_statement": cypher, "steps": ["inject_filters"]}
+
+        import json
+        predicates = []
+        if exclude_allergens:
+            allergen_list = json.dumps(sorted(set(exclude_allergens)))
+            predicates.append(
+                "NOT EXISTS { "
+                "MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al_pref:Allergen) "
+                f"WHERE toLower(al_pref.name) IN {allergen_list} "
+                "}"
+            )
+        if preferred_ingredients:
+            preferred_list = json.dumps(sorted(set(preferred_ingredients)))
+            predicates.append(
+                "ALL(ing IN "
+                f"{preferred_list} "
+                "WHERE EXISTS { "
+                "MATCH (r)-[:HAS_INGREDIENT]->(i_pref:Ingredient) "
+                "WHERE toLower(i_pref.name) CONTAINS ing "
+                "})"
+            )
+        if diet_tags:
+            diet_list = json.dumps(sorted(set(diet_tags)))
+            predicates.append(
+                "EXISTS { "
+                "MATCH (r)-[:HAS_TAG]->(t_pref:Tag) "
+                f"WHERE toLower(t_pref.name) IN {diet_list} "
+                "AND toLower(t_pref.category) = 'dietary' "
+                "}"
+            )
+        if not predicates:
+            return {"cypher_statement": cypher, "steps": ["inject_filters"]}
+
+        import re
+        combined = " AND ".join(predicates)
+
+        # Inject into the first MATCH (r:Recipe ...) clause without resetting filters.
+        match_re = re.compile(r"(?i)match\s*\(\s*r\s*:\s*recipe\s*\)")
+        where_re = re.compile(r"(?i)\bwhere\b")
+        match = match_re.search(cypher)
+        if not match:
+            return {"cypher_statement": cypher, "steps": ["inject_filters"]}
+
+        # Find the end of the first MATCH clause region (up to next MATCH/RETURN/WITH/CALL).
+        tail = cypher[match.end():]
+        boundary_re = re.compile(r"(?i)\b(match|return|with|call)\b")
+        boundary = boundary_re.search(tail)
+        segment_end = match.end() + (boundary.start() if boundary else len(tail))
+        segment = cypher[match.end():segment_end]
+
+        where = where_re.search(segment)
+        if where:
+            inject_pos = match.end() + where.end()
+            injected = (
+                cypher[:inject_pos]
+                + f" {combined} AND"
+                + cypher[inject_pos:]
+            )
+        else:
+            inject_pos = segment_end
+            injected = (
+                cypher[:inject_pos]
+                + f" WHERE {combined}"
+                + cypher[inject_pos:]
+            )
+        return {"cypher_statement": injected, "steps": ["inject_filters"]}
 
     def _validate_cypher(self, state: OverallState) -> OverallState:
         errors: List[str] = []
@@ -398,6 +491,7 @@ class RecipeSearchApp:
         # Register nodes with string keys
         g.add_node("guardrails", self._guardrails)
         g.add_node("generate_cypher", self._generate_cypher)
+        g.add_node("inject_filters", self._inject_filters)
         g.add_node("validate_cypher", self._validate_cypher)
         g.add_node("correct_cypher", self._correct_cypher)
         g.add_node("execute_cypher", self._execute_cypher)
@@ -406,6 +500,7 @@ class RecipeSearchApp:
         g.add_conditional_edges("guardrails", self._guardrails_condition)
         g.add_edge("generate_cypher", "validate_cypher")
         g.add_conditional_edges("validate_cypher", self._validate_cypher_condition)
+        g.add_edge("inject_filters", "execute_cypher")
         g.add_edge("execute_cypher", END)
         g.add_edge("correct_cypher", "validate_cypher")
 
@@ -425,13 +520,13 @@ class RecipeSearchApp:
 
     def _validate_cypher_condition(
         self, state: OverallState
-    ) -> Literal["__end__", "correct_cypher", "execute_cypher"]:
+    ) -> Literal["__end__", "correct_cypher", "inject_filters"]:
         if state.get("next_action") == "end":
             return END
         elif state.get("next_action") == "correct_cypher":
             return "correct_cypher"
         elif state.get("next_action") == "execute_cypher":
-            return "execute_cypher"
+            return "inject_filters"
 
 # ---------------------------
 # CLI entry point

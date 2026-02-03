@@ -31,3 +31,4 @@ neo4j-query-examples.md
 recipe-kg.md
 # Python build metadata
 *.egg-info/
+/notebooks/test_tools.ipynb

@@ -6,11 +6,19 @@ from typing import Generator, Iterable
 
 # Purpose: Load recipe-level USDA nutrition JSON into Postgres.
 
+try:
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover - optional dependency
+    load_dotenv = None
+
+if load_dotenv:
+    load_dotenv()
+
 DATA_PATH = Path("data/processed/recipe1m/usda-recipes-nutrition.json")
 
 CONTAINER = os.getenv("POSTGRES_CONTAINER", "wisefood-postgres")
-DB_NAME = os.getenv("NUTRITION_DB", "nutrition")
-DB_USER = os.getenv("NUTRITION_USER", "postgres")
+DB_NAME = os.getenv("NUTRITION_DB") or os.getenv("POSTGRES_DB") or "nutrients"
+DB_USER = os.getenv("NUTRITION_USER") or os.getenv("POSTGRES_USER") or "postgres"
 SCHEMA = os.getenv("NUTRITION_SCHEMA", "public")
 TABLE = os.getenv("NUTRITION_RECIPES_TABLE", "nutrients-recipes-usda")
 
@@ -23,7 +31,7 @@ def sql_escape(value: str) -> str:
 
 
 def quote_ident(value: str) -> str:
-    return f'"{value.replace("\"", "\"\"")}"'
+    return '"' + value.replace('"', '""') + '"'
 
 
 def iter_json_array(path: Path) -> Generator[dict, None, None]:

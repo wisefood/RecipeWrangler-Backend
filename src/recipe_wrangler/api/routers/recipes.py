@@ -14,7 +14,7 @@ from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info_by_id,
 )
 from recipe_wrangler.utils.neo4j_utils import run_query
-from recipe_wrangler.utils.nutrition_postgres import fetch_recipe_nutrition_by_id
+from recipe_wrangler.utils.nutrition_postgres_v2 import fetch_recipe_nutrition_by_id
 from recipe_wrangler.tools.recipe_profiling_chain import Recipe_Profiling_Chain
 
 from .generic import render

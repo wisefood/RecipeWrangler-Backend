@@ -48,6 +48,13 @@ install_error_handler(app)
 app.include_router(health.router)
 app.include_router(recipes.router, prefix="/api/v1")
 
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on application shutdown."""
+    from recipe_wrangler.utils.nutrition_postgres_v2 import close_engine
+    close_engine()
+
 if __name__ == "__main__":
     uvicorn.run(
         "recipe_wrangler.api.main:app",

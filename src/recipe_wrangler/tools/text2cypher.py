@@ -10,6 +10,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Parse NEO4J_AUTH if provided (for compatibility with Docker and Kubernetes deployments)
+# NEO4J_AUTH format is "username/password"
+neo4j_auth = os.getenv("NEO4J_AUTH")
+if neo4j_auth and "/" in neo4j_auth:
+    username, password = neo4j_auth.split("/", 1)
+    # Set individual env vars for langchain Neo4jGraph which doesn't support NEO4J_AUTH
+    if not os.getenv("NEO4J_USERNAME"):
+        os.environ["NEO4J_USERNAME"] = username
+    if not os.getenv("NEO4J_PASSWORD"):
+        os.environ["NEO4J_PASSWORD"] = password
+
 NEO4J_URI = os.getenv("NEO4J_URI")
 NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")

@@ -88,6 +88,17 @@ class RecipeSearchResponse(BaseModel):
     cypher_statement: str
 
 
+class RecipeSearchFilters(BaseModel):
+    """Explicit parameterized filters for deterministic recipe search."""
+
+    include_ingredients: List[str] = Field(default_factory=list)
+    exclude_ingredients: List[str] = Field(default_factory=list)
+    exclude_allergens: List[str] = Field(default_factory=list)
+    diet_tags: List[str] = Field(default_factory=list)
+    max_duration_minutes: Optional[int] = None
+    limit: int = Field(default=10, ge=1, le=100)
+
+
 class ParseRecipeRequest(BaseModel):
     """Incoming payload carrying raw recipe text to parse."""
 

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from recipe_wrangler.api.exceptions import InternalError, NotFoundError
 
 from recipe_wrangler.tools.text2cypher import RecipeSearchApp
+from recipe_wrangler.tools.param_search import search_recipes_by_params
 from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info,
     fetch_recipe_info_by_id,
@@ -22,6 +23,7 @@ from ..dependencies import get_recipe_search_app
 from recipe_wrangler.schemas import (
     RecipeProfileRequest,
     RecipeProfileResponse,
+    RecipeSearchFilters,
     RecipeSearchRequest,
     RecipeSearchResponse,
     RecipeDetailResponse,
@@ -518,6 +520,26 @@ def recipe_search(
 
 
 @router.post(
+    "/param_search",
+    response_model=None,
+    tags=["recipes"],
+    summary="Build Cypher for deterministic parameter-based recipe search",
+)
+def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
+    """Run deterministic parameter-based recipe search and return results."""
+
+    try:
+        results = search_recipes_by_params(payload)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Param search failed: {exc}",
+        ) from exc
+
+    return {"results": results}
+
+
+@router.post(
     "/profile",
     response_model=RecipeProfileResponse,
     tags=["recipes"],
@@ -541,37 +563,5 @@ def recipe_profile(payload: RecipeProfileRequest) -> RecipeProfileResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Recipe profiling returned unexpected payload",
         )
-
-    ingredients_list = profile_result.get("ingredients") or []
-    ingredient_weights: dict[str, Any] = {}
-    for item in ingredients_list:
-        if not isinstance(item, dict):
-            continue
-        name = item.get("ingredient") or item.get("name")
-        if not name:
-            continue
-        ingredient_weights[str(name)] = item.get("weight_g")
-
-    directions = profile_result.get("directions")
-    if isinstance(directions, list):
-        normalized_directions = [str(step) for step in directions]
-    elif isinstance(directions, str):
-        normalized_directions = [
-            step.strip() for step in directions.split("\n") if step.strip()
-        ]
-    else:
-        normalized_directions = []
-
-    response_payload = {
-        "title": profile_result.get("title"),
-        "serves": profile_result.get("serves"),
-        "duration_min": profile_result.get("total_time"),
-        "ingredients_grams": ingredient_weights,
-        "directions": normalized_directions,
-        "profiling_totals": profile_result.get("profiling_totals") or {},
-        "tags": [
-            str(tag) for tag in profile_result.get("tags", []) if str(tag).strip()
-        ],
-    }
-
-    return RecipeProfileResponse(**response_payload)
+    # Return the full chain output so clients can access all parsed/profiling fields.
+    return RecipeProfileResponse(**{"message": "Success", **profile_result})

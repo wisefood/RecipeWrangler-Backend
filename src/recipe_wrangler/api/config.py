@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     )
 
     neo4j_uri: str = Field(..., alias="NEO4J_URI")
-    search_main_model: str = Field("gpt-oss:20b", alias="SEARCH_MAIN_MODEL")
+    search_main_model: str = Field("openai/gpt-oss-20b", alias="SEARCH_MAIN_MODEL")
     guardrails_model: str = Field("llama-3.1-8b-instant", alias="GUARDRAILS_MODEL")
     search_temperature: float = Field(0.0, alias="SEARCH_TEMPERATURE")
     strict_value_mapping: bool = Field(True, alias="STRICT_VALUE_MAPPING")

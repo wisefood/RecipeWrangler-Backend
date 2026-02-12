@@ -8,12 +8,12 @@ from functools import lru_cache
 
 from fastapi import HTTPException, status
 
-from recipe_wrangler.tools.text2cypher import RecipeSearchApp
+from recipe_wrangler.tools.text2cypher_v2 import RecipeSearchAppV2
 
 from .config import get_settings
 
 
-def get_recipe_search_app() -> RecipeSearchApp:
+def get_recipe_search_app() -> RecipeSearchAppV2:
     """FastAPI dependency entry-point for the recipe search tool."""
 
     try:
@@ -26,18 +26,16 @@ def get_recipe_search_app() -> RecipeSearchApp:
 
 
 @lru_cache(maxsize=1)
-def _get_recipe_search_app_cached() -> RecipeSearchApp:
+def _get_recipe_search_app_cached() -> RecipeSearchAppV2:
     """Instantiate and cache the recipe search tool."""
 
     settings = get_settings()
     _assert_neo4j_reachable(str(settings.neo4j_uri), settings.neo4j_connect_timeout)
     _assert_groq_key()
-    return RecipeSearchApp(
+    return RecipeSearchAppV2(
         neo4j_uri=str(settings.neo4j_uri),
-        main_model=settings.search_main_model,
-        guardrails_model=settings.guardrails_model,
+        model=settings.search_main_model,
         temperature=settings.search_temperature,
-        strict_value_mapping=settings.strict_value_mapping,
     )
 
 

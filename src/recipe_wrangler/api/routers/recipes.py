@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from recipe_wrangler.api.exceptions import InternalError, NotFoundError
 
-from recipe_wrangler.tools.text2cypher import RecipeSearchApp
+from recipe_wrangler.tools.text2cypher_v2 import RecipeSearchAppV2
 from recipe_wrangler.tools.param_search import search_recipes_by_params
 from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info,
@@ -475,7 +475,7 @@ def get_recipe(recipe_id: str) -> RecipeDetailResponse:
 )
 def recipe_search(
     payload: RecipeSearchRequest,
-    recipe_search_app: RecipeSearchApp = Depends(get_recipe_search_app),
+    recipe_search_app: RecipeSearchAppV2 = Depends(get_recipe_search_app),
 ) -> dict[str, Any]:
     """Invoke the recipe search LangGraph pipeline and return its output."""
 
@@ -547,10 +547,16 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
 )
 def recipe_profile(payload: RecipeProfileRequest) -> RecipeProfileResponse:
     """Execute the Recipe_Profiling_Chain on raw recipe text."""
+    region = (payload.region or "IE").strip().upper()
+    if region not in {"IE", "US"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported region '{region}'. Supported regions: IE, US",
+        )
 
     try:
         profile_result = Recipe_Profiling_Chain.invoke(
-            {"recipe_text": payload.raw_recipe, "debug": False}
+            {"recipe_text": payload.raw_recipe, "debug": False, "region": region}
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(

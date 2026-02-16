@@ -1,7 +1,11 @@
-"""Deterministic recipe search using explicit filter parameters."""
+"""Recipe search using explicit filter parameters.
+
+Constrained queries are deterministic; unconstrained queries return a random page.
+"""
 
 from __future__ import annotations
 
+import random
 from typing import Any
 
 from recipe_wrangler.schemas import RecipeSearchFilters
@@ -80,8 +84,41 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
     return query, params
 
 
+def _has_no_constraints(filters: RecipeSearchFilters) -> bool:
+    return (
+        not _normalize_terms(filters.include_ingredients)
+        and not _normalize_terms(filters.exclude_ingredients)
+        and not _normalize_terms(filters.exclude_allergens)
+        and not _normalize_terms(filters.diet_tags)
+        and filters.max_duration_minutes is None
+    )
+
+
 def search_recipes_by_params(filters: RecipeSearchFilters) -> list[dict[str, Any]]:
-    """Execute deterministic parameter-based recipe search."""
+    """Execute parameter-based recipe search."""
+
+    if _has_no_constraints(filters):
+        limit = max(1, min(int(filters.limit), 100))
+        total_rows = run_query("MATCH (r:Recipe) RETURN count(r) AS total")
+        total = int(total_rows[0]["total"]) if total_rows else 0
+        if total == 0:
+            return []
+
+        max_offset = max(total - limit, 0)
+        offset = random.randint(0, max_offset) if max_offset > 0 else 0
+
+        random_page_query = """
+        MATCH (r:Recipe)
+        WITH r
+        ORDER BY elementId(r)
+        SKIP $offset
+        LIMIT $limit
+        RETURN
+          r.recipe_id AS recipe_id,
+          r.title AS title
+        """
+        rows = run_query(random_page_query, {"offset": offset, "limit": limit})
+        return [dict(row) for row in rows]
 
     query, params = build_param_search_cypher(filters)
     rows = run_query(query, params)

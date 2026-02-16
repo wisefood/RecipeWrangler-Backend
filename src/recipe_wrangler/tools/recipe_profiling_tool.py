@@ -9,6 +9,31 @@ from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_chroma
 from recipe_wrangler.tools.sustainability_calculator import (
     sustainability_tool_chroma,
 )
+from recipe_wrangler.utils.nutri_score import compute_nutri_score
+
+NUTRI_SCORE_SOURCE_URL = (
+    "https://nutriscore.blog/2022/12/25/spreadsheet-to-calculate-the-updated-version-of-the-nutri-score/"
+)
+
+
+def _source_from_region(region: Any) -> str:
+    region_norm = str(region or "IE").strip().upper()
+    if region_norm == "IE":
+        return "irish"
+    if region_norm == "US":
+        return "usda"
+    raise ValueError(f"Unsupported region '{region_norm}'. Supported regions: IE, US")
+
+
+def _resolve_nutrition_source(payload: Dict[str, Any]) -> str:
+    explicit_source = str(payload.get("source") or "").strip().lower()
+    if explicit_source:
+        if explicit_source in {"irish", "usda"}:
+            return explicit_source
+        raise ValueError(
+            f"Unsupported source '{explicit_source}'. Supported sources: irish, usda"
+        )
+    return _source_from_region(payload.get("region"))
 
 def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -34,6 +59,7 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
     sustainability_payload = dict(payload)
     sustainability_payload.pop("source", None)
 
+    nutrition_payload["source"] = _resolve_nutrition_source(nutrition_payload)
     nutrition_result = nutritional_tool_chroma.invoke(nutrition_payload)
     nutrition_source_key = nutrition_result.get("source_key", "unknown")
     sustainability_result = sustainability_tool_chroma.invoke(sustainability_payload)
@@ -85,6 +111,48 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 from typing import Any, Dict, List, cast
 
+def _build_total_nutrients_for_score(
+    totals: Dict[str, float],
+    suffix: str,
+    serves: float,
+) -> Dict[str, Any] | None:
+    def _pick_total(metric: str) -> float | None:
+        # Prefer absolute totals if available, fallback to per-serving * serves.
+        total_key = f"total_{metric}{suffix}"
+        value = totals.get(total_key)
+        if value is not None:
+            return float(value)
+        per_serving_key = f"total_{metric}_per_serving{suffix}"
+        per_serving = totals.get(per_serving_key)
+        if per_serving is None:
+            return None
+        return float(per_serving) * float(serves)
+
+    energy_kcal = _pick_total("energy_kcal")
+    sugar_g = _pick_total("sugar_g")
+    saturated_fat_g = _pick_total("saturated_fat_g")
+    sodium_mg = _pick_total("sodium_mg")
+    fibre_g = _pick_total("fibre_g")
+    protein_g = _pick_total("protein_g")
+
+    required = [energy_kcal, sugar_g, saturated_fat_g, sodium_mg, fibre_g, protein_g]
+    if any(v is None for v in required):
+        return None
+
+    # Existing Nutri-Score helper expects "Energy" in kJ-oriented thresholds.
+    energy_kj = float(energy_kcal) * 4.184
+    return {
+        "nutrients": {
+            "Energy": {"value": energy_kj},
+            "Sugars, total": {"value": float(sugar_g)},
+            "Fatty acids, total saturated": {"value": float(saturated_fat_g)},
+            "Sodium, Na": {"value": float(sodium_mg)},
+            "Fiber, total dietary": {"value": float(fibre_g)},
+            "Protein": {"value": float(protein_g)},
+        }
+    }
+
+
 def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     """
     ode that runs nutrition + sustainability profiling for the recipe and writes the merged ingredient details, 
@@ -93,14 +161,23 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     serves = state.serves or 1
     names: List[str] = state.ingredient_names or []
     measurements: List[str] = state.measurements or []
-    weights: List[float] = state.weights or []
+    raw_weights = state.weights or []
+    if isinstance(raw_weights, dict):
+        weights = raw_weights.get("weights") or []
+    else:
+        weights = raw_weights
+    weights = [float(x) for x in weights]
 
+    region = (state.region or "IE").strip().upper()
+    region_source = "irish" if region == "IE" else ("usda" if region == "US" else None)
     nutrition_source = (
         getattr(state, "nutrition_source", None)
         or getattr(state, "nutritional_source", None)
         or getattr(state, "source", None)
-        or "irish"
+        or region_source
     )
+    if not nutrition_source:
+        raise ValueError(f"Unsupported region '{region}'. Supported regions: IE, US")
 
     payload: Dict[str, Any] = {
         "title": state.title or "Untitled Recipe",
@@ -111,6 +188,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
             or (sum(weights) / serves if weights else 0.0),
         "serves": serves,
         "min_similarity": state.min_similarity if state.min_similarity is not None else 0.5,
+        "region": region,
         "source": nutrition_source,
     }
 
@@ -119,6 +197,16 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     prof_items: List[Dict[str, Any]] = cast(List[Dict[str, Any]], profile.get("ingredients", []))
     nutrition_source_key = cast(str, profile.get("nutrition_source_key") or "unknown")
     suffix = f"_{nutrition_source_key}"
+    nutri_score_payload: Dict[str, Any] | None = None
+    score_input = _build_total_nutrients_for_score(totals, suffix, float(serves))
+    if score_input:
+        score_ingredients = [
+            {"name": names[i], "weight_grams": weights[i]}
+            for i in range(min(len(names), len(weights)))
+        ]
+        maybe_score = compute_nutri_score(score_input, score_ingredients)
+        if "error" not in maybe_score:
+            nutri_score_payload = maybe_score
 
     merged: List[Dict[str, Any]] = []
     n = min(len(names), len(measurements), len(weights), len(prof_items))
@@ -150,10 +238,24 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         f"total_energy_kcal{per_serving_suffix}": totals.get(f"total_energy_kcal{per_serving_suffix}"),
         "nutrition_source": profile.get("nutrition_source") or nutrition_source,
         "nutrition_source_key": nutrition_source_key,
+        "nutri_score": nutri_score_payload,
+        "nutri_score_color": None if not nutri_score_payload else nutri_score_payload.get("color"),
+        "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
 
         # keep entire tool output (optional, handy for debugging)
         "full_profile": profile,
     }
     for key, value in out.items():
         setattr(state, key, value)
+
+    trace = dict(state.pipeline_trace or {})
+    trace["profiling"] = {
+        "source": out.get("nutrition_source"),
+        "source_key": out.get("nutrition_source_key"),
+        "totals": totals,
+        "ingredients": prof_items,
+        "nutri_score": nutri_score_payload,
+        "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
+    }
+    state.pipeline_trace = trace
     return state

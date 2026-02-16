@@ -25,13 +25,20 @@ def build_pipeline():
     return graph
 
 @tool
-def Recipe_Profiling_Chain(recipe_text: str, debug: bool = True):
+def Recipe_Profiling_Chain(recipe_text: str, debug: bool = True, region: str = "IE"):
     """
     Parses unstructured recipe text and extracts structured metadata including 
     ingredients, instructions, nutrition, and sustainability data.
     """
     graph = build_pipeline()
-    initial_state = RecipeState(raw_recipe=recipe_text, debug=debug)
+    normalized_region = (region or "IE").strip().upper()
+    source = "irish" if normalized_region == "IE" else ("usda" if normalized_region == "US" else None)
+    initial_state = RecipeState(
+        raw_recipe=recipe_text,
+        debug=debug,
+        region=normalized_region,
+        source=source,
+    )
     final_state = graph.invoke(initial_state)
     if not isinstance(final_state, RecipeState):
         final_state = RecipeState.model_validate(final_state)

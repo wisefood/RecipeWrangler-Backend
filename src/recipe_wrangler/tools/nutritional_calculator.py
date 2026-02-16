@@ -5,13 +5,45 @@ from typing import Dict, List, Optional
 from langchain.tools import tool
 
 from recipe_wrangler.schemas import RecipeState
-from recipe_wrangler.utils.query_chromadb import query_nutritional_db_irish
+from recipe_wrangler.utils.nutrition_postgres_v2 import (
+    fetch_ingredient_nutrition_by_usda_id,
+    fetch_ingredient_nutrition_by_canonical_id_irish,
+)
+from recipe_wrangler.utils.query_chromadb import (
+    query_nutritional_db_irish,
+    query_nutritional_db_usda,
+)
 
 SOURCE_NUTRITION = "Irish Composition Table"
 
 PROTEIN_KEY = "Protein (g)"
 CARB_KEY    = "Carbohydrate (g)"
 FAT_KEY     = "Fat (g)"
+SUGARS_KEY = "Total sugars (g)"
+SATURATED_FAT_KEY = "Satd FA /100g fd (g)"
+SODIUM_KEY = "Sodium (mg)"
+ENERGY_KCAL_KEY = "Energy (kcal) (kcal)"
+ENERGY_KJ_KEY = "Energy (kJ) (kJ)"
+SOURCE_NUTRITION_USDA = "USDA Nutrients"
+
+def _to_float(value: object, default: float = 0.0) -> float:
+    try:
+        if value is None:
+            return default
+        if isinstance(value, str) and not value.strip():
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+def _nutrient_value(raw: object, default: float = 0.0) -> float:
+    """
+    USDA nutrients are stored as nested objects like {"value": 12.3, "unit": "g"}.
+    Irish values are plain numeric-like strings.
+    """
+    if isinstance(raw, dict):
+        return _to_float(raw.get("value"), default=default)
+    return _to_float(raw, default=default)
 
 
 @tool(
@@ -38,6 +70,7 @@ def nutritional_tool_chroma(
     total_sugar_g = 0.0
     total_saturated_fat_g = 0.0
     total_sodium_mg = 0.0
+    total_fibre_g = 0.0
 
     source_key = source or "unknown"
     total_suffix = f"_{source_key}"
@@ -50,11 +83,14 @@ def nutritional_tool_chroma(
         if serves_value <= 0:
             serves_value = None
 
-    # Select query function based on source; currently only 'irish' supported
+    source_normalized = (source or "irish").strip().lower()
+
+    # Select query function based on source
     def _query_nutrition(name: str):
-        if (source or "").lower() == "irish":
+        if source_normalized == "irish":
             return query_nutritional_db_irish(name)
-        # Fallback to Irish until other sources are implemented
+        if source_normalized == "usda":
+            return query_nutritional_db_usda(name)
         return query_nutritional_db_irish(name)
 
     for ing_name, weight_g in zip(ingredient_names, weights):
@@ -64,9 +100,10 @@ def nutritional_tool_chroma(
         if not match:
             details.append({
                 "ingredient": ing_name,
-                "source": SOURCE_NUTRITION,
-                "source_nutrition": SOURCE_NUTRITION,
+                "source": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+                "source_nutrition": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
                 "matched_nutritional_ingredient": None,
+                "canonical_food_id": None,
                 "weight_g": float(weight_g),
                 "protein_per_100g": 0.0,
                 "carbs_per_100g": 0.0,
@@ -74,64 +111,143 @@ def nutritional_tool_chroma(
                 "sugars_per_100g": 0.0,
                 "saturated_fat_per_100g": 0.0,
                 "sodium_per_100g_mg": 0.0,
+                "fibre_per_100g": 0.0,
                 "protein_g": 0.0,
                 "carbs_g": 0.0,
                 "fat_g": 0.0,
                 "sugar_g": 0.0,
                 "saturated_fat_g": 0.0,
                 "sodium_mg": 0.0,
+                "fibre_g": 0.0,
                 "distance": None,
             })
             continue
 
-        meta = match.get("metadata") or {}
+        chroma_meta = match.get("metadata") or {}
         # In your dataset, distance is top-level
         distance = match.get("distance", None)
+        similarity = None if distance is None else (1.0 - float(distance))
+        if similarity is not None and similarity < float(min_similarity):
+            details.append({
+                "ingredient": ing_name,
+                "source": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+                "source_nutrition": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+                "matched_nutritional_ingredient": None,
+                "canonical_food_id": None,
+                "weight_g": float(weight_g),
+                "protein_per_100g": 0.0,
+                "carbs_per_100g": 0.0,
+                "fat_per_100g": 0.0,
+                "sugars_per_100g": 0.0,
+                "saturated_fat_per_100g": 0.0,
+                "sodium_per_100g_mg": 0.0,
+                "fibre_per_100g": 0.0,
+                "protein_g": 0.0,
+                "carbs_g": 0.0,
+                "fat_g": 0.0,
+                "sugar_g": 0.0,
+                "saturated_fat_g": 0.0,
+                "sodium_mg": 0.0,
+                "fibre_g": 0.0,
+                "distance": None if distance is None else float(distance),
+                "similarity": similarity,
+            })
+            continue
 
-        matched_name = meta.get("food_name") or match.get("document") or "—"
-
-        # Pull macro values per 100g with safe fallbacks
-        protein_per_100g = float(meta.get(PROTEIN_KEY, 0.0))
-        carbs_per_100g   = float(meta.get(CARB_KEY, 0.0))
-        fat_per_100g     = float(meta.get(FAT_KEY, 0.0))
-        try:
-            sugars_per_100g = float(meta.get("Sugar (g)", 0.0))
-        except (TypeError, ValueError):
-            sugars_per_100g = 0.0
-        try:
-            saturated_fat_per_100g = float(meta.get("Saturated Fat (g)", 0.0))
-        except (TypeError, ValueError):
-            saturated_fat_per_100g = 0.0
-        try:
-            sodium_per_100g_mg = float(meta.get("Sodium (mg)", 0.0))
-        except (TypeError, ValueError):
-            sodium_per_100g_mg = 0.0
-
-        # Try to read kcal/100g from metadata; if missing, approximate via 4/4/9
-        energy_kcal_per_100g = meta.get("Energy (kcal)")
-        if energy_kcal_per_100g is None:
-            energy_kcal_per_100g = meta.get("Energy (kcal) (kcal)")
-        try:
-            energy_kcal_per_100g = (
-                float(energy_kcal_per_100g) if energy_kcal_per_100g is not None else None
-            )
-        except (TypeError, ValueError):
-            energy_kcal_per_100g = None
-
-        if not energy_kcal_per_100g:
-            energy_kj_per_100g = meta.get("Energy (kJ)")
-            if energy_kj_per_100g is None:
-                energy_kj_per_100g = meta.get("Energy (kJ) (kJ)")
-            try:
-                energy_kj_per_100g = (
-                    float(energy_kj_per_100g) if energy_kj_per_100g is not None else None
+        canonical_food_id = chroma_meta.get("canonical_food_id")
+        usda_id = chroma_meta.get("usda_id")
+        nutrient_row = None
+        if source_normalized == "irish":
+            if canonical_food_id:
+                nutrient_row = fetch_ingredient_nutrition_by_canonical_id_irish(
+                    str(canonical_food_id)
                 )
-            except (TypeError, ValueError):
-                energy_kj_per_100g = None
-            if energy_kj_per_100g:
+        else:
+            if usda_id:
+                nutrient_row = fetch_ingredient_nutrition_by_usda_id(str(usda_id))
+
+        if not nutrient_row:
+            details.append({
+                "ingredient": ing_name,
+                "source": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+                "source_nutrition": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+                "matched_nutritional_ingredient": None,
+                "canonical_food_id": canonical_food_id if source_normalized == "irish" else usda_id,
+                "weight_g": float(weight_g),
+                "protein_per_100g": 0.0,
+                "carbs_per_100g": 0.0,
+                "fat_per_100g": 0.0,
+                "sugars_per_100g": 0.0,
+                "saturated_fat_per_100g": 0.0,
+                "sodium_per_100g_mg": 0.0,
+                "fibre_per_100g": 0.0,
+                "protein_g": 0.0,
+                "carbs_g": 0.0,
+                "fat_g": 0.0,
+                "sugar_g": 0.0,
+                "saturated_fat_g": 0.0,
+                "sodium_mg": 0.0,
+                "fibre_g": 0.0,
+                "distance": None if distance is None else float(distance),
+                "similarity": similarity,
+            })
+            continue
+
+        meta = nutrient_row
+
+        matched_name = (
+            meta.get("Food Name")
+            or meta.get("food_name")
+            or chroma_meta.get("title")
+            or match.get("document")
+            or "—"
+        )
+
+        if source_normalized == "irish":
+            # Pull macro values per 100g with safe fallbacks
+            protein_per_100g = _to_float(meta.get(PROTEIN_KEY, 0.0))
+            carbs_per_100g = _to_float(meta.get(CARB_KEY, 0.0))
+            fat_per_100g = _to_float(meta.get(FAT_KEY, 0.0))
+            sugars_per_100g = _to_float(meta.get(SUGARS_KEY, 0.0))
+            saturated_fat_per_100g = _to_float(meta.get(SATURATED_FAT_KEY, 0.0))
+            sodium_per_100g_mg = _to_float(meta.get(SODIUM_KEY, 0.0))
+            fibre_per_100g = _to_float(meta.get("Fibre (g)", meta.get("Fiber (g)", 0.0)))
+
+            # Try to read kcal/100g from metadata; if missing, approximate via 4/4/9
+            energy_kcal_per_100g = _to_float(meta.get(ENERGY_KCAL_KEY), default=0.0)
+            if energy_kcal_per_100g <= 0:
+                energy_kcal_per_100g = None
+
+            if not energy_kcal_per_100g:
+                energy_kj_per_100g = _to_float(meta.get(ENERGY_KJ_KEY), default=0.0)
+                if energy_kj_per_100g <= 0:
+                    energy_kj_per_100g = None
+                if energy_kj_per_100g:
+                    energy_kcal_per_100g = energy_kj_per_100g / 4.184
+                else:
+                    # Atwater factors (approximate): 4 kcal/g protein, 4 kcal/g carbs, 9 kcal/g fat
+                    energy_kcal_per_100g = (
+                        4.0 * protein_per_100g + 4.0 * carbs_per_100g + 9.0 * fat_per_100g
+                    )
+        else:
+            nutrients = meta.get("nutrients") or {}
+            protein_per_100g = _nutrient_value(nutrients.get("Protein"), 0.0)
+            carbs_per_100g = _nutrient_value(nutrients.get("Carbohydrate, by difference"), 0.0)
+            fat_per_100g = _nutrient_value(nutrients.get("Total lipid (fat)"), 0.0)
+            sugars_per_100g = _nutrient_value(
+                nutrients.get("Sugars, total including NLEA", nutrients.get("Sugars, total")),
+                0.0,
+            )
+            saturated_fat_per_100g = _nutrient_value(
+                nutrients.get("Fatty acids, total saturated"), 0.0
+            )
+            sodium_per_100g_mg = _nutrient_value(nutrients.get("Sodium, Na"), 0.0)
+            fibre_per_100g = _nutrient_value(nutrients.get("Fiber, total dietary"), 0.0)
+
+            energy_kj_per_100g = _nutrient_value(nutrients.get("Energy"), 0.0)
+            if energy_kj_per_100g > 0:
                 energy_kcal_per_100g = energy_kj_per_100g / 4.184
             else:
-                # Atwater factors (approximate): 4 kcal/g protein, 4 kcal/g carbs, 9 kcal/g fat
                 energy_kcal_per_100g = (
                     4.0 * protein_per_100g + 4.0 * carbs_per_100g + 9.0 * fat_per_100g
                 )
@@ -143,6 +259,7 @@ def nutritional_tool_chroma(
         sugar_g = scale * float(sugars_per_100g)
         saturated_fat_g = scale * float(saturated_fat_per_100g)
         sodium_mg = scale * float(sodium_per_100g_mg)
+        fibre_g = scale * float(fibre_per_100g)
         energy_kcal = scale * float(energy_kcal_per_100g)
 
         total_protein_g += protein_g
@@ -151,12 +268,14 @@ def nutritional_tool_chroma(
         total_sugar_g   += sugar_g
         total_saturated_fat_g += saturated_fat_g
         total_sodium_mg += sodium_mg
+        total_fibre_g += fibre_g
 
         details.append({
             "ingredient": ing_name,
-            "source": SOURCE_NUTRITION,
-            "source_nutrition": SOURCE_NUTRITION,
+            "source": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+            "source_nutrition": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
             "matched_nutritional_ingredient": matched_name,
+            "canonical_food_id": canonical_food_id if source_normalized == "irish" else usda_id,
             "weight_g": float(weight_g),
             "protein_per_100g": protein_per_100g,
             "carbs_per_100g": carbs_per_100g,
@@ -164,15 +283,18 @@ def nutritional_tool_chroma(
             "sugars_per_100g": float(sugars_per_100g),
             "saturated_fat_per_100g": float(saturated_fat_per_100g),
             "sodium_per_100g_mg": float(sodium_per_100g_mg),
+            "fibre_per_100g": float(fibre_per_100g),
             "protein_g": protein_g,
             "carbs_g": carbs_g,
             "fat_g": fat_g,
             "sugar_g": sugar_g,
             "saturated_fat_g": saturated_fat_g,
             "sodium_mg": sodium_mg,
+            "fibre_g": fibre_g,
             "energy_kcal_per_100g": float(energy_kcal_per_100g),
             "energy_kcal": float(energy_kcal),
             "distance": None if distance is None else float(distance),
+            "similarity": similarity,
         })
 
         total_energy_kcal += energy_kcal
@@ -181,7 +303,7 @@ def nutritional_tool_chroma(
         "title": title,
         "details": details,
         "source": source,
-        "source_nutrition": SOURCE_NUTRITION,
+        "source_nutrition": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
         "source_key": source_key,
         "serves": serves_value,
     }
@@ -194,10 +316,13 @@ def nutritional_tool_chroma(
         "sugar_g": total_sugar_g,
         "saturated_fat_g": total_saturated_fat_g,
         "sodium_mg": total_sodium_mg,
+        "fibre_g": total_fibre_g,
     }
 
     for metric, value in totals_map.items():
+        total_key = f"total_{metric}{total_suffix}"
         per_serving_key = f"total_{metric}_per_serving{total_suffix}"
+        result[total_key] = float(value)
 
         if serves_value:
             result[per_serving_key] = float(value / serves_value)

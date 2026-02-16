@@ -32,6 +32,7 @@ def _get_config():
         "db_port": _env("NUTRITION_PORT", _env("POSTGRES_PORT", "5432")),
         "schema": _env("NUTRITION_SCHEMA", "public"),
         "ingredients_table": _env("NUTRITION_INGREDIENTS_TABLE", "nutrients-ingredients-usda"),
+        "irish_ingredients_table": _env("NUTRITION_INGREDIENTS_IRISH_TABLE", "nutrients-ingredients-irish"),
         "recipes_table": _env("NUTRITION_RECIPES_TABLE", "nutrients-recipes-usda"),
     }
 
@@ -178,6 +179,42 @@ def fetch_recipe_nutrition_by_id(recipe_id: str) -> Optional[dict]:
 
     except SQLAlchemyError as e:
         raise RuntimeError(f"Failed to fetch recipe nutrition: {e}") from e
+
+
+def fetch_ingredient_nutrition_by_canonical_id_irish(canonical_food_id: str) -> Optional[dict]:
+    """
+    Return Irish ingredient nutrient record from Postgres by canonical food id.
+
+    Args:
+        canonical_food_id: Canonical ingredient identifier (e.g. IE00001)
+
+    Returns:
+        Full row as dict from the Irish nutrients table, or None if not found.
+    """
+    cfg = _get_config()
+
+    query_str = f"""
+        SELECT row_to_json(t) as data
+        FROM (
+            SELECT *
+            FROM "{cfg['schema']}"."{cfg['irish_ingredients_table']}"
+            WHERE "canonical_food_id" = :canonical_food_id
+            ORDER BY "row_id" ASC
+            LIMIT 1
+        ) t
+    """
+
+    try:
+        with get_connection() as conn:
+            result = conn.execute(
+                text(query_str), {"canonical_food_id": str(canonical_food_id)}
+            )
+            row = result.fetchone()
+            if row is None:
+                return None
+            return row[0]
+    except SQLAlchemyError as e:
+        raise RuntimeError(f"Failed to fetch Irish ingredient nutrition: {e}") from e
 
 
 def close_engine():

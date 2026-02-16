@@ -8,7 +8,6 @@ from langchain.tools import tool
 from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.utils.usda_nutrients_v1 import canonical_name_to_usda
 from recipe_wrangler.utils.weigh_calculation_usda_ import (
-    fallback_portion,
     match_portion,
     weight_from_ingredient,
 )
@@ -43,6 +42,11 @@ def _as_list(x: Any) -> list:
 
 _MEASUREMENT_RE = re.compile(
     r"^\s*(?P<qty>[0-9]+(?:\.[0-9]+)?(?:\s+[0-9]+/[0-9]+|/[0-9]+)?(?:\s*-\s*[0-9]+(?:\.[0-9]+)?)?)\s*(?P<unit>.*)$"
+)
+
+_RANGE_QTY_RE = r"[0-9]+(?:\.[0-9]+)?(?:\s+[0-9]+/[0-9]+|/[0-9]+)?"
+_RANGE_MEASUREMENT_RE = re.compile(
+    rf"^\s*(?P<q1>{_RANGE_QTY_RE})\s*(?:to|-|–|—)\s*(?P<q2>{_RANGE_QTY_RE})\s*(?P<rest>.*)$"
 )
 
 _UNICODE_FRACTIONS = {
@@ -109,12 +113,11 @@ _MASS_UNITS = {
     "pounds": 453.59237,
 }
 
-
 def _clean_unit(unit_part: str) -> Optional[str]:
     unit_part = unit_part.strip()
     if not unit_part:
         return None
-    tokens = unit_part.split()
+    tokens = [t.strip(".,") for t in unit_part.split()]
     if len(tokens) >= 2:
         first_two = " ".join(tokens[:2])
         if first_two in {"fl oz", "fluid ounce", "fluid ounces"}:
@@ -154,6 +157,16 @@ def _split_measurement(measurement: Any) -> Tuple[Optional[str], Optional[str], 
     text = _normalize_fraction_text(str(measurement).strip().lower())
     if not text:
         return None, None, False
+
+    # Handle quantity ranges like "1/4 to 1/2 teaspoon ...".
+    range_match = _RANGE_MEASUREMENT_RE.match(text)
+    if range_match:
+        q1 = _parse_quantity_value(range_match.group("q1"))
+        q2 = _parse_quantity_value(range_match.group("q2"))
+        if q1 is not None and q2 is not None:
+            qty = str((q1 + q2) / 2.0)
+            unit = _clean_unit(range_match.group("rest") or "")
+            return qty, unit, False
 
     if not re.search(r"\d", text):
         qty_word, remainder, inferred = _parse_word_quantity(text)
@@ -266,14 +279,11 @@ def ingredient_weight_tool_usda(
                 grams = qty_value * _MASS_UNITS[unit_norm]
                 match_type = "direct_mass"
             else:
-                portion_match = match_portion(usda_id, unit)
+                portion_match = match_portion(usda_id, unit, name=name)
                 if portion_match:
                     match_type = "direct"
                 else:
-                    fallback = fallback_portion(usda_id)
-                    if fallback:
-                        portion_match = fallback.get("portion")
-                        match_type = "fallback"
+                    raise ValueError("No direct portion match")
 
                 grams = weight_from_ingredient(
                     {"name": name, "usda_id": usda_id, "quantity": qty, "unit": unit}
@@ -309,8 +319,29 @@ def Ingredient_Weight_Node(state: RecipeState) -> RecipeState:
     result = ingredient_weight_tool_usda.invoke({
         "ingredient_names": names,
         "measurements": measurements,
+        "return_details": True,
     })
-    state.weights = result
+    if isinstance(result, dict):
+        state.weights = result.get("weights", [])
+    else:
+        state.weights = result
+
+    trace = dict(state.pipeline_trace or {})
+    if isinstance(result, dict):
+        weight_details = result.get("details", [])
+        trace["weight_calculation"] = {
+            "weights": result.get("weights", []),
+            "details": weight_details,
+            "matched_count": sum(
+                1 for item in weight_details if isinstance(item, dict) and item.get("weight_grams") is not None
+            ),
+            "unmatched_count": sum(
+                1 for item in weight_details if isinstance(item, dict) and item.get("weight_grams") is None
+            ),
+        }
+    else:
+        trace["weight_calculation"] = {"weights": result}
+    state.pipeline_trace = trace
 
     if debug:
         print("\n[Ingredient_Weight_Node] Used USDA weights to estimate grams.")

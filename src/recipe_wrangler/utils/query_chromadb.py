@@ -93,7 +93,7 @@ def query_sustainability_db(query: str):
     })
 
     from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
-    vec = get_embeddings(query)
+    vec = get_ingredient_embedding(query)
 
     results = collection.query(
         query_embeddings=[vec],
@@ -137,6 +137,37 @@ def query_nutritional_db_irish(query: str):
     results = collection.query(
         query_embeddings=[vec],
         n_results=10,  # fetch more to allow filtering
+        include=["documents", "metadatas", "distances"]
+    )
+
+    hits = []
+    for doc, meta, dist in zip(results["documents"][0],
+                               results["metadatas"][0],
+                               results["distances"][0]):
+        hits.append({"document": doc, "metadata": meta, "distance": dist})
+    return hits
+
+def query_nutritional_db_usda(query: str):
+    """
+    Function that queries the chromadb USDA nutritional collection with input ingredient
+    """
+
+    COLLECTION_NAME = "nutritional_ingredients_usda"
+
+    client = get_chroma_client()
+    collection = client.get_collection(name=COLLECTION_NAME)
+
+    ensure_ingredients_in_collection.invoke({
+        "ingredient_names": [query],
+        "state": {"persist_path": PERSIST_PATH, "collection_name": "ingredients", "debug": False}
+    })
+
+    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
+    vec = get_ingredient_embedding(query)  # comes from "ingredients" collection
+
+    results = collection.query(
+        query_embeddings=[vec],
+        n_results=10,
         include=["documents", "metadatas", "distances"]
     )
 

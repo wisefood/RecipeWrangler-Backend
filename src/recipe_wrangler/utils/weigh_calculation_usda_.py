@@ -7,25 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_WEIGHTS = REPO_ROOT / "data/processed/usda/usda-weights-v1.json"
-
-VOLUME_TO_CUPS = {
-    "tsp": 1.0 / 48.0,
-    "teaspoon": 1.0 / 48.0,
-    "tbsp": 1.0 / 16.0,
-    "tablespoon": 1.0 / 16.0,
-    "oz": 1.0 / 8.0,
-    "ounce": 1.0 / 8.0,
-    "fluid ounce": 1.0 / 8.0,
-    "cup": 1.0,
-    "pint": 2.0,
-    "quart": 4.0,
-    "gallon": 16.0,
-    "ml": 1.0 / 236.5882365,
-    "milliliter": 1.0 / 236.5882365,
-    "l": 4.22675284,
-    "liter": 4.22675284,
-}
+DEFAULT_WEIGHTS = REPO_ROOT / "data/processed/usda/usda-weights-v2.json"
 
 
 @lru_cache(maxsize=1)
@@ -33,25 +15,104 @@ def _weights_by_food(weights_path: str) -> dict[str, list[dict]]:
     data = json.loads(Path(weights_path).read_text(encoding="utf-8"))
     return {str(row["usda_id"]): row.get("portions", []) for row in data if row.get("usda_id")}
 
+@lru_cache(maxsize=1)
+def _weights_by_name(weights_path: str) -> dict[str, list[dict]]:
+    data = json.loads(Path(weights_path).read_text(encoding="utf-8"))
+    by_name: dict[str, list[dict]] = {}
+    for row in data:
+        name = row.get("food_name")
+        if not name:
+            continue
+        key = str(name).strip().lower()
+        if not key:
+            continue
+        by_name.setdefault(key, []).extend(row.get("portions", []))
+    return by_name
+
+
+@lru_cache(maxsize=1)
+def _weight_rows(weights_path: str) -> list[dict]:
+    return json.loads(Path(weights_path).read_text(encoding="utf-8"))
+
+
+def _portions_for_food(
+    usda_id: Optional[str],
+    name: Optional[str],
+    weights_path: str,
+) -> list[dict]:
+    portions = []
+    if usda_id:
+        portions = _weights_by_food(weights_path).get(str(usda_id), [])
+    if not portions and name:
+        portions = _weights_by_name(weights_path).get(str(name).strip().lower(), [])
+    return portions
+
+
+def find_weight_match_by_name(
+    name: str,
+    unit: str,
+    weights_path: Path = DEFAULT_WEIGHTS,
+) -> Optional[dict]:
+    key = str(name).strip().lower()
+    if not key:
+        return None
+
+    unit_norm = _norm_unit(str(unit))
+    if not unit_norm:
+        return None
+
+    rows = _weight_rows(str(weights_path))
+    exact = []
+    prefix = []
+    contains = []
+    for row in rows:
+        food_name = str(row.get("food_name", "")).strip()
+        if not food_name:
+            continue
+        food_key = food_name.lower()
+        if food_key == key:
+            exact.append(row)
+        elif food_key.startswith(f"{key},") or food_key.startswith(f"{key} "):
+            prefix.append(row)
+        elif key in food_key:
+            contains.append(row)
+
+    for candidates in (exact, sorted(prefix, key=lambda r: len(str(r.get("food_name", "")))), sorted(contains, key=lambda r: len(str(r.get("food_name", ""))))):
+        for row in candidates:
+            food_name = str(row.get("food_name", "")).strip()
+            for portion in row.get("portions", []):
+                portion_unit = _portion_unit(str(portion.get("portion_desc", "")))
+                if portion_unit == unit_norm:
+                    return {
+                        "food_name": food_name,
+                        "usda_id": str(row.get("usda_id")) if row.get("usda_id") is not None else None,
+                        "portion": portion,
+                    }
+    return None
+
 
 def _norm_unit(unit: str) -> str:
-    unit = unit.strip().lower()
+    unit = unit.strip().lower().strip(".,")
     aliases = {
         "tb": "tablespoon",
         "tbl": "tablespoon",
         "tbsp": "tablespoon",
+        "tbsp.": "tablespoon",
         "tbsps": "tablespoon",
         "tablespoons": "tablespoon",
         "t": "teaspoon",
         "tsp": "teaspoon",
+        "tsp.": "teaspoon",
         "teaspoons": "teaspoon",
         "ounces": "ounce",
         "ozs": "ounce",
         "oz": "ounce",
+        "oz.": "ounce",
         "fl oz": "fluid ounce",
         "fluid ounces": "fluid ounce",
         "cups": "cup",
         "c": "cup",
+        "c.": "cup",
         "lbs": "pound",
         "lb": "pound",
         "pounds": "pound",
@@ -146,29 +207,16 @@ def get_portions(
 def match_portion(
     usda_id: str,
     unit: str,
+    name: Optional[str] = None,
     weights_path: Path = DEFAULT_WEIGHTS,
 ) -> Optional[dict]:
-    portions = _weights_by_food(str(weights_path)).get(str(usda_id), [])
+    portions = _portions_for_food(usda_id, name, str(weights_path))
     if not portions:
         return None
     unit_norm = _norm_unit(str(unit))
     for portion in portions:
         if _portion_unit(str(portion.get("portion_desc", ""))) == unit_norm:
             return portion
-    return None
-
-
-def fallback_portion(
-    usda_id: str,
-    weights_path: Path = DEFAULT_WEIGHTS,
-) -> Optional[dict]:
-    portions = _weights_by_food(str(weights_path)).get(str(usda_id), [])
-    if not portions:
-        return None
-    for portion in portions:
-        unit_candidate = _portion_unit(str(portion.get("portion_desc", "")))
-        if unit_candidate in VOLUME_TO_CUPS:
-            return {"portion": portion, "unit": unit_candidate}
     return None
 
 
@@ -205,9 +253,9 @@ def weight_from_ingredient(
         except (TypeError, ValueError):
             raise ValueError("Invalid quantity value")
 
-    portions = _weights_by_food(str(weights_path)).get(str(usda_id))
+    portions = _portions_for_food(usda_id, name, str(weights_path))
     if not portions:
-        raise ValueError(f"No portions found for usda_id={usda_id}")
+        raise ValueError(f"No portions found for usda_id={usda_id} name={name}")
 
     matches = [p for p in portions if _portion_unit(str(p.get("portion_desc", ""))) == unit_norm]
     try:
@@ -222,24 +270,4 @@ def weight_from_ingredient(
             raise ValueError("Invalid grams_per_unit value")
         return qty * grams_per_unit
 
-    fallback = None
-    fallback_unit = None
-    for portion in portions:
-        unit_candidate = _portion_unit(str(portion.get("portion_desc", "")))
-        if unit_candidate in VOLUME_TO_CUPS:
-            fallback = portion
-            fallback_unit = unit_candidate
-            break
-    if not fallback:
-        raise ValueError(f"No unit match found for usda_id={usda_id} name={name}")
-    try:
-        grams_per_unit = float(fallback.get("grams_per_unit"))
-    except (TypeError, ValueError):
-        raise ValueError("Invalid grams_per_unit value")
-    unit_to_cups = VOLUME_TO_CUPS.get(unit_norm)
-    fallback_to_cups = VOLUME_TO_CUPS.get(fallback_unit)
-    if unit_to_cups is None or fallback_to_cups is None:
-        raise ValueError(f"No unit match found for usda_id={usda_id} name={name}")
-    converted_units = qty * (unit_to_cups / fallback_to_cups)
-    grams = converted_units * grams_per_unit
-    return grams
+    raise ValueError(f"No unit match found for usda_id={usda_id} name={name}")

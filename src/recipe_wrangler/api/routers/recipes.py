@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from recipe_wrangler.api.exceptions import InternalError, NotFoundError
 
@@ -21,15 +21,39 @@ from recipe_wrangler.tools.recipe_profiling_chain import Recipe_Profiling_Chain
 from .generic import render
 from ..dependencies import get_recipe_search_app
 from recipe_wrangler.schemas import (
-    RecipeProfileRequest,
-    RecipeProfileResponse,
     RecipeSearchFilters,
-    RecipeSearchRequest,
     RecipeSearchResponse,
     RecipeDetailResponse,
 )
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
+
+
+def _normalize_search_results(raw_results: list[object]) -> list[object]:
+    """Attach metadata and keep only public keys for search responses."""
+
+    raw_results = _attach_nutri_colors(raw_results)
+    raw_results = _attach_recipe_scores(raw_results)
+    raw_results = _attach_image_urls(raw_results)
+    allowed_keys = {
+        "recipe_id",
+        "title",
+        "duration",
+        "serves",
+        "nutri_score",
+        "sust_score",
+        "image_url",
+    }
+
+    filtered_results: list[object] = []
+    for entry in raw_results:
+        if isinstance(entry, dict):
+            filtered_results.append(
+                {key: entry.get(key) for key in allowed_keys if key in entry}
+            )
+        else:
+            filtered_results.append(entry)
+    return filtered_results
 
 
 def _extract_title(candidate: dict[str, object]) -> str | None:
@@ -473,14 +497,45 @@ def get_recipe(recipe_id: str) -> RecipeDetailResponse:
     tags=["recipes"],
     summary="Search recipes via the knowledge graph",
 )
-def recipe_search(
-    payload: RecipeSearchRequest,
+async def recipe_search(
+    request: Request,
     recipe_search_app: RecipeSearchAppV2 = Depends(get_recipe_search_app),
 ) -> dict[str, Any]:
     """Invoke the recipe search LangGraph pipeline and return its output."""
 
     try:
-        result = recipe_search_app.invoke(payload.question)
+        payload_obj = await request.json()
+    except Exception:
+        payload_obj = {}
+
+    payload = payload_obj if isinstance(payload_obj, dict) else {}
+    question = str(payload.get("question") or "").strip()
+    exclude_allergens_raw = payload.get("exclude_allergens")
+    exclude_allergens = (
+        exclude_allergens_raw if isinstance(exclude_allergens_raw, list) else []
+    )
+
+    # If no free-text question is provided, return a random unconstrained page
+    # (same behavior style as /param_search with empty payload).
+    if not question:
+        try:
+            random_results = search_recipes_by_params(
+                RecipeSearchFilters(
+                    exclude_allergens=exclude_allergens,
+                    limit=10,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Recipe search failed: {exc}",
+            ) from exc
+        if isinstance(random_results, list):
+            random_results = _normalize_search_results(random_results)
+        return {"results": random_results}
+
+    try:
+        result = recipe_search_app.invoke(question, exclude_allergens)
     except Exception as exc:  # noqa: BLE001 - bubble up as HTTP error
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -494,27 +549,7 @@ def recipe_search(
 
     raw_results = result.get("results", [])
     if isinstance(raw_results, list):
-        raw_results = _attach_nutri_colors(raw_results)
-        raw_results = _attach_recipe_scores(raw_results)
-        raw_results = _attach_image_urls(raw_results)
-        allowed_keys = {
-            "recipe_id",
-            "title",
-            "duration",
-            "serves",
-            "nutri_score",
-            "sust_score",
-            "image_url",
-        }
-        filtered_results = []
-        for entry in raw_results:
-            if isinstance(entry, dict):
-                filtered_results.append(
-                    {key: entry.get(key) for key in allowed_keys if key in entry}
-                )
-            else:
-                filtered_results.append(entry)
-        raw_results = filtered_results
+        raw_results = _normalize_search_results(raw_results)
 
     return {"results": raw_results}
 
@@ -541,22 +576,60 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
 
 @router.post(
     "/profile",
-    response_model=RecipeProfileResponse,
+    response_model=None,
     tags=["recipes"],
     summary="Run parsing + profiling pipeline on raw recipe text",
 )
-def recipe_profile(payload: RecipeProfileRequest) -> RecipeProfileResponse:
-    """Execute the Recipe_Profiling_Chain on raw recipe text."""
-    region = (payload.region or "IE").strip().upper()
-    if region not in {"IE", "US"}:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported region '{region}'. Supported regions: IE, US",
+async def recipe_profile(
+    request: Request,
+    recipe_search_app: RecipeSearchAppV2 = Depends(get_recipe_search_app),
+) -> Any:
+    """Execute recipe profiling, with compatibility fallback for misrouted search payloads."""
+    try:
+        payload_obj = await request.json()
+    except Exception:
+        payload_obj = {}
+    payload = payload_obj if isinstance(payload_obj, dict) else {}
+
+    raw_recipe = str(payload.get("raw_recipe") or "").strip()
+    region = str(payload.get("region") or "IE").strip().upper()
+
+    # Compatibility fallback: some clients may accidentally post search payloads to /profile.
+    # Route those through search instead of returning a validation error.
+    if not raw_recipe:
+        question = str(payload.get("question") or "").strip()
+        exclude_allergens_raw = payload.get("exclude_allergens")
+        exclude_allergens = (
+            exclude_allergens_raw if isinstance(exclude_allergens_raw, list) else []
         )
+
+        try:
+            if question:
+                result = recipe_search_app.invoke(question, exclude_allergens)
+                raw_results = result.get("results", []) if isinstance(result, dict) else []
+            else:
+                raw_results = search_recipes_by_params(
+                    RecipeSearchFilters(
+                        exclude_allergens=exclude_allergens,
+                        limit=10,
+                    )
+                )
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Recipe profiling fallback failed: {exc}",
+            ) from exc
+
+        if isinstance(raw_results, list):
+            raw_results = _normalize_search_results(raw_results)
+        return {"results": raw_results}
+
+    if region not in {"IE", "US"}:
+        region = "US"
 
     try:
         profile_result = Recipe_Profiling_Chain.invoke(
-            {"recipe_text": payload.raw_recipe, "debug": False, "region": region}
+            {"recipe_text": raw_recipe, "debug": False, "region": region}
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
@@ -570,4 +643,4 @@ def recipe_profile(payload: RecipeProfileRequest) -> RecipeProfileResponse:
             detail="Recipe profiling returned unexpected payload",
         )
     # Return the full chain output so clients can access all parsed/profiling fields.
-    return RecipeProfileResponse(**{"message": "Success", **profile_result})
+    return {"message": "Success", **profile_result}

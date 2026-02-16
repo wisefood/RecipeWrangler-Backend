@@ -35,5 +35,5 @@ curl -X POST http://127.0.0.1:8001/api/v1/recipes/search \
 
 curl -X POST http://127.0.0.1:8001/api/v1/recipes/profile \
   -H "Content-Type: application/json" \
-  -d '{"raw_recipe": "Garlic Butter Shrimp..."}'
+  -d '{"raw_recipe": "Garlic Butter Shrimp...", "region": "US"}'
 ```

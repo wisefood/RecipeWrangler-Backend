@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -13,6 +13,7 @@ class IngredientProfile(BaseModel):
     weight_g: float = 0.0
 
     source: Optional[str] = None
+    canonical_food_id: Optional[str] = None
     matched_nutritional_ingredient: Optional[str] = None
     protein_per_100g: Optional[float] = None
     carbs_per_100g: Optional[float] = None
@@ -34,6 +35,7 @@ class RecipeState(BaseModel):
 
     raw_recipe: Optional[str] = None
     title: Optional[str] = None
+    region: Optional[str] = None
 
     # DEPRECATED (kept optional for upstream nodes)
     ingredient_names: List[str] = Field(default_factory=list)
@@ -57,6 +59,10 @@ class RecipeState(BaseModel):
 
     profiling_totals: Dict[str, float] = Field(default_factory=dict)
     full_profile: Dict[str, Any] = Field(default_factory=dict)
+    pipeline_trace: Dict[str, Any] = Field(default_factory=dict)
+    nutri_score: Optional[Dict[str, Any]] = None
+    nutri_score_color: Optional[str] = None
+    nutri_score_source: Optional[str] = None
 
     # optional inputs if available
     serves: Optional[float] = None
@@ -73,7 +79,10 @@ class RecipeState(BaseModel):
 class RecipeSearchRequest(BaseModel):
     """Incoming payload for the recipe search endpoint."""
 
-    question: str = Field(..., min_length=1, description="Natural language recipe question")
+    question: str = Field(
+        default="",
+        description="Natural language recipe question. Empty means unconstrained random search.",
+    )
     exclude_allergens: List[str] = Field(
         default_factory=list,
         description="Allergen names to exclude (e.g., ['peanut', 'tree_nut'])",
@@ -122,6 +131,10 @@ class RecipeProfileRequest(BaseModel):
         ...,
         min_length=1,
         description="Unstructured recipe text to analyze",
+    )
+    region: Literal["IE", "US"] = Field(
+        default="IE",
+        description="Country/region code used to select nutrition source (supports 'IE' and 'US').",
     )
 
 

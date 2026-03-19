@@ -25,15 +25,18 @@ Environment:
 
 ## Curl examples
 ```bash
-curl http://127.0.0.1:8001/health
+BASE="${BASE:-http://127.0.0.1:8001}"
 
-curl -X GET http://127.0.0.1:8001/api/v1/recipes/123
+# -sS keeps output clean but still shows request errors.
+curl -sS "$BASE/health"; echo
 
-curl -X POST http://127.0.0.1:8001/api/v1/recipes/search \
+curl -sS -X GET "$BASE/api/v1/recipes/123"; echo
+
+curl -sS -X POST "$BASE/api/v1/recipes/search" \
   -H "Content-Type: application/json" \
-  -d '{"question": "chicken and rice under 30 minutes"}'
+  -d '{"question":"chicken and rice under 30 minutes","exclude_allergens":["peanut"]}'; echo
 
-curl -X POST http://127.0.0.1:8001/api/v1/recipes/profile \
+curl -sS -X POST "$BASE/api/v1/recipes/profile" \
   -H "Content-Type: application/json" \
-  -d '{"raw_recipe": "Garlic Butter Shrimp...", "region": "US"}'
+  -d '{"raw_recipe":"Garlic Butter Shrimp...","region":"US"}'; echo
 ```

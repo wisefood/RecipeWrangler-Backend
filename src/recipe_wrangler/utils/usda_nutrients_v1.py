@@ -1,13 +1,19 @@
 # Purpose: Canonical->USDA link lookup and nutrient cache helpers.
 
 import json
+import os
 from functools import lru_cache
 import re
 from pathlib import Path
 from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_LINKS = REPO_ROOT / "data/mappings/recipe1m-usda-links-canonical.json"
+DEFAULT_LINKS = Path(
+    os.getenv(
+        "USDA_LINKS_PATH",
+        str(REPO_ROOT / "data/mappings/recipe1m-usda-links-canonical.json"),
+    )
+)
 DEFAULT_NUTRIENTS = REPO_ROOT / "data/processed/usda/usda-nutrients-v1.json"
 
 

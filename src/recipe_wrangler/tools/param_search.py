@@ -77,7 +77,7 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
     MATCH (r:Recipe)
     {where_clause}
     RETURN
-      r.recipe_id AS recipe_id,
+      coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
       r.title AS title
     LIMIT $limit
     """
@@ -114,7 +114,7 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> list[dict[str, Any
         SKIP $offset
         LIMIT $limit
         RETURN
-          r.recipe_id AS recipe_id,
+          coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
           r.title AS title
         """
         rows = run_query(random_page_query, {"offset": offset, "limit": limit})

@@ -14,7 +14,7 @@ from recipe_wrangler.utils.neo4j_utils import run_query
 
 
 _RECIPE_INFO_QUERY = """
-// Purpose: Fetch recipe metadata from Neo4j (title, ingredients, instructions, duration, serves).
+// Purpose: Fetch recipe metadata from Neo4j (title, ingredients, instructions, duration, serves, tags).
 
 MATCH (r:Recipe)
 WHERE {match_predicate}
@@ -54,7 +54,12 @@ WITH r, i,
 WITH r, i, pretty
 ORDER BY i.name
 WITH r, collect({name: i.name, measurement: pretty}) AS ingredients
-RETURN r AS recipe, ingredients
+OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
+WITH r, ingredients, collect(distinct t.name) AS raw_tags
+RETURN
+  r AS recipe,
+  ingredients,
+  [tag IN raw_tags WHERE tag IS NOT NULL AND trim(toString(tag)) <> ""] AS tags
 """
 
 
@@ -70,10 +75,17 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
     else:
         instructions = []
 
+    raw_tags = record.get("tags")
+    tags = []
+    if isinstance(raw_tags, list):
+        tags = [str(tag).strip() for tag in raw_tags if str(tag).strip()]
+
     return {
         "recipe_id": recipe_props.get("recipe_id") or recipe_props.get("id"),
         "title": recipe_props.get("title"),
+        "source": recipe_props.get("source"),
         "image_url": recipe_props.get("image_url"),
+        "tags": tags,
         "ingredients": record.get("ingredients") or [],
         "instructions": instructions,
         "duration": recipe_props.get("duration"),
@@ -91,8 +103,10 @@ def fetch_recipe_info(recipe_title: str | None = None, recipe_id: str | None = N
             recipe_title = None
 
     if recipe_id is not None:
-        match_predicate = "r.recipe_id = $recipe_id OR r.id = $recipe_id"
-        params = {"recipe_id": recipe_id}
+        # Some graphs store `id` as numeric while API calls provide string ids.
+        # Compare via toString() so by-id lookups work across both schemas.
+        match_predicate = "toString(r.recipe_id) = $recipe_id OR toString(r.id) = $recipe_id"
+        params = {"recipe_id": str(recipe_id)}
     elif recipe_title is not None:
         match_predicate = "toLower(r.title) = toLower($recipe_title)"
         params = {"recipe_title": recipe_title}

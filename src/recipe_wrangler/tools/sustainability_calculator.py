@@ -10,6 +10,16 @@ from recipe_wrangler.utils.query_chromadb import query_sustainability_db
 
 SOURCE_SUSTAINABILITY = "Sustainable FooDB"
 
+def _to_float_or_none(value: object) -> Optional[float]:
+    try:
+        if value is None:
+            return None
+        if isinstance(value, str) and not value.strip():
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
 @tool
 def sustainability_tool_chroma(
     title: str,
@@ -53,21 +63,21 @@ def sustainability_tool_chroma(
             continue
 
         meta = (match.get("metadata") or {})
-        cf_val = meta.get("cf_val")                 # kg CO2e per kg ingredient
+        cf_val = _to_float_or_none(meta.get("cf_val"))  # kg CO2e per kg ingredient
         distance = meta.get("distance")             # lower is closer if cosine distance
         matched_name = meta.get("ingredient")
 
         # contribution in kg CO2e (weight_g -> kg)
         contribution = 0.0
         if cf_val is not None:
-            contribution = (float(weight_g) / 1000.0) * float(cf_val)
+            contribution = (float(weight_g) / 1000.0) * cf_val
             total_sustainability += contribution
 
         details.append({
             "ingredient": ing_name,
             "matched_sustainability_ingredient": matched_name,
             "weight_g": float(weight_g),
-            "cf_val": None if cf_val is None else float(cf_val),
+            "cf_val": cf_val,
             "distance": None if distance is None else float(distance),
             "contribution": float(contribution),
             "source_sustainability": SOURCE_SUSTAINABILITY,

@@ -1,17 +1,18 @@
 # Purpose: Compute nutrition totals from ingredient weights via Chroma matches.
 
+import re
 from typing import Dict, List, Optional
 
 from langchain.tools import tool
 
 from recipe_wrangler.schemas import RecipeState
-from recipe_wrangler.utils.nutrition_postgres_v2 import (
-    fetch_ingredient_nutrition_by_usda_id,
-    fetch_ingredient_nutrition_by_canonical_id_irish,
+from recipe_wrangler.repositories.postgres_nutrition import (
+    get_irish_ingredient_nutrition,
+    get_usda_ingredient_nutrition,
 )
-from recipe_wrangler.utils.query_chromadb import (
-    query_nutritional_db_irish,
-    query_nutritional_db_usda,
+from recipe_wrangler.repositories.chroma_matchers import (
+    query_irish_nutrition_candidates,
+    query_usda_nutrition_candidates,
 )
 
 SOURCE_NUTRITION = "Irish Composition Table"
@@ -25,6 +26,15 @@ SODIUM_KEY = "Sodium (mg)"
 ENERGY_KCAL_KEY = "Energy (kcal) (kcal)"
 ENERGY_KJ_KEY = "Energy (kJ) (kJ)"
 SOURCE_NUTRITION_USDA = "USDA Nutrients"
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+_STOP_TOKENS = {
+    "fresh", "raw", "cooked", "dried", "whole", "large", "small", "medium",
+    "cup", "cups", "tbsp", "tsp", "tablespoon", "teaspoon",
+}
+_USDA_MISMATCH_GUARDS = {
+    "chicken": {"fat", "skin", "drippings"},
+    "pepper": {"sauce", "hot", "ready", "serve", "ready-to-serve"},
+}
 
 def _to_float(value: object, default: float = 0.0) -> float:
     try:
@@ -46,6 +56,58 @@ def _nutrient_value(raw: object, default: float = 0.0) -> float:
     return _to_float(raw, default=default)
 
 
+def _tokenize(text: object) -> set[str]:
+    raw = str(text or "").strip().lower()
+    if not raw:
+        return set()
+    return {tok for tok in _TOKEN_RE.findall(raw) if tok and tok not in _STOP_TOKENS}
+
+
+def _candidate_name(match: dict) -> str:
+    meta = match.get("metadata") or {}
+    return str(
+        meta.get("food_name")
+        or meta.get("Food Name")
+        or meta.get("title")
+        or match.get("document")
+        or ""
+    ).strip()
+
+
+def _select_usda_match(ingredient_name: str, matches: List[dict]) -> Optional[dict]:
+    if not matches:
+        return None
+
+    query_tokens = _tokenize(ingredient_name)
+    best_match = None
+    best_score = float("-inf")
+
+    for match in matches:
+        if not isinstance(match, dict):
+            continue
+        candidate_name = _candidate_name(match)
+        candidate_tokens = _tokenize(candidate_name)
+        distance = match.get("distance")
+        similarity = 0.0 if distance is None else (1.0 - float(distance))
+
+        overlap = len(query_tokens & candidate_tokens)
+        lexical_boost = 0.0
+        if query_tokens:
+            lexical_boost = 0.25 * (overlap / len(query_tokens))
+
+        penalty = 0.0
+        for token, banned in _USDA_MISMATCH_GUARDS.items():
+            if token in query_tokens and not (query_tokens & banned) and (candidate_tokens & banned):
+                penalty -= 0.35
+
+        score = similarity + lexical_boost + penalty
+        if score > best_score:
+            best_score = score
+            best_match = match
+
+    return best_match
+
+
 @tool(
     "nutritional_tool_chroma",
     description=(
@@ -58,7 +120,7 @@ def nutritional_tool_chroma(
     title: str,
     ingredient_names: List[str],
     weights: List[float],
-    min_similarity: float = 0.5,
+    min_similarity: float = 0.7,
     source: str = "irish",
     serves: Optional[float] = None,
 ) -> Dict:
@@ -88,14 +150,17 @@ def nutritional_tool_chroma(
     # Select query function based on source
     def _query_nutrition(name: str):
         if source_normalized == "irish":
-            return query_nutritional_db_irish(name)
+            return query_irish_nutrition_candidates(name)
         if source_normalized == "usda":
-            return query_nutritional_db_usda(name)
-        return query_nutritional_db_irish(name)
+            return query_usda_nutrition_candidates(name)
+        return query_irish_nutrition_candidates(name)
 
     for ing_name, weight_g in zip(ingredient_names, weights):
         matches = _query_nutrition(ing_name) or []
-        match = matches[0] if matches else None
+        if source_normalized == "usda":
+            match = _select_usda_match(ing_name, matches)
+        else:
+            match = matches[0] if matches else None
 
         if not match:
             details.append({
@@ -159,12 +224,12 @@ def nutritional_tool_chroma(
         nutrient_row = None
         if source_normalized == "irish":
             if canonical_food_id:
-                nutrient_row = fetch_ingredient_nutrition_by_canonical_id_irish(
+                nutrient_row = get_irish_ingredient_nutrition(
                     str(canonical_food_id)
                 )
         else:
             if usda_id:
-                nutrient_row = fetch_ingredient_nutrition_by_usda_id(str(usda_id))
+                nutrient_row = get_usda_ingredient_nutrition(str(usda_id))
 
         if not nutrient_row:
             details.append({
@@ -372,7 +437,7 @@ def Nutrition_Node(state: RecipeState) -> RecipeState:
         "title": state.title or "Untitled Recipe",
         "ingredient_names": ingredient_names,
         "weights": weights,
-        "min_similarity": state.min_similarity if state.min_similarity is not None else 0.5,
+        "min_similarity": state.min_similarity if state.min_similarity is not None else 0.7,
         "source": source,
         "serves": state.serves,
     })

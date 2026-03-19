@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from pyNutriScore import NutriScore
 
@@ -93,3 +93,114 @@ def compute_nutri_score(
         return {"error": "missing data"}
 
     return {"score": score, "nutri_score": grade, "color": color}
+
+
+def compute_nutri_score_breakdown_from_values(
+    nutrient_values: dict[str, float],
+    food_type: str = "solid",
+) -> dict[str, Any]:
+    """Compute Nutri-Score with point-level breakdown from already-normalized per-100g values."""
+
+    food_key = "beverage" if str(food_type).strip().lower() == "beverage" else "solid"
+
+    score_table = _NUTRI_SCORE.score_table
+    energy_points = _NUTRI_SCORE.nutrient_score(
+        score_table["energy"][food_key], float(nutrient_values["energy"])
+    )
+    sugar_points = _NUTRI_SCORE.nutrient_score(
+        score_table["sugar"][food_key], float(nutrient_values["sugar"])
+    )
+    sat_fat_points = _NUTRI_SCORE.nutrient_score(
+        score_table["saturated_fats"][food_key], float(nutrient_values["saturated_fats"])
+    )
+    sodium_points = _NUTRI_SCORE.nutrient_score(
+        score_table["sodium"][food_key], float(nutrient_values["sodium"])
+    )
+
+    fiber_points = _NUTRI_SCORE.nutrient_score(
+        score_table["fibers"][food_key], float(nutrient_values["fibers"])
+    )
+    protein_points = _NUTRI_SCORE.nutrient_score(
+        score_table["proteins"][food_key], float(nutrient_values["proteins"])
+    )
+    fruit_points = _NUTRI_SCORE.nutrient_score(
+        score_table["fruit_percentage"][food_key], float(nutrient_values["fruit_percentage"])
+    )
+
+    negative_total = energy_points + sugar_points + sat_fat_points + sodium_points
+    positive_raw_total = fiber_points + protein_points + fruit_points
+
+    # Official rule: when negative >= 11 and fruit < 5, protein points are not subtracted.
+    protein_excluded = bool(negative_total >= 11 and fruit_points < 5)
+    positive_applied_total = (
+        fiber_points + fruit_points if protein_excluded else positive_raw_total
+    )
+    final_score = negative_total - positive_applied_total
+
+    grade_key = str(_NUTRI_SCORE.calculate_class(nutrient_values, food_key)).upper()
+    grade = _GRADE_TO_LABEL.get(grade_key, "Nutriscore_C")
+    color = _GRADE_TO_COLOR.get(grade_key, "yellow")
+
+    return {
+        "food_type": food_key,
+        "score": final_score,
+        "nutri_score": grade,
+        "color": color,
+        "negative_points": {
+            "total": negative_total,
+            "max": 40,
+            "items": {
+                "energy": {
+                    "points": energy_points,
+                    "max": 10,
+                    "value_per_100g": float(nutrient_values["energy"]),
+                    "unit": "kJ",
+                },
+                "sugar": {
+                    "points": sugar_points,
+                    "max": 10,
+                    "value_per_100g": float(nutrient_values["sugar"]),
+                    "unit": "g",
+                },
+                "saturated_fats": {
+                    "points": sat_fat_points,
+                    "max": 10,
+                    "value_per_100g": float(nutrient_values["saturated_fats"]),
+                    "unit": "g",
+                },
+                "sodium": {
+                    "points": sodium_points,
+                    "max": 10,
+                    "value_per_100g": float(nutrient_values["sodium"]),
+                    "unit": "mg",
+                },
+            },
+        },
+        "positive_points": {
+            "total": positive_raw_total,
+            "applied_total": positive_applied_total,
+            "max": 15,
+            "protein_excluded_by_rule": protein_excluded,
+            "items": {
+                "fiber": {
+                    "points": fiber_points,
+                    "max": 5,
+                    "value_per_100g": float(nutrient_values["fibers"]),
+                    "unit": "g",
+                },
+                "protein": {
+                    "points": protein_points,
+                    "max": 5,
+                    "value_per_100g": float(nutrient_values["proteins"]),
+                    "unit": "g",
+                    "applied": not protein_excluded,
+                },
+                "fruit_percentage": {
+                    "points": fruit_points,
+                    "max": 5,
+                    "value_per_100g": float(nutrient_values["fruit_percentage"]),
+                    "unit": "%",
+                },
+            },
+        },
+    }

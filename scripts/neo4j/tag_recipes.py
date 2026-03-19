@@ -120,6 +120,66 @@ def _tag_foodon_free(
         return int(result.single()["tagged"])
 
 
+def _tag_pescatarian(
+    driver,
+    forbidden_roots: list[str],
+    exclude_roots: list[str],
+    forbidden_foodon_keywords: list[str],
+    allow_foodon_keywords: list[str],
+    forbidden_ingredient_keywords: list[str],
+    exclude_ingredient_keywords: list[str],
+) -> int:
+    query = """
+    MATCH (r:Recipe)
+    WHERE EXISTS {
+        MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)
+    }
+    AND NOT EXISTS {
+        MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
+        MATCH (i)-[:HAS_CLASS]->(f:FoodOnClass)
+        MATCH (f)-[:SUBCLASS_OF*0..]->(a:FoodOnClass)
+        WHERE (
+            a.foodon_id IN $forbidden_roots
+            OR (
+                a.name IS NOT NULL
+                AND any(k IN $forbidden_foodon_keywords WHERE toLower(a.name) CONTAINS k)
+                AND NOT any(ok IN $allow_foodon_keywords WHERE toLower(a.name) CONTAINS ok)
+            )
+        )
+        AND NOT EXISTS {
+            MATCH (i)-[:HAS_CLASS]->(f2:FoodOnClass)
+            MATCH (f2)-[:SUBCLASS_OF*0..]->(e:FoodOnClass)
+            WHERE e.foodon_id IN $exclude_roots
+        }
+    }
+    AND NOT EXISTS {
+        MATCH (r)-[:HAS_INGREDIENT]->(i2:Ingredient)
+        WHERE i2.name IS NOT NULL
+          AND any(k IN $forbidden_ingredient_keywords WHERE toLower(i2.name) CONTAINS k)
+          AND NOT any(x IN $exclude_ingredient_keywords WHERE toLower(i2.name) CONTAINS x)
+    }
+    MERGE (t:Tag {name: "pescatarian"})
+    SET t.category = "dietary"
+    MERGE (r)-[:HAS_TAG]->(t)
+    RETURN count(distinct r) AS tagged
+    """
+    with driver.session() as session:
+        result = session.run(
+            query,
+            forbidden_roots=forbidden_roots,
+            exclude_roots=exclude_roots,
+            forbidden_foodon_keywords=[k.casefold() for k in forbidden_foodon_keywords],
+            allow_foodon_keywords=[k.casefold() for k in allow_foodon_keywords],
+            forbidden_ingredient_keywords=[
+                k.casefold() for k in forbidden_ingredient_keywords
+            ],
+            exclude_ingredient_keywords=[
+                k.casefold() for k in exclude_ingredient_keywords
+            ],
+        )
+        return int(result.single()["tagged"])
+
+
 def _tag_30_minutes_or_less(driver) -> int:
     query = """
     MATCH (r:Recipe)
@@ -230,6 +290,73 @@ def main() -> None:
         "plant based",
         "vegan",
     ]
+    pescatarian_forbidden_roots = [
+        "FOODON_00002671",  # animal meat food product (present in ontology, sparse in this graph)
+    ]
+    pescatarian_exclude_roots = [
+        "FOODON_00001046",  # animal seafood product
+        "FOODON_00001248",  # fish food product
+        "FOODON_00001293",  # shellfish food product
+        "FOODON_00002129",  # plant based meat product analog
+        "FOODON_00002134",  # plant based seafood product analog
+        "FOODON_00002260",  # soybean based meat product analog
+    ]
+    pescatarian_forbidden_foodon_keywords = [
+        "animal meat",
+        "beef",
+        "pork",
+        "ham",
+        "bacon",
+        "sausage",
+        "chicken",
+        "turkey",
+        "duck",
+        "goose",
+        "lamb",
+        "mutton",
+        "veal",
+        "venison",
+        "goat",
+    ]
+    pescatarian_allow_foodon_keywords = [
+        "fish",
+        "seafood",
+        "shellfish",
+        "crustacean",
+        "mollusk",
+        "shrimp",
+        "prawn",
+        "crab",
+        "lobster",
+        "clam",
+        "mussel",
+        "oyster",
+        "scallop",
+        "squid",
+        "octopus",
+    ]
+    pescatarian_forbidden_ingredient_keywords = [
+        "beef",
+        "pork",
+        "bacon",
+        "ham",
+        "turkey",
+        "chicken",
+        "duck",
+        "goose",
+        "lamb",
+        "mutton",
+        "veal",
+        "venison",
+        "goat",
+        "meat",
+        "sausage",
+        "pepperoni",
+        "prosciutto",
+    ]
+    pescatarian_exclude_ingredient_keywords = plant_based_exclude_keywords + [
+        "imitation meat",
+    ]
 
     driver = _connect(uri, username, password, no_auth)
     try:
@@ -257,6 +384,18 @@ def main() -> None:
                     plant_based_analog_roots,
                     vegan_forbidden_keywords,
                     plant_based_exclude_keywords,
+                ),
+            ),
+            (
+                "pescatarian",
+                lambda: _tag_pescatarian(
+                    driver,
+                    pescatarian_forbidden_roots,
+                    pescatarian_exclude_roots,
+                    pescatarian_forbidden_foodon_keywords,
+                    pescatarian_allow_foodon_keywords,
+                    pescatarian_forbidden_ingredient_keywords,
+                    pescatarian_exclude_ingredient_keywords,
                 ),
             ),
             ("30_minutes_or_less", lambda: _tag_30_minutes_or_less(driver)),

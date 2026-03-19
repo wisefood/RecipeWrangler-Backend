@@ -9,8 +9,8 @@ def get_user_preferences() -> Dict[str, Any]:
     Replace with platform-provided preferences later.
     """
     return {
-        "preferred_ingredients": ["broccoli"],
-        "diet": ["Vegan"],
-        "allergens": ["peanut"],
+        "preferred_ingredients": [],
+        "diet": [],
+        "allergens": [],
     }
 

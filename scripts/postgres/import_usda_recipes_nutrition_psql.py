@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import argparse
 from pathlib import Path
 from typing import Generator, Iterable
 
@@ -99,9 +100,61 @@ def batch_iter(items: Iterable[dict], size: int) -> Generator[list[dict], None, 
         yield batch
 
 
-def run_import() -> None:
-    if not DATA_PATH.exists():
-        raise FileNotFoundError(f"Missing data file: {DATA_PATH}")
+def _to_float(value: object) -> float | None:
+    try:
+        if value is None:
+            return None
+        if isinstance(value, str) and not value.strip():
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _derive_per_serving(
+    total_nutrients: dict | None, serves: object
+) -> dict[str, float] | None:
+    if not isinstance(total_nutrients, dict):
+        return None
+    serves_f = _to_float(serves)
+    if not serves_f or serves_f <= 0:
+        return None
+
+    # Only derive for flat numeric nutrient payloads (e.g. MyPlate totals_usda).
+    out: dict[str, float] = {}
+    for key, value in total_nutrients.items():
+        val = _to_float(value)
+        if val is None:
+            return None
+        out[str(key)] = val / serves_f
+    return out
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Import USDA recipe nutrition JSON to Postgres.")
+    parser.add_argument(
+        "--data-path",
+        type=Path,
+        default=DATA_PATH,
+        help="Path to nutrition JSON array.",
+    )
+    parser.add_argument(
+        "--default-source",
+        type=str,
+        default="recipe1m",
+        help="Source value if row does not include `source`.",
+    )
+    parser.add_argument(
+        "--truncate-first",
+        action="store_true",
+        help="Truncate destination table before import (full replace mode).",
+    )
+    return parser.parse_args()
+
+
+def run_import(data_path: Path, default_source: str, truncate_first: bool) -> None:
+    if not data_path.exists():
+        raise FileNotFoundError(f"Missing data file: {data_path}")
 
     cmd = [
         "docker",
@@ -139,22 +192,43 @@ CREATE TABLE IF NOT EXISTS {table_fq} (
   recipe_id       text PRIMARY KEY,
   title           text NOT NULL,
   total_nutrients jsonb NOT NULL,
-  nutri_score     jsonb
+  total_nutrients_per_serving jsonb,
+  nutri_score     jsonb,
+  source          text
 );
+ALTER TABLE {table_fq}
+ADD COLUMN IF NOT EXISTS total_nutrients_per_serving jsonb;
 COMMIT;
 """
     )
+    if truncate_first:
+        proc.stdin.write(
+            f"""
+BEGIN;
+TRUNCATE TABLE {table_fq};
+COMMIT;
+"""
+        )
 
     inserted = 0
     skipped = 0
 
-    for batch in batch_iter(iter_json_array(DATA_PATH), BATCH_SIZE):
+    for batch in batch_iter(iter_json_array(data_path), BATCH_SIZE):
         values: list[str] = []
         for recipe in batch:
-            recipe_id = recipe.get("id")
+            recipe_id = recipe.get("id") or recipe.get("recipe_id")
             title = recipe.get("title")
-            total_nutrients = recipe.get("total_nutrients")
+            total_nutrients = recipe.get("total_nutrients") or recipe.get("totals_usda")
+            total_nutrients_per_serving = (
+                recipe.get("total_nutrients_per_serving")
+                or recipe.get("totals_per_serving_usda")
+                or _derive_per_serving(
+                    total_nutrients=total_nutrients,
+                    serves=recipe.get("serves"),
+                )
+            )
             nutri_score = recipe.get("nutri_score")
+            source = recipe.get("source") or default_source
 
             if not recipe_id or not title or total_nutrients is None:
                 skipped += 1
@@ -164,6 +238,12 @@ COMMIT;
             total_nutrients_sql = sql_escape(
                 json.dumps(total_nutrients, separators=(",", ":"))
             )
+            per_serving_sql = (
+                f"'{sql_escape(json.dumps(total_nutrients_per_serving, separators=(',', ':')))}'::jsonb"
+                if total_nutrients_per_serving is not None
+                else "NULL"
+            )
+            source_sql = sql_escape(str(source))
             nutri_score_sql = (
                 f"'{sql_escape(json.dumps(nutri_score, separators=(',', ':')))}'::jsonb"
                 if nutri_score is not None
@@ -171,7 +251,7 @@ COMMIT;
             )
 
             values.append(
-                f"('{recipe_id}','{title_sql}','{total_nutrients_sql}'::jsonb,{nutri_score_sql})"
+                f"('{recipe_id}','{title_sql}','{total_nutrients_sql}'::jsonb,{per_serving_sql},{nutri_score_sql},'{source_sql}')"
             )
 
         if not values:
@@ -182,11 +262,16 @@ COMMIT;
             f"""
 BEGIN;
 INSERT INTO {table_fq} (
-  recipe_id, title, total_nutrients, nutri_score
+  recipe_id, title, total_nutrients, total_nutrients_per_serving, nutri_score, source
 )
 VALUES
 {values_sql}
-ON CONFLICT (recipe_id) DO NOTHING;
+ON CONFLICT (recipe_id) DO UPDATE SET
+  title = EXCLUDED.title,
+  total_nutrients = EXCLUDED.total_nutrients,
+  total_nutrients_per_serving = EXCLUDED.total_nutrients_per_serving,
+  nutri_score = EXCLUDED.nutri_score,
+  source = EXCLUDED.source;
 COMMIT;
 """
         )
@@ -205,4 +290,9 @@ COMMIT;
 
 
 if __name__ == "__main__":
-    run_import()
+    args = _parse_args()
+    run_import(
+        data_path=args.data_path,
+        default_source=args.default_source,
+        truncate_first=bool(args.truncate_first),
+    )

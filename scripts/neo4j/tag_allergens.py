@@ -1,7 +1,12 @@
 import os
 from typing import Optional
+from pathlib import Path
 
 from neo4j import GraphDatabase
+try:
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover - optional dependency
+    load_dotenv = None
 try:
     from tqdm import tqdm
 except Exception:  # pragma: no cover - optional dependency
@@ -317,6 +322,9 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
 
 
 def main() -> None:
+    if load_dotenv:
+        root = Path(__file__).resolve().parents[2]
+        load_dotenv(root / ".env")
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     username = os.getenv("NEO4J_USERNAME", "neo4j")
     password = os.getenv("NEO4J_PASSWORD")

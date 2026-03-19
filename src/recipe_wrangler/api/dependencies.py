@@ -6,11 +6,13 @@ import os
 import socket
 from functools import lru_cache
 
-from fastapi import HTTPException, status
-
-from recipe_wrangler.tools.text2cypher_v2 import RecipeSearchAppV2
+from recipe_wrangler.tools.text2cypher import RecipeSearchAppV2
+from recipe_wrangler.api.error_mapping import map_dependency_error
+from recipe_wrangler.utils.env_loader import load_runtime_env
 
 from .config import get_settings
+
+load_runtime_env()
 
 
 def get_recipe_search_app() -> RecipeSearchAppV2:
@@ -18,11 +20,8 @@ def get_recipe_search_app() -> RecipeSearchAppV2:
 
     try:
         return _get_recipe_search_app_cached()
-    except RuntimeError as exc:  # surface as HTTP 500
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+    except RuntimeError as exc:
+        raise map_dependency_error("Neo4j/Groq search app", exc) from exc
 
 
 @lru_cache(maxsize=1)

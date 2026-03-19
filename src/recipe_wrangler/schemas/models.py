@@ -121,7 +121,7 @@ class ParseRecipeResponse(BaseModel):
     ingredient_names: List[str]
     measurements: List[str]
     directions: List[str]
-    total_time: Optional[int] = None
+    total_time: Optional[float] = None
 
 
 class RecipeProfileRequest(BaseModel):
@@ -136,6 +136,10 @@ class RecipeProfileRequest(BaseModel):
         default="IE",
         description="Country/region code used to select nutrition source (supports 'IE' and 'US').",
     )
+    persist_trace: bool = Field(
+        default=True,
+        description="Whether to persist profiling trace metadata into Postgres.",
+    )
 
 
 class RecipeProfileResponse(RecipeState):
@@ -149,7 +153,9 @@ class RecipeDetailResponse(BaseModel):
 
     recipe_id: Optional[str]
     title: Optional[str]
+    source: Optional[str] = None
     image_url: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
     ingredients: List[Dict[str, Any]]
     instructions: List[str]
     duration: Optional[float]
@@ -163,3 +169,11 @@ class RecipeDetailResponse(BaseModel):
     total_sodium_mg_per_serving: Optional[float] = None
     total_cholesterol_mg_per_serving: Optional[float] = None
     nutri_score: Optional[float] = None
+    total_nutrients: Optional[Dict[str, Any]] = None
+    total_nutrients_per_serving: Optional[Dict[str, Any]] = None
+    nutri_score_raw: Optional[Any] = None
+    nutri_score_breakdown: Optional[Dict[str, Any]] = None
+    nutrition_source: Optional[str] = None
+    nutrients: Optional[List[Dict[str, Any]]] = None
+    nutrition_profiling_details: Optional[List[Dict[str, Any]]] = None
+    nutrition_profiling_debug: Optional[Dict[str, Any]] = None

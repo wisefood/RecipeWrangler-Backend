@@ -8,6 +8,7 @@ from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_WEIGHTS = REPO_ROOT / "data/processed/usda/usda-weights-v2.json"
+DEFAULT_UNIT_VOLUMES = REPO_ROOT / "data/processed/fallbacks/unit_volume_ml_ground_truth.json"
 
 
 @lru_cache(maxsize=1)
@@ -33,6 +34,32 @@ def _weights_by_name(weights_path: str) -> dict[str, list[dict]]:
 @lru_cache(maxsize=1)
 def _weight_rows(weights_path: str) -> list[dict]:
     return json.loads(Path(weights_path).read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def _unit_volumes_ml(unit_volumes_path: str) -> dict[str, float]:
+    path = Path(unit_volumes_path)
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    units_raw = payload.get("units_ml") if isinstance(payload, dict) else payload
+    if not isinstance(units_raw, dict):
+        return {}
+
+    out: dict[str, float] = {}
+    for raw_unit, raw_ml in units_raw.items():
+        try:
+            ml = float(raw_ml)
+        except (TypeError, ValueError):
+            continue
+        if ml <= 0:
+            continue
+        unit_norm = _norm_unit(str(raw_unit))
+        if not unit_norm:
+            continue
+        out[unit_norm] = ml
+    return out
 
 
 def _portions_for_food(
@@ -80,14 +107,18 @@ def find_weight_match_by_name(
     for candidates in (exact, sorted(prefix, key=lambda r: len(str(r.get("food_name", "")))), sorted(contains, key=lambda r: len(str(r.get("food_name", ""))))):
         for row in candidates:
             food_name = str(row.get("food_name", "")).strip()
-            for portion in row.get("portions", []):
-                portion_unit = _portion_unit(str(portion.get("portion_desc", "")))
-                if portion_unit == unit_norm:
-                    return {
-                        "food_name": food_name,
-                        "usda_id": str(row.get("usda_id")) if row.get("usda_id") is not None else None,
-                        "portion": portion,
-                    }
+            unit_matches = [
+                portion
+                for portion in row.get("portions", [])
+                if _portion_unit(str(portion.get("portion_desc", ""))) == unit_norm
+            ]
+            best = _best_portion_for_name(unit_matches, key)
+            if best:
+                return {
+                    "food_name": food_name,
+                    "usda_id": str(row.get("usda_id")) if row.get("usda_id") is not None else None,
+                    "portion": best,
+                }
     return None
 
 
@@ -124,7 +155,137 @@ def _portion_unit(portion_desc: str) -> str:
     cleaned = portion_desc.strip().lower()
     cleaned = cleaned.split("(")[0].strip()
     cleaned = re.sub(r"^[0-9./\\s]+", "", cleaned).strip()
-    return _norm_unit(cleaned)
+    if not cleaned:
+        return ""
+
+    # Preserve known multi-word units, otherwise reduce descriptors
+    # like "cup elbows" -> "cup".
+    if cleaned.startswith("fl oz"):
+        return _norm_unit("fl oz")
+    if cleaned.startswith("fluid ounce"):
+        return _norm_unit("fluid ounce")
+    if cleaned.startswith("fluid ounces"):
+        return _norm_unit("fluid ounces")
+
+    first = cleaned.split()[0]
+    return _norm_unit(first)
+
+
+def _normalize_token(token: str) -> str:
+    if len(token) <= 3:
+        return token
+    if token.endswith("ies"):
+        return token[:-3] + "y"
+    if token.endswith("es"):
+        return token[:-2]
+    if token.endswith("s") and not token.endswith("ss"):
+        return token[:-1]
+    return token
+
+
+def _token_set(text: Optional[str]) -> set[str]:
+    tokens = re.findall(r"[a-z]+", str(text or "").lower())
+    return {_normalize_token(t) for t in tokens if t}
+
+
+def _best_portion_for_name(matches: list[dict], name: Optional[str]) -> Optional[dict]:
+    if not matches:
+        return None
+    if not name:
+        return matches[0]
+    name_tokens = _token_set(name)
+    if not name_tokens:
+        return matches[0]
+
+    best = matches[0]
+    best_score = -1
+    for portion in matches:
+        score = len(_token_set(str(portion.get("portion_desc", ""))) & name_tokens)
+        if score > best_score:
+            best = portion
+            best_score = score
+    return best
+
+
+def _volume_ml_for_unit(
+    unit: str,
+    unit_volumes_path: Path = DEFAULT_UNIT_VOLUMES,
+) -> Optional[float]:
+    unit_norm = _norm_unit(str(unit))
+    if not unit_norm:
+        return None
+    return _unit_volumes_ml(str(unit_volumes_path)).get(unit_norm)
+
+
+def _density_from_portions(
+    portions: list[dict],
+    name: Optional[str] = None,
+    unit_volumes_path: Path = DEFAULT_UNIT_VOLUMES,
+) -> Optional[dict]:
+    candidates: list[dict] = []
+    for portion in portions:
+        portion_desc = str(portion.get("portion_desc", ""))
+        unit = _portion_unit(portion_desc)
+        unit_ml = _volume_ml_for_unit(unit, unit_volumes_path=unit_volumes_path)
+        if unit_ml is None:
+            continue
+        try:
+            grams_per_unit = float(portion.get("grams_per_unit"))
+        except (TypeError, ValueError):
+            continue
+        if grams_per_unit <= 0:
+            continue
+        candidates.append(
+            {
+                "portion_desc": portion_desc,
+                "unit": unit,
+                "unit_ml": unit_ml,
+                "grams_per_unit": grams_per_unit,
+                "density_g_per_ml": grams_per_unit / unit_ml,
+            }
+        )
+
+    if not candidates:
+        return None
+
+    densities = sorted(c["density_g_per_ml"] for c in candidates)
+    mid = len(densities) // 2
+    if len(densities) % 2 == 0:
+        density_g_per_ml = (densities[mid - 1] + densities[mid]) / 2.0
+    else:
+        density_g_per_ml = densities[mid]
+
+    best_source = _best_portion_for_name(candidates, name)
+    if best_source is None:
+        best_source = min(
+            candidates,
+            key=lambda c: abs(c["density_g_per_ml"] - density_g_per_ml),
+        )
+
+    return {
+        "density_g_per_ml": float(density_g_per_ml),
+        "candidate_count": len(candidates),
+        "source_portion_desc": best_source.get("portion_desc"),
+        "source_unit": best_source.get("unit"),
+        "source_unit_ml": float(best_source.get("unit_ml")),
+        "source_grams_per_unit": float(best_source.get("grams_per_unit")),
+    }
+
+
+def density_for_food(
+    usda_id: Optional[str],
+    name: Optional[str] = None,
+    weights_path: Path = DEFAULT_WEIGHTS,
+    unit_volumes_path: Path = DEFAULT_UNIT_VOLUMES,
+) -> Optional[dict]:
+    portions = _portions_for_food(usda_id, name, str(weights_path))
+    if not portions:
+        return None
+    return _density_from_portions(
+        portions,
+        name=name,
+        unit_volumes_path=unit_volumes_path,
+    )
 
 def _parse_quantity(value) -> float:
     if isinstance(value, (int, float)):
@@ -194,6 +355,50 @@ def grams_for_food_id(
     return grams_per_unit_f * qty
 
 
+def weight_from_density_fallback(
+    usda_id: Optional[str],
+    unit: str,
+    quantity: object,
+    name: Optional[str] = None,
+    weights_path: Path = DEFAULT_WEIGHTS,
+    unit_volumes_path: Path = DEFAULT_UNIT_VOLUMES,
+) -> Optional[dict]:
+    target_unit_norm = _norm_unit(str(unit))
+    target_unit_ml = _volume_ml_for_unit(target_unit_norm, unit_volumes_path=unit_volumes_path)
+    if target_unit_ml is None:
+        return None
+
+    try:
+        qty = _parse_quantity(quantity)
+    except (TypeError, ValueError):
+        return None
+
+    density = density_for_food(
+        usda_id=usda_id,
+        name=name,
+        weights_path=weights_path,
+        unit_volumes_path=unit_volumes_path,
+    )
+    if density is None:
+        return None
+
+    grams_per_target_unit = density["density_g_per_ml"] * target_unit_ml
+    grams = qty * grams_per_target_unit
+    return {
+        "grams": float(grams),
+        "quantity": float(qty),
+        "target_unit": target_unit_norm,
+        "target_unit_ml": float(target_unit_ml),
+        "grams_per_target_unit": float(grams_per_target_unit),
+        "density_g_per_ml": float(density["density_g_per_ml"]),
+        "density_candidate_count": int(density["candidate_count"]),
+        "source_portion_desc": density.get("source_portion_desc"),
+        "source_unit": density.get("source_unit"),
+        "source_unit_ml": density.get("source_unit_ml"),
+        "source_grams_per_unit": density.get("source_grams_per_unit"),
+    }
+
+
 def get_portions(
     usda_id: str,
     weights_path: Path = DEFAULT_WEIGHTS,
@@ -214,10 +419,8 @@ def match_portion(
     if not portions:
         return None
     unit_norm = _norm_unit(str(unit))
-    for portion in portions:
-        if _portion_unit(str(portion.get("portion_desc", ""))) == unit_norm:
-            return portion
-    return None
+    matches = [p for p in portions if _portion_unit(str(p.get("portion_desc", ""))) == unit_norm]
+    return _best_portion_for_name(matches, name)
 
 
 def weight_from_ingredient(
@@ -263,11 +466,22 @@ def weight_from_ingredient(
     except (TypeError, ValueError):
         raise ValueError("Invalid quantity value")
 
-    if matches:
+    best_match = _best_portion_for_name(matches, str(name) if name is not None else None)
+    if best_match:
         try:
-            grams_per_unit = float(matches[0].get("grams_per_unit"))
+            grams_per_unit = float(best_match.get("grams_per_unit"))
         except (TypeError, ValueError):
             raise ValueError("Invalid grams_per_unit value")
         return qty * grams_per_unit
+
+    density_result = weight_from_density_fallback(
+        usda_id=str(usda_id),
+        unit=str(unit),
+        quantity=quantity,
+        name=name,
+        weights_path=weights_path,
+    )
+    if density_result is not None:
+        return float(density_result["grams"])
 
     raise ValueError(f"No unit match found for usda_id={usda_id} name={name}")

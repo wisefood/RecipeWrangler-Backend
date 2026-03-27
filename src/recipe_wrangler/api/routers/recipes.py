@@ -586,12 +586,12 @@ def recipe_autocomplete(
 ) -> dict[str, Any]:
     query = q.strip()
     if len(query) < 2:
-        return {"suggestions": []}
+        return {"suggestions": {}}
 
     settings = get_settings()
     search_payload = {
         "size": limit,
-        "_source": ["title"],
+        "_source": ["id", "title"],
         "query": {
             "multi_match": {
                 "query": query,
@@ -614,10 +614,11 @@ def recipe_autocomplete(
         raise map_dependency_error("Elasticsearch", exc) from exc
 
     hits = payload.get("hits", {}).get("hits", [])
-    suggestions: list[str] = []
+    suggestions: dict[str, str] = {}
     seen: set[str] = set()
     for hit in hits:
-        title = hit.get("_source", {}).get("title")
+        source = hit.get("_source", {})
+        title = source.get("title")
         if not isinstance(title, str):
             continue
         normalized = title.strip()
@@ -626,8 +627,11 @@ def recipe_autocomplete(
         key = normalized.casefold()
         if key in seen:
             continue
+        rid = _as_id(source.get("id")) or _as_id(hit.get("_id"))
+        if not rid:
+            continue
         seen.add(key)
-        suggestions.append(normalized)
+        suggestions[rid] = normalized
 
     return {"suggestions": suggestions}
 

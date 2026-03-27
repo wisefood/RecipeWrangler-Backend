@@ -7,6 +7,6 @@ ENV NEO4J_apoc_export_file_enabled=true \
 
 VOLUME /data /plugins /import
 
-# COPY neo4j.dump /var/lib/neo4j/import/neo4j.dump
+COPY neo4j.dump /import/neo4j.dump
 
-# RUN bin/neo4j-admin database load --from-path=/var/lib/neo4j/import neo4j --overwrite-destination=true
+# RUN bin/neo4j-admin database load --from-path=/import neo4j --overwrite-destination=true

@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir "chromadb==0.4.24"
 
 # Copy prebuilt Chroma data into the image (assumes chroma_db exists in build context)
-COPY chroma_db /chroma
+COPY chroma_db /chroma-init
 
 # Expose the API port
 EXPOSE 8000

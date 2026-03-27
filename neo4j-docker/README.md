@@ -47,6 +47,7 @@ docker-compose down
 ### Notes
 The database will be loaded from the neo4j.dump file.
 The container is configured to restart automatically (restart: always).
+The dump is baked into the image at `/import/neo4j.dump`, so mounting an empty volume over `/import` will hide it.
 
 ### Cypher query examples:
 "question": "Tell me a recipe with chicken under 30 minutes",
@@ -83,6 +84,4 @@ The container is configured to restart automatically (restart: always).
         ORDER BY WhoScore DESC
         RETURN DISTINCT title
         LIMIT 1"""
-
-
 

@@ -1,5 +1,6 @@
 /data
 /chroma_db
+*/chroma_db/
 /build
 /qdrant_storage
 /n8n-local

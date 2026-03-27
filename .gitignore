@@ -49,3 +49,5 @@ tmp_*.sqlite
 # Alembic — schema is distributed via DB dumps, not migrations
 /alembic/
 /alembic.ini
+
+/backups

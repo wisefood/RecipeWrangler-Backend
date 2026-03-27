@@ -132,9 +132,9 @@ class RecipeProfileRequest(BaseModel):
         min_length=1,
         description="Unstructured recipe text to analyze",
     )
-    region: Literal["IE", "US"] = Field(
+    region: Literal["IE", "US", "HU"] = Field(
         default="IE",
-        description="Country/region code used to select nutrition source (supports 'IE' and 'US').",
+        description="Country/region code used to select nutrition source (supports 'IE', 'US', and 'HU').",
     )
     persist_trace: bool = Field(
         default=True,

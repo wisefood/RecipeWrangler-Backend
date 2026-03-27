@@ -32,7 +32,11 @@ def Recipe_Profiling_Chain(recipe_text: str, debug: bool = True, region: str = "
     """
     graph = build_pipeline()
     normalized_region = (region or "IE").strip().upper()
-    source = "irish" if normalized_region == "IE" else ("usda" if normalized_region == "US" else None)
+    source = (
+        "irish"
+        if normalized_region == "IE"
+        else ("usda" if normalized_region == "US" else ("hungarian" if normalized_region == "HU" else None))
+    )
     initial_state = RecipeState(
         raw_recipe=recipe_text,
         debug=debug,

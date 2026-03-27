@@ -7,10 +7,12 @@ from langchain.tools import tool
 
 from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.repositories.postgres_nutrition import (
+    get_hungarian_ingredient_nutrition,
     get_irish_ingredient_nutrition,
     get_usda_ingredient_nutrition,
 )
 from recipe_wrangler.repositories.chroma_matchers import (
+    query_hungarian_nutrition_candidates,
     query_irish_nutrition_candidates,
     query_usda_nutrition_candidates,
 )
@@ -26,6 +28,7 @@ SODIUM_KEY = "Sodium (mg)"
 ENERGY_KCAL_KEY = "Energy (kcal) (kcal)"
 ENERGY_KJ_KEY = "Energy (kJ) (kJ)"
 SOURCE_NUTRITION_USDA = "USDA Nutrients"
+SOURCE_NUTRITION_HUNGARIAN = "Hungarian Composition Table"
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _STOP_TOKENS = {
     "fresh", "raw", "cooked", "dried", "whole", "large", "small", "medium",
@@ -35,6 +38,12 @@ _USDA_MISMATCH_GUARDS = {
     "chicken": {"fat", "skin", "drippings"},
     "pepper": {"sauce", "hot", "ready", "serve", "ready-to-serve"},
 }
+HUNGARIAN_PROTEIN_KEYS = ("Protein g", "Protein (g)")
+HUNGARIAN_CARB_KEYS = ("Carbohydrat\nes g", "Carbohydrates g", "Carbohydrate (g)")
+HUNGARIAN_FAT_KEYS = ("Fat g", "Fat (g)")
+HUNGARIAN_SODIUM_KEYS = ("Sodium\nmg", "Sodium mg", "Sodium (mg)")
+HUNGARIAN_ENERGY_KCAL_KEYS = ("Energy\nkcal", "Energy (kcal) (kcal)")
+HUNGARIAN_ENERGY_KJ_KEYS = ("Energy\nkJ", "Energy (kJ) (kJ)")
 
 def _to_float(value: object, default: float = 0.0) -> float:
     try:
@@ -54,6 +63,40 @@ def _nutrient_value(raw: object, default: float = 0.0) -> float:
     if isinstance(raw, dict):
         return _to_float(raw.get("value"), default=default)
     return _to_float(raw, default=default)
+
+
+def _first_present(meta: dict, keys: tuple[str, ...]) -> object:
+    for key in keys:
+        if key in meta:
+            return meta.get(key)
+    return None
+
+
+def _first_float(meta: dict, keys: tuple[str, ...], default: float = 0.0) -> float:
+    return _to_float(_first_present(meta, keys), default=default)
+
+
+def _source_label(source_key: str) -> str:
+    if source_key == "usda":
+        return SOURCE_NUTRITION_USDA
+    if source_key == "hungarian":
+        return SOURCE_NUTRITION_HUNGARIAN
+    return SOURCE_NUTRITION
+
+
+def _best_usda_match(
+    ingredient_name: str,
+    min_similarity: float,
+) -> tuple[Optional[dict], Optional[float], Optional[float]]:
+    usda_matches = query_usda_nutrition_candidates(ingredient_name) or []
+    usda_match = _select_usda_match(ingredient_name, usda_matches)
+    if not usda_match:
+        return None, None, None
+    usda_distance = usda_match.get("distance", None)
+    usda_similarity = None if usda_distance is None else (1.0 - float(usda_distance))
+    if usda_similarity is not None and usda_similarity < float(min_similarity):
+        return None, usda_distance, usda_similarity
+    return usda_match, usda_distance, usda_similarity
 
 
 def _tokenize(text: object) -> set[str]:
@@ -153,20 +196,39 @@ def nutritional_tool_chroma(
             return query_irish_nutrition_candidates(name)
         if source_normalized == "usda":
             return query_usda_nutrition_candidates(name)
+        if source_normalized == "hungarian":
+            return query_hungarian_nutrition_candidates(name)
         return query_irish_nutrition_candidates(name)
 
     for ing_name, weight_g in zip(ingredient_names, weights):
+        distance = None
+        similarity = None
         matches = _query_nutrition(ing_name) or []
-        if source_normalized == "usda":
+        active_source = source_normalized
+        if active_source == "usda":
             match = _select_usda_match(ing_name, matches)
         else:
             match = matches[0] if matches else None
 
+        # HU source uses USDA as the only fallback source (never Irish).
+        if active_source == "hungarian" and not match:
+            usda_match, usda_distance, usda_similarity = _best_usda_match(
+                ing_name, float(min_similarity)
+            )
+            if usda_match is not None:
+                match = usda_match
+                active_source = "usda"
+                distance = usda_distance
+                similarity = usda_similarity
+            else:
+                distance = None
+                similarity = None
+
         if not match:
             details.append({
                 "ingredient": ing_name,
-                "source": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
-                "source_nutrition": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+                "source": _source_label(active_source),
+                "source_nutrition": _source_label(active_source),
                 "matched_nutritional_ingredient": None,
                 "canonical_food_id": None,
                 "weight_g": float(weight_g),
@@ -188,15 +250,33 @@ def nutritional_tool_chroma(
             })
             continue
 
-        chroma_meta = match.get("metadata") or {}
         # In your dataset, distance is top-level
-        distance = match.get("distance", None)
+        if distance is None:
+            distance = match.get("distance", None)
         similarity = None if distance is None else (1.0 - float(distance))
+
+        # Region-aware fallback:
+        # If IE/HU match is below threshold, retry with USDA candidates before zeroing.
+        if (
+            active_source in {"irish", "hungarian"}
+            and similarity is not None
+            and similarity < float(min_similarity)
+        ):
+            usda_match, usda_distance, usda_similarity = _best_usda_match(
+                ing_name, float(min_similarity)
+            )
+            if usda_match is not None:
+                match = usda_match
+                distance = usda_distance
+                similarity = usda_similarity
+                active_source = "usda"
+
+        chroma_meta = match.get("metadata") or {}
         if similarity is not None and similarity < float(min_similarity):
             details.append({
                 "ingredient": ing_name,
-                "source": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
-                "source_nutrition": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+                "source": _source_label(active_source),
+                "source_nutrition": _source_label(active_source),
                 "matched_nutritional_ingredient": None,
                 "canonical_food_id": None,
                 "weight_g": float(weight_g),
@@ -222,22 +302,47 @@ def nutritional_tool_chroma(
         canonical_food_id = chroma_meta.get("canonical_food_id")
         usda_id = chroma_meta.get("usda_id")
         nutrient_row = None
-        if source_normalized == "irish":
+        if active_source == "irish":
             if canonical_food_id:
                 nutrient_row = get_irish_ingredient_nutrition(
+                    str(canonical_food_id)
+                )
+        elif active_source == "hungarian":
+            if canonical_food_id:
+                nutrient_row = get_hungarian_ingredient_nutrition(
                     str(canonical_food_id)
                 )
         else:
             if usda_id:
                 nutrient_row = get_usda_ingredient_nutrition(str(usda_id))
 
+        if (
+            active_source == "hungarian"
+            and not nutrient_row
+        ):
+            usda_match, usda_distance, usda_similarity = _best_usda_match(
+                ing_name, float(min_similarity)
+            )
+            if usda_match is not None:
+                match = usda_match
+                chroma_meta = match.get("metadata") or {}
+                usda_id = chroma_meta.get("usda_id")
+                if usda_id:
+                    nutrient_row = get_usda_ingredient_nutrition(str(usda_id))
+                    if nutrient_row:
+                        active_source = "usda"
+                        distance = usda_distance
+                        similarity = usda_similarity
+
         if not nutrient_row:
             details.append({
                 "ingredient": ing_name,
-                "source": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
-                "source_nutrition": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+                "source": _source_label(active_source),
+                "source_nutrition": _source_label(active_source),
                 "matched_nutritional_ingredient": None,
-                "canonical_food_id": canonical_food_id if source_normalized == "irish" else usda_id,
+                "canonical_food_id": (
+                    canonical_food_id if active_source in {"irish", "hungarian"} else usda_id
+                ),
                 "weight_g": float(weight_g),
                 "protein_per_100g": 0.0,
                 "carbs_per_100g": 0.0,
@@ -268,23 +373,35 @@ def nutritional_tool_chroma(
             or "—"
         )
 
-        if source_normalized == "irish":
+        if active_source in {"irish", "hungarian"}:
             # Pull macro values per 100g with safe fallbacks
-            protein_per_100g = _to_float(meta.get(PROTEIN_KEY, 0.0))
-            carbs_per_100g = _to_float(meta.get(CARB_KEY, 0.0))
-            fat_per_100g = _to_float(meta.get(FAT_KEY, 0.0))
-            sugars_per_100g = _to_float(meta.get(SUGARS_KEY, 0.0))
-            saturated_fat_per_100g = _to_float(meta.get(SATURATED_FAT_KEY, 0.0))
-            sodium_per_100g_mg = _to_float(meta.get(SODIUM_KEY, 0.0))
-            fibre_per_100g = _to_float(meta.get("Fibre (g)", meta.get("Fiber (g)", 0.0)))
+            if active_source == "irish":
+                protein_per_100g = _to_float(meta.get(PROTEIN_KEY, 0.0))
+                carbs_per_100g = _to_float(meta.get(CARB_KEY, 0.0))
+                fat_per_100g = _to_float(meta.get(FAT_KEY, 0.0))
+                sugars_per_100g = _to_float(meta.get(SUGARS_KEY, 0.0))
+                saturated_fat_per_100g = _to_float(meta.get(SATURATED_FAT_KEY, 0.0))
+                sodium_per_100g_mg = _to_float(meta.get(SODIUM_KEY, 0.0))
+                fibre_per_100g = _to_float(meta.get("Fibre (g)", meta.get("Fiber (g)", 0.0)))
+                energy_kcal_per_100g = _to_float(meta.get(ENERGY_KCAL_KEY), default=0.0)
+                energy_kj_per_100g = _to_float(meta.get(ENERGY_KJ_KEY), default=0.0)
+            else:
+                protein_per_100g = _first_float(meta, HUNGARIAN_PROTEIN_KEYS, default=0.0)
+                carbs_per_100g = _first_float(meta, HUNGARIAN_CARB_KEYS, default=0.0)
+                fat_per_100g = _first_float(meta, HUNGARIAN_FAT_KEYS, default=0.0)
+                # Not present in the Hungarian source file currently; keep explicit zero.
+                sugars_per_100g = 0.0
+                saturated_fat_per_100g = 0.0
+                sodium_per_100g_mg = _first_float(meta, HUNGARIAN_SODIUM_KEYS, default=0.0)
+                fibre_per_100g = 0.0
+                energy_kcal_per_100g = _first_float(meta, HUNGARIAN_ENERGY_KCAL_KEYS, default=0.0)
+                energy_kj_per_100g = _first_float(meta, HUNGARIAN_ENERGY_KJ_KEYS, default=0.0)
 
             # Try to read kcal/100g from metadata; if missing, approximate via 4/4/9
-            energy_kcal_per_100g = _to_float(meta.get(ENERGY_KCAL_KEY), default=0.0)
             if energy_kcal_per_100g <= 0:
                 energy_kcal_per_100g = None
 
             if not energy_kcal_per_100g:
-                energy_kj_per_100g = _to_float(meta.get(ENERGY_KJ_KEY), default=0.0)
                 if energy_kj_per_100g <= 0:
                     energy_kj_per_100g = None
                 if energy_kj_per_100g:
@@ -337,10 +454,12 @@ def nutritional_tool_chroma(
 
         details.append({
             "ingredient": ing_name,
-            "source": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
-            "source_nutrition": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+            "source": _source_label(active_source),
+            "source_nutrition": _source_label(active_source),
             "matched_nutritional_ingredient": matched_name,
-            "canonical_food_id": canonical_food_id if source_normalized == "irish" else usda_id,
+            "canonical_food_id": (
+                canonical_food_id if active_source in {"irish", "hungarian"} else usda_id
+            ),
             "weight_g": float(weight_g),
             "protein_per_100g": protein_per_100g,
             "carbs_per_100g": carbs_per_100g,
@@ -368,7 +487,7 @@ def nutritional_tool_chroma(
         "title": title,
         "details": details,
         "source": source,
-        "source_nutrition": SOURCE_NUTRITION if source_normalized == "irish" else SOURCE_NUTRITION_USDA,
+        "source_nutrition": _source_label(source_normalized),
         "source_key": source_key,
         "serves": serves_value,
     }

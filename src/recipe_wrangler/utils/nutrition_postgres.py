@@ -28,6 +28,10 @@ def _get_config():
         "schema": _env("NUTRITION_SCHEMA", "public"),
         "ingredients_table": _env("NUTRITION_INGREDIENTS_TABLE", "nutrients-ingredients-usda"),
         "irish_ingredients_table": _env("NUTRITION_INGREDIENTS_IRISH_TABLE", "nutrients-ingredients-irish"),
+        "hungarian_ingredients_table": _env(
+            "NUTRITION_INGREDIENTS_HUNGARIAN_TABLE",
+            "nutrients-ingredients-hungarian",
+        ),
         "recipes_table": _env("NUTRITION_RECIPES_TABLE", "nutrients-recipes-usda"),
         "profiles_table": _env("NUTRITION_PROFILES_TABLE", "nutrients-recipe-profiles"),
         "use_docker": _env("NUTRITION_USE_DOCKER", "0") == "1",
@@ -503,6 +507,42 @@ def fetch_ingredient_nutrition_by_canonical_id_irish(canonical_food_id: str) -> 
             return row[0]
     except SQLAlchemyError as e:
         raise RuntimeError(f"Failed to fetch Irish ingredient nutrition: {e}") from e
+
+
+def fetch_ingredient_nutrition_by_canonical_id_hungarian(canonical_food_id: str) -> Optional[dict]:
+    """
+    Return Hungarian ingredient nutrient record from Postgres by canonical food id.
+
+    Args:
+        canonical_food_id: Canonical ingredient identifier (e.g. HU00001)
+
+    Returns:
+        Full row as dict from the Hungarian nutrients table, or None if not found.
+    """
+    cfg = _get_config()
+
+    query_str = f"""
+        SELECT row_to_json(t) as data
+        FROM (
+            SELECT *
+            FROM "{cfg['schema']}"."{cfg['hungarian_ingredients_table']}"
+            WHERE "canonical_food_id" = :canonical_food_id
+            ORDER BY "row_id" ASC
+            LIMIT 1
+        ) t
+    """
+
+    try:
+        with get_connection() as conn:
+            result = conn.execute(
+                text(query_str), {"canonical_food_id": str(canonical_food_id)}
+            )
+            row = result.fetchone()
+            if row is None:
+                return None
+            return row[0]
+    except SQLAlchemyError as e:
+        raise RuntimeError(f"Failed to fetch Hungarian ingredient nutrition: {e}") from e
 
 
 def close_engine():

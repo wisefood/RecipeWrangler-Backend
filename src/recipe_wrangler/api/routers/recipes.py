@@ -929,7 +929,7 @@ async def recipe_profile(
     raw_recipe = str(payload.raw_recipe or "").strip()
     region = str(payload.region or "IE").strip().upper()
 
-    if region not in {"IE", "US"}:
+    if region not in {"IE", "US", "HU"}:
         region = "US"
 
     try:

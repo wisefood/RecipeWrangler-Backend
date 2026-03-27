@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from recipe_wrangler.utils.nutrition_postgres import (
+    fetch_ingredient_nutrition_by_canonical_id_hungarian,
     fetch_ingredient_nutrition_by_canonical_id_irish,
     fetch_ingredient_nutrition_by_usda_id,
     fetch_recipe_nutrition_by_id,
@@ -31,3 +32,7 @@ def get_usda_ingredient_nutrition(usda_id: str) -> Optional[dict]:
 
 def get_irish_ingredient_nutrition(canonical_food_id: str) -> Optional[dict]:
     return fetch_ingredient_nutrition_by_canonical_id_irish(canonical_food_id)
+
+
+def get_hungarian_ingredient_nutrition(canonical_food_id: str) -> Optional[dict]:
+    return fetch_ingredient_nutrition_by_canonical_id_hungarian(canonical_food_id)

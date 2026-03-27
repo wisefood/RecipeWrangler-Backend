@@ -22,16 +22,18 @@ def _source_from_region(region: Any) -> str:
         return "irish"
     if region_norm == "US":
         return "usda"
-    raise ValueError(f"Unsupported region '{region_norm}'. Supported regions: IE, US")
+    if region_norm == "HU":
+        return "hungarian"
+    raise ValueError(f"Unsupported region '{region_norm}'. Supported regions: IE, US, HU")
 
 
 def _resolve_nutrition_source(payload: Dict[str, Any]) -> str:
     explicit_source = str(payload.get("source") or "").strip().lower()
     if explicit_source:
-        if explicit_source in {"irish", "usda"}:
+        if explicit_source in {"irish", "usda", "hungarian"}:
             return explicit_source
         raise ValueError(
-            f"Unsupported source '{explicit_source}'. Supported sources: irish, usda"
+            f"Unsupported source '{explicit_source}'. Supported sources: irish, usda, hungarian"
         )
     return _source_from_region(payload.get("region"))
 
@@ -169,7 +171,11 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     weights = [float(x) for x in weights]
 
     region = (state.region or "IE").strip().upper()
-    region_source = "irish" if region == "IE" else ("usda" if region == "US" else None)
+    region_source = (
+        "irish"
+        if region == "IE"
+        else ("usda" if region == "US" else ("hungarian" if region == "HU" else None))
+    )
     nutrition_source = (
         getattr(state, "nutrition_source", None)
         or getattr(state, "nutritional_source", None)
@@ -177,7 +183,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         or region_source
     )
     if not nutrition_source:
-        raise ValueError(f"Unsupported region '{region}'. Supported regions: IE, US")
+        raise ValueError(f"Unsupported region '{region}'. Supported regions: IE, US, HU")
 
     payload: Dict[str, Any] = {
         "title": state.title or "Untitled Recipe",

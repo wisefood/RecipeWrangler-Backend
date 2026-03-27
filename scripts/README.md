@@ -21,6 +21,10 @@ python scripts/postgres/import_usda_ingredients_nutrition_psql.py
 # Irish ingredient nutrition
 python scripts/postgres/import_irish_ingredients_nutrition_psql.py
 
+# Hungarian ingredient nutrition (first export the normalized CSV)
+python preprocessing/hungarian/export_hungarian_comp_table_csv.py
+python scripts/postgres/import_hungarian_ingredients_nutrition_psql.py
+
 # USDA recipe-level nutrition totals
 python scripts/postgres/import_usda_recipes_nutrition_psql.py
 
@@ -46,6 +50,9 @@ python scripts/neo4j/tag_allergens.py
 ```bash
 # Build the Irish nutrition ingredient collection
 python scripts/chroma/backfill_irish_chroma_metadata.py
+
+# Build the Hungarian nutrition ingredient collection
+python scripts/chroma/build_nutritional_chromadb_hungarian.py
 
 # Build the USDA ingredient canonical collection
 python scripts/chroma/rebuild_usda_ingredients_canonical_from_labels.py

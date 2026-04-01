@@ -174,7 +174,7 @@ def main() -> None:
                 "recipe_id": rid,
                 "title": title,
                 "source": source,
-                "nutrition_source": "myplate_usda_export",
+                "nutrition_source": "usda",
                 "total_nutrients": total_nutrients,
                 "total_nutrients_per_serving": total_nutrients_per_serving,
                 "nutri_score": nutri_score,

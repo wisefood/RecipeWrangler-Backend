@@ -33,6 +33,19 @@ python scripts/postgres/import_usda_weights.py
 
 # MyPlate profiling trace (pre-computed profiles)
 python scripts/postgres/import_myplate_profile_trace.py
+
+# FoodHero profiling trace (runs full profiling pipeline; skips recipes missing duration/serves)
+# Dry-run example:
+python scripts/postgres/import_foodhero_profile_trace.py --dry-run --limit 5 --region US
+# Write to Postgres:
+python scripts/postgres/import_foodhero_profile_trace.py --write --region US
+
+# HealthyFoods profiling trace (runs full profiling pipeline with progress bar;
+# skips recipes missing duration/serves and ignores notes)
+# Dry-run example:
+python scripts/postgres/import_healthyfoods_profile_trace.py --dry-run --limit 5 --region IE
+# Write to Postgres:
+python scripts/postgres/import_healthyfoods_profile_trace.py --write --region IE
 ```
 
 ### 2. Neo4j — graph enrichment

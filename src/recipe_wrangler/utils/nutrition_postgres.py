@@ -32,7 +32,6 @@ def _get_config():
             "NUTRITION_INGREDIENTS_HUNGARIAN_TABLE",
             "nutrients-ingredients-hungarian",
         ),
-        "recipes_table": _env("NUTRITION_RECIPES_TABLE", "nutrients-recipes-usda"),
         "profiles_table": _env("NUTRITION_PROFILES_TABLE", "nutrients-recipe-profiles"),
         "use_docker": _env("NUTRITION_USE_DOCKER", "0") == "1",
         "container": _env("NUTRITION_CONTAINER", _env("POSTGRES_CONTAINER", "")),
@@ -233,7 +232,7 @@ def fetch_recipe_nutrition_by_id(recipe_id: str) -> Optional[dict]:
         SELECT row_to_json(t) as data
         FROM (
             SELECT recipe_id, title, total_nutrients, total_nutrients_per_serving, nutri_score, source
-            FROM "{cfg['schema']}"."{cfg['recipes_table']}"
+            FROM "{cfg['schema']}"."{cfg['profiles_table']}"
             WHERE recipe_id = :recipe_id
             LIMIT 1
         ) t
@@ -255,7 +254,7 @@ def fetch_recipe_nutrition_by_id(recipe_id: str) -> Optional[dict]:
                 SELECT row_to_json(t)
                 FROM (
                     SELECT recipe_id, title, total_nutrients, total_nutrients_per_serving, nutri_score, source
-                    FROM "{cfg['schema']}"."{cfg['recipes_table']}"
+                    FROM "{cfg['schema']}"."{cfg['profiles_table']}"
                     WHERE recipe_id = '{str(recipe_id).replace("'", "''")}'
                     LIMIT 1
                 ) t
@@ -360,10 +359,10 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
     cfg = _get_config()
     create_table_sql = f"""
         CREATE TABLE IF NOT EXISTS "{cfg['schema']}"."{cfg['profiles_table']}" (
-            recipe_id text PRIMARY KEY,
+            recipe_id text NOT NULL,
+            nutrition_source text NOT NULL,
             title text,
             source text,
-            nutrition_source text,
             total_nutrients jsonb,
             total_nutrients_per_serving jsonb,
             nutri_score jsonb,
@@ -376,7 +375,8 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             embedding_model text,
             ruleset_version text,
             computed_at timestamptz DEFAULT now(),
-            updated_at timestamptz DEFAULT now()
+            updated_at timestamptz DEFAULT now(),
+            PRIMARY KEY (recipe_id, nutrition_source)
         )
     """
     upsert_sql = f"""
@@ -418,10 +418,9 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             COALESCE(CAST(:computed_at AS timestamptz), now()),
             now()
         )
-        ON CONFLICT (recipe_id) DO UPDATE SET
+        ON CONFLICT (recipe_id, nutrition_source) DO UPDATE SET
             title = EXCLUDED.title,
             source = EXCLUDED.source,
-            nutrition_source = EXCLUDED.nutrition_source,
             total_nutrients = EXCLUDED.total_nutrients,
             total_nutrients_per_serving = EXCLUDED.total_nutrients_per_serving,
             nutri_score = EXCLUDED.nutri_score,

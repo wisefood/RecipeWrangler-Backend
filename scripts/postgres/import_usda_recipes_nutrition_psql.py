@@ -21,7 +21,7 @@ CONTAINER = os.getenv("POSTGRES_CONTAINER", "wisefood-postgres")
 DB_NAME = os.getenv("NUTRITION_DB") or os.getenv("POSTGRES_DB") or "nutrients"
 DB_USER = os.getenv("NUTRITION_USER") or os.getenv("POSTGRES_USER") or "postgres"
 SCHEMA = os.getenv("NUTRITION_SCHEMA", "public")
-TABLE = os.getenv("NUTRITION_RECIPES_TABLE", "nutrients-recipes-usda")
+TABLE = os.getenv("NUTRITION_PROFILES_TABLE", "nutrients-recipe-profiles")
 
 BATCH_SIZE = int(os.getenv("USDA_RECIPES_IMPORT_BATCH_SIZE", "250"))
 CHUNK_SIZE = int(os.getenv("USDA_RECIPES_IMPORT_CHUNK_SIZE", "65536"))
@@ -189,15 +189,25 @@ def run_import(data_path: Path, default_source: str, truncate_first: bool) -> No
         f"""
 BEGIN;
 CREATE TABLE IF NOT EXISTS {table_fq} (
-  recipe_id       text PRIMARY KEY,
-  title           text NOT NULL,
-  total_nutrients jsonb NOT NULL,
+  recipe_id                   text NOT NULL,
+  nutrition_source            text NOT NULL,
+  title                       text,
+  source                      text,
+  total_nutrients             jsonb,
   total_nutrients_per_serving jsonb,
-  nutri_score     jsonb,
-  source          text
+  nutri_score                 jsonb,
+  nutri_score_breakdown       jsonb,
+  nutrition_profiling_details jsonb,
+  nutrition_profiling_debug   jsonb,
+  trace                       jsonb,
+  pipeline_version            text,
+  mapping_version             text,
+  embedding_model             text,
+  ruleset_version             text,
+  computed_at                 timestamptz DEFAULT now(),
+  updated_at                  timestamptz DEFAULT now(),
+  PRIMARY KEY (recipe_id, nutrition_source)
 );
-ALTER TABLE {table_fq}
-ADD COLUMN IF NOT EXISTS total_nutrients_per_serving jsonb;
 COMMIT;
 """
     )
@@ -251,7 +261,7 @@ COMMIT;
             )
 
             values.append(
-                f"('{recipe_id}','{title_sql}','{total_nutrients_sql}'::jsonb,{per_serving_sql},{nutri_score_sql},'{source_sql}')"
+                f"('{recipe_id}','usda','{title_sql}','{source_sql}','{total_nutrients_sql}'::jsonb,{per_serving_sql},{nutri_score_sql})"
             )
 
         if not values:
@@ -262,16 +272,17 @@ COMMIT;
             f"""
 BEGIN;
 INSERT INTO {table_fq} (
-  recipe_id, title, total_nutrients, total_nutrients_per_serving, nutri_score, source
+  recipe_id, nutrition_source, title, source, total_nutrients, total_nutrients_per_serving, nutri_score
 )
 VALUES
 {values_sql}
-ON CONFLICT (recipe_id) DO UPDATE SET
+ON CONFLICT (recipe_id, nutrition_source) DO UPDATE SET
   title = EXCLUDED.title,
+  source = EXCLUDED.source,
   total_nutrients = EXCLUDED.total_nutrients,
   total_nutrients_per_serving = EXCLUDED.total_nutrients_per_serving,
   nutri_score = EXCLUDED.nutri_score,
-  source = EXCLUDED.source;
+  updated_at = now();
 COMMIT;
 """
         )

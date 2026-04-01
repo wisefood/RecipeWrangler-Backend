@@ -7,6 +7,7 @@ import re
 from langchain.tools import tool
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from recipe_wrangler.schemas import RecipeState
@@ -101,8 +102,16 @@ def parse_recipe_tool(recipe: str) -> dict:
         total_time: float = Field(ge=0)
         serves: int = Field(ge=0)
 
-    llm = ChatGroq(model=model_name, temperature=0.0, max_retries=2)
-    structured_method = os.getenv("PARSE_LLM_STRUCTURED_METHOD", "json_schema").strip() or "json_schema"
+    llm_source = os.getenv("WEIGHT_LLM_SOURCE", "groq").strip().lower()
+    if llm_source == "vllm":
+        base_url = os.getenv("VLLM_BASE_URL", "http://localhost:8007/v1")
+        api_key = os.getenv("VLLM_API_KEY", "none")
+        llm = ChatOpenAI(model=model_name, temperature=0.0, max_retries=2, base_url=base_url, api_key=api_key)
+        structured_method = "function_calling"
+    else:
+        llm = ChatGroq(model=model_name, temperature=0.0, max_retries=2)
+        structured_method = os.getenv("PARSE_LLM_STRUCTURED_METHOD", "json_schema").strip() or "json_schema"
+
     prompt = ChatPromptTemplate.from_messages(
         [
             (
@@ -125,8 +134,7 @@ def parse_recipe_tool(recipe: str) -> dict:
     try:
         result = chain.invoke({"recipe": recipe})
     except Exception as exc:
-        # Some Groq models (e.g. llama-3.1-8b-instant) do not support json_schema
-        # response_format. Fall back to function calling for parser robustness.
+        # Fallback: try function_calling method if json_schema is not supported
         if structured_method == "json_schema" and "response format `json_schema`" in str(exc):
             fallback_chain = prompt | llm.with_structured_output(ParsedRecipe, method="function_calling")
             result = fallback_chain.invoke({"recipe": recipe})

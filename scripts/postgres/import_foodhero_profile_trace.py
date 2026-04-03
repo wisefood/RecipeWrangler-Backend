@@ -5,8 +5,8 @@ Pipeline:
 1) Load data/FoodHero/foodhero_recipes_clean.json
 2) Drop recipes missing duration or serves
 3) Ignore notes
-4) Build raw recipe text
-5) Run Recipe_Profiling_Chain (parse -> weight -> nutrition/sustainability)
+4) Map structured fields directly to pipeline state (no LLM parse step)
+5) Run Weight_Calculator → Recipe_Profiling_Node
 6) Upsert into nutrients-recipe-profiles
 """
 
@@ -16,10 +16,13 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from tqdm import tqdm
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -27,12 +30,17 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from recipe_wrangler.utils.env_loader import load_runtime_env  # noqa: E402
 load_runtime_env()
 
-from recipe_wrangler.tools.recipe_profiling_chain import Recipe_Profiling_Chain  # noqa: E402
+from recipe_wrangler.tools.recipe_profiling_chain import (  # noqa: E402
+    Recipe_Profiling_Chain_Structured,
+    split_ingredient_lines,
+)
+from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals  # noqa: E402
 from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace  # noqa: E402
 
 DEFAULT_INPUT = REPO_ROOT / "data" / "FoodHero" / "foodhero_recipes_clean.json"
 DEFAULT_REGION = "US"
 DEFAULT_SOURCE_LABEL = "FoodHero"
+DEFAULT_FAILURES_OUT = REPO_ROOT / "backups" / "foodhero_profile_failures.json"
 
 
 def _as_text(value: object) -> str:
@@ -78,30 +86,44 @@ def _next_unique_id(seed: str, used: set[str]) -> str:
     raise RuntimeError("Unable to allocate unique 10-digit recipe id.")
 
 
-def _build_raw_recipe_text(recipe: dict[str, Any]) -> str:
-    title = _as_text(recipe.get("title")) or "Untitled Recipe"
-    duration = _as_text(recipe.get("duration"))
-    serves = _as_text(recipe.get("serves"))
-    ingredients = _as_list(recipe.get("ingredients"))
-    instructions = _as_list(recipe.get("instructions"))
+def _duration_minutes(value: object) -> float | None:
+    """Convert duration field (int minutes or string) to float minutes."""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        pass
+    text = _as_text(value)
+    if not text:
+        return None
+    m = re.search(r"(\d+(?:\.\d+)?)", text)
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except ValueError:
+        return None
 
-    lines: list[str] = [title]
-    if serves:
-        lines.append(f"Serves: {serves}")
-    if duration:
-        lines.append(f"Total time: {duration}")
 
-    lines.append("")
-    lines.append("Ingredients:")
-    for item in ingredients:
-        lines.append(f"- {item}")
-
-    lines.append("")
-    lines.append("Instructions:")
-    for idx, step in enumerate(instructions, start=1):
-        lines.append(f"{idx}. {step}")
-
-    return "\n".join(lines).strip()
+def _serves_value(value: object) -> float:
+    """Parse serves from numeric or free-text strings; default to 1.0."""
+    if value is None:
+        return 1.0
+    try:
+        parsed = float(value)
+        return parsed if parsed > 0 else 1.0
+    except (TypeError, ValueError):
+        pass
+    text = _as_text(value)
+    m = re.search(r"(\d+(?:\.\d+)?)", text)
+    if not m:
+        return 1.0
+    try:
+        parsed = float(m.group(1))
+        return parsed if parsed > 0 else 1.0
+    except ValueError:
+        return 1.0
 
 
 def _source_from_region(region: str) -> str:
@@ -115,13 +137,29 @@ def _source_from_region(region: str) -> str:
     raise ValueError(f"Unsupported region '{region}'. Supported: IE, US, HU")
 
 
-def _profile_meta() -> tuple[str, str, str, str]:
-    return (
-        os.getenv("NUTRITION_PROFILE_PIPELINE_VERSION", "v1"),
-        os.getenv("NUTRITION_PROFILE_MAPPING_VERSION", "v1"),
-        os.getenv("NUTRITION_PROFILE_EMBEDDING_MODEL", "default"),
-        os.getenv("NUTRITION_PROFILE_RULESET_VERSION", "v1"),
-    )
+def _profile_meta() -> str:
+    return os.getenv("NUTRITION_PROFILE_PIPELINE_VERSION", "v1")
+
+
+def _iter_prepared(
+    raw: dict[str, Any],
+    limit: int | None,
+) -> tuple[list[tuple[str, dict[str, Any]]], list[str]]:
+    dropped: list[str] = []
+    prepared: list[tuple[str, dict[str, Any]]] = []
+    for title_key, payload in raw.items():
+        if not isinstance(payload, dict):
+            dropped.append(str(title_key))
+            continue
+        if not _has_required_fields(payload):
+            dropped.append(str(title_key))
+            continue
+        recipe = dict(payload)
+        recipe.pop("notes", None)
+        prepared.append((str(title_key), recipe))
+    if limit is not None and limit > 0:
+        prepared = prepared[:limit]
+    return prepared, dropped
 
 
 def run_foodhero_import(
@@ -130,64 +168,68 @@ def run_foodhero_import(
     source_label: str = DEFAULT_SOURCE_LABEL,
     limit: int | None = None,
     dry_run: bool = True,
+    failures_out: Path | None = DEFAULT_FAILURES_OUT,
 ) -> dict[str, Any]:
     raw = json.loads(input_path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("Expected top-level object in FoodHero clean JSON.")
 
-    items = list(raw.items())
-    total_rows = len(items)
-    dropped_missing_required: list[str] = []
-    prepared: list[tuple[str, dict[str, Any]]] = []
-    for title_key, payload in items:
-        if not isinstance(payload, dict):
-            dropped_missing_required.append(str(title_key))
-            continue
-        if not _has_required_fields(payload):
-            dropped_missing_required.append(str(title_key))
-            continue
-        recipe = dict(payload)
-        recipe.pop("notes", None)  # explicitly ignore notes
-        prepared.append((str(title_key), recipe))
-
-    if limit is not None and limit > 0:
-        prepared = prepared[:limit]
+    total_rows = len(raw)
+    prepared, dropped = _iter_prepared(raw, limit)
+    nutrition_source = _source_from_region(region)
+    profile_pipeline_version = _profile_meta()
 
     used_ids: set[str] = set()
-    nutrition_source = _source_from_region(region)
-    (
-        profile_pipeline_version,
-        profile_mapping_version,
-        profile_embedding_model,
-        profile_ruleset_version,
-    ) = _profile_meta()
-
     profiled = 0
     upserted = 0
     failed: list[dict[str, str]] = []
 
-    for title_key, recipe in prepared:
+    bar = tqdm(prepared, desc="FoodHero profiling", unit="recipe")
+    for idx, (title_key, recipe) in enumerate(bar, start=1):
         recipe_id = _next_unique_id(_recipe_seed(title_key, recipe), used_ids)
-        raw_recipe = _build_raw_recipe_text(recipe)
+
+        title = _as_text(recipe.get("title")) or title_key
+        ingredient_lines = _as_list(recipe.get("ingredients"))
+        ingredient_names, measurements = split_ingredient_lines(ingredient_lines)
+        serves = _serves_value(recipe.get("serves"))
+        total_time = _duration_minutes(recipe.get("duration"))
+        directions = _as_list(recipe.get("instructions"))
+
         try:
-            profile_result = Recipe_Profiling_Chain.invoke(
-                {"recipe_text": raw_recipe, "debug": False, "region": region}
-            )
+            profile_result = Recipe_Profiling_Chain_Structured.invoke({
+                "title": title,
+                "ingredient_names": ingredient_names,
+                "measurements": measurements,
+                "serves": serves,
+                "total_time": total_time,
+                "directions": directions,
+                "region": region,
+                "debug": False,
+            })
             if not isinstance(profile_result, dict):
                 raise ValueError("Profiling pipeline returned non-dict payload.")
         except Exception as exc:
             failed.append({"title": title_key, "recipe_id": recipe_id, "error": str(exc)})
+            bar.set_postfix(ok=profiled, upserted=upserted, failed=len(failed))
             continue
 
         profiled += 1
+        nutrition_source_key = profile_result.get("nutrition_source_key") or nutrition_source
+        suffix = f"_{nutrition_source_key}"
+        totals = profile_result.get("profiling_totals") or {}
+        clean_totals = _extract_clean_totals(totals, suffix)
+        clean_per_serving = (
+            {k: v / serves for k, v in clean_totals.items()}
+            if clean_totals and serves else None
+        )
 
         trace_payload = {
             "recipe_id": recipe_id,
-            "title": recipe.get("title") or title_key,
+            "title": title,
             "source": source_label,
             "nutrition_source": profile_result.get("nutrition_source") or nutrition_source,
-            "total_nutrients": profile_result.get("profiling_totals"),
-            "total_nutrients_per_serving": None,
+            "total_nutrients": clean_totals,
+            "total_nutrients_per_serving": clean_per_serving,
             "nutri_score": profile_result.get("nutri_score"),
             "nutri_score_breakdown": profile_result.get("nutri_score_breakdown"),
             "nutrition_profiling_details": profile_result.get("ingredients"),
@@ -197,9 +239,6 @@ def run_foodhero_import(
                 "profile_result": profile_result,
             },
             "pipeline_version": profile_pipeline_version,
-            "mapping_version": profile_mapping_version,
-            "embedding_model": profile_embedding_model,
-            "ruleset_version": profile_ruleset_version,
             "computed_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -207,15 +246,28 @@ def run_foodhero_import(
             upsert_recipe_profiling_trace(trace_payload)
             upserted += 1
 
+        bar.set_postfix(ok=profiled, upserted=upserted, failed=len(failed))
+        if idx % 100 == 0:
+            tqdm.write(
+                f"[progress] processed={idx}/{len(prepared)} ok={profiled} "
+                f"upserted={upserted} failed={len(failed)}"
+            )
+
+    if failures_out is not None:
+        failures_out.parent.mkdir(parents=True, exist_ok=True)
+        failures_out.write_text(
+            json.dumps(failed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
     return {
         "input_rows": total_rows,
-        "dropped_missing_duration_or_serves": len(dropped_missing_required),
-        "dropped_titles": dropped_missing_required,
+        "dropped_missing_duration_or_serves": len(dropped),
+        "dropped_titles_sample": dropped[:20],
         "ready_rows": len(prepared),
         "profiled_rows": profiled,
         "upserted_rows": upserted,
         "failed_rows": len(failed),
-        "failures": failed,
+        "failures_out": str(failures_out) if failures_out is not None else None,
         "dry_run": dry_run,
         "region": region,
         "nutrition_source": nutrition_source,
@@ -229,6 +281,12 @@ def main() -> None:
     parser.add_argument("--region", default=DEFAULT_REGION, choices=["US", "IE", "HU"])
     parser.add_argument("--source-label", default=DEFAULT_SOURCE_LABEL)
     parser.add_argument("--limit", type=int, default=None, help="Optional cap of recipes to process")
+    parser.add_argument(
+        "--failures-out",
+        type=Path,
+        default=DEFAULT_FAILURES_OUT,
+        help="Path to write failed recipe entries as JSON.",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -249,6 +307,7 @@ def main() -> None:
         source_label=args.source_label,
         limit=args.limit,
         dry_run=dry_run,
+        failures_out=args.failures_out,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

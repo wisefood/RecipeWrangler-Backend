@@ -51,3 +51,8 @@ tmp_*.sqlite
 /alembic.ini
 
 /backups
+
+logs/
+*.log
+
+CLAUDE.md

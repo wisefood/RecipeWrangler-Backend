@@ -5,8 +5,8 @@ Pipeline:
 1) Load data/HealthyFoods/HealthyFood_recipes_clean.json
 2) Drop recipes missing duration or serves
 3) Ignore notes
-4) Build raw recipe text
-5) Run Recipe_Profiling_Chain (parse -> weight -> nutrition/sustainability)
+4) Map structured fields directly to pipeline state (no LLM parse step)
+5) Run Weight_Calculator → Recipe_Profiling_Node
 6) Upsert into nutrients-recipe-profiles
 """
 
@@ -29,7 +29,11 @@ from recipe_wrangler.utils.env_loader import load_runtime_env  # noqa: E402
 
 load_runtime_env()
 
-from recipe_wrangler.tools.recipe_profiling_chain import Recipe_Profiling_Chain  # noqa: E402
+from recipe_wrangler.tools.recipe_profiling_chain import (  # noqa: E402
+    Recipe_Profiling_Chain_Structured,
+    split_ingredient_lines,
+)
+from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals  # noqa: E402
 from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace  # noqa: E402
 
 DEFAULT_INPUT = REPO_ROOT / "data" / "HealthyFoods" / "HealthyFood_recipes_clean.json"
@@ -54,30 +58,14 @@ def _has_required_fields(recipe: dict[str, Any]) -> bool:
     return bool(_as_text(recipe.get("duration")) and _as_text(recipe.get("serves")))
 
 
-def _build_raw_recipe_text(recipe: dict[str, Any]) -> str:
-    title = _as_text(recipe.get("title")) or "Untitled Recipe"
-    duration = _as_text(recipe.get("duration"))
-    serves = _as_text(recipe.get("serves"))
-    ingredients = _as_list(recipe.get("ingredients"))
-    instructions = _as_list(recipe.get("instructions"))
-
-    lines: list[str] = [title]
-    if serves:
-        lines.append(f"Serves: {serves}")
-    if duration:
-        lines.append(f"Total time: {duration}")
-
-    lines.append("")
-    lines.append("Ingredients:")
-    for item in ingredients:
-        lines.append(f"- {item}")
-
-    lines.append("")
-    lines.append("Instructions:")
-    for idx, step in enumerate(instructions, start=1):
-        lines.append(f"{idx}. {step}")
-
-    return "\n".join(lines).strip()
+def _duration_minutes(value: object) -> float | None:
+    """Convert duration field (int minutes or string) to float minutes."""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _source_from_region(region: str) -> str:
@@ -91,27 +79,22 @@ def _source_from_region(region: str) -> str:
     raise ValueError(f"Unsupported region '{region}'. Supported: IE, US, HU")
 
 
-def _profile_meta() -> tuple[str, str, str, str]:
-    return (
-        os.getenv("NUTRITION_PROFILE_PIPELINE_VERSION", "v1"),
-        os.getenv("NUTRITION_PROFILE_MAPPING_VERSION", "v1"),
-        os.getenv("NUTRITION_PROFILE_EMBEDDING_MODEL", "default"),
-        os.getenv("NUTRITION_PROFILE_RULESET_VERSION", "v1"),
-    )
+def _profile_meta() -> str:
+    return os.getenv("NUTRITION_PROFILE_PIPELINE_VERSION", "v1")
 
 
 def _iter_prepared(
     raw: dict[str, Any],
     limit: int | None,
 ) -> tuple[list[tuple[str, dict[str, Any]]], list[str]]:
-    dropped_missing_required: list[str] = []
+    dropped: list[str] = []
     prepared: list[tuple[str, dict[str, Any]]] = []
     for title_key, payload in raw.items():
         if not isinstance(payload, dict):
-            dropped_missing_required.append(str(title_key))
+            dropped.append(str(title_key))
             continue
         if not _has_required_fields(payload):
-            dropped_missing_required.append(str(title_key))
+            dropped.append(str(title_key))
             continue
         recipe = dict(payload)
         recipe.pop("notes", None)  # explicitly ignored by request
@@ -119,7 +102,7 @@ def _iter_prepared(
 
     if limit is not None and limit > 0:
         prepared = prepared[:limit]
-    return prepared, dropped_missing_required
+    return prepared, dropped
 
 
 def run_healthyfoods_import(
@@ -135,15 +118,9 @@ def run_healthyfoods_import(
         raise ValueError("Expected top-level object in HealthyFoods clean JSON.")
 
     total_rows = len(raw)
-    prepared, dropped_missing_required = _iter_prepared(raw, limit)
+    prepared, dropped = _iter_prepared(raw, limit)
     nutrition_source = _source_from_region(region)
-
-    (
-        profile_pipeline_version,
-        profile_mapping_version,
-        profile_embedding_model,
-        profile_ruleset_version,
-    ) = _profile_meta()
+    profile_pipeline_version = _profile_meta()
 
     profiled = 0
     upserted = 0
@@ -163,11 +140,24 @@ def run_healthyfoods_import(
             bar.set_postfix(ok=profiled, upserted=upserted, failed=len(failed))
             continue
 
-        raw_recipe = _build_raw_recipe_text(recipe)
+        title = _as_text(recipe.get("title")) or title_key
+        ingredient_lines = _as_list(recipe.get("ingredients"))
+        ingredient_names, measurements = split_ingredient_lines(ingredient_lines)
+        serves = float(recipe.get("serves") or 1)
+        total_time = _duration_minutes(recipe.get("duration"))
+        directions = _as_list(recipe.get("instructions"))
+
         try:
-            profile_result = Recipe_Profiling_Chain.invoke(
-                {"recipe_text": raw_recipe, "debug": False, "region": region}
-            )
+            profile_result = Recipe_Profiling_Chain_Structured.invoke({
+                "title": title,
+                "ingredient_names": ingredient_names,
+                "measurements": measurements,
+                "serves": serves,
+                "total_time": total_time,
+                "directions": directions,
+                "region": region,
+                "debug": False,
+            })
             if not isinstance(profile_result, dict):
                 raise ValueError("Profiling pipeline returned non-dict payload.")
         except Exception as exc:
@@ -176,14 +166,22 @@ def run_healthyfoods_import(
             continue
 
         profiled += 1
+        nutrition_source_key = profile_result.get("nutrition_source_key") or nutrition_source
+        suffix = f"_{nutrition_source_key}"
+        totals = profile_result.get("profiling_totals") or {}
+        clean_totals = _extract_clean_totals(totals, suffix)
+        clean_per_serving = (
+            {k: v / serves for k, v in clean_totals.items()}
+            if clean_totals and serves else None
+        )
 
         trace_payload = {
             "recipe_id": recipe_id,
-            "title": recipe.get("title") or title_key,
+            "title": title,
             "source": source_label,
             "nutrition_source": profile_result.get("nutrition_source") or nutrition_source,
-            "total_nutrients": profile_result.get("profiling_totals"),
-            "total_nutrients_per_serving": None,
+            "total_nutrients": clean_totals,
+            "total_nutrients_per_serving": clean_per_serving,
             "nutri_score": profile_result.get("nutri_score"),
             "nutri_score_breakdown": profile_result.get("nutri_score_breakdown"),
             "nutrition_profiling_details": profile_result.get("ingredients"),
@@ -193,9 +191,6 @@ def run_healthyfoods_import(
                 "profile_result": profile_result,
             },
             "pipeline_version": profile_pipeline_version,
-            "mapping_version": profile_mapping_version,
-            "embedding_model": profile_embedding_model,
-            "ruleset_version": profile_ruleset_version,
             "computed_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -212,12 +207,14 @@ def run_healthyfoods_import(
 
     if failures_out is not None:
         failures_out.parent.mkdir(parents=True, exist_ok=True)
-        failures_out.write_text(json.dumps(failed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        failures_out.write_text(
+            json.dumps(failed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
 
     return {
         "input_rows": total_rows,
-        "dropped_missing_duration_or_serves": len(dropped_missing_required),
-        "dropped_titles_sample": dropped_missing_required[:20],
+        "dropped_missing_duration_or_serves": len(dropped),
+        "dropped_titles_sample": dropped[:20],
         "ready_rows": len(prepared),
         "profiled_rows": profiled,
         "upserted_rows": upserted,

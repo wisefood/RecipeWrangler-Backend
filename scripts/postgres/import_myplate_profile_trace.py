@@ -1,5 +1,24 @@
 #!/usr/bin/env python3
-"""Import MyPlate canonical+nutrition profiling metadata into Postgres trace table."""
+"""Run MyPlate recipes through the profiling pipeline and store results in Postgres.
+
+MyPlate recipes already exist in Neo4j — this script only writes to Postgres.
+No Neo4j writes are performed so there is no risk of duplicate Recipe nodes.
+
+Pipeline per recipe:
+1) Split ingredient lines → ingredient_names + measurements
+2) Run Weight_Calculator → Recipe_Profiling_Node (skip-parse, region=US)
+3) Upsert into nutrients-recipe-profiles with nutrition_source=usda
+
+Usage:
+    # Dry-run (no writes):
+    python3 import_myplate_profile_trace.py
+
+    # Persist to Postgres:
+    python3 import_myplate_profile_trace.py --write
+
+    # Test with first 20 recipes:
+    python3 import_myplate_profile_trace.py --write --limit 20
+"""
 
 from __future__ import annotations
 
@@ -7,196 +26,187 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from recipe_wrangler.utils.env_loader import load_runtime_env  # noqa: E402
+
+load_runtime_env()
+
+os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
+os.environ.setdefault("LANGSMITH_TRACING", "false")
+
+from tqdm import tqdm  # noqa: E402
+
+from recipe_wrangler.tools.recipe_profiling_chain import (  # noqa: E402
+    Recipe_Profiling_Chain_Structured,
+    split_ingredient_lines,
+)
+from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals  # noqa: E402
 from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace  # noqa: E402
 
+DEFAULT_INPUT = REPO_ROOT / "data" / "MyPlate" / "myplate_recipes_clean.json"
+REGION = "US"
+NUTRITION_SOURCE = "usda"
+SOURCE_LABEL = "MyPlate"
+DEFAULT_FAILURES_OUT = REPO_ROOT / "backups" / "myplate_profile_failures.json"
 
-DEFAULT_CANONICAL = REPO_ROOT / "data" / "MyPlate" / "myplate_recipes_with_canonical_ingredients.json"
-DEFAULT_NUTRITION = REPO_ROOT / "data" / "MyPlate" / "myplate_recipes_nutrition_usda_mweight.json"
+
+def _as_text(value: object) -> str:
+    return str(value or "").strip()
 
 
-def _as_id(value: object) -> str | None:
+def _as_list(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(x).strip() for x in value if str(x).strip()]
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    return []
+
+
+def _duration_minutes(value: object) -> float | None:
     if value is None:
         return None
-    text = str(value).strip()
-    return text or None
-
-
-def _norm_name(value: object) -> str:
-    return str(value or "").strip().casefold()
-
-
-def _load_canonical_index(path: Path) -> dict[str, dict[str, Any]]:
-    if not path.exists():
-        return {}
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict):
-        return {}
-    out: dict[str, dict[str, Any]] = {}
-    for entry in raw.values():
-        if not isinstance(entry, dict):
-            continue
-        rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        if rid:
-            out[rid] = entry
-    return out
-
-
-def _load_nutrition_index(path: Path) -> dict[str, dict[str, Any]]:
-    if not path.exists():
-        return {}
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(raw, list):
-        return {}
-    out: dict[str, dict[str, Any]] = {}
-    for entry in raw:
-        if not isinstance(entry, dict):
-            continue
-        rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        if rid:
-            out[rid] = entry
-    return out
-
-
-def _merge_profile_details(
-    canonical_entry: dict[str, Any] | None,
-    nutrition_entry: dict[str, Any] | None,
-) -> list[dict[str, Any]]:
-    canonical_rows = []
-    if isinstance(canonical_entry, dict):
-        raw = canonical_entry.get("canonical_ingredients")
-        if isinstance(raw, list):
-            canonical_rows = [row for row in raw if isinstance(row, dict)]
-
-    details_rows = []
-    if isinstance(nutrition_entry, dict):
-        raw = nutrition_entry.get("details")
-        if isinstance(raw, list):
-            details_rows = [row for row in raw if isinstance(row, dict)]
-
-    canonical_by_name: dict[str, list[dict[str, Any]]] = {}
-    for row in canonical_rows:
-        canonical_by_name.setdefault(_norm_name(row.get("name")), []).append(row)
-
-    merged: list[dict[str, Any]] = []
-    for idx, detail in enumerate(details_rows):
-        ingredient_name = _norm_name(detail.get("ingredient"))
-        canonical_match = None
-        bucket = canonical_by_name.get(ingredient_name) or []
-        if bucket:
-            canonical_match = bucket.pop(0)
-        elif idx < len(canonical_rows):
-            canonical_match = canonical_rows[idx]
-        merged.append(
-            {
-                "ingredient": detail.get("ingredient"),
-                "measurement_raw": (canonical_match or {}).get("measurement"),
-                "parsed_quantity": (canonical_match or {}).get("parsed_quantity"),
-                "parsed_unit": (canonical_match or {}).get("parsed_unit"),
-                "weight_g": detail.get("weight_g", (canonical_match or {}).get("weight_grams")),
-                "weight_source": (canonical_match or {}).get("source"),
-                "weight_match": (canonical_match or {}).get("match"),
-                "matched_nutritional_ingredient": detail.get("matched_nutritional_ingredient"),
-                "nutrition_source": detail.get("source_nutrition") or detail.get("source"),
-                "nutrition_match_source": detail.get("match_source"),
-                "canonical_food_id": detail.get("canonical_food_id"),
-                "similarity": detail.get("similarity"),
-            }
-        )
-    return merged
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--canonical", type=Path, default=DEFAULT_CANONICAL)
-    parser.add_argument("--nutrition", type=Path, default=DEFAULT_NUTRITION)
+    parser.add_argument("--write", action="store_true", help="Persist results to Postgres.")
+    parser.add_argument("--limit", type=int, default=None, help="Max recipes to process.")
     parser.add_argument(
-        "--pipeline-version",
-        default=os.getenv("NUTRITION_PROFILE_PIPELINE_VERSION", "myplate_export_v1"),
+        "--input",
+        type=Path,
+        default=DEFAULT_INPUT,
+        help=f"Path to MyPlate clean JSON (default: {DEFAULT_INPUT})",
     )
     parser.add_argument(
-        "--mapping-version",
-        default=os.getenv("NUTRITION_PROFILE_MAPPING_VERSION", "myplate_canonical_v1"),
-    )
-    parser.add_argument(
-        "--embedding-model",
-        default=os.getenv("NUTRITION_PROFILE_EMBEDDING_MODEL", "usda_embedding"),
-    )
-    parser.add_argument(
-        "--ruleset-version",
-        default=os.getenv("NUTRITION_PROFILE_RULESET_VERSION", "myplate_rules_v1"),
+        "--failures-out",
+        type=Path,
+        default=DEFAULT_FAILURES_OUT,
     )
     args = parser.parse_args()
 
-    canonical_index = _load_canonical_index(args.canonical)
-    nutrition_index = _load_nutrition_index(args.nutrition)
-    all_ids = sorted(set(canonical_index.keys()) | set(nutrition_index.keys()))
+    raw: dict[str, Any] = json.loads(args.input.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise SystemExit("Expected top-level object in MyPlate clean JSON.")
 
-    inserted = 0
-    skipped = 0
-    for rid in all_ids:
-        canonical_entry = canonical_index.get(rid)
-        nutrition_entry = nutrition_index.get(rid)
-        if not isinstance(canonical_entry, dict) and not isinstance(nutrition_entry, dict):
-            skipped += 1
+    recipes = list(raw.items())
+    if args.limit:
+        recipes = recipes[: args.limit]
+
+    pipeline_version = os.getenv("NUTRITION_PROFILE_PIPELINE_VERSION", "v1")
+    profiled = 0
+    upserted = 0
+    failed: list[dict[str, str]] = []
+
+    bar = tqdm(recipes, desc="MyPlate profiling", unit="recipe")
+    for idx, (title_key, recipe) in enumerate(bar, start=1):
+        if not isinstance(recipe, dict):
+            failed.append({"title": title_key, "recipe_id": "", "error": "not a dict"})
             continue
 
-        title = None
-        source = "myplate"
-        if isinstance(canonical_entry, dict):
-            title = canonical_entry.get("title") or title
-            source = str(canonical_entry.get("source") or source)
-        if isinstance(nutrition_entry, dict):
-            title = nutrition_entry.get("title") or title
-            source = str(nutrition_entry.get("source") or source)
+        recipe_id = _as_text(recipe.get("recipe_id") or recipe.get("id"))
+        if not recipe_id:
+            failed.append({"title": title_key, "recipe_id": "", "error": "missing recipe_id"})
+            continue
 
-        details = _merge_profile_details(canonical_entry, nutrition_entry)
-        debug_payload = nutrition_entry.get("debug") if isinstance(nutrition_entry, dict) else None
-        total_nutrients = (
-            nutrition_entry.get("totals_usda")
-            if isinstance(nutrition_entry, dict)
-            else None
-        )
-        total_nutrients_per_serving = (
-            nutrition_entry.get("totals_per_serving_usda")
-            if isinstance(nutrition_entry, dict)
-            else None
-        )
-        nutri_score = nutrition_entry.get("nutri_score") if isinstance(nutrition_entry, dict) else None
+        title = _as_text(recipe.get("title")) or title_key
+        ingredient_lines = _as_list(recipe.get("ingredients"))
+        if not ingredient_lines:
+            failed.append({"title": title_key, "recipe_id": recipe_id, "error": "no ingredients"})
+            continue
 
-        upsert_recipe_profiling_trace(
-            {
-                "recipe_id": rid,
+        ingredient_names, measurements = split_ingredient_lines(ingredient_lines)
+        serves = float(recipe.get("serves") or 4)
+        total_time = _duration_minutes(recipe.get("duration"))
+        directions = _as_list(recipe.get("instructions"))
+
+        try:
+            profile_result = Recipe_Profiling_Chain_Structured.invoke({
                 "title": title,
-                "source": source,
-                "nutrition_source": "usda",
-                "total_nutrients": total_nutrients,
-                "total_nutrients_per_serving": total_nutrients_per_serving,
-                "nutri_score": nutri_score,
-                "nutri_score_breakdown": None,
-                "nutrition_profiling_details": details,
-                "nutrition_profiling_debug": debug_payload if isinstance(debug_payload, dict) else None,
-                "trace": {
-                    "canonical_entry": canonical_entry,
-                    "nutrition_entry": nutrition_entry,
-                },
-                "pipeline_version": args.pipeline_version,
-                "mapping_version": args.mapping_version,
-                "embedding_model": args.embedding_model,
-                "ruleset_version": args.ruleset_version,
-                "computed_at": None,
-            }
-        )
-        inserted += 1
+                "ingredient_names": ingredient_names,
+                "measurements": measurements,
+                "serves": serves,
+                "total_time": total_time,
+                "directions": directions,
+                "region": REGION,
+                "debug": False,
+            })
+            if not isinstance(profile_result, dict):
+                raise ValueError("pipeline returned non-dict")
+        except Exception as exc:
+            failed.append({"title": title_key, "recipe_id": recipe_id, "error": str(exc)})
+            bar.set_postfix(ok=profiled, upserted=upserted, failed=len(failed))
+            continue
 
-    print(f"rows_total={len(all_ids)}")
-    print(f"rows_upserted={inserted}")
-    print(f"rows_skipped={skipped}")
+        profiled += 1
+        nutrition_source_key = profile_result.get("nutrition_source_key") or NUTRITION_SOURCE
+        suffix = f"_{nutrition_source_key}"
+        totals = profile_result.get("profiling_totals") or {}
+        clean_totals = _extract_clean_totals(totals, suffix)
+        clean_per_serving = (
+            {k: v / serves for k, v in clean_totals.items()}
+            if clean_totals and serves
+            else None
+        )
+
+        trace_payload = {
+            "recipe_id": recipe_id,
+            "title": title,
+            "source": SOURCE_LABEL,
+            "nutrition_source": profile_result.get("nutrition_source") or NUTRITION_SOURCE,
+            "total_nutrients": clean_totals,
+            "total_nutrients_per_serving": clean_per_serving,
+            "nutri_score": profile_result.get("nutri_score"),
+            "nutri_score_breakdown": profile_result.get("nutri_score_breakdown"),
+            "nutrition_profiling_details": profile_result.get("ingredients"),
+            "nutrition_profiling_debug": profile_result.get("pipeline_trace"),
+            "trace": {
+                "myplate_recipe": recipe,
+                "profile_result": profile_result,
+            },
+            "pipeline_version": pipeline_version,
+            "computed_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        if args.write:
+            upsert_recipe_profiling_trace(trace_payload)
+            upserted += 1
+
+        bar.set_postfix(ok=profiled, upserted=upserted, failed=len(failed))
+        if idx % 100 == 0:
+            tqdm.write(
+                f"[progress] processed={idx}/{len(recipes)} ok={profiled} "
+                f"upserted={upserted} failed={len(failed)}"
+            )
+
+    if args.failures_out:
+        args.failures_out.parent.mkdir(parents=True, exist_ok=True)
+        args.failures_out.write_text(
+            json.dumps(failed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
+    result = {
+        "input_rows": len(raw),
+        "ready_rows": len(recipes),
+        "profiled_rows": profiled,
+        "upserted_rows": upserted,
+        "failed_rows": len(failed),
+        "failures_out": str(args.failures_out),
+        "dry_run": not args.write,
+        "region": REGION,
+        "nutrition_source": NUTRITION_SOURCE,
+        "source_label": SOURCE_LABEL,
+    }
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

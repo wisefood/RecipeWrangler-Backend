@@ -201,9 +201,6 @@ CREATE TABLE IF NOT EXISTS {table_fq} (
   nutrition_profiling_debug   jsonb,
   trace                       jsonb,
   pipeline_version            text,
-  mapping_version             text,
-  embedding_model             text,
-  ruleset_version             text,
   computed_at                 timestamptz DEFAULT now(),
   updated_at                  timestamptz DEFAULT now(),
   PRIMARY KEY (recipe_id, nutrition_source)

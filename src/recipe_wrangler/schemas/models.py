@@ -192,6 +192,7 @@ class RecipeDetailResponse(BaseModel):
     title: Optional[str]
     source: Optional[str] = None
     image_url: Optional[str] = None
+    edited: Optional[bool] = None
     tags: List[str] = Field(default_factory=list)
     ingredients: List[Dict[str, Any]]
     instructions: List[str]

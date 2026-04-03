@@ -65,6 +65,8 @@ def update_recipe_in_neo4j(
     if image_url is not None:
         set_clauses.append("r.image_url = $image_url")
         params["image_url"] = image_url
+    set_clauses.append("r.edited = true")
+    set_clauses.append("r.edited_at = datetime()")
 
     result = run_query(
         f"MATCH (r:Recipe {{recipe_id: $recipe_id}}) SET {', '.join(set_clauses)} RETURN r.recipe_id AS rid",
@@ -105,7 +107,8 @@ def upsert_recipe_to_neo4j(
                 r.duration    = $duration,
                 r.serves      = $serves,
                 r.image_url   = $image_url,
-                r.instructions = $instructions
+                r.instructions = $instructions,
+                r.edited      = coalesce(r.edited, false)
             """,
             {
                 "recipe_id": recipe_id,

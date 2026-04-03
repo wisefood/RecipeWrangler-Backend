@@ -106,6 +106,7 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
         "title": recipe_props.get("title"),
         "source": recipe_props.get("source"),
         "image_url": recipe_props.get("image_url"),
+        "edited": recipe_props.get("edited"),
         "tags": tags,
         "ingredients": ingredients,
         "instructions": instructions,

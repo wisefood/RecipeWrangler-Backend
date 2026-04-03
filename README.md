@@ -12,12 +12,14 @@ Client
   ▼
 FastAPI (src/recipe_wrangler/api/)
   │
-  ├── GET  /health
-  ├── GET  /api/v1/recipes/autocomplete      → Elasticsearch
-  ├── GET  /api/v1/recipes/{recipe_id}       → Neo4j + PostgreSQL
-  ├── POST /api/v1/recipes/search            → Neo4j + Groq LLM + Elasticsearch (fallback)
-  ├── POST /api/v1/recipes/param_search      → Neo4j
-  └── POST /api/v1/recipes/profile           → Groq LLM + Chroma + PostgreSQL
+  ├── GET   /health
+  ├── GET   /api/v1/recipes/autocomplete      → Elasticsearch
+  ├── GET   /api/v1/recipes/{recipe_id}       → Neo4j + PostgreSQL
+  ├── POST  /api/v1/recipes/search            → Neo4j + Groq LLM + Elasticsearch (fallback)
+  ├── POST  /api/v1/recipes/param_search      → Neo4j
+  ├── POST  /api/v1/recipes/profile           → Groq LLM + Chroma + PostgreSQL
+  ├── POST  /api/v1/recipes/create            → Neo4j + PostgreSQL (profiling pipeline)
+  └── PATCH /api/v1/recipes/{recipe_id}       → Neo4j + Elasticsearch
 
 Services
   ├── Neo4j         – Recipe knowledge graph (recipes, ingredients, allergens, diet tags)
@@ -141,10 +143,13 @@ filters
         ├── NOT EXISTS allergens via HAS_ALLERGEN
         ├── EXISTS diet_tags via HAS_TAG
         └── duration <= max_duration_minutes
-  └── Execute on Neo4j → [{recipe_id, title}]
+  └── Execute on Neo4j → enriched recipe cards
+        └── Attach image_url, duration, serves, nutri_score from PostgreSQL
 ```
 
-**Databases:** Neo4j only.
+Results are ordered with curated sources (HealthyFoods, MyPlate, FoodHero) before recipe1m. Unconstrained queries return a random curated-first selection.
+
+**Databases:** Neo4j, PostgreSQL.
 
 ---
 
@@ -198,6 +203,84 @@ raw_recipe
 
 **Databases:** Chroma (nutrition + sustainability matching), PostgreSQL (nutrient data + trace storage).
 **LLM:** Groq (parsing + weight fallback only).
+
+---
+
+### POST /api/v1/recipes/create
+
+**Purpose:** Create a new recipe and immediately compute its nutrition profile and Nutri-Score.
+
+**Input:**
+```json
+{
+  "title": "Pasta Carbonara",
+  "ingredients": ["100g spaghetti", "2 eggs", "50g bacon", "30g parmesan"],
+  "instructions": ["Cook pasta", "Fry bacon", "Mix and serve"],
+  "serves": 2,
+  "duration": 20,
+  "region": "IE",
+  "image_url": null,
+  "tags": ["gluten-free"],
+  "allergens": ["egg", "milk"]
+}
+```
+
+`region` must be `IE`, `US`, or `HU`. `instructions`, `image_url`, `tags`, `allergens` are optional.
+
+**Flow:**
+```
+ingredients + title
+  └── Profiling pipeline (same as /profile)
+        └── Nutri-Score computed
+              └── Write recipe node to Neo4j
+                    └── Write nutrition trace to PostgreSQL
+                          └── Return {recipe_id, message}
+```
+
+**Databases:** Neo4j (recipe node), PostgreSQL (nutrition trace).
+**LLM:** Groq (weight estimation fallback).
+
+**Example:**
+```bash
+curl -X POST http://localhost:8001/api/v1/recipes/create \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Omelette","ingredients":["2 eggs","10g butter"],"serves":1,"duration":5}'
+```
+
+---
+
+### PATCH /api/v1/recipes/{recipe_id}
+
+**Purpose:** Update mutable fields on an existing recipe.
+
+**Input:**
+```json
+{
+  "instructions": ["Updated step 1", "Updated step 2"],
+  "image_url": "https://example.com/image.jpg"
+}
+```
+
+Both fields are optional. At least one must be provided.
+
+**Flow:**
+```
+recipe_id + fields
+  ├── Neo4j  → update instructions / image_url on Recipe node
+  └── Elasticsearch → reindex image_url if changed
+        └── Return {recipe_id, updated_fields, message}
+```
+
+Returns 404 if the recipe does not exist in Neo4j.
+
+**Databases:** Neo4j, Elasticsearch.
+
+**Example:**
+```bash
+curl -X PATCH http://localhost:8001/api/v1/recipes/3758007968 \
+  -H "Content-Type: application/json" \
+  -d '{"instructions": ["Step 1", "Step 2", "Serve hot"]}'
+```
 
 ---
 
@@ -305,6 +388,15 @@ curl -sS -X POST "$BASE/api/v1/recipes/param_search" \
 curl -sS -X POST "$BASE/api/v1/recipes/profile" \
   -H "Content-Type: application/json" \
   -d '{"raw_recipe": "Pasta\n200g spaghetti\n100g tomatoes\nBoil pasta. Add sauce.", "region": "IE"}'
+
+curl -sS -X POST "$BASE/api/v1/recipes/create" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Omelette", "ingredients": ["2 eggs", "10g butter"], "serves": 1, "duration": 5, "region": "IE"}'
+
+# Use the recipe_id returned by create above
+curl -sS -X PATCH "$BASE/api/v1/recipes/{recipe_id}" \
+  -H "Content-Type: application/json" \
+  -d '{"instructions": ["Beat eggs", "Cook in butter", "Fold and serve"]}'
 ```
 
 ---

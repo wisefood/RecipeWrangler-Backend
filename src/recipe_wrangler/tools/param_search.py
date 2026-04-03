@@ -5,7 +5,6 @@ Constrained queries are deterministic; unconstrained queries return a random pag
 
 from __future__ import annotations
 
-import random
 from typing import Any
 
 from recipe_wrangler.schemas import RecipeSearchFilters
@@ -79,6 +78,7 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
     RETURN
       coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
       r.title AS title
+    ORDER BY CASE WHEN toLower(coalesce(r.source, '')) = 'recipe1m' THEN 1 ELSE 0 END, r.title
     LIMIT $limit
     """
     return query, params
@@ -99,26 +99,34 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> list[dict[str, Any
 
     if _has_no_constraints(filters):
         limit = max(1, min(int(filters.limit), 100))
-        total_rows = run_query("MATCH (r:Recipe) RETURN count(r) AS total")
-        total = int(total_rows[0]["total"]) if total_rows else 0
-        if total == 0:
-            return []
 
-        max_offset = max(total - limit, 0)
-        offset = random.randint(0, max_offset) if max_offset > 0 else 0
-
-        random_page_query = """
-        MATCH (r:Recipe)
-        WITH r
-        ORDER BY elementId(r)
-        SKIP $offset
-        LIMIT $limit
-        RETURN
-          coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
-          r.title AS title
-        """
-        rows = run_query(random_page_query, {"offset": offset, "limit": limit})
-        return [dict(row) for row in rows]
+        # Return a random selection, prioritising curated sources over recipe1m.
+        # First fill from curated sources, then top up with recipe1m if needed.
+        curated_rows = run_query(
+            """
+            MATCH (r:Recipe)
+            WHERE toLower(coalesce(r.source, '')) <> 'recipe1m'
+            RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, r.title AS title
+            ORDER BY rand()
+            LIMIT $limit
+            """,
+            {"limit": limit},
+        )
+        results = [dict(row) for row in curated_rows]
+        if len(results) < limit:
+            remaining = limit - len(results)
+            fallback_rows = run_query(
+                """
+                MATCH (r:Recipe)
+                WHERE toLower(coalesce(r.source, '')) = 'recipe1m'
+                RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, r.title AS title
+                ORDER BY rand()
+                LIMIT $limit
+                """,
+                {"limit": remaining},
+            )
+            results.extend([dict(row) for row in fallback_rows])
+        return results
 
     query, params = build_param_search_cypher(filters)
     rows = run_query(query, params)

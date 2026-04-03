@@ -596,7 +596,7 @@ class RecipeSearchAppV2:
             else "RETURN DISTINCT coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, coalesce(r.title, r.name) AS title, coalesce(r.source, '') AS source"
         )
         query_lines.append(
-            "ORDER BY CASE WHEN toLower(source) = 'myplate' THEN 0 ELSE 1 END, title"
+            "ORDER BY CASE WHEN toLower(coalesce(r.source, '')) = 'recipe1m' THEN 1 ELSE 0 END, title"
         )
         query_lines.append(f"LIMIT {limit}")
         cypher = "\n".join(query_lines)

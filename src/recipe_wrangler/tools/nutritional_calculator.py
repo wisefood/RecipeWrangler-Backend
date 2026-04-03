@@ -513,6 +513,13 @@ def nutritional_tool_chroma(
         else:
             result[per_serving_key] = None
 
+    # Clean keys (no source suffix) — used for consistent postgres storage
+    result["clean_totals"] = {k: float(v) for k, v in totals_map.items()}
+    if serves_value:
+        result["clean_totals_per_serving"] = {
+            k: float(v) / float(serves_value) for k, v in totals_map.items()
+        }
+
     return result
 
 

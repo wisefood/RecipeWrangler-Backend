@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -21,8 +23,12 @@ from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info_by_id,
 )
 from recipe_wrangler.repositories.neo4j_recipes import (
+    detect_allergens_from_names,
     fetch_recipe_image_urls_by_ids,
     fetch_recipe_scores_by_ids,
+    infer_diet_tags,
+    update_recipe_in_neo4j,
+    upsert_recipe_to_neo4j,
 )
 from recipe_wrangler.repositories.postgres_nutrition import (
     get_recipe_nutrition,
@@ -31,27 +37,33 @@ from recipe_wrangler.repositories.postgres_nutrition import (
 )
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
-from recipe_wrangler.tools.recipe_profiling_chain import Recipe_Profiling_Chain
+from recipe_wrangler.repositories.chroma_matchers import query_usda_nutrition_candidates
+
+_USDA_MATCH_THRESHOLD = 0.4
+from recipe_wrangler.tools.recipe_profiling_chain import (
+    Recipe_Profiling_Chain,
+    Recipe_Profiling_Chain_Structured,
+    split_ingredient_lines,
+)
 
 from ..dependencies import get_recipe_search_app
 from recipe_wrangler.schemas import (
-    RecipeSearchRequest,
+    RecipeCreateRequest,
+    RecipeCreateResponse,
+    RecipeDetailResponse,
     RecipeProfileRequest,
     RecipeSearchFilters,
-    RecipeDetailResponse,
+    RecipeSearchRequest,
+    RecipeUpdateRequest,
+    RecipeUpdateResponse,
 )
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
 
-def _profile_meta() -> tuple[str, str, str, str]:
+def _profile_meta() -> str:
     settings = get_settings()
-    return (
-        settings.profile_pipeline_version,
-        settings.profile_mapping_version,
-        settings.profile_embedding_model,
-        settings.profile_ruleset_version,
-    )
+    return settings.profile_pipeline_version
 
 
 def _as_id(value: object) -> str | None:
@@ -62,13 +74,34 @@ def _as_id(value: object) -> str | None:
 
 
 def _as_dict(value: object) -> dict[str, Any] | None:
-    return value if isinstance(value, dict) else None
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
 
 
 def _as_list_of_dicts(value: object) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [row for row in value if isinstance(row, dict)]
+
+
+def _nutrition_source_from_region(region: str | None) -> str | None:
+    if region is None:
+        return None
+    region_norm = str(region).strip().upper()
+    if not region_norm:
+        return None
+    mapping = {"US": "usda", "IE": "irish", "HU": "hungarian"}
+    return mapping.get(region_norm)
 
 
 def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
@@ -476,6 +509,16 @@ def _coerce_nutri_score(nutri_score: object) -> float | None:
     if numeric is not None:
         return numeric
 
+    if isinstance(nutri_score, str):
+        text = nutri_score.strip()
+        if text.startswith("{") and text.endswith("}"):
+            try:
+                parsed = json.loads(text)
+            except Exception:
+                parsed = None
+            if isinstance(parsed, dict):
+                return _coerce_nutri_score(parsed)
+
     if isinstance(nutri_score, dict):
         numeric = _coerce_float(nutri_score.get("score"))
         if numeric is not None:
@@ -499,6 +542,21 @@ def _coerce_nutri_score(nutri_score: object) -> float | None:
         }
         return mapping.get(nutri_score.strip())
 
+    return None
+
+
+def _coerce_nutri_score_payload(nutri_score: object) -> dict[str, Any] | None:
+    if isinstance(nutri_score, dict):
+        return nutri_score
+    if isinstance(nutri_score, str):
+        text = nutri_score.strip()
+        if text.startswith("{") and text.endswith("}"):
+            try:
+                parsed = json.loads(text)
+            except Exception:
+                return None
+            if isinstance(parsed, dict):
+                return parsed
     return None
 
 
@@ -542,12 +600,23 @@ def _build_nutri_score_breakdown(
             continue
         total_weight_g += weight
         canonical_food_id = _as_id(row.get("canonical_food_id"))
-        if canonical_food_id:
+        ingredient_name = row.get("ingredient") or ""
+        usda_id: str | None = None
+        if canonical_food_id and canonical_food_id[:2].isdigit():
+            usda_id = canonical_food_id
+        elif ingredient_name:
+            try:
+                candidates = query_usda_nutrition_candidates(ingredient_name)
+                if candidates and candidates[0].get("distance", 1.0) < _USDA_MATCH_THRESHOLD:
+                    usda_id = candidates[0].get("metadata", {}).get("usda_id")
+            except Exception:
+                pass
+        if usda_id:
             fvl_ingredients.append(
                 {
-                    "name": row.get("ingredient"),
+                    "name": ingredient_name,
                     "weight_grams": weight,
-                    "usda_id": canonical_food_id,
+                    "usda_id": usda_id,
                 }
             )
 
@@ -642,7 +711,13 @@ def recipe_autocomplete(
     tags=["recipes"],
     summary="Retrieve a recipe with full metadata by id",
 )
-def get_recipe(recipe_id: str) -> RecipeDetailResponse:
+def get_recipe(
+    recipe_id: str,
+    region: str | None = Query(
+        default=None,
+        description="Optional nutrition region selector: US, IE, or HU.",
+    ),
+) -> RecipeDetailResponse:
     try:
         recipe = fetch_recipe_info_by_id(recipe_id)
     except Exception as exc:  # noqa: BLE001
@@ -656,15 +731,27 @@ def get_recipe(recipe_id: str) -> RecipeDetailResponse:
     resolved_recipe_id = str(recipe.get("recipe_id") or recipe_id)
     recipe["recipe_id"] = resolved_recipe_id
 
+    preferred_nutrition_source = _nutrition_source_from_region(region)
+
     nutrition = None
     try:
-        nutrition = get_recipe_nutrition(resolved_recipe_id)
+        nutrition = get_recipe_nutrition(
+            resolved_recipe_id,
+            nutrition_source=preferred_nutrition_source,
+        )
+        if not nutrition:
+            nutrition = get_recipe_nutrition(resolved_recipe_id)
     except Exception:
         nutrition = None
 
     stored_trace = None
     try:
-        stored_trace = get_recipe_profile_trace(resolved_recipe_id)
+        stored_trace = get_recipe_profile_trace(
+            resolved_recipe_id,
+            nutrition_source=preferred_nutrition_source,
+        )
+        if not stored_trace:
+            stored_trace = get_recipe_profile_trace(resolved_recipe_id)
     except Exception:
         stored_trace = None
 
@@ -676,7 +763,8 @@ def get_recipe(recipe_id: str) -> RecipeDetailResponse:
                 "total_nutrients": trace_totals,
                 "total_nutrients_per_serving": trace_per_serving,
                 "nutri_score": stored_trace.get("nutri_score"),
-                "source": stored_trace.get("nutrition_source") or stored_trace.get("source"),
+                "source": stored_trace.get("source"),
+                "nutrition_source": stored_trace.get("nutrition_source"),
             }
 
     payload = dict(recipe)
@@ -693,8 +781,9 @@ def get_recipe(recipe_id: str) -> RecipeDetailResponse:
         payload["nutrition_profiling_debug"] = profile_debug
 
     if nutrition:
-        total_nutrients = nutrition.get("total_nutrients")
-        total_nutrients_per_serving = nutrition.get("total_nutrients_per_serving")
+        nutri_score_payload = _coerce_nutri_score_payload(nutrition.get("nutri_score"))
+        total_nutrients = _as_dict(nutrition.get("total_nutrients"))
+        total_nutrients_per_serving = _as_dict(nutrition.get("total_nutrients_per_serving"))
         nutrient_basis = (
             total_nutrients_per_serving
             if isinstance(total_nutrients_per_serving, dict)
@@ -703,7 +792,6 @@ def get_recipe(recipe_id: str) -> RecipeDetailResponse:
         serves = payload.get("serves")
         payload.update(
             {
-                "nutrients": _normalize_nutrients(nutrient_basis),
                 "total_kcal_per_serving": _extract_nutrient_value(
                     nutrient_basis,
                     ["Energy", "Energy (kcal)", "Energy, kcal"],
@@ -745,16 +833,26 @@ def get_recipe(recipe_id: str) -> RecipeDetailResponse:
                     ["Cholesterol"],
                 ),
                 "nutri_score": _coerce_nutri_score(nutrition.get("nutri_score")),
+                "nutri_score_label": (
+                    nutri_score_payload.get("nutri_score")
+                    if isinstance(nutri_score_payload.get("nutri_score"), str)
+                    else None
+                ) if nutri_score_payload else None,
+                "nutri_score_color": (
+                    nutri_score_payload.get("color")
+                    if isinstance(nutri_score_payload.get("color"), str)
+                    else None
+                ) if nutri_score_payload else None,
                 "total_nutrients": total_nutrients,
                 "total_nutrients_per_serving": total_nutrients_per_serving,
-                "nutri_score_raw": nutrition.get("nutri_score"),
                 "nutri_score_breakdown": (
                     (stored_trace or {}).get("nutri_score_breakdown")
                     if isinstance((stored_trace or {}).get("nutri_score_breakdown"), dict)
                     else _build_nutri_score_breakdown(total_nutrients, profile_details)
                 ),
                 "nutrition_source": (
-                    nutrition.get("source")
+                    nutrition.get("nutrition_source")
+                    or nutrition.get("source")
                     or (stored_trace or {}).get("nutrition_source")
                     or (stored_trace or {}).get("source")
                 ),
@@ -810,29 +908,32 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
         return False, "Could not resolve recipe_id for trace persistence."
 
     totals = profile_result.get("profiling_totals")
-    (
-        profile_pipeline_version,
-        profile_mapping_version,
-        profile_embedding_model,
-        profile_ruleset_version,
-    ) = _profile_meta()
+    profile_pipeline_version = _profile_meta()
+
+    # Normalize to clean keys for consistent postgres storage
+    from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals, _CLEAN_TOTAL_KEYS
+    nutrition_source_key = profile_result.get("nutrition_source_key") or ""
+    suffix = f"_{nutrition_source_key}" if nutrition_source_key else ""
+    clean_totals = _extract_clean_totals(totals, suffix) if isinstance(totals, dict) else None
+    clean_per_serving = (
+        {k: v / profile_result.get("serves", 1) for k, v in clean_totals.items()}
+        if clean_totals and profile_result.get("serves")
+        else None
+    )
 
     trace_payload = {
         "recipe_id": recipe_id,
         "title": profile_result.get("title"),
         "source": profile_result.get("source"),
         "nutrition_source": profile_result.get("nutrition_source"),
-        "total_nutrients": totals if isinstance(totals, dict) else None,
-        "total_nutrients_per_serving": None,
+        "total_nutrients": clean_totals,
+        "total_nutrients_per_serving": clean_per_serving,
         "nutri_score": profile_result.get("nutri_score"),
         "nutri_score_breakdown": profile_result.get("nutri_score_breakdown"),
         "nutrition_profiling_details": profile_result.get("ingredients"),
         "nutrition_profiling_debug": profile_result.get("pipeline_trace"),
         "trace": profile_result,
         "pipeline_version": profile_pipeline_version,
-        "mapping_version": profile_mapping_version,
-        "embedding_model": profile_embedding_model,
-        "ruleset_version": profile_ruleset_version,
         "computed_at": datetime.now(timezone.utc).isoformat(),
     }
     save_recipe_profile_trace(trace_payload)
@@ -917,7 +1018,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Neo4j", exc) from exc
 
-    return {"results": results}
+    return {"results": _normalize_search_results(results)}
 
 
 @router.post(
@@ -962,4 +1063,234 @@ async def recipe_profile(
             profile_result["profiling_trace_warning"] = f"Failed to persist trace: {exc}"
 
     # Return the full chain output so clients can access all parsed/profiling fields.
+    # Strip top-level None values — they represent unset pipeline state, not meaningful nulls.
+    profile_result = {k: v for k, v in profile_result.items() if v is not None}
     return {"message": "Success", **profile_result}
+
+
+# ---------------------------------------------------------------------------
+# Recipe creation endpoint
+# ---------------------------------------------------------------------------
+
+def _generate_user_recipe_id(title: str, ingredients: list[str]) -> str:
+    """Deterministic 10-digit ID from title + sorted ingredient strings."""
+    seed = f"user:{title.strip().lower()}:{','.join(sorted(s.strip().lower() for s in ingredients))}"
+    digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()
+    return str(int(digest, 16) % (10**10)).zfill(10)
+
+
+def _index_recipe_to_elastic(
+    recipe_id: str,
+    title: str,
+    ingredient_names: list[str],
+    tags: list[str],
+) -> None:
+    """Index a single recipe document into Elasticsearch (best-effort)."""
+    settings = get_settings()
+    url = f"{settings.elastic_url}/{settings.elastic_index}/_doc/{recipe_id}"
+    doc = {
+        "id": recipe_id,
+        "title": title,
+        "ingredients": ingredient_names,
+        "tags": tags,
+    }
+    requests.put(url, json=doc, timeout=settings.elastic_timeout)
+
+
+@router.post(
+    "/create",
+    response_model=RecipeCreateResponse,
+    tags=["recipes"],
+    summary="Create a new user recipe with nutrition profiling",
+)
+async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
+    """Create a new recipe from structured fields.
+
+    1. Splits raw ingredient strings into names + measurements.
+    2. Runs weight estimation + nutrition profiling (skips LLM parse).
+    3. Auto-detects allergens from ingredient names; merges with user-supplied ones.
+    4. Infers diet tags from allergens; merges with user-supplied tags.
+    5. Writes the recipe and its ingredient/allergen/tag graph to Neo4j.
+    6. Persists the nutrition profile trace to Postgres.
+    7. Indexes the recipe in Elasticsearch for search/autocomplete.
+    """
+    region = str(payload.region or "IE").strip().upper()
+    ingredient_names, measurements = split_ingredient_lines(payload.ingredients)
+    recipe_id = _generate_user_recipe_id(payload.title, payload.ingredients)
+
+    # --- Nutrition profiling ---
+    try:
+        profile_result = Recipe_Profiling_Chain_Structured.invoke({
+            "title": payload.title,
+            "ingredient_names": ingredient_names,
+            "measurements": measurements,
+            "serves": float(payload.serves),
+            "total_time": float(payload.duration),
+            "directions": payload.instructions,
+            "region": region,
+            "debug": False,
+        })
+    except Exception as exc:
+        raise map_dependency_error("Profiling pipeline", exc) from exc
+
+    if not isinstance(profile_result, dict):
+        raise InternalError(
+            detail="Profiling pipeline returned unexpected payload",
+            extra={"title": "ProfilingPipelineError"},
+        )
+
+    # --- Allergen + tag resolution ---
+    auto_allergens = detect_allergens_from_names(ingredient_names)
+    merged_allergens: list[str] = sorted(set(auto_allergens) | set(payload.allergens))
+    auto_tags = infer_diet_tags(set(merged_allergens))
+    merged_tags: list[str] = sorted(set(auto_tags) | set(payload.tags))
+
+    # --- Neo4j write ---
+    try:
+        upsert_recipe_to_neo4j(
+            recipe_id=recipe_id,
+            title=payload.title,
+            ingredient_lines=payload.ingredients,
+            ingredient_names=ingredient_names,
+            measurements=measurements,
+            instructions=payload.instructions,
+            duration=float(payload.duration),
+            serves=float(payload.serves),
+            image_url=payload.image_url,
+            allergens=merged_allergens,
+            tags=merged_tags,
+            source="user",
+        )
+    except Exception as exc:
+        raise map_dependency_error("Neo4j", exc) from exc
+
+    # --- Postgres nutrition trace ---
+    from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals, _resolve_fvl_usda_id
+    from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
+    nutrition_source = _nutrition_source_from_region(region) or "usda"
+    nutrition_source_key = profile_result.get("nutrition_source_key") or nutrition_source
+    totals = profile_result.get("profiling_totals") or {}
+    clean_totals = _extract_clean_totals(totals, f"_{nutrition_source_key}")
+    clean_per_serving = (
+        {k: v / payload.serves for k, v in clean_totals.items()}
+        if clean_totals else None
+    )
+
+    # Compute nutri_score_breakdown immediately (same logic as backfill)
+    nutri_score_breakdown = None
+    if clean_totals:
+        try:
+            prof_ingredients = profile_result.get("ingredients") or []
+            score_ingredients = []
+            total_weight = 0.0
+            for ing in prof_ingredients:
+                if not isinstance(ing, dict):
+                    continue
+                w = ing.get("weight_g") or ing.get("weight_grams")
+                if not w:
+                    continue
+                total_weight += float(w)
+                usda_id = _resolve_fvl_usda_id(ing.get("canonical_food_id"), ing.get("name"))
+                entry = {"name": ing.get("name"), "weight_grams": float(w)}
+                if usda_id:
+                    entry["usda_id"] = usda_id
+                score_ingredients.append(entry)
+            fvl_pct = fruits_veg_legumes_percent(score_ingredients) if score_ingredients else 0.0
+            nutri_score_breakdown = compute_nutri_score_breakdown_from_values(
+                protein_g=clean_totals["protein_g"],
+                carbohydrate_g=clean_totals["carbohydrate_g"],
+                fat_g=clean_totals["fat_g"],
+                energy_kcal=clean_totals["energy_kcal"],
+                sugar_g=clean_totals["sugar_g"],
+                saturated_fat_g=clean_totals["saturated_fat_g"],
+                sodium_mg=clean_totals["sodium_mg"],
+                fibre_g=clean_totals["fibre_g"],
+                fvl_percent=fvl_pct,
+                total_weight_g=total_weight,
+                ingredients_with_usda_id_count=sum(1 for e in score_ingredients if "usda_id" in e),
+            )
+        except Exception:
+            pass
+
+    trace_payload: dict[str, Any] = {
+        "recipe_id": recipe_id,
+        "title": payload.title,
+        "source": "user",
+        "nutrition_source": profile_result.get("nutrition_source") or nutrition_source,
+        "total_nutrients": clean_totals,
+        "total_nutrients_per_serving": clean_per_serving,
+        "nutri_score": profile_result.get("nutri_score"),
+        "nutri_score_breakdown": nutri_score_breakdown,
+        "nutrition_profiling_details": profile_result.get("ingredients"),
+        "nutrition_profiling_debug": profile_result.get("pipeline_trace"),
+        "trace": {"profile_result": profile_result},
+        "pipeline_version": _profile_meta(),
+        "computed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace
+        upsert_recipe_profiling_trace(trace_payload)
+    except Exception:
+        pass  # non-fatal — recipe is in Neo4j, postgres trace is best-effort
+
+    # --- Elasticsearch index ---
+    try:
+        _index_recipe_to_elastic(recipe_id, payload.title, ingredient_names, merged_tags)
+    except Exception:
+        pass  # non-fatal
+
+    return RecipeCreateResponse(recipe_id=recipe_id)
+
+
+@router.patch(
+    "/{recipe_id}",
+    response_model=RecipeUpdateResponse,
+    tags=["recipes"],
+    summary="Update recipe instructions and/or image URL across all stores",
+)
+async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeUpdateResponse:
+    """Patch mutable fields on an existing recipe.
+
+    - **Neo4j**: updates ``instructions`` and/or ``image_url`` on the Recipe node.
+    - **Elasticsearch**: updates the indexed document if ``image_url`` changes
+      (instructions are not indexed).
+    - **Postgres**: nutrition traces are not affected (they store nutrients, not content).
+
+    Returns 404 if the recipe does not exist in Neo4j.
+    """
+    if payload.instructions is None and payload.image_url is None:
+        raise NotFoundError(detail="No fields provided to update")
+
+    updated_fields: list[str] = []
+    if payload.instructions is not None:
+        updated_fields.append("instructions")
+    if payload.image_url is not None:
+        updated_fields.append("image_url")
+
+    # --- Neo4j ---
+    try:
+        found = update_recipe_in_neo4j(
+            recipe_id=recipe_id,
+            instructions=payload.instructions,
+            image_url=payload.image_url,
+        )
+    except Exception as exc:
+        raise map_dependency_error("Neo4j", exc) from exc
+
+    if not found:
+        raise NotFoundError(detail=f"Recipe {recipe_id} not found")
+
+    # --- Elasticsearch (image_url only — instructions are not indexed) ---
+    if payload.image_url is not None:
+        try:
+            settings = get_settings()
+            url = f"{settings.elastic_url}/{settings.elastic_index}/_update/{recipe_id}"
+            requests.post(
+                url,
+                json={"doc": {"image_url": payload.image_url}},
+                timeout=settings.elastic_timeout,
+            )
+        except Exception:
+            pass  # non-fatal
+
+    return RecipeUpdateResponse(recipe_id=recipe_id, updated_fields=updated_fields)

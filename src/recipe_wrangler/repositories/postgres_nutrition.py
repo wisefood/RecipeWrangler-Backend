@@ -14,12 +14,12 @@ from recipe_wrangler.utils.nutrition_postgres import (
 )
 
 
-def get_recipe_nutrition(recipe_id: str) -> Optional[dict]:
-    return fetch_recipe_nutrition_by_id(recipe_id)
+def get_recipe_nutrition(recipe_id: str, nutrition_source: Optional[str] = None) -> Optional[dict]:
+    return fetch_recipe_nutrition_by_id(recipe_id, nutrition_source=nutrition_source)
 
 
-def get_recipe_profile_trace(recipe_id: str) -> Optional[dict]:
-    return fetch_recipe_profiling_trace_by_id(recipe_id)
+def get_recipe_profile_trace(recipe_id: str, nutrition_source: Optional[str] = None) -> Optional[dict]:
+    return fetch_recipe_profiling_trace_by_id(recipe_id, nutrition_source=nutrition_source)
 
 
 def save_recipe_profile_trace(record: dict) -> None:

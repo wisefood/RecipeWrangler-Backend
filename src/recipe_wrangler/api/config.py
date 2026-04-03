@@ -34,9 +34,6 @@ class Settings(BaseSettings):
     cors_allow_origins: List[str] = Field(default_factory=lambda: ["*"], alias="CORS_ALLOW_ORIGINS")
     api_port: int = Field(8001, alias="PORT")
     profile_pipeline_version: str = Field("v1", alias="NUTRITION_PROFILE_PIPELINE_VERSION")
-    profile_mapping_version: str = Field("v1", alias="NUTRITION_PROFILE_MAPPING_VERSION")
-    profile_embedding_model: str = Field("default", alias="NUTRITION_PROFILE_EMBEDDING_MODEL")
-    profile_ruleset_version: str = Field("v1", alias="NUTRITION_PROFILE_RULESET_VERSION")
 
     @field_validator("neo4j_uri")
     def _validate_neo4j_uri(cls, value: str) -> str:  # noqa: N805

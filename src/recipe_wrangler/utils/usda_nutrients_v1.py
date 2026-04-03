@@ -145,41 +145,48 @@ def total_nutrients_for_ingredients(
     return {"nutrients": totals}
 
 
+# USDA SR Legacy NDB number prefixes for fruits/veg/legumes/nuts (Nutri-Score positive)
+_FVLN_PREFIXES = {"09", "11", "12", "16"}
+_OIL_NAMES = {"olive oil", "olive oils", "rapeseed oil", "canola oil", "walnut oil"}
+
+
+def _is_fvln_usda_id(usda_id: str) -> bool:
+    """Return True if the USDA NDB number belongs to a Nutri-Score positive group.
+
+    USDA SR Legacy encodes food group in the first two digits of the NDB number:
+      09 = Fruits and Fruit Juices
+      11 = Vegetables and Vegetable Products
+      12 = Nut and Seed Products
+      16 = Legumes and Legume Products
+    """
+    s = str(usda_id or "").strip()
+    return len(s) >= 2 and s[:2] in _FVLN_PREFIXES
+
+
 def fruits_veg_legumes_percent(
     ingredients: list[dict],
-    links_path: Path = DEFAULT_LINKS,
+    **_kwargs,
 ) -> float:
-    target_groups = {
-        "Fruits and Fruit Juices",
-        "Vegetables and Vegetable Products",
-        "Legumes and Legume Products",
-        "Nut and Seed Products",
-    }
-    oil_names = {
-        "olive oil",
-        "olive oils",
-        "rapeseed oil",
-        "canola oil",
-        "walnut oil",
-    }
+    """Return the % of recipe weight from fruits/veg/legumes/nuts.
+
+    Each ingredient dict must have ``weight_grams`` and ``usda_id`` (USDA NDB
+    number).  Food group is derived from the NDB prefix, so this works for all
+    7 793 USDA SR Legacy items without any external mapping file.
+    """
     total_weight = 0.0
     target_weight = 0.0
     for ingredient in ingredients:
         weight = ingredient.get("weight_grams")
-        usda_id = ingredient.get("usda_id")
-        if weight is None or not usda_id:
+        if weight is None:
             continue
         try:
             weight_f = float(weight)
         except (TypeError, ValueError):
             continue
         total_weight += weight_f
-        link = usda_id_to_link(usda_id, links_path=links_path)
         name_lower = str(ingredient.get("name", "")).strip().lower()
-        if name_lower in oil_names:
-            target_weight += weight_f
-            continue
-        if link and link.get("food_group") in target_groups:
+        usda_id = ingredient.get("usda_id")
+        if name_lower in _OIL_NAMES or (usda_id and _is_fvln_usda_id(usda_id)):
             target_weight += weight_f
     if total_weight == 0.0:
         return 0.0

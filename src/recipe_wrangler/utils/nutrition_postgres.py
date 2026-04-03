@@ -210,7 +210,10 @@ def fetch_ingredient_nutrition_by_usda_id(usda_id: str) -> Optional[dict]:
         raise RuntimeError(f"Failed to fetch ingredient nutrition: {e}") from e
 
 
-def fetch_recipe_nutrition_by_id(recipe_id: str) -> Optional[dict]:
+def fetch_recipe_nutrition_by_id(
+    recipe_id: str,
+    nutrition_source: Optional[str] = None,
+) -> Optional[dict]:
     """
     Return recipe nutrition record from Postgres by recipe id.
 
@@ -231,16 +234,20 @@ def fetch_recipe_nutrition_by_id(recipe_id: str) -> Optional[dict]:
     query_str = f"""
         SELECT row_to_json(t) as data
         FROM (
-            SELECT recipe_id, title, total_nutrients, total_nutrients_per_serving, nutri_score, source
+            SELECT recipe_id, title, total_nutrients, total_nutrients_per_serving, nutri_score, source, nutrition_source
             FROM "{cfg['schema']}"."{cfg['profiles_table']}"
             WHERE recipe_id = :recipe_id
+            {"AND nutrition_source = :nutrition_source" if nutrition_source else ""}
             LIMIT 1
         ) t
     """
 
     try:
         with get_connection() as conn:
-            result = conn.execute(text(query_str), {"recipe_id": str(recipe_id)})
+            params = {"recipe_id": str(recipe_id)}
+            if nutrition_source:
+                params["nutrition_source"] = str(nutrition_source)
+            result = conn.execute(text(query_str), params)
             row = result.fetchone()
 
             if row is None:
@@ -253,9 +260,10 @@ def fetch_recipe_nutrition_by_id(recipe_id: str) -> Optional[dict]:
             query = f"""
                 SELECT row_to_json(t)
                 FROM (
-                    SELECT recipe_id, title, total_nutrients, total_nutrients_per_serving, nutri_score, source
+                    SELECT recipe_id, title, total_nutrients, total_nutrients_per_serving, nutri_score, source, nutrition_source
                     FROM "{cfg['schema']}"."{cfg['profiles_table']}"
                     WHERE recipe_id = '{str(recipe_id).replace("'", "''")}'
+                    {"AND nutrition_source = '" + str(nutrition_source).replace("'", "''") + "'" if nutrition_source else ""}
                     LIMIT 1
                 ) t
             """
@@ -266,7 +274,10 @@ def fetch_recipe_nutrition_by_id(recipe_id: str) -> Optional[dict]:
         raise RuntimeError(f"Failed to fetch recipe nutrition: {e}") from e
 
 
-def fetch_recipe_profiling_trace_by_id(recipe_id: str) -> Optional[dict]:
+def fetch_recipe_profiling_trace_by_id(
+    recipe_id: str,
+    nutrition_source: Optional[str] = None,
+) -> Optional[dict]:
     """
     Return recipe profiling trace from Postgres by recipe id.
 
@@ -289,19 +300,20 @@ def fetch_recipe_profiling_trace_by_id(recipe_id: str) -> Optional[dict]:
                 nutrition_profiling_debug,
                 trace,
                 pipeline_version,
-                mapping_version,
-                embedding_model,
-                ruleset_version,
                 computed_at,
                 updated_at
             FROM "{cfg['schema']}"."{cfg['profiles_table']}"
             WHERE recipe_id = :recipe_id
+            {"AND nutrition_source = :nutrition_source" if nutrition_source else ""}
             LIMIT 1
         ) t
     """
     try:
         with get_connection() as conn:
-            result = conn.execute(text(query_str), {"recipe_id": str(recipe_id)})
+            params = {"recipe_id": str(recipe_id)}
+            if nutrition_source:
+                params["nutrition_source"] = str(nutrition_source)
+            result = conn.execute(text(query_str), params)
             row = result.fetchone()
             if row is None:
                 return None
@@ -324,13 +336,11 @@ def fetch_recipe_profiling_trace_by_id(recipe_id: str) -> Optional[dict]:
                         nutrition_profiling_debug,
                         trace,
                         pipeline_version,
-                        mapping_version,
-                        embedding_model,
-                        ruleset_version,
                         computed_at,
                         updated_at
                     FROM "{cfg['schema']}"."{cfg['profiles_table']}"
                     WHERE recipe_id = '{str(recipe_id).replace("'", "''")}'
+                    {"AND nutrition_source = '" + str(nutrition_source).replace("'", "''") + "'" if nutrition_source else ""}
                     LIMIT 1
                 ) t
             """
@@ -349,7 +359,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
       recipe_id (required), title, source, nutrition_source,
       total_nutrients, total_nutrients_per_serving, nutri_score, nutri_score_breakdown,
       nutrition_profiling_details, nutrition_profiling_debug, trace,
-      pipeline_version, mapping_version, embedding_model, ruleset_version,
+      pipeline_version,
       computed_at (optional, timestamptz-compatible string)
     """
     recipe_id = str(record.get("recipe_id") or "").strip()
@@ -371,9 +381,6 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             nutrition_profiling_debug jsonb,
             trace jsonb,
             pipeline_version text,
-            mapping_version text,
-            embedding_model text,
-            ruleset_version text,
             computed_at timestamptz DEFAULT now(),
             updated_at timestamptz DEFAULT now(),
             PRIMARY KEY (recipe_id, nutrition_source)
@@ -393,9 +400,6 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             nutrition_profiling_debug,
             trace,
             pipeline_version,
-            mapping_version,
-            embedding_model,
-            ruleset_version,
             computed_at,
             updated_at
         )
@@ -412,9 +416,6 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             CAST(:nutrition_profiling_debug AS jsonb),
             CAST(:trace AS jsonb),
             :pipeline_version,
-            :mapping_version,
-            :embedding_model,
-            :ruleset_version,
             COALESCE(CAST(:computed_at AS timestamptz), now()),
             now()
         )
@@ -429,9 +430,6 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             nutrition_profiling_debug = EXCLUDED.nutrition_profiling_debug,
             trace = EXCLUDED.trace,
             pipeline_version = EXCLUDED.pipeline_version,
-            mapping_version = EXCLUDED.mapping_version,
-            embedding_model = EXCLUDED.embedding_model,
-            ruleset_version = EXCLUDED.ruleset_version,
             computed_at = EXCLUDED.computed_at,
             updated_at = now()
     """
@@ -452,9 +450,6 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
         "nutrition_profiling_debug": _as_json(record.get("nutrition_profiling_debug")),
         "trace": _as_json(record.get("trace")),
         "pipeline_version": record.get("pipeline_version"),
-        "mapping_version": record.get("mapping_version"),
-        "embedding_model": record.get("embedding_model"),
-        "ruleset_version": record.get("ruleset_version"),
         "computed_at": record.get("computed_at"),
     }
 

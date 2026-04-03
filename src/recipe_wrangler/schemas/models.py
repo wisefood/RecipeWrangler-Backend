@@ -148,6 +148,43 @@ class RecipeProfileResponse(RecipeState):
     message: str = "Success"
 
 
+class RecipeUpdateRequest(BaseModel):
+    """Payload for patching an existing recipe. All fields are optional."""
+
+    instructions: Optional[List[str]] = None
+    image_url: Optional[str] = None
+
+
+class RecipeUpdateResponse(BaseModel):
+    recipe_id: str
+    updated_fields: List[str]
+    message: str = "Recipe updated successfully"
+
+
+class RecipeCreateRequest(BaseModel):
+    """Payload for creating a new user recipe."""
+
+    title: str = Field(..., min_length=1)
+    ingredients: List[str] = Field(..., min_length=1, description="Raw ingredient strings e.g. '1 cup flour'")
+    instructions: List[str] = Field(default_factory=list)
+    duration: float = Field(..., gt=0, description="Total cooking time in minutes")
+    serves: float = Field(..., gt=0)
+    region: Literal["IE", "US", "HU"] = Field(
+        default="IE",
+        description="Nutrition source region — IE (Irish), US (USDA), HU (Hungarian)",
+    )
+    image_url: Optional[str] = None
+    tags: List[str] = Field(default_factory=list, description="User-supplied diet/category tags")
+    allergens: List[str] = Field(default_factory=list, description="User-supplied allergen labels")
+
+
+class RecipeCreateResponse(BaseModel):
+    """Confirmation returned after a new recipe is created."""
+
+    recipe_id: str
+    message: str = "Recipe created successfully"
+
+
 class RecipeDetailResponse(BaseModel):
     """Detailed recipe representation fetched directly from Neo4j."""
 
@@ -169,11 +206,11 @@ class RecipeDetailResponse(BaseModel):
     total_sodium_mg_per_serving: Optional[float] = None
     total_cholesterol_mg_per_serving: Optional[float] = None
     nutri_score: Optional[float] = None
+    nutri_score_label: Optional[str] = None
+    nutri_score_color: Optional[str] = None
     total_nutrients: Optional[Dict[str, Any]] = None
     total_nutrients_per_serving: Optional[Dict[str, Any]] = None
-    nutri_score_raw: Optional[Any] = None
     nutri_score_breakdown: Optional[Dict[str, Any]] = None
     nutrition_source: Optional[str] = None
-    nutrients: Optional[List[Dict[str, Any]]] = None
     nutrition_profiling_details: Optional[List[Dict[str, Any]]] = None
     nutrition_profiling_debug: Optional[Dict[str, Any]] = None

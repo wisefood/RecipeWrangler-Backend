@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict
 
 try:
@@ -40,7 +41,7 @@ WITH r, i, meas, unit, whole,
         WHEN abs(frac - 0.75)  < 0.01 THEN '3/4'
         ELSE NULL
     END AS fracTxt
-WITH r, i,
+WITH r, i, meas, unit,
     CASE
         WHEN fracTxt IS NULL AND (whole IS NULL OR unit = '') THEN meas
         ELSE trim(
@@ -51,9 +52,14 @@ WITH r, i,
             END + CASE WHEN unit = '' THEN '' ELSE ' ' + unit END
         )
     END AS pretty
-WITH r, i, pretty
+WITH r, i, meas, unit, pretty
 ORDER BY i.name
-WITH r, collect({name: i.name, measurement: pretty}) AS ingredients
+WITH r, collect({
+    name: i.name,
+    quantity: CASE WHEN meas = '' THEN NULL ELSE meas END,
+    unit: CASE WHEN unit = '' THEN NULL ELSE unit END,
+    measurement: pretty
+}) AS ingredients
 OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
 WITH r, ingredients, collect(distinct t.name) AS raw_tags
 RETURN
@@ -80,13 +86,28 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(raw_tags, list):
         tags = [str(tag).strip() for tag in raw_tags if str(tag).strip()]
 
+    raw_ingredients = record.get("ingredients") or []
+    ingredients: list[dict[str, Any]] = []
+    for item in raw_ingredients:
+        if not isinstance(item, dict):
+            continue
+        normalized = dict(item)
+        quantity = normalized.get("quantity")
+        if isinstance(quantity, str):
+            q_text = quantity.strip()
+            # Some rows persist "measurement" as "1.0 tbsp". Keep quantity numeric when possible.
+            match = re.match(r"^\s*([0-9]+(?:\.[0-9]+)?)\b", q_text)
+            if match:
+                normalized["quantity"] = match.group(1)
+        ingredients.append(normalized)
+
     return {
         "recipe_id": recipe_props.get("recipe_id") or recipe_props.get("id"),
         "title": recipe_props.get("title"),
         "source": recipe_props.get("source"),
         "image_url": recipe_props.get("image_url"),
         "tags": tags,
-        "ingredients": record.get("ingredients") or [],
+        "ingredients": ingredients,
         "instructions": instructions,
         "duration": recipe_props.get("duration"),
         "serves": recipe_props.get("serves"),

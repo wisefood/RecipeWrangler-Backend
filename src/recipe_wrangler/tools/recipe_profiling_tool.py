@@ -112,6 +112,46 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 from typing import Any, Dict, List, cast
+from recipe_wrangler.repositories.chroma_matchers import query_usda_nutrition_candidates
+
+_USDA_MATCH_THRESHOLD = 0.4
+_CLEAN_TOTAL_KEYS = [
+    "protein_g", "carbohydrate_g", "fat_g", "energy_kcal",
+    "sugar_g", "saturated_fat_g", "sodium_mg", "fibre_g",
+]
+
+
+def _extract_clean_totals(totals: Dict[str, Any], suffix: str) -> Dict[str, float] | None:
+    """Return totals keyed by clean names (e.g. protein_g) regardless of input format."""
+    # Prefer pre-built clean_totals emitted by nutritional_calculator
+    clean = totals.get("clean_totals")
+    if isinstance(clean, dict) and all(k in clean for k in _CLEAN_TOTAL_KEYS):
+        return {k: float(clean[k]) for k in _CLEAN_TOTAL_KEYS}
+    # Fall back to suffix keys (e.g. total_protein_g_irish)
+    result: Dict[str, float] = {}
+    for key in _CLEAN_TOTAL_KEYS:
+        val = totals.get(f"total_{key}{suffix}")
+        if val is None:
+            return None
+        result[key] = float(val)
+    return result
+
+
+def _resolve_fvl_usda_id(canonical_food_id: str | None, name: str | None) -> str | None:
+    """Return a USDA NDB number for food-group classification (fruit% calculation)."""
+    if canonical_food_id:
+        s = str(canonical_food_id)
+        if len(s) >= 2 and s[:2].isdigit():
+            return s
+    if name:
+        try:
+            candidates = query_usda_nutrition_candidates(name.strip())
+            if candidates and candidates[0].get("distance", 1.0) < _USDA_MATCH_THRESHOLD:
+                return candidates[0].get("metadata", {}).get("usda_id")
+        except Exception:
+            pass
+    return None
+
 
 def _build_total_nutrients_for_score(
     totals: Dict[str, float],
@@ -119,7 +159,10 @@ def _build_total_nutrients_for_score(
     serves: float,
 ) -> Dict[str, Any] | None:
     def _pick_total(metric: str) -> float | None:
-        # Prefer absolute totals if available, fallback to per-serving * serves.
+        # Prefer clean key first, then suffix key, then per-serving * serves fallback.
+        value = totals.get(metric)
+        if value is not None:
+            return float(value)
         total_key = f"total_{metric}{suffix}"
         value = totals.get(total_key)
         if value is not None:
@@ -206,10 +249,15 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     nutri_score_payload: Dict[str, Any] | None = None
     score_input = _build_total_nutrients_for_score(totals, suffix, float(serves))
     if score_input:
-        score_ingredients = [
-            {"name": names[i], "weight_grams": weights[i]}
-            for i in range(min(len(names), len(weights)))
-        ]
+        score_ingredients = []
+        for i in range(min(len(names), len(weights), len(prof_items))):
+            entry: Dict[str, Any] = {"name": names[i], "weight_grams": weights[i]}
+            usda_id = _resolve_fvl_usda_id(
+                prof_items[i].get("canonical_food_id"), names[i]
+            )
+            if usda_id:
+                entry["usda_id"] = usda_id
+            score_ingredients.append(entry)
         maybe_score = compute_nutri_score(score_input, score_ingredients)
         if "error" not in maybe_score:
             nutri_score_payload = maybe_score

@@ -1,5 +1,6 @@
 # Purpose: Runtime Chroma query helpers for ingredients/nutrition/sustainability.
 
+from functools import lru_cache
 from pathlib import Path
 import os
 
@@ -115,6 +116,7 @@ def query_sustainability_db(query: str):
     hits.sort(key=lambda h: h["distance"])
     return hits
 
+@lru_cache(maxsize=4096)
 def query_nutritional_db_irish(query: str):
     """
     Function that queries the chromadb irish nutritional collection with input ingredient
@@ -147,6 +149,7 @@ def query_nutritional_db_irish(query: str):
         hits.append({"document": doc, "metadata": meta, "distance": dist})
     return hits
 
+@lru_cache(maxsize=4096)
 def query_nutritional_db_usda(query: str):
     """
     Function that queries the chromadb USDA nutritional collection with input ingredient
@@ -178,6 +181,7 @@ def query_nutritional_db_usda(query: str):
         hits.append({"document": doc, "metadata": meta, "distance": dist})
     return hits
 
+@lru_cache(maxsize=4096)
 def query_nutritional_db_hungarian(query: str):
     """
     Function that queries the chromadb Hungarian nutritional collection with input ingredient

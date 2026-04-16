@@ -1,6 +1,7 @@
 # Purpose: Estimate ingredient weights (grams) using USDA portion/weight data.
 
 import csv
+import io
 import os
 from functools import lru_cache
 from pathlib import Path
@@ -628,45 +629,50 @@ def _lookup_name_variants(name: str) -> list[str]:
     return variants
 
 
+def _csv_rows_from_path_or_pg(path: Path, pg_name: str) -> list[dict]:
+    """Return CSV rows from Postgres."""
+    from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data
+    return load_pipeline_data(pg_name)
+
+
 @lru_cache(maxsize=1)
 def _load_llm_unit_grams_index() -> dict:
     index_by_name: dict[str, dict[str, Any]] = {}
     index_by_usda_id: dict[str, dict[str, Any]] = {}
     sources = [
-        (FDA_UNIT_GRAMS_CSV_PATH, "fda"),
-        (LLM_UNIT_GRAMS_CSV_PATH, "llm"),
+        (FDA_UNIT_GRAMS_CSV_PATH, "fda", "ingredient_unit_grams_fda"),
+        (LLM_UNIT_GRAMS_CSV_PATH, "llm", "ingredient_unit_grams_llm"),
     ]
-    for path, source_tag in sources:
-        if not path.exists():
+    for path, source_tag, pg_name in sources:
+        rows = _csv_rows_from_path_or_pg(path, pg_name)
+        if not rows:
             continue
-        with path.open("r", encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                ingredient = str(row.get("ingredient") or "").strip()
-                if not ingredient:
-                    continue
-                grams_raw = str(row.get("grams") or "").strip()
-                if not grams_raw or grams_raw.upper() == "NA":
-                    continue
-                try:
-                    grams = float(grams_raw)
-                except ValueError:
-                    continue
-                unit = str(row.get("unit") or row.get("reference_unit") or "").strip()
-                payload = {
-                    "ingredient": ingredient,
-                    "unit": unit,
-                    "grams_per_unit": grams,
-                    "source": source_tag,
-                    "source_file": str(path),
-                    "usda_id": str(row.get("usda_id") or "").strip() or None,
-                }
-                for key in _lookup_name_variants(ingredient):
-                    index_by_name.setdefault(key, payload)
-                usda_id = str(payload.get("usda_id") or "").strip()
-                if usda_id:
-                    # Prefer earlier sources in `sources` order (FDA before LLM).
-                    index_by_usda_id.setdefault(usda_id, payload)
+        for row in rows:
+            ingredient = str(row.get("ingredient") or "").strip()
+            if not ingredient:
+                continue
+            grams_raw = str(row.get("grams") or "").strip()
+            if not grams_raw or grams_raw.upper() == "NA":
+                continue
+            try:
+                grams = float(grams_raw)
+            except ValueError:
+                continue
+            unit = str(row.get("unit") or row.get("reference_unit") or "").strip()
+            payload = {
+                "ingredient": ingredient,
+                "unit": unit,
+                "grams_per_unit": grams,
+                "source": source_tag,
+                "source_file": str(path),
+                "usda_id": str(row.get("usda_id") or "").strip() or None,
+            }
+            for key in _lookup_name_variants(ingredient):
+                index_by_name.setdefault(key, payload)
+            usda_id = str(payload.get("usda_id") or "").strip()
+            if usda_id:
+                # Prefer earlier sources in `sources` order (FDA before LLM).
+                index_by_usda_id.setdefault(usda_id, payload)
     return {"by_name": index_by_name, "by_usda_id": index_by_usda_id}
 
 
@@ -707,12 +713,11 @@ def _measurement_signature(
 @lru_cache(maxsize=1)
 def _load_recipe1m_llm_weight_index() -> dict:
     index: dict[str, dict[str, Any]] = {}
-    if not RECIPE1M_LLM_WEIGHT_CSV_PATH.exists():
+    rows = _csv_rows_from_path_or_pg(RECIPE1M_LLM_WEIGHT_CSV_PATH, "recipe1m_unmatched_ingredient_weights_llm")
+    if not rows:
         return index
 
-    with RECIPE1M_LLM_WEIGHT_CSV_PATH.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
+    for row in rows:
             ingredient = str(row.get("ingredient") or "").strip()
             if not ingredient:
                 continue
@@ -789,13 +794,11 @@ def _lookup_recipe1m_llm_weight_fallback(
 def _load_recipe1m_llm_portion_fallback_index() -> dict:
     by_name_unit: dict[tuple[str, str], dict[str, Any]] = {}
     by_usda_unit: dict[tuple[str, str], dict[str, Any]] = {}
-    path = RECIPE1M_LLM_PORTION_FALLBACK_CSV_PATH
-    if not path.exists():
+    rows = _csv_rows_from_path_or_pg(RECIPE1M_LLM_PORTION_FALLBACK_CSV_PATH, "food_weights_updated")
+    if not rows:
         return {"by_name_unit": by_name_unit, "by_usda_unit": by_usda_unit}
 
-    with path.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
+    for row in rows:
             ingredient = str(row.get("ingredient") or "").strip()
             if not ingredient:
                 continue

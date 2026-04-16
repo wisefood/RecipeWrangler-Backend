@@ -6,19 +6,28 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_WEIGHTS = REPO_ROOT / "data/processed/usda/usda-weights-v2.json"
-DEFAULT_UNIT_VOLUMES = REPO_ROOT / "data/processed/fallbacks/unit_volume_ml_ground_truth.json"
+
+
+DEFAULT_WEIGHTS = Path(":pg:usda-weights-v2")
+DEFAULT_UNIT_VOLUMES = Path(":pg:unit_volume_ml_ground_truth")
+
+
+def _load_data(path: str) -> list | dict:
+    """Load from local file or Postgres depending on path sentinel."""
+    if path.startswith(":pg:"):
+        from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data
+        return load_pipeline_data(path[4:])
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 @lru_cache(maxsize=1)
 def _weights_by_food(weights_path: str) -> dict[str, list[dict]]:
-    data = json.loads(Path(weights_path).read_text(encoding="utf-8"))
+    data = _load_data(weights_path)
     return {str(row["usda_id"]): row.get("portions", []) for row in data if row.get("usda_id")}
 
 @lru_cache(maxsize=1)
 def _weights_by_name(weights_path: str) -> dict[str, list[dict]]:
-    data = json.loads(Path(weights_path).read_text(encoding="utf-8"))
+    data = _load_data(weights_path)
     by_name: dict[str, list[dict]] = {}
     for row in data:
         name = row.get("food_name")
@@ -33,15 +42,18 @@ def _weights_by_name(weights_path: str) -> dict[str, list[dict]]:
 
 @lru_cache(maxsize=1)
 def _weight_rows(weights_path: str) -> list[dict]:
-    return json.loads(Path(weights_path).read_text(encoding="utf-8"))
+    return _load_data(weights_path)
 
 
 @lru_cache(maxsize=1)
 def _unit_volumes_ml(unit_volumes_path: str) -> dict[str, float]:
-    path = Path(unit_volumes_path)
-    if not path.exists():
+    path_str = str(unit_volumes_path)
+    if path_str.startswith(":pg:"):
+        payload = _load_data(path_str)
+    elif not Path(unit_volumes_path).exists():
         return {}
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        payload = json.loads(Path(unit_volumes_path).read_text(encoding="utf-8"))
 
     units_raw = payload.get("units_ml") if isinstance(payload, dict) else payload
     if not isinstance(units_raw, dict):

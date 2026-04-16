@@ -591,12 +591,13 @@ class RecipeSearchAppV2:
         if where_clause:
             query_lines.append(where_clause)
         query_lines.append(
-            f"RETURN DISTINCT coalesce(toString({id_access}), toString(r.id), toString(r.recipe_id)) AS recipe_id, {title_access} AS title, coalesce(r.source, '') AS source"
+            f"RETURN DISTINCT coalesce(toString({id_access}), toString(r.id), toString(r.recipe_id)) AS recipe_id, {title_access} AS title, coalesce(r.source, '') AS source, coalesce(r.has_profile, false) AS has_profile"
             if title_prop
-            else "RETURN DISTINCT coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, coalesce(r.title, r.name) AS title, coalesce(r.source, '') AS source"
+            else "RETURN DISTINCT coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, coalesce(r.title, r.name) AS title, coalesce(r.source, '') AS source, coalesce(r.has_profile, false) AS has_profile"
         )
         query_lines.append(
-            "ORDER BY CASE WHEN toLower(coalesce(r.source, '')) = 'recipe1m' THEN 1 ELSE 0 END, title"
+            "ORDER BY CASE WHEN has_profile THEN 0 ELSE 1 END, "
+            "CASE WHEN r.duration IS NOT NULL AND r.serves IS NOT NULL THEN 0 ELSE 1 END, title"
         )
         query_lines.append(f"LIMIT {limit}")
         cypher = "\n".join(query_lines)

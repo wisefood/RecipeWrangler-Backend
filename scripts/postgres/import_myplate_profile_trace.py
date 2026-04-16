@@ -37,8 +37,10 @@ from recipe_wrangler.utils.env_loader import load_runtime_env  # noqa: E402
 
 load_runtime_env()
 
-os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
-os.environ.setdefault("LANGSMITH_TRACING", "false")
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+os.environ["LANGSMITH_TRACING"] = "false"
+os.environ["LANGCHAIN_API_KEY"] = ""
+os.environ["LANGSMITH_API_KEY"] = ""
 
 from tqdm import tqdm  # noqa: E402
 
@@ -92,6 +94,11 @@ def main() -> None:
         type=Path,
         default=DEFAULT_FAILURES_OUT,
     )
+    parser.add_argument(
+        "--only-missing",
+        action="store_true",
+        help="Skip recipes that already have a usda nutrition row in Postgres.",
+    )
     args = parser.parse_args()
 
     raw: dict[str, Any] = json.loads(args.input.read_text(encoding="utf-8"))
@@ -99,6 +106,26 @@ def main() -> None:
         raise SystemExit("Expected top-level object in MyPlate clean JSON.")
 
     recipes = list(raw.items())
+
+    if args.only_missing:
+        import psycopg2
+        from recipe_wrangler.utils.nutrition_postgres import _get_config
+        cfg = _get_config()
+        conn = psycopg2.connect(host=cfg["db_host"], port=cfg["db_port"], dbname=cfg["db_name"],
+                                user=cfg["db_user"], password=cfg["db_password"])
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT recipe_id FROM "nutrients-recipe-profiles"
+            WHERE source = 'MyPlate' AND nutrition_source = 'usda'
+            AND total_nutrients_per_serving IS NOT NULL AND total_nutrients_per_serving::text != 'null'
+        """)
+        existing = {r[0] for r in cur.fetchall()}
+        conn.close()
+        before = len(recipes)
+        recipes = [(k, v) for k, v in recipes if isinstance(v, dict) and
+                   str(v.get("recipe_id") or v.get("id") or "") not in existing]
+        print(f"[only-missing] {before} total → {len(recipes)} need profiling ({before - len(recipes)} already done)")
+
     if args.limit:
         recipes = recipes[: args.limit]
 

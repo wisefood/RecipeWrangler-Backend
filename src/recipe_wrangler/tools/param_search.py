@@ -78,7 +78,10 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
     RETURN
       coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
       r.title AS title
-    ORDER BY CASE WHEN toLower(coalesce(r.source, '')) = 'recipe1m' THEN 1 ELSE 0 END, r.title
+    ORDER BY
+      CASE WHEN coalesce(r.has_profile, false) THEN 0 ELSE 1 END,
+      CASE WHEN r.duration IS NOT NULL AND r.serves IS NOT NULL THEN 0 ELSE 1 END,
+      r.title
     LIMIT $limit
     """
     return query, params
@@ -100,33 +103,19 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> list[dict[str, Any
     if _has_no_constraints(filters):
         limit = max(1, min(int(filters.limit), 100))
 
-        # Return a random selection, prioritising curated sources over recipe1m.
-        # First fill from curated sources, then top up with recipe1m if needed.
-        curated_rows = run_query(
+        # Unconstrained browse: random from profiled recipes only.
+        # Unprofiled recipe1m recipes are nearly unreachable via browse.
+        rows = run_query(
             """
             MATCH (r:Recipe)
-            WHERE toLower(coalesce(r.source, '')) <> 'recipe1m'
+            WHERE coalesce(r.has_profile, false) = true
             RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, r.title AS title
             ORDER BY rand()
             LIMIT $limit
             """,
             {"limit": limit},
         )
-        results = [dict(row) for row in curated_rows]
-        if len(results) < limit:
-            remaining = limit - len(results)
-            fallback_rows = run_query(
-                """
-                MATCH (r:Recipe)
-                WHERE toLower(coalesce(r.source, '')) = 'recipe1m'
-                RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, r.title AS title
-                ORDER BY rand()
-                LIMIT $limit
-                """,
-                {"limit": remaining},
-            )
-            results.extend([dict(row) for row in fallback_rows])
-        return results
+        return [dict(row) for row in rows]
 
     query, params = build_param_search_cypher(filters)
     rows = run_query(query, params)

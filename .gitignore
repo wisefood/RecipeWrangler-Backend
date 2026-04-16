@@ -51,6 +51,7 @@ tmp_*.sqlite
 /alembic.ini
 
 /backups
+/data_to_send
 
 logs/
 *.log

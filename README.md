@@ -147,7 +147,7 @@ filters
         └── Attach image_url, duration, serves, nutri_score from PostgreSQL
 ```
 
-Results are ordered with curated sources (HealthyFoods, MyPlate, FoodHero) before recipe1m. Unconstrained queries return a random curated-first selection.
+Results are ordered with `has_profile=true` recipes first (those with full nutrition profiles), then the rest. Unconstrained queries return a random profile-first selection.
 
 **Databases:** Neo4j, PostgreSQL.
 

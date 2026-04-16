@@ -1,25 +1,26 @@
 # Purpose: Canonical->USDA link lookup and nutrient cache helpers.
 
-import json
 import os
 from functools import lru_cache
 import re
 from pathlib import Path
 from typing import Optional
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_LINKS = Path(
-    os.getenv(
-        "USDA_LINKS_PATH",
-        str(REPO_ROOT / "data/mappings/recipe1m-usda-links-canonical.json"),
-    )
-)
-DEFAULT_NUTRIENTS = REPO_ROOT / "data/processed/usda/usda-nutrients-v1.json"
+DEFAULT_LINKS = Path(os.getenv("USDA_LINKS_PATH", ":pg:recipe1m-usda-links-canonical"))
+DEFAULT_NUTRIENTS = Path(":pg:usda-nutrients-v1")
+
+
+def _load_data(path: str) -> list:
+    """Load from local file or Postgres depending on path sentinel."""
+    if path.startswith(":pg:"):
+        from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data
+        return load_pipeline_data(path[4:])
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 @lru_cache(maxsize=1)
 def _canonical_links(links_path: str) -> dict[str, dict]:
-    data = json.loads(Path(links_path).read_text(encoding="utf-8"))
+    data = _load_data(links_path)
     return {
         str(row["canonical_id"]): row
         for row in data
@@ -29,7 +30,7 @@ def _canonical_links(links_path: str) -> dict[str, dict]:
 
 @lru_cache(maxsize=1)
 def _usda_nutrients(nutrients_path: str) -> dict[str, dict]:
-    data = json.loads(Path(nutrients_path).read_text(encoding="utf-8"))
+    data = _load_data(nutrients_path)
     return {str(row["usda_id"]): row for row in data if row.get("usda_id")}
 
 

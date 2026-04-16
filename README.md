@@ -13,13 +13,14 @@ Client
 FastAPI (src/recipe_wrangler/api/)
   │
   ├── GET   /health
-  ├── GET   /api/v1/recipes/autocomplete      → Elasticsearch
-  ├── GET   /api/v1/recipes/{recipe_id}       → Neo4j + PostgreSQL
-  ├── POST  /api/v1/recipes/search            → Neo4j + Groq LLM + Elasticsearch (fallback)
-  ├── POST  /api/v1/recipes/param_search      → Neo4j
-  ├── POST  /api/v1/recipes/profile           → Groq LLM + Chroma + PostgreSQL
-  ├── POST  /api/v1/recipes/                  → Neo4j + PostgreSQL (profiling pipeline)
-  └── PATCH /api/v1/recipes/{recipe_id}       → Neo4j + Elasticsearch
+  ├── GET   /api/v1/recipes/autocomplete                  → Elasticsearch
+  ├── GET   /api/v1/recipes/{recipe_id}                   → Neo4j + PostgreSQL
+  ├── POST  /api/v1/recipes/search                        → Neo4j + Groq LLM + Elasticsearch (fallback)
+  ├── POST  /api/v1/recipes/param_search                  → Neo4j
+  ├── POST  /api/v1/recipes/profile                       → Groq LLM + Chroma + PostgreSQL
+  ├── POST  /api/v1/recipes/create                        → Neo4j + PostgreSQL (profiling pipeline)
+  ├── POST  /api/v1/recipes/{recipe_id}/substitute        → Neo4j + Chroma + PostgreSQL
+  └── PATCH /api/v1/recipes/{recipe_id}                   → Neo4j + Elasticsearch
 
 Services
   ├── Neo4j         – Recipe knowledge graph (recipes, ingredients, allergens, diet tags)
@@ -249,6 +250,56 @@ curl -X POST http://localhost:8001/api/v1/recipes/ \
 
 ---
 
+### POST /api/v1/recipes/{recipe_id}/substitute
+
+**Purpose:** Find the best substitute for a given ingredient in a recipe and return the full nutrition profile of the modified recipe.
+
+**Input:**
+```json
+{
+  "ingredient": "butter",
+  "region": "IE"
+}
+```
+
+`region` must be `IE`, `US`, or `HU`. Defaults to `IE`.
+
+**Flow:**
+```
+recipe_id + ingredient
+  │
+  ├── Neo4j → fetch recipe (title, ingredients, measurements, serves)
+  │
+  ├── Substitution lookup (in order):
+  │     1. HAS_SUBSTITUTION edges (MISKG-curated) — exact name match
+  │     2. HAS_SUBSTITUTION edges (MISKG-curated) — single-word-qualifier variants
+  │          e.g. "salted butter", "clarified butter" for query "butter"
+  │     3. FoodOn taxonomy — progressive depth (1 hop, then 2, then 3)
+  │          stops at the tightest ancestor that yields results
+  │
+  ├── 404 if no substitutes found
+  │
+  ├── Swap ingredient name in recipe (keep original measurement)
+  │
+  └── Re-profile with Recipe_Profiling_Chain_Structured (no LLM parse)
+        → Chroma + PostgreSQL nutrition lookup
+        → Nutri-Score recomputed
+        → Return original_ingredient, substitute, candidates, modified nutrition profile
+```
+
+**Databases:** Neo4j (recipe + substitution graph), Chroma (nutrition matching), PostgreSQL (nutrient data).
+
+**Returns:** `original_ingredient`, `substitute` (best pick), `substitution_source` (`graph_direct` or `foodon_taxonomy`), `candidates` (all found), `modified_recipe_profile` (full profiling output).
+
+**Example:**
+```bash
+curl -X POST http://localhost:8001/api/v1/recipes/dfe70383db/substitute \
+  -H "Content-Type: application/json" \
+  -d '{"ingredient": "butter", "region": "IE"}'
+```
+
+---
+
 ### PATCH /api/v1/recipes/{recipe_id}
 
 **Purpose:** Update mutable fields on an existing recipe.
@@ -397,6 +448,10 @@ curl -sS -X POST "$BASE/api/v1/recipes/" \
 curl -sS -X PATCH "$BASE/api/v1/recipes/{recipe_id}" \
   -H "Content-Type: application/json" \
   -d '{"instructions": ["Beat eggs", "Cook in butter", "Fold and serve"]}'
+
+curl -sS -X POST "$BASE/api/v1/recipes/{recipe_id}/substitute" \
+  -H "Content-Type: application/json" \
+  -d '{"ingredient": "butter", "region": "IE"}'
 ```
 
 ---

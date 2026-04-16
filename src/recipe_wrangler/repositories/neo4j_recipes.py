@@ -69,7 +69,7 @@ def update_recipe_in_neo4j(
     set_clauses.append("r.edited_at = datetime()")
 
     result = run_query(
-        f"MATCH (r:Recipe {{recipe_id: $recipe_id}}) SET {', '.join(set_clauses)} RETURN r.recipe_id AS rid",
+        f"MATCH (r:Recipe) WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id SET {', '.join(set_clauses)} RETURN coalesce(r.recipe_id, r.id) AS rid",
         params,
     )
     return bool(result)

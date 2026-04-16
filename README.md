@@ -18,7 +18,7 @@ FastAPI (src/recipe_wrangler/api/)
   ├── POST  /api/v1/recipes/search            → Neo4j + Groq LLM + Elasticsearch (fallback)
   ├── POST  /api/v1/recipes/param_search      → Neo4j
   ├── POST  /api/v1/recipes/profile           → Groq LLM + Chroma + PostgreSQL
-  ├── POST  /api/v1/recipes/create            → Neo4j + PostgreSQL (profiling pipeline)
+  ├── POST  /api/v1/recipes/                  → Neo4j + PostgreSQL (profiling pipeline)
   └── PATCH /api/v1/recipes/{recipe_id}       → Neo4j + Elasticsearch
 
 Services
@@ -206,7 +206,7 @@ raw_recipe
 
 ---
 
-### POST /api/v1/recipes/create
+### POST /api/v1/recipes/
 
 **Purpose:** Create a new recipe and immediately compute its nutrition profile and Nutri-Score.
 
@@ -242,7 +242,7 @@ ingredients + title
 
 **Example:**
 ```bash
-curl -X POST http://localhost:8001/api/v1/recipes/create \
+curl -X POST http://localhost:8001/api/v1/recipes/ \
   -H "Content-Type: application/json" \
   -d '{"title":"Omelette","ingredients":["2 eggs","10g butter"],"serves":1,"duration":5}'
 ```
@@ -389,7 +389,7 @@ curl -sS -X POST "$BASE/api/v1/recipes/profile" \
   -H "Content-Type: application/json" \
   -d '{"raw_recipe": "Pasta\n200g spaghetti\n100g tomatoes\nBoil pasta. Add sauce.", "region": "IE"}'
 
-curl -sS -X POST "$BASE/api/v1/recipes/create" \
+curl -sS -X POST "$BASE/api/v1/recipes/" \
   -H "Content-Type: application/json" \
   -d '{"title": "Omelette", "ingredients": ["2 eggs", "10g butter"], "serves": 1, "duration": 5, "region": "IE"}'
 

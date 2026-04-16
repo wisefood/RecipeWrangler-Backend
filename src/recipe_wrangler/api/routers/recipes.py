@@ -1100,6 +1100,12 @@ def _index_recipe_to_elastic(
 @router.post(
     "/create",
     response_model=RecipeCreateResponse,
+    include_in_schema=False,
+    deprecated=True,
+)
+@router.post(
+    "/",
+    response_model=RecipeCreateResponse,
     tags=["recipes"],
     summary="Create a new user recipe with nutrition profiling",
 )

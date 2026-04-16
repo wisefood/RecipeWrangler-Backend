@@ -162,6 +162,12 @@ def install_error_handler(app: FastAPI) -> None:
     """
     @app.exception_handler(APIException)
     async def handle_api_exception(request: Request, exc: APIException):
+        level = 30 if exc.status_code < 500 else 40  # WARNING for 4xx, ERROR for 5xx
+        log.log(
+            level,
+            f"{request.method} {request.url.path} -> {exc.status_code} [{getattr(exc, 'code', None)}] {exc.detail}",
+            exc_info=exc.status_code >= 500,
+        )
         return _to_simple_response(request, exc)
 
     @app.exception_handler(RequestValidationError)
@@ -171,11 +177,15 @@ def install_error_handler(app: FastAPI) -> None:
             errors=exc.errors(),
             extra={"title": "RequestValidationError"},
         )
+        log.warning(
+            f"{request.method} {request.url.path} -> 422 [request/unprocessable] {exc.errors()}",
+        )
         return _to_simple_response(request, data_error)
 
     @app.exception_handler(Exception)
     async def handle_unexpected(request: Request, exc: Exception):
         from recipe_wrangler.api.exceptions import APIException as _APIException
+        log.exception(f"{request.method} {request.url.path} -> 500 [unhandled {type(exc).__name__}]")
         internal = _APIException.from_unexpected(exc)
         return _to_simple_response(request, internal)
 

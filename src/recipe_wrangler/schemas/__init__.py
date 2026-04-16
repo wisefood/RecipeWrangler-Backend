@@ -13,6 +13,8 @@ from .models import (
     RecipeSearchRequest,
     RecipeSearchResponse,
     RecipeState,
+    RecipeSubstituteRequest,
+    RecipeSubstituteResponse,
 )
 
 __all__ = [
@@ -30,4 +32,6 @@ __all__ = [
     "RecipeSearchRequest",
     "RecipeSearchResponse",
     "RecipeState",
+    "RecipeSubstituteRequest",
+    "RecipeSubstituteResponse",
 ]

@@ -185,6 +185,26 @@ class RecipeCreateResponse(BaseModel):
     message: str = "Recipe created successfully"
 
 
+class RecipeSubstituteRequest(BaseModel):
+    """Payload for the ingredient substitution endpoint."""
+
+    ingredient: str = Field(..., min_length=1, description="Name of the ingredient to substitute")
+    region: Literal["IE", "US", "HU"] = Field(
+        default="IE",
+        description="Nutrition source region for the re-profiling step",
+    )
+
+
+class RecipeSubstituteResponse(BaseModel):
+    """Response from the ingredient substitution endpoint."""
+
+    original_ingredient: str
+    substitute: str
+    substitution_source: Literal["graph_direct", "foodon_taxonomy"]
+    candidates: List[str]
+    modified_recipe_profile: Dict[str, Any]
+
+
 class RecipeDetailResponse(BaseModel):
     """Detailed recipe representation fetched directly from Neo4j."""
 

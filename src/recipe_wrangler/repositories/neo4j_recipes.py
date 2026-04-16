@@ -208,6 +208,74 @@ _ALLERGEN_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+def find_ingredient_substitutes(ingredient_name: str) -> dict[str, Any]:
+    """Return substitution candidates for an ingredient.
+
+    Lookup order:
+      1. HAS_SUBSTITUTION edges (MISKG-curated, most reliable).
+      2. FoodOn taxonomy siblings (3-hop ancestor, broader coverage).
+
+    Returns a dict with keys:
+      - ``candidates``: ordered list of substitute ingredient names (may be empty)
+      - ``source``: "graph_direct" | "foodon_taxonomy" | None
+    """
+    # --- Priority 1a: MISKG HAS_SUBSTITUTION — exact name match ---
+    direct_query = """
+    MATCH (i:Ingredient)
+    WHERE toLower(i.name) = toLower($name)
+    MATCH (i)-[:HAS_SUBSTITUTION]->(sub:Ingredient)
+    RETURN sub.name AS name
+    LIMIT 10
+    """
+    rows = run_query(direct_query, {"name": ingredient_name})
+    candidates = [r["name"] for r in rows if r.get("name")]
+    if candidates:
+        return {"candidates": candidates, "source": "graph_direct"}
+
+    # --- Priority 1b: MISKG HAS_SUBSTITUTION — single-word-qualifier variant match ---
+    # Catches true modifiers: "salted butter", "unsalted butter", "clarified butter".
+    # Rejects compound ingredients like "unsweetened apple butter" or "creamy peanut butter"
+    # by requiring the variant name to be exactly two words (one qualifier + the ingredient).
+    variant_query = """
+    MATCH (i:Ingredient)
+    WHERE toLower(i.name) ENDS WITH (' ' + toLower($name))
+      AND size(split(i.name, ' ')) = 2
+    MATCH (i)-[:HAS_SUBSTITUTION]->(sub:Ingredient)
+    WHERE toLower(sub.name) <> toLower($name)
+    RETURN sub.name AS name, count(*) AS freq
+    ORDER BY freq DESC
+    LIMIT 10
+    """
+    rows = run_query(variant_query, {"name": ingredient_name})
+    candidates = [r["name"] for r in rows if r.get("name")]
+    if candidates:
+        return {"candidates": candidates, "source": "graph_direct"}
+
+    # --- Priority 2: FoodOn taxonomy — tightest fit first ---
+    # Try 1 hop up, then 2, then 3. Stop at the first depth that yields
+    # results so substitutes stay as close in the taxonomy as possible.
+    taxonomy_query_tmpl = """
+    MATCH (i:Ingredient)
+    WHERE toLower(i.name) = toLower($name)
+    MATCH (i)-[:HAS_CLASS]->(c:FoodOnClass)
+    MATCH (c)-[:SUBCLASS_OF*{depth}]->(ancestor:FoodOnClass)
+    MATCH (sib:FoodOnClass)-[:SUBCLASS_OF*1..{depth}]->(ancestor)
+    WHERE sib <> c
+    MATCH (cand:Ingredient)-[:HAS_CLASS]->(sib)
+    WHERE toLower(cand.name) <> toLower($name)
+    RETURN DISTINCT cand.name AS name
+    LIMIT 10
+    """
+    for depth in [1, 2, 3]:
+        query = taxonomy_query_tmpl.replace("{depth}", str(depth))
+        rows = run_query(query, {"name": ingredient_name})
+        candidates = [r["name"] for r in rows if r.get("name")]
+        if candidates:
+            return {"candidates": candidates, "source": "foodon_taxonomy"}
+
+    return {"candidates": [], "source": None}
+
+
 def detect_allergens_from_names(ingredient_names: list[str]) -> list[str]:
     """Return allergen labels present in the ingredient name list (keyword match)."""
     found: set[str] = set()

@@ -198,6 +198,46 @@ def _build_total_nutrients_for_score(
     }
 
 
+def _build_nutrition_summary(totals: Dict[str, Any], suffix: str, serves: float) -> Dict[str, Any]:
+    """Return a flat dict with human-readable nutrient names and per-serving values."""
+    def _get(key: str) -> float | None:
+        v = totals.get(f"total_{key}{suffix}")
+        if v is None:
+            v = totals.get(f"total_{key}_per_serving{suffix}")
+            if v is not None and serves > 0:
+                return float(v)
+        return float(v) if v is not None else None
+
+    def _per_serving(key: str) -> float | None:
+        v = totals.get(f"total_{key}_per_serving{suffix}")
+        if v is None:
+            total = _get(key)
+            if total is not None and serves > 0:
+                return total / serves
+        return float(v) if v is not None else None
+
+    return {
+        "energy_kcal": _get("energy_kcal"),
+        "energy_kcal_per_serving": _per_serving("energy_kcal"),
+        "protein_g": _get("protein_g"),
+        "protein_g_per_serving": _per_serving("protein_g"),
+        "carbohydrate_g": _get("carbohydrate_g"),
+        "carbohydrate_g_per_serving": _per_serving("carbohydrate_g"),
+        "fat_g": _get("fat_g"),
+        "fat_g_per_serving": _per_serving("fat_g"),
+        "sugar_g": _get("sugar_g"),
+        "sugar_g_per_serving": _per_serving("sugar_g"),
+        "saturated_fat_g": _get("saturated_fat_g"),
+        "saturated_fat_g_per_serving": _per_serving("saturated_fat_g"),
+        "sodium_mg": _get("sodium_mg"),
+        "sodium_mg_per_serving": _per_serving("sodium_mg"),
+        "fibre_g": _get("fibre_g"),
+        "fibre_g_per_serving": _per_serving("fibre_g"),
+        "serves": serves,
+        "nutrition_source": suffix.lstrip("_"),
+    }
+
+
 def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     """
     ode that runs nutrition + sustainability profiling for the recipe and writes the merged ingredient details, 
@@ -241,6 +281,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "source": nutrition_source,
     }
 
+    directions: List[str] = list(state.directions or [])
     profile: Dict[str, Any] = Recipe_Profiling_Tool(payload)
     totals: Dict[str, float] = cast(Dict[str, float], profile.get("totals", {}))
     prof_items: List[Dict[str, Any]] = cast(List[Dict[str, Any]], profile.get("ingredients", []))
@@ -297,7 +338,13 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
 
         # keep entire tool output (optional, handy for debugging)
-        "full_profile": profile,
+        "full_profile": {
+            **profile,
+            "directions": directions,
+            "nutrition_summary": _build_nutrition_summary(totals, suffix, serves),
+            "nutri_score": nutri_score_payload,
+            "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
+        },
     }
     for key, value in out.items():
         setattr(state, key, value)

@@ -51,9 +51,14 @@ def update_recipe_in_neo4j(
     recipe_id: str,
     instructions: list[str] | None = None,
     image_url: str | None = None,
+    source_id: str | None = None,
+    expert_recipe: bool | None = None,
+    title: str | None = None,
+    allergens: list[str] | None = None,
+    duration: float | None = None,
 ) -> bool:
     """Patch mutable fields on an existing Recipe node. Returns False if not found."""
-    if instructions is None and image_url is None:
+    if all(v is None for v in [instructions, image_url, source_id, expert_recipe, title, allergens, duration]):
         return True  # nothing to do
 
     set_clauses = []
@@ -65,6 +70,18 @@ def update_recipe_in_neo4j(
     if image_url is not None:
         set_clauses.append("r.image_url = $image_url")
         params["image_url"] = image_url
+    if source_id is not None:
+        set_clauses.append("r.source_id = $source_id")
+        params["source_id"] = source_id
+    if expert_recipe is not None:
+        set_clauses.append("r.expert_recipe = $expert_recipe")
+        params["expert_recipe"] = expert_recipe
+    if title is not None:
+        set_clauses.append("r.title = $title")
+        params["title"] = title
+    if duration is not None:
+        set_clauses.append("r.duration = $duration")
+        params["duration"] = duration
     set_clauses.append("r.edited = true")
     set_clauses.append("r.edited_at = datetime()")
 
@@ -72,7 +89,36 @@ def update_recipe_in_neo4j(
         f"MATCH (r:Recipe) WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id SET {', '.join(set_clauses)} RETURN coalesce(r.recipe_id, r.id) AS rid",
         params,
     )
-    return bool(result)
+    if not result:
+        return False
+
+    if allergens is not None:
+        with driver.session() as session:
+            # Remove all existing allergen edges from this recipe's ingredients, then re-add
+            session.run(
+                """
+                MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)-[rel:HAS_ALLERGEN]->(:Allergen)
+                WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
+                DELETE rel
+                """,
+                {"recipe_id": recipe_id},
+            )
+            for allergen in allergens:
+                session.run(
+                    """
+                    MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)
+                    WHERE (r.recipe_id = $recipe_id OR r.id = $recipe_id)
+                      AND any(k IN $keywords WHERE toLower(i.name) CONTAINS k)
+                    MERGE (al:Allergen {name: $allergen})
+                    MERGE (i)-[:HAS_ALLERGEN]->(al)
+                    """,
+                    {
+                        "recipe_id": recipe_id,
+                        "allergen": allergen,
+                        "keywords": _ALLERGEN_KEYWORDS.get(allergen, [allergen]),
+                    },
+                )
+    return True
 
 
 def upsert_recipe_to_neo4j(
@@ -88,6 +134,8 @@ def upsert_recipe_to_neo4j(
     allergens: list[str],
     tags: list[str],
     source: str = "user",
+    source_id: str | None = None,
+    expert_recipe: bool = False,
 ) -> None:
     """Write (or update) a recipe and its ingredient/allergen/tag graph in Neo4j.
 
@@ -101,19 +149,23 @@ def upsert_recipe_to_neo4j(
         session.run(
             """
             MERGE (r:Recipe {recipe_id: $recipe_id})
-            SET r.title       = $title,
-                r.source      = $source,
-                r.status      = 'active',
-                r.duration    = $duration,
-                r.serves      = $serves,
-                r.image_url   = $image_url,
-                r.instructions = $instructions,
-                r.edited      = coalesce(r.edited, false)
+            SET r.title         = $title,
+                r.source        = $source,
+                r.source_id     = $source_id,
+                r.expert_recipe = $expert_recipe,
+                r.status        = 'active',
+                r.duration      = $duration,
+                r.serves        = $serves,
+                r.image_url     = $image_url,
+                r.instructions  = $instructions,
+                r.edited        = coalesce(r.edited, false)
             """,
             {
                 "recipe_id": recipe_id,
                 "title": title,
                 "source": source,
+                "source_id": source_id,
+                "expert_recipe": expert_recipe,
                 "duration": duration,
                 "serves": serves,
                 "image_url": image_url,

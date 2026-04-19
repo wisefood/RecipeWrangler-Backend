@@ -15,14 +15,16 @@ ENCODE_KWARGS = {"batch_size": DEFAULT_BATCH_SIZE}
 
 @lru_cache(maxsize=None)
 def _get_embedder(model_name: str = DEFAULT_MODEL_NAME) -> HuggingFaceEmbeddings:
-    """
-    Load the embedding model once and cache it (keyed by model name).
-    """
+    """Load the embedding model once and cache it (keyed by model name)."""
     return HuggingFaceEmbeddings(
         model_name=model_name or DEFAULT_MODEL_NAME,
         model_kwargs=MODEL_KWARGS,
         encode_kwargs=ENCODE_KWARGS,
     )
+
+# Eagerly warm the default model at import time so the first request doesn't pay
+# the cold-start penalty and workers don't each reload it on their first query.
+_get_embedder(DEFAULT_MODEL_NAME)
 
 def get_embeddings(text: str, model_name: Optional[str] = None) -> List[float]:
     """

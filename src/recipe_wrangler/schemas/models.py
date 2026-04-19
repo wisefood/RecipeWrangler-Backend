@@ -140,6 +140,13 @@ class RecipeProfileRequest(BaseModel):
         default=True,
         description="Whether to persist profiling trace metadata into Postgres.",
     )
+    parse_only: bool = Field(
+        default=False,
+        description=(
+            "When true, skip weight estimation and nutrition profiling. "
+            "Returns only the parsed title, ingredient_names, measurements, directions, total_time, and serves."
+        ),
+    )
 
 
 class RecipeProfileResponse(RecipeState):
@@ -153,6 +160,11 @@ class RecipeUpdateRequest(BaseModel):
 
     instructions: Optional[List[str]] = None
     image_url: Optional[str] = None
+    source_id: Optional[str] = None
+    expert_recipe: Optional[bool] = None
+    title: Optional[str] = None
+    allergens: Optional[List[str]] = None
+    duration: Optional[float] = Field(default=None, gt=0)
 
 
 class RecipeUpdateResponse(BaseModel):
@@ -174,6 +186,8 @@ class RecipeCreateRequest(BaseModel):
         description="Nutrition source region — IE (Irish), US (USDA), HU (Hungarian)",
     )
     image_url: Optional[str] = None
+    source_id: Optional[str] = Field(default=None, description="UUID of the source from the sources microservice")
+    expert_recipe: bool = Field(default=False, description="Whether this recipe has been reviewed and annotated by a nutrition expert")
     tags: List[str] = Field(default_factory=list, description="User-supplied diet/category tags")
     allergens: List[str] = Field(default_factory=list, description="User-supplied allergen labels")
 
@@ -211,6 +225,8 @@ class RecipeDetailResponse(BaseModel):
     recipe_id: Optional[str]
     title: Optional[str]
     source: Optional[str] = None
+    source_id: Optional[str] = None
+    expert_recipe: bool = False
     image_url: Optional[str] = None
     edited: Optional[bool] = None
     tags: List[str] = Field(default_factory=list)

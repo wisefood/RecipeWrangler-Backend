@@ -1083,6 +1083,42 @@ async def recipe_profile(
     if region not in {"IE", "US", "HU"}:
         region = "US"
 
+    if payload.parse_only:
+        from recipe_wrangler.tools.parse_recipe_tool import parse_recipe_tool
+        try:
+            parsed = parse_recipe_tool.invoke({"recipe": raw_recipe})
+        except Exception as exc:
+            raise map_dependency_error("Parse pipeline", exc) from exc
+        names = parsed.get("ingredient_names") or []
+        measurements = parsed.get("measurements") or []
+        ingredients = [
+            f"{m} {n}".strip() if m else n
+            for n, m in zip(names, measurements)
+        ]
+        total_time = parsed.get("total_time") or 0
+        serves = parsed.get("serves") or 0
+        try:
+            auto_allergens = detect_allergens_from_names(names)
+            auto_tags = list(infer_diet_tags(set(auto_allergens)))
+        except Exception:
+            auto_allergens, auto_tags = [], []
+        return {
+            "message": "Success",
+            # fields matching RecipeCreateRequest directly
+            "title": parsed.get("title"),
+            "ingredients": ingredients,
+            "instructions": parsed.get("directions") or [],
+            "duration": total_time if total_time > 0 else None,
+            "serves": serves if serves > 0 else None,
+            "allergens": auto_allergens,
+            "tags": auto_tags,
+            # also expose split form for display/editing
+            "ingredient_names": names,
+            "measurements": measurements,
+            "directions": parsed.get("directions") or [],
+            "total_time": total_time if total_time > 0 else None,
+        }
+
     try:
         profile_result = Recipe_Profiling_Chain.invoke(
             {"recipe_text": raw_recipe, "debug": False, "region": region}
@@ -1212,6 +1248,8 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
             allergens=merged_allergens,
             tags=merged_tags,
             source="user",
+            source_id=payload.source_id,
+            expert_recipe=payload.expert_recipe,
         )
     except Exception as exc:
         raise map_dependency_error("Neo4j", exc) from exc
@@ -1422,14 +1460,11 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
 
     Returns 404 if the recipe does not exist in Neo4j.
     """
-    if payload.instructions is None and payload.image_url is None:
+    patchable = ("instructions", "image_url", "source_id", "expert_recipe", "title", "allergens", "duration")
+    if all(getattr(payload, f) is None for f in patchable):
         raise NotFoundError(detail="No fields provided to update")
 
-    updated_fields: list[str] = []
-    if payload.instructions is not None:
-        updated_fields.append("instructions")
-    if payload.image_url is not None:
-        updated_fields.append("image_url")
+    updated_fields = [f for f in patchable if getattr(payload, f) is not None]
 
     # --- Neo4j ---
     try:
@@ -1437,6 +1472,11 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
             recipe_id=recipe_id,
             instructions=payload.instructions,
             image_url=payload.image_url,
+            source_id=payload.source_id,
+            expert_recipe=payload.expert_recipe,
+            title=payload.title,
+            allergens=payload.allergens,
+            duration=payload.duration,
         )
     except Exception as exc:
         raise map_dependency_error("Neo4j", exc) from exc

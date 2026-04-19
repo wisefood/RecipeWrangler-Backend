@@ -21,4 +21,10 @@ def get_chroma_client() -> chromadb.ClientAPI:
     global _client
     if _client is None:
         _client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
+        # chromadb 0.4.x sends request bodies via `data=json.dumps(...)` which
+        # omits Content-Type: application/json. Newer server versions require it.
+        try:
+            _client._server._session.headers.update({"Content-Type": "application/json"})
+        except AttributeError:
+            pass
     return _client

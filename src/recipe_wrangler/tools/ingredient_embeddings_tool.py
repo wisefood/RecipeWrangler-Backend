@@ -36,19 +36,21 @@ def _batched(items: List[Any], n: int):
 def _find_existing_by_name(col, names: list[str]) -> dict[str, tuple[str, dict]]:
     """
     Return a mapping: ingredient_name -> (id, metadata)
-    Uses metadata.name to locate existing items.
+    Uses the name as the document ID (consistent with upsert logic below).
     """
     existing: dict[str, tuple[str, dict]] = {}
+    if not names:
+        return existing
 
     res = col.get(
-        where={"name": {"$in": names}},
-        include=["metadatas", "documents"],  # <-- drop "ids"
+        ids=names,
+        include=["metadatas", "documents"],
     )
-    ids = res.get("ids", [])                # ids are still present in the response
+    ids = res.get("ids", [])
     metas = res.get("metadatas", [])
     docs = res.get("documents", [])
     for _id, meta, doc in zip(ids, metas, docs):
-        key = (meta or {}).get("name") or doc
+        key = (meta or {}).get("name") or doc or _id
         if key:
             existing[key] = (_id, meta or {})
     return existing

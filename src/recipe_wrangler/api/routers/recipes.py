@@ -1085,7 +1085,26 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Neo4j", exc) from exc
 
-    return {"results": _normalize_search_results(results)}
+    cards = []
+    for row in results:
+        if not isinstance(row, dict):
+            cards.append(row)
+            continue
+        nutri_score = row.get("nutri_score")
+        cards.append({
+            "recipe_id": row.get("recipe_id"),
+            "title": row.get("title"),
+            "source": row.get("source"),
+            "source_id": row.get("source_id"),
+            "image_url": row.get("image_url"),
+            "duration": row.get("duration"),
+            "serves": row.get("serves"),
+            "nutri_score": nutri_score,
+            "nutri_score_color": _nutri_color_from_score(nutri_score),
+            "sust_score": row.get("sust_score"),
+            "expert_recipe": row.get("expert_recipe", False),
+        })
+    return {"results": cards}
 
 
 @router.post(

@@ -77,8 +77,17 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
     {where_clause}
     RETURN
       coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
-      r.title AS title
+      r.title AS title,
+      r.source AS source,
+      r.source_id AS source_id,
+      r.image_url AS image_url,
+      r.duration AS duration,
+      r.serves AS serves,
+      r.nutriscore AS nutri_score,
+      r.totalsustainabilityperserving AS sust_score,
+      coalesce(r.expert_recipe, false) AS expert_recipe
     ORDER BY
+      CASE WHEN coalesce(r.expert_recipe, false) THEN 0 ELSE 1 END,
       CASE WHEN coalesce(r.has_profile, false) THEN 0 ELSE 1 END,
       CASE WHEN r.duration IS NOT NULL AND r.serves IS NOT NULL THEN 0 ELSE 1 END,
       r.title
@@ -109,7 +118,17 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> list[dict[str, Any
             """
             MATCH (r:Recipe)
             WHERE coalesce(r.has_profile, false) = true
-            RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, r.title AS title
+            RETURN
+              coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
+              r.title AS title,
+              r.source AS source,
+              r.source_id AS source_id,
+              r.image_url AS image_url,
+              r.duration AS duration,
+              r.serves AS serves,
+              r.nutriscore AS nutri_score,
+              r.totalsustainabilityperserving AS sust_score,
+              coalesce(r.expert_recipe, false) AS expert_recipe
             ORDER BY rand()
             LIMIT $limit
             """,

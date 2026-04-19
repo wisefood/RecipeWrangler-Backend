@@ -257,7 +257,7 @@ def query_common_units_db(query: str):
     collection = client.get_collection(name=COLLECTION_NAME)
 
     from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
-    vec = get_embeddings(query, model_name ="sentence-transformers/all-MiniLM-L6-v2") 
+    vec = get_embeddings(query)
 
     results = collection.query(
         query_embeddings=[vec],

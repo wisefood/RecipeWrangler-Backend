@@ -1,6 +1,6 @@
 """
 Seed the Chroma 'common_units' collection from a small CSV.
-Embeddings use sentence-transformers/all-MiniLM-L6-v2 (dim=384) via get_embeddings.
+Embeddings use the model configured via EMBED_MODEL_NAME env var.
 """
 
 from pathlib import Path
@@ -14,7 +14,6 @@ from recipe_wrangler.utils.get_embeddings import get_embeddings
 HERE = Path(__file__).resolve().parent
 CSV_PATH = HERE.parent / "data" / "common_units.csv"
 COLLECTION_NAME = "common_units"
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 def load_rows(path: Path) -> List[Dict[str, Any]]:
@@ -54,7 +53,7 @@ def main():
     metadatas = [to_meta(r) for r in rows]
 
     embeddings = [
-        get_embeddings(doc, model_name=MODEL_NAME) for doc in documents
+        get_embeddings(doc) for doc in documents
     ]
 
     collection.upsert(ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)

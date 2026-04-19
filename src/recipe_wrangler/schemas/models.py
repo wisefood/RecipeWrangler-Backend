@@ -219,6 +219,22 @@ class RecipeSubstituteResponse(BaseModel):
     modified_recipe_profile: Dict[str, Any]
 
 
+class RecipeCardResponse(BaseModel):
+    """Slim recipe representation for card/list rendering — no nutrition data."""
+
+    recipe_id: Optional[str]
+    title: Optional[str]
+    source: Optional[str] = None
+    source_id: Optional[str] = None
+    expert_recipe: bool = False
+    image_url: Optional[str] = None
+    duration: Optional[float] = None
+    serves: Optional[float] = None
+    tags: List[str] = Field(default_factory=list)
+    nutri_score_label: Optional[str] = None
+    nutri_score_color: Optional[str] = None
+
+
 class RecipeDetailResponse(BaseModel):
     """Detailed recipe representation fetched directly from Neo4j."""
 

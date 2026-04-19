@@ -49,6 +49,7 @@ from recipe_wrangler.tools.recipe_profiling_chain import (
 
 from ..dependencies import get_recipe_search_app
 from recipe_wrangler.schemas import (
+    RecipeCardResponse,
     RecipeCreateRequest,
     RecipeCreateResponse,
     RecipeDetailResponse,
@@ -710,7 +711,7 @@ def recipe_autocomplete(
 
 @router.get(
     "/{recipe_id}",
-    response_model=RecipeDetailResponse,
+    response_model=None,
     tags=["recipes"],
     summary="Retrieve a recipe with full metadata by id",
 )
@@ -720,7 +721,11 @@ def get_recipe(
         default=None,
         description="Optional nutrition region selector: US, IE, or HU.",
     ),
-) -> RecipeDetailResponse:
+    slim: bool = Query(
+        default=False,
+        description="When true, return only card-level fields (no nutrition data).",
+    ),
+) -> RecipeDetailResponse | RecipeCardResponse:
     try:
         recipe = fetch_recipe_info_by_id(recipe_id)
     except Exception as exc:  # noqa: BLE001
@@ -733,6 +738,22 @@ def get_recipe(
     # canonical recipe_id, so prefer the resolved recipe_id from Neo4j when available.
     resolved_recipe_id = str(recipe.get("recipe_id") or recipe_id)
     recipe["recipe_id"] = resolved_recipe_id
+
+    if slim:
+        nutri_score_str = recipe.get("nutri_score")
+        return RecipeCardResponse(
+            recipe_id=resolved_recipe_id,
+            title=recipe.get("title"),
+            source=recipe.get("source"),
+            source_id=recipe.get("source_id"),
+            expert_recipe=bool(recipe.get("expert_recipe", False)),
+            image_url=recipe.get("image_url"),
+            duration=recipe.get("duration"),
+            serves=recipe.get("serves"),
+            tags=recipe.get("tags") or [],
+            nutri_score_label=nutri_score_str if isinstance(nutri_score_str, str) else None,
+            nutri_score_color=_nutri_color_from_score(nutri_score_str),
+        )
 
     preferred_nutrition_source = _nutrition_source_from_region(region)
 

@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 
 import requests
 from fastapi import APIRouter, Query
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
 from recipe_wrangler.api.exceptions import (
+    DataError,
     InternalError,
     NotFoundError,
 )
@@ -1195,10 +1196,9 @@ async def recipe_profile(
 # ---------------------------------------------------------------------------
 
 def _generate_user_recipe_id(title: str, ingredients: list[str]) -> str:
-    """Deterministic 10-digit ID from title + sorted ingredient strings."""
-    seed = f"user:{title.strip().lower()}:{','.join(sorted(s.strip().lower() for s in ingredients))}"
-    digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()
-    return str(int(digest, 16) % (10**10)).zfill(10)
+    """Generate a UUID for a newly created user recipe."""
+    _ = (title, ingredients)  # keep signature compatibility for existing call sites
+    return str(uuid4())
 
 
 def _index_recipe_to_elastic(
@@ -1235,7 +1235,7 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
     """Create a new recipe from structured fields.
 
     1. Splits raw ingredient strings into names + measurements.
-    2. Runs weight estimation + nutrition profiling (skips LLM parse).
+    2. Either uses provided total nutrient values (if complete), or runs weight estimation + profiling.
     3. Auto-detects allergens from ingredient names; merges with user-supplied ones.
     4. Infers diet tags from allergens; merges with user-supplied tags.
     5. Writes the recipe and its ingredient/allergen/tag graph to Neo4j.
@@ -1245,27 +1245,109 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
     region = str(payload.region or "IE").strip().upper()
     ingredient_names, measurements = split_ingredient_lines(payload.ingredients)
     recipe_id = _generate_user_recipe_id(payload.title, payload.ingredients)
+    nutrition_source = _nutrition_source_from_region(region) or "usda"
 
-    # --- Nutrition profiling ---
-    try:
-        profile_result = Recipe_Profiling_Chain_Structured.invoke({
-            "title": payload.title,
-            "ingredient_names": ingredient_names,
-            "measurements": measurements,
-            "serves": float(payload.serves),
-            "total_time": float(payload.duration),
-            "directions": payload.instructions,
-            "region": region,
-            "debug": False,
-        })
-    except Exception as exc:
-        raise map_dependency_error("Profiling pipeline", exc) from exc
+    manual_nutrients: dict[str, float | None] = {
+        "protein_g": payload.protein_g,
+        "carbohydrate_g": payload.carbohydrate_g,
+        "fat_g": payload.fat_g,
+        "energy_kcal": payload.energy_kcal,
+        "sugar_g": payload.sugar_g,
+        "saturated_fat_g": payload.saturated_fat_g,
+        "sodium_mg": payload.sodium_mg,
+        "fibre_g": payload.fibre_g,
+    }
+    provided_manual_count = sum(1 for v in manual_nutrients.values() if v is not None)
+    has_manual_nutrients = provided_manual_count == len(manual_nutrients)
+    has_partial_manual_nutrients = 0 < provided_manual_count < len(manual_nutrients)
 
-    if not isinstance(profile_result, dict):
-        raise InternalError(
-            detail="Profiling pipeline returned unexpected payload",
-            extra={"title": "ProfilingPipelineError"},
+    if has_partial_manual_nutrients:
+        raise DataError(
+            detail=(
+                "Manual nutrients must include all fields or none: "
+                "protein_g, carbohydrate_g, fat_g, energy_kcal, sugar_g, "
+                "saturated_fat_g, sodium_mg, fibre_g."
+            ),
+            extra={"title": "IncompleteManualNutrients"},
         )
+
+    profile_result: dict[str, Any] | None = None
+    clean_totals: dict[str, float] | None = None
+    clean_per_serving: dict[str, float] | None = None
+    nutri_score_breakdown: dict[str, Any] | None = None
+
+    if has_manual_nutrients:
+        clean_totals = {k: float(v) for k, v in manual_nutrients.items() if v is not None}
+        clean_per_serving = {
+            k: v / payload.serves for k, v in clean_totals.items()
+        }
+    else:
+        # --- Nutrition profiling ---
+        try:
+            profile_result = Recipe_Profiling_Chain_Structured.invoke({
+                "title": payload.title,
+                "ingredient_names": ingredient_names,
+                "measurements": measurements,
+                "serves": float(payload.serves),
+                "total_time": float(payload.duration),
+                "directions": payload.instructions,
+                "region": region,
+                "debug": False,
+            })
+        except Exception as exc:
+            raise map_dependency_error("Profiling pipeline", exc) from exc
+
+        if not isinstance(profile_result, dict):
+            raise InternalError(
+                detail="Profiling pipeline returned unexpected payload",
+                extra={"title": "ProfilingPipelineError"},
+            )
+
+        from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals, _resolve_fvl_usda_id
+        from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
+
+        nutrition_source_key = profile_result.get("nutrition_source_key") or nutrition_source
+        totals = profile_result.get("profiling_totals") or {}
+        clean_totals = _extract_clean_totals(totals, f"_{nutrition_source_key}")
+        clean_per_serving = (
+            {k: v / payload.serves for k, v in clean_totals.items()}
+            if clean_totals else None
+        )
+
+        # Compute nutri_score_breakdown immediately (same logic as backfill)
+        if clean_totals:
+            try:
+                prof_ingredients = profile_result.get("ingredients") or []
+                score_ingredients = []
+                total_weight = 0.0
+                for ing in prof_ingredients:
+                    if not isinstance(ing, dict):
+                        continue
+                    w = ing.get("weight_g") or ing.get("weight_grams")
+                    if not w:
+                        continue
+                    total_weight += float(w)
+                    usda_id = _resolve_fvl_usda_id(ing.get("canonical_food_id"), ing.get("name"))
+                    entry = {"name": ing.get("name"), "weight_grams": float(w)}
+                    if usda_id:
+                        entry["usda_id"] = usda_id
+                    score_ingredients.append(entry)
+                fvl_pct = fruits_veg_legumes_percent(score_ingredients) if score_ingredients else 0.0
+                nutri_score_breakdown = compute_nutri_score_breakdown_from_values(
+                    protein_g=clean_totals["protein_g"],
+                    carbohydrate_g=clean_totals["carbohydrate_g"],
+                    fat_g=clean_totals["fat_g"],
+                    energy_kcal=clean_totals["energy_kcal"],
+                    sugar_g=clean_totals["sugar_g"],
+                    saturated_fat_g=clean_totals["saturated_fat_g"],
+                    sodium_mg=clean_totals["sodium_mg"],
+                    fibre_g=clean_totals["fibre_g"],
+                    fvl_percent=fvl_pct,
+                    total_weight_g=total_weight,
+                    ingredients_with_usda_id_count=sum(1 for e in score_ingredients if "usda_id" in e),
+                )
+            except Exception:
+                pass
 
     # --- Allergen + tag resolution ---
     auto_allergens = detect_allergens_from_names(ingredient_names)
@@ -1294,66 +1376,28 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
     except Exception as exc:
         raise map_dependency_error("Neo4j", exc) from exc
 
-    # --- Postgres nutrition trace ---
-    from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals, _resolve_fvl_usda_id
-    from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
-    nutrition_source = _nutrition_source_from_region(region) or "usda"
-    nutrition_source_key = profile_result.get("nutrition_source_key") or nutrition_source
-    totals = profile_result.get("profiling_totals") or {}
-    clean_totals = _extract_clean_totals(totals, f"_{nutrition_source_key}")
-    clean_per_serving = (
-        {k: v / payload.serves for k, v in clean_totals.items()}
-        if clean_totals else None
-    )
-
-    # Compute nutri_score_breakdown immediately (same logic as backfill)
-    nutri_score_breakdown = None
-    if clean_totals:
-        try:
-            prof_ingredients = profile_result.get("ingredients") or []
-            score_ingredients = []
-            total_weight = 0.0
-            for ing in prof_ingredients:
-                if not isinstance(ing, dict):
-                    continue
-                w = ing.get("weight_g") or ing.get("weight_grams")
-                if not w:
-                    continue
-                total_weight += float(w)
-                usda_id = _resolve_fvl_usda_id(ing.get("canonical_food_id"), ing.get("name"))
-                entry = {"name": ing.get("name"), "weight_grams": float(w)}
-                if usda_id:
-                    entry["usda_id"] = usda_id
-                score_ingredients.append(entry)
-            fvl_pct = fruits_veg_legumes_percent(score_ingredients) if score_ingredients else 0.0
-            nutri_score_breakdown = compute_nutri_score_breakdown_from_values(
-                protein_g=clean_totals["protein_g"],
-                carbohydrate_g=clean_totals["carbohydrate_g"],
-                fat_g=clean_totals["fat_g"],
-                energy_kcal=clean_totals["energy_kcal"],
-                sugar_g=clean_totals["sugar_g"],
-                saturated_fat_g=clean_totals["saturated_fat_g"],
-                sodium_mg=clean_totals["sodium_mg"],
-                fibre_g=clean_totals["fibre_g"],
-                fvl_percent=fvl_pct,
-                total_weight_g=total_weight,
-                ingredients_with_usda_id_count=sum(1 for e in score_ingredients if "usda_id" in e),
-            )
-        except Exception:
-            pass
-
     trace_payload: dict[str, Any] = {
         "recipe_id": recipe_id,
         "title": payload.title,
         "source": "user",
-        "nutrition_source": profile_result.get("nutrition_source") or nutrition_source,
+        "nutrition_source": (
+            (profile_result.get("nutrition_source") if profile_result else None) or nutrition_source
+        ),
         "total_nutrients": clean_totals,
         "total_nutrients_per_serving": clean_per_serving,
-        "nutri_score": profile_result.get("nutri_score"),
+        "nutri_score": profile_result.get("nutri_score") if profile_result else None,
         "nutri_score_breakdown": nutri_score_breakdown,
-        "nutrition_profiling_details": profile_result.get("ingredients"),
-        "nutrition_profiling_debug": profile_result.get("pipeline_trace"),
-        "trace": {"profile_result": profile_result},
+        "nutrition_profiling_details": profile_result.get("ingredients") if profile_result else None,
+        "nutrition_profiling_debug": (
+            profile_result.get("pipeline_trace")
+            if profile_result
+            else {"profiling_skipped": True, "mode": "manual_nutrients"}
+        ),
+        "trace": (
+            {"profile_result": profile_result}
+            if profile_result
+            else {"profiling_skipped": True, "manual_total_nutrients": clean_totals}
+        ),
         "pipeline_version": _profile_meta(),
         "computed_at": datetime.now(timezone.utc).isoformat(),
     }

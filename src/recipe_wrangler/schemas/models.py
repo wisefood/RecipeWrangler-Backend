@@ -190,6 +190,46 @@ class RecipeCreateRequest(BaseModel):
     expert_recipe: bool = Field(default=False, description="Whether this recipe has been reviewed and annotated by a nutrition expert")
     tags: List[str] = Field(default_factory=list, description="User-supplied diet/category tags")
     allergens: List[str] = Field(default_factory=list, description="User-supplied allergen labels")
+    protein_g: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Optional manual total protein (grams) for the whole recipe.",
+    )
+    carbohydrate_g: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Optional manual total carbohydrate (grams) for the whole recipe.",
+    )
+    fat_g: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Optional manual total fat (grams) for the whole recipe.",
+    )
+    energy_kcal: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Optional manual total energy (kcal) for the whole recipe.",
+    )
+    sugar_g: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Optional manual total sugar (grams) for the whole recipe.",
+    )
+    saturated_fat_g: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Optional manual total saturated fat (grams) for the whole recipe.",
+    )
+    sodium_mg: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Optional manual total sodium (milligrams) for the whole recipe.",
+    )
+    fibre_g: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Optional manual total fibre (grams) for the whole recipe.",
+    )
 
 
 class RecipeCreateResponse(BaseModel):

@@ -92,15 +92,15 @@ def original_row(r: dict) -> dict:
 def pipeline_row(recipe_id: str, title: str, region: str, state_result: RecipeState) -> dict:
     totals = state_result.profiling_totals or {}
     ns = state_result.nutri_score or {}
-    suffix = f"_{REGION_SOURCE[region]}"
+    src = REGION_SOURCE[region]
 
     def g(key):
-        return round(totals.get(key + suffix, totals.get(key, 0)) or 0, 4)
+        return round(totals.get(f"total_{key}_{src}", 0) or 0, 4)
 
     return {
         "recipe_id": recipe_id,
         "title": title,
-        "source": f"pipeline_{REGION_SOURCE[region]}",
+        "source": f"pipeline_{src}",
         "energy_kcal": g("energy_kcal"),
         "protein_g": g("protein_g"),
         "fat_g": g("fat_g"),

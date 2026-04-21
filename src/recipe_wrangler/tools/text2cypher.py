@@ -590,14 +590,16 @@ class RecipeSearchAppV2:
         query_lines = ["MATCH (r:Recipe)"]
         if where_clause:
             query_lines.append(where_clause)
+        dur_expr = duration_access if duration_access else "r.duration"
+        srv_expr = serves_access if serves_access else "r.serves"
         query_lines.append(
-            f"RETURN DISTINCT coalesce(toString({id_access}), toString(r.id), toString(r.recipe_id)) AS recipe_id, {title_access} AS title, coalesce(r.source, '') AS source, coalesce(r.has_profile, false) AS has_profile"
+            f"RETURN DISTINCT coalesce(toString({id_access}), toString(r.id), toString(r.recipe_id)) AS recipe_id, {title_access} AS title, coalesce(r.source, '') AS source, coalesce(r.has_profile, false) AS has_profile, {dur_expr} AS duration, {srv_expr} AS serves"
             if title_prop
-            else "RETURN DISTINCT coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, coalesce(r.title, r.name) AS title, coalesce(r.source, '') AS source, coalesce(r.has_profile, false) AS has_profile"
+            else f"RETURN DISTINCT coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, coalesce(r.title, r.name) AS title, coalesce(r.source, '') AS source, coalesce(r.has_profile, false) AS has_profile, {dur_expr} AS duration, {srv_expr} AS serves"
         )
         query_lines.append(
             "ORDER BY CASE WHEN has_profile THEN 0 ELSE 1 END, "
-            "CASE WHEN r.duration IS NOT NULL AND r.serves IS NOT NULL THEN 0 ELSE 1 END, title"
+            "CASE WHEN duration IS NOT NULL AND serves IS NOT NULL THEN 0 ELSE 1 END, title"
         )
         query_lines.append(f"LIMIT {limit}")
         cypher = "\n".join(query_lines)

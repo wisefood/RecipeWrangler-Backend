@@ -7,6 +7,11 @@ from typing import Any
 from recipe_wrangler.utils.neo4j_utils import driver, run_query
 
 
+def count_recipes() -> int:
+    rows = run_query("MATCH (r:Recipe) RETURN count(r) AS total")
+    return int(rows[0]["total"]) if rows else 0
+
+
 def fetch_recipe_scores_by_ids(ids: list[str]) -> dict[str, dict[str, Any]]:
     if not ids:
         return {}

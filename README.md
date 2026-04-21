@@ -131,7 +131,8 @@ question
   "exclude_allergens": ["gluten"],
   "diet_tags": ["dairy-free"],
   "max_duration_minutes": 45,
-  "limit": 10
+  "limit": 10,
+  "offset": 0
 }
 ```
 
@@ -148,7 +149,7 @@ filters
         └── Attach image_url, duration, serves, nutri_score from PostgreSQL
 ```
 
-Results are ordered with `has_profile=true` recipes first (those with full nutrition profiles), then the rest. Unconstrained queries return a random profile-first selection.
+Results are ordered deterministically for pagination: expert recipes first, then preferred catalog sources (`FoodHero` and `HealthyFoods`), then `has_profile=true` recipes, then recipes with duration and serving metadata, then stable recipe identity fields. Empty filter payloads return a stable profiled-recipe catalog page using `limit` and `offset`.
 
 **Databases:** Neo4j, PostgreSQL.
 

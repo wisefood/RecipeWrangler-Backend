@@ -26,6 +26,7 @@ from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info_by_id,
 )
 from recipe_wrangler.repositories.neo4j_recipes import (
+    count_recipes,
     detect_allergens_from_names,
     fetch_recipe_image_urls_by_ids,
     fetch_recipe_scores_by_ids,
@@ -747,6 +748,20 @@ def recipe_autocomplete(
         suggestions[rid] = normalized
 
     return {"suggestions": suggestions}
+
+
+@router.get(
+    "/count",
+    response_model=None,
+    tags=["recipes"],
+    summary="Return the total number of recipes in the graph",
+)
+def get_recipe_count() -> dict[str, int]:
+    try:
+        total = count_recipes()
+    except Exception as exc:
+        raise map_dependency_error("Neo4j", exc) from exc
+    return {"count": total}
 
 
 @router.get(

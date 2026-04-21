@@ -1,7 +1,4 @@
-"""Recipe search using explicit filter parameters.
-
-Constrained queries are deterministic; unconstrained queries return a random page.
-"""
+"""Recipe search using explicit filter parameters."""
 
 from __future__ import annotations
 
@@ -9,6 +6,24 @@ from typing import Any
 
 from recipe_wrangler.schemas import RecipeSearchFilters
 from recipe_wrangler.utils.neo4j_utils import run_query
+
+
+_STABLE_RECIPE_SORT_FIELDS = """
+      CASE WHEN coalesce(r.expert_recipe, false) THEN 0 ELSE 1 END AS _sort_expert,
+      CASE WHEN toLower(coalesce(r.source, "")) IN ["foodhero", "healthyfoods"] THEN 0 ELSE 1 END AS _sort_source,
+      CASE WHEN coalesce(r.has_profile, false) THEN 0 ELSE 1 END AS _sort_profile,
+      CASE WHEN r.duration IS NOT NULL AND r.serves IS NOT NULL THEN 0 ELSE 1 END AS _sort_complete,
+      coalesce(toLower(r.title), "") AS _sort_title,
+      coalesce(toString(r.recipe_id), toString(r.id), "") AS _sort_id,
+      coalesce(toString(r.source), "") AS _sort_source_name,
+      coalesce(toString(r.source_id), "") AS _sort_source_id,
+      elementId(r) AS _sort_element_id
+"""
+
+_STABLE_RECIPE_ORDER_BY = """
+    ORDER BY _sort_expert, _sort_source, _sort_profile, _sort_complete,
+             _sort_title, _sort_id, _sort_source_name, _sort_source_id, _sort_element_id
+"""
 
 
 def _normalize_terms(items: list[str]) -> list[str]:
@@ -86,12 +101,9 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
       r.serves AS serves,
       r.nutriscore AS nutri_score,
       r.totalsustainabilityperserving AS sust_score,
-      coalesce(r.expert_recipe, false) AS expert_recipe
-    ORDER BY
-      CASE WHEN coalesce(r.expert_recipe, false) THEN 0 ELSE 1 END,
-      CASE WHEN coalesce(r.has_profile, false) THEN 0 ELSE 1 END,
-      CASE WHEN r.duration IS NOT NULL AND r.serves IS NOT NULL THEN 0 ELSE 1 END,
-      r.title
+      coalesce(r.expert_recipe, false) AS expert_recipe,
+      {_STABLE_RECIPE_SORT_FIELDS}
+    {_STABLE_RECIPE_ORDER_BY}
     SKIP $offset
     LIMIT $limit
     """
@@ -113,11 +125,12 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> list[dict[str, Any
 
     if _has_no_constraints(filters):
         limit = max(1, min(int(filters.limit), 100))
+        offset = max(0, int(filters.offset))
 
-        # Unconstrained browse: random from profiled recipes only.
+        # Unconstrained browse: stable, paginatable profile-first recipe catalog.
         # Unprofiled recipe1m recipes are nearly unreachable via browse.
         rows = run_query(
-            """
+            f"""
             MATCH (r:Recipe)
             WHERE coalesce(r.has_profile, false) = true
             RETURN
@@ -130,11 +143,13 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> list[dict[str, Any
               r.serves AS serves,
               r.nutriscore AS nutri_score,
               r.totalsustainabilityperserving AS sust_score,
-              coalesce(r.expert_recipe, false) AS expert_recipe
-            ORDER BY rand()
+              coalesce(r.expert_recipe, false) AS expert_recipe,
+              {_STABLE_RECIPE_SORT_FIELDS}
+            {_STABLE_RECIPE_ORDER_BY}
+            SKIP $offset
             LIMIT $limit
             """,
-            {"limit": limit},
+            {"limit": limit, "offset": offset},
         )
         return [dict(row) for row in rows]
 

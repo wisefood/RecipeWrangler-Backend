@@ -55,10 +55,11 @@ def update_recipe_in_neo4j(
     expert_recipe: bool | None = None,
     title: str | None = None,
     allergens: list[str] | None = None,
+    tags: list[str] | None = None,
     duration: float | None = None,
 ) -> bool:
     """Patch mutable fields on an existing Recipe node. Returns False if not found."""
-    if all(v is None for v in [instructions, image_url, source_id, expert_recipe, title, allergens, duration]):
+    if all(v is None for v in [instructions, image_url, source_id, expert_recipe, title, allergens, tags, duration]):
         return True  # nothing to do
 
     set_clauses = []
@@ -118,6 +119,28 @@ def update_recipe_in_neo4j(
                         "keywords": _ALLERGEN_KEYWORDS.get(allergen, [allergen]),
                     },
                 )
+
+    if tags is not None:
+        with driver.session() as session:
+            session.run(
+                """
+                MATCH (r:Recipe)-[rel:HAS_TAG]->(:Tag)
+                WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
+                DELETE rel
+                """,
+                {"recipe_id": recipe_id},
+            )
+            for tag in tags:
+                session.run(
+                    """
+                    MATCH (r:Recipe)
+                    WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
+                    MERGE (t:Tag {name: $tag})
+                    MERGE (r)-[:HAS_TAG]->(t)
+                    """,
+                    {"recipe_id": recipe_id, "tag": tag},
+                )
+
     return True
 
 

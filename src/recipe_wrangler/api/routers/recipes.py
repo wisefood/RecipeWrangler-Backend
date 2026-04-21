@@ -1549,7 +1549,7 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
 
     Returns 404 if the recipe does not exist in Neo4j.
     """
-    patchable = ("instructions", "image_url", "source_id", "expert_recipe", "title", "allergens", "duration")
+    patchable = ("instructions", "image_url", "source_id", "expert_recipe", "title", "allergens", "tags", "duration")
     if all(getattr(payload, f) is None for f in patchable):
         raise NotFoundError(detail="No fields provided to update")
 
@@ -1565,6 +1565,7 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
             expert_recipe=payload.expert_recipe,
             title=payload.title,
             allergens=payload.allergens,
+            tags=payload.tags,
             duration=payload.duration,
         )
     except Exception as exc:

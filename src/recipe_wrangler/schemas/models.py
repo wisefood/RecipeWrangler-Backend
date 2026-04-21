@@ -165,6 +165,7 @@ class RecipeUpdateRequest(BaseModel):
     expert_recipe: Optional[bool] = None
     title: Optional[str] = None
     allergens: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
     duration: Optional[float] = Field(default=None, gt=0)
 
 

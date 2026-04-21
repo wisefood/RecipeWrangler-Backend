@@ -67,6 +67,8 @@ from recipe_wrangler.schemas import (
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
+_RECIPE_BASE_CACHE_VARIANT = "base"
+
 
 def _profile_meta() -> str:
     settings = get_settings()
@@ -109,6 +111,41 @@ def _nutrition_source_from_region(region: str | None) -> str | None:
         return None
     mapping = {"US": "usda", "IE": "irish", "HU": "hungarian"}
     return mapping.get(region_norm)
+
+
+def _recipe_response_cache_variant(region: str | None, slim: bool) -> str:
+    region_key = str(region or "default").strip().upper() or "DEFAULT"
+    region_key = "".join(ch if ch.isalnum() else "_" for ch in region_key)
+    return f"detail:region:{region_key}:slim:{int(slim)}"
+
+
+def _cached_recipe_response(
+    recipe_id: str,
+    variant: str,
+    slim: bool,
+) -> RecipeDetailResponse | RecipeCardResponse | None:
+    cached = cache_get(recipe_id, variant=variant)
+    if not cached:
+        return None
+    try:
+        if slim:
+            return RecipeCardResponse(**cached)
+        return RecipeDetailResponse(**cached)
+    except Exception:
+        cache_delete(recipe_id, variant=variant)
+        return None
+
+
+def _cache_recipe_response(
+    requested_recipe_id: str,
+    resolved_recipe_id: str,
+    variant: str,
+    response: RecipeDetailResponse | RecipeCardResponse,
+) -> None:
+    data = response.model_dump(mode="json")
+    cache_set(requested_recipe_id, data, variant=variant)
+    if resolved_recipe_id != requested_recipe_id:
+        cache_set(resolved_recipe_id, data, variant=variant)
 
 
 def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
@@ -729,7 +766,12 @@ def get_recipe(
         description="When true, return only card-level fields (no nutrition data).",
     ),
 ) -> RecipeDetailResponse | RecipeCardResponse:
-    recipe = cache_get(recipe_id)
+    detail_cache_variant = _recipe_response_cache_variant(region, slim)
+    cached_response = _cached_recipe_response(recipe_id, detail_cache_variant, slim)
+    if cached_response is not None:
+        return cached_response
+
+    recipe = cache_get(recipe_id, variant=_RECIPE_BASE_CACHE_VARIANT)
     if recipe is None:
         try:
             recipe = fetch_recipe_info_by_id(recipe_id)
@@ -739,16 +781,30 @@ def get_recipe(
         if not recipe:
             raise NotFoundError("Recipe not found")
 
-        cache_set(recipe_id, recipe)
+        cache_set(recipe_id, recipe, variant=_RECIPE_BASE_CACHE_VARIANT)
 
     # A request can match either r.recipe_id or r.id. Nutrition/profile stores are keyed by
     # canonical recipe_id, so prefer the resolved recipe_id from Neo4j when available.
     resolved_recipe_id = str(recipe.get("recipe_id") or recipe_id)
     recipe["recipe_id"] = resolved_recipe_id
+    if resolved_recipe_id != recipe_id:
+        cache_set(resolved_recipe_id, recipe, variant=_RECIPE_BASE_CACHE_VARIANT)
+        cached_response = _cached_recipe_response(
+            resolved_recipe_id,
+            detail_cache_variant,
+            slim,
+        )
+        if cached_response is not None:
+            cache_set(
+                recipe_id,
+                cached_response.model_dump(mode="json"),
+                variant=detail_cache_variant,
+            )
+            return cached_response
 
     if slim:
         nutri_score_str = recipe.get("nutri_score")
-        return RecipeCardResponse(
+        response = RecipeCardResponse(
             recipe_id=resolved_recipe_id,
             title=recipe.get("title"),
             source=recipe.get("source"),
@@ -761,6 +817,8 @@ def get_recipe(
             nutri_score_label=nutri_score_str if isinstance(nutri_score_str, str) else None,
             nutri_score_color=_nutri_color_from_score(nutri_score_str),
         )
+        _cache_recipe_response(recipe_id, resolved_recipe_id, detail_cache_variant, response)
+        return response
 
     preferred_nutrition_source = _nutrition_source_from_region(region)
 
@@ -958,7 +1016,9 @@ def get_recipe(
                 payload.get("total_cholesterol_mg_per_serving"), serves
             )
 
-    return RecipeDetailResponse(**payload)
+    response = RecipeDetailResponse(**payload)
+    _cache_recipe_response(recipe_id, resolved_recipe_id, detail_cache_variant, response)
+    return response
 
 
 def _resolve_profile_recipe_id(payload: dict[str, Any], profile_result: dict[str, Any]) -> str | None:
@@ -1011,6 +1071,7 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
         "computed_at": datetime.now(timezone.utc).isoformat(),
     }
     save_recipe_profile_trace(trace_payload)
+    cache_delete(recipe_id)
     return True, None
 
 
@@ -1028,8 +1089,7 @@ async def recipe_search(
     question = str(payload.question or "").strip()
     exclude_allergens = payload.exclude_allergens if isinstance(payload.exclude_allergens, list) else []
 
-    # If no free-text question is provided, return a random unconstrained page
-    # (same behavior style as /param_search with empty payload).
+    # If no free-text question is provided, return a random landing page.
     if not question:
         random_results: list[dict[str, Any]] = []
         try:
@@ -1410,6 +1470,7 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
     try:
         from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace
         upsert_recipe_profiling_trace(trace_payload)
+        cache_delete(recipe_id)
     except Exception:
         pass  # non-fatal — recipe is in Neo4j, postgres trace is best-effort
 
@@ -1576,6 +1637,24 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
         raise NotFoundError(detail=f"Recipe {recipe_id} not found")
 
     cache_delete(recipe_id)
+    try:
+        resolved_rows = _run_query(
+            """
+            MATCH (r:Recipe)
+            WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
+            RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id
+            LIMIT 1
+            """,
+            {"recipe_id": recipe_id},
+        )
+        resolved_cache_id = (
+            _as_id(resolved_rows[0].get("recipe_id"))
+            if resolved_rows else None
+        )
+        if resolved_cache_id and resolved_cache_id != recipe_id:
+            cache_delete(resolved_cache_id)
+    except Exception:
+        pass
 
     # --- Elasticsearch (image_url only — instructions are not indexed) ---
     if payload.image_url is not None:

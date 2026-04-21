@@ -44,34 +44,47 @@ def _is_enabled() -> bool:
     return get_settings().recipe_cache_enabled
 
 
-def _key(recipe_id: str) -> str:
-    return f"recipe:{recipe_id}"
+def _key(recipe_id: str, variant: str | None = None) -> str:
+    key = f"recipe:{recipe_id}"
+    return f"{key}:{variant}" if variant else key
 
 
-def cache_get(recipe_id: str) -> dict[str, Any] | None:
+def cache_get(recipe_id: str, variant: str | None = None) -> dict[str, Any] | None:
     if not _is_enabled():
         return None
     try:
-        raw = _get_client().get(_key(recipe_id))
+        raw = _get_client().get(_key(recipe_id, variant))
         return json.loads(raw) if raw else None
     except Exception:
         logger.warning("Redis cache_get failed for %s", recipe_id, exc_info=True)
         return None
 
 
-def cache_set(recipe_id: str, data: dict[str, Any], ttl_seconds: int = 3600) -> None:
+def cache_set(
+    recipe_id: str,
+    data: dict[str, Any],
+    ttl_seconds: int = 3600,
+    variant: str | None = None,
+) -> None:
     if not _is_enabled():
         return
     try:
-        _get_client().setex(_key(recipe_id), ttl_seconds, json.dumps(data))
+        _get_client().setex(_key(recipe_id, variant), ttl_seconds, json.dumps(data))
     except Exception:
         logger.warning("Redis cache_set failed for %s", recipe_id, exc_info=True)
 
 
-def cache_delete(recipe_id: str) -> None:
+def cache_delete(recipe_id: str, variant: str | None = None) -> None:
     if not _is_enabled():
         return
     try:
-        _get_client().delete(_key(recipe_id))
+        client = _get_client()
+        if variant:
+            client.delete(_key(recipe_id, variant))
+            return
+
+        keys = [_key(recipe_id)]
+        keys.extend(client.scan_iter(match=f"{_key(recipe_id)}:*", count=100))
+        client.delete(*keys)
     except Exception:
         logger.warning("Redis cache_delete failed for %s", recipe_id, exc_info=True)

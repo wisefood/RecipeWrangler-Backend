@@ -19,6 +19,7 @@ from recipe_wrangler.api.exceptions import (
 from recipe_wrangler.api.config import get_settings
 
 from recipe_wrangler.tools.param_search import search_recipes_by_params
+from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_set
 from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info,
     fetch_recipe_info_by_id,
@@ -727,13 +728,17 @@ def get_recipe(
         description="When true, return only card-level fields (no nutrition data).",
     ),
 ) -> RecipeDetailResponse | RecipeCardResponse:
-    try:
-        recipe = fetch_recipe_info_by_id(recipe_id)
-    except Exception as exc:  # noqa: BLE001
-        raise map_dependency_error("Neo4j", exc) from exc
+    recipe = cache_get(recipe_id)
+    if recipe is None:
+        try:
+            recipe = fetch_recipe_info_by_id(recipe_id)
+        except Exception as exc:  # noqa: BLE001
+            raise map_dependency_error("Neo4j", exc) from exc
 
-    if not recipe:
-        raise NotFoundError("Recipe not found")
+        if not recipe:
+            raise NotFoundError("Recipe not found")
+
+        cache_set(recipe_id, recipe)
 
     # A request can match either r.recipe_id or r.id. Nutrition/profile stores are keyed by
     # canonical recipe_id, so prefer the resolved recipe_id from Neo4j when available.
@@ -1567,6 +1572,8 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
 
     if not found:
         raise NotFoundError(detail=f"Recipe {recipe_id} not found")
+
+    cache_delete(recipe_id)
 
     # --- Elasticsearch (image_url only — instructions are not indexed) ---
     if payload.image_url is not None:

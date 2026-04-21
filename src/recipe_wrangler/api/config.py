@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     cors_allow_origins: List[str] = Field(default_factory=lambda: ["*"], alias="CORS_ALLOW_ORIGINS")
     api_port: int = Field(8001, alias="PORT")
     profile_pipeline_version: str = Field("v1", alias="NUTRITION_PROFILE_PIPELINE_VERSION")
+    recipe_cache_enabled: bool = Field(False, alias="RECIPE_CACHE_ENABLED")
+    redis_url: str = Field("redis://localhost:6379", alias="REDIS_URL")
+    redis_recipe_db: int = Field(7, alias="REDIS_RECIPE_DB")
 
     @field_validator("neo4j_uri")
     def _validate_neo4j_uri(cls, value: str) -> str:  # noqa: N805

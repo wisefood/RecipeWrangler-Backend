@@ -25,9 +25,10 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
     exclude_allergens = _normalize_terms(filters.exclude_allergens)
     diet_tags = _normalize_terms(filters.diet_tags)
     limit = max(1, min(int(filters.limit), 100))
+    offset = max(0, int(filters.offset))
 
     predicates: list[str] = []
-    params: dict[str, Any] = {"limit": limit}
+    params: dict[str, Any] = {"limit": limit, "offset": offset}
 
     if include_ingredients:
         predicates.append(
@@ -91,6 +92,7 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
       CASE WHEN coalesce(r.has_profile, false) THEN 0 ELSE 1 END,
       CASE WHEN r.duration IS NOT NULL AND r.serves IS NOT NULL THEN 0 ELSE 1 END,
       r.title
+    SKIP $offset
     LIMIT $limit
     """
     return query, params

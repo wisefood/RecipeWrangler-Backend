@@ -106,6 +106,7 @@ class RecipeSearchFilters(BaseModel):
     diet_tags: List[str] = Field(default_factory=list)
     max_duration_minutes: Optional[int] = None
     limit: int = Field(default=10, ge=1, le=100)
+    offset: int = Field(default=0, ge=0)
 
 
 class ParseRecipeRequest(BaseModel):

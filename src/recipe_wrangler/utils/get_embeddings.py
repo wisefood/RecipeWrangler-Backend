@@ -7,7 +7,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 # Allow overriding model/device/batch via env to avoid GPU OOM.
 DEFAULT_MODEL_NAME = os.getenv("EMBED_MODEL_NAME", "Qwen/Qwen3-Embedding-8B")
-DEFAULT_DEVICE = os.getenv("EMBED_DEVICE", "cuda")  # set EMBED_DEVICE=cpu to force CPU
+DEFAULT_DEVICE = os.getenv("EMBED_DEVICE", "cpu")
 DEFAULT_BATCH_SIZE = int(os.getenv("EMBED_BATCH_SIZE", "8"))
 
 MODEL_KWARGS = {"device": DEFAULT_DEVICE}

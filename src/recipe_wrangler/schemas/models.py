@@ -172,6 +172,8 @@ class RecipeUpdateRequest(BaseModel):
 class RecipeUpdateResponse(BaseModel):
     recipe_id: str
     updated_fields: List[str]
+    tags: List[str] = Field(default_factory=list)
+    allergens: List[str] = Field(default_factory=list)
     message: str = "Recipe updated successfully"
 
 

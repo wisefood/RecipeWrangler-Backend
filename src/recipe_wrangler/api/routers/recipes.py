@@ -20,6 +20,7 @@ from recipe_wrangler.api.config import get_settings
 
 from recipe_wrangler.tools.param_search import search_recipes_by_params
 from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_set
+from recipe_wrangler.utils.neo4j_utils import run_query as _run_query
 from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info,
     fetch_recipe_info_by_id,
@@ -1589,4 +1590,32 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
         except Exception:
             pass  # non-fatal
 
-    return RecipeUpdateResponse(recipe_id=recipe_id, updated_fields=updated_fields)
+    current_tags: list[str] = []
+    try:
+        tag_rows = _run_query(
+            """
+            MATCH (r:Recipe)-[:HAS_TAG]->(t:Tag)
+            WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
+            RETURN t.name AS name
+            """,
+            {"recipe_id": recipe_id},
+        )
+        current_tags = [row["name"] for row in tag_rows if row.get("name")]
+    except Exception:
+        pass
+
+    current_allergens: list[str] = []
+    try:
+        allergen_rows = _run_query(
+            """
+            MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
+            WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
+            RETURN DISTINCT al.name AS name
+            """,
+            {"recipe_id": recipe_id},
+        )
+        current_allergens = [row["name"] for row in allergen_rows if row.get("name")]
+    except Exception:
+        pass
+
+    return RecipeUpdateResponse(recipe_id=recipe_id, updated_fields=updated_fields, tags=current_tags, allergens=current_allergens)

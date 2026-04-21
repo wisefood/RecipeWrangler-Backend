@@ -46,6 +46,7 @@ dependencies = [
     "elasticsearch>=9.3.0",
     "openai>=2.30.0",
     "langchain-openai>=0.3.35",
+    "redis==6.4.0",
 ]
 
 [tool.setuptools]

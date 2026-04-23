@@ -183,8 +183,8 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
       r.image_url AS image_url,
       r.duration AS duration,
       r.serves AS serves,
-      r.nutriscore AS nutri_score,
-      r.totalsustainabilityperserving AS sust_score,
+      coalesce(r.nutriscore, null) AS nutri_score,
+      coalesce(r.totalsustainabilityperserving, null) AS sust_score,
       coalesce(r.expert_recipe, false) AS expert_recipe,
       {_STABLE_RECIPE_SORT_FIELDS}
     {order_by_clause}

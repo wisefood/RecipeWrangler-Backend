@@ -20,8 +20,8 @@ def fetch_recipe_scores_by_ids(ids: list[str]) -> dict[str, dict[str, Any]]:
     MATCH (r:Recipe)
     WHERE r.recipe_id = rid OR r.id = rid
     RETURN rid AS recipe_id,
-           r.nutriscore AS nutri_score,
-           r.totalsustainabilityperserving AS sust_score,
+           coalesce(r.nutriscore, null) AS nutri_score,
+           coalesce(r.totalsustainabilityperserving, null) AS sust_score,
            r.duration AS duration,
            r.serves AS serves,
            r.source AS source,
@@ -422,13 +422,11 @@ def _normalize_foodchat_tags(items: list[str]) -> list[str]:
 
 
 def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
-    """Fetch recipe candidates for FoodChat avoiding N+1 queries.
+    """Fetch recipe candidates for FoodChat.
 
-    Fixes vs. prior implementation:
-    - dish_types: exact list match (IN) instead of substring CONTAINS
-    - dish_type returned per recipe so callers don't need to re-classify
-    - nutrition post-filter applied in Python after batch Postgres fetch
-    - randomize flag controls ORDER BY rand() vs. include_score-first ordering
+    All slots are fetched in a single Neo4j round-trip. Expensive steps
+    (diet-tag validation, allergen taxonomy traversal) are skipped when the
+    caller passes no constraints, so an unconstrained call is fast.
     """
     from recipe_wrangler.repositories.postgres_nutrition import get_recipe_nutrition_batch
 
@@ -453,28 +451,34 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     nutrition_profile = request_data.constraints.nutrition_profile
     randomize: bool = getattr(request_data, "randomize", True)
 
-    # Fetch a larger pool when nutrition filtering is active so post-filter
-    # doesn't exhaust the quota.
     _NUTRITION_POOL_MULTIPLIER = 5
 
-    query = """
-    // 1. Find valid diet tags that actually exist in the DB
+    has_diet = bool(diet_tags)
+    has_exclusions = bool(combined_exclusions)
+    has_inclusions = bool(include_ingredients)
+
+    # Build the query conditionally so we don't pay for expensive steps when
+    # there are no constraints. Steps are injected as string blocks.
+
+    # Step 1: diet-tag validation — only needed when diet is requested
+    if has_diet:
+        diet_validation = """
     OPTIONAL MATCH (valid_tag:Tag)
     WHERE toLower(valid_tag.name) IN $diet_tags
     WITH collect(toLower(valid_tag.name)) AS valid_diet_tags
-
-    // 2. Match recipes excluding provided IDs
-    MATCH (r:Recipe)
-    WHERE NOT coalesce(toString(r.recipe_id), toString(r.id), '') IN $exclude_ids
-      AND r.instructions IS NOT NULL
-      AND size(r.instructions) > 0
-
-    // 3. Ensure recipe has all required diet tags (unknown tags are ignored)
+    """
+        diet_filter = "WHERE ALL(d IN valid_diet_tags WHERE d IN recipe_tags)"
+        diet_tag_match = """
     OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
     WITH r, valid_diet_tags, collect(toLower(t.name)) AS recipe_tags
-    WHERE ALL(d IN valid_diet_tags WHERE d IN recipe_tags)
+    """ + diet_filter
+    else:
+        diet_validation = "WITH [] AS valid_diet_tags"
+        diet_tag_match = ""
 
-    // 4. Fetch ingredients and evaluate exclusions hierarchically
+    # Step 4: allergen/exclusion check — skip variable-depth traversal when empty
+    if has_exclusions:
+        exclusion_filter = """
     OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
     WITH r, collect(i) AS ingredients
     WHERE NOT ANY(i IN ingredients WHERE
@@ -484,22 +488,39 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
             WHERE ANY(ex IN $combined_exclusions WHERE toLower(ancestor.name) CONTAINS ex)
         }
     )
+    WITH r, ingredients
+    """
+    else:
+        exclusion_filter = "WITH r, [] AS ingredients"
 
-    // 5. Soft inclusion score
-    WITH r, ingredients,
-         size([i IN ingredients WHERE ANY(inc IN $include_ingredients WHERE toLower(i.name) CONTAINS inc)]) AS include_score
+    # Step 5: inclusion score — zero when no includes requested
+    if has_inclusions:
+        inclusion_score = "size([i IN ingredients WHERE ANY(inc IN $include_ingredients WHERE toLower(i.name) CONTAINS inc)])"
+    else:
+        inclusion_score = "0"
 
-    // 6. Exact dish_type match against authoritative Tag nodes
+    query = f"""
+    {diet_validation}
+
+    MATCH (r:Recipe)
+    WHERE r.instructions IS NOT NULL
+      AND size(r.instructions) > 0
+      AND (size($exclude_ids) = 0 OR NOT coalesce(toString(r.recipe_id), toString(r.id), '') IN $exclude_ids)
+
+    {diet_tag_match}
+
+    {exclusion_filter}
+
+    WITH r, {inclusion_score} AS include_score
+
     MATCH (r)-[:HAS_TAG]->(dt:Tag)
-    WHERE dt.category = 'dish-type' AND toLower(dt.name) IN $dish_types
+    WHERE dt.category = 'dish-type' AND toLower(dt.name) IN $all_dish_types
 
     WITH r, include_score, toLower(dt.name) AS matched_dish_type
 
-    // 7. Sort
     ORDER BY CASE WHEN $randomize THEN rand() ELSE (1.0 - include_score) END ASC
-    LIMIT $limit
+    LIMIT $fetch_limit
 
-    // 8. Flatten original ingredients and instructions
     OPTIONAL MATCH (r)-[:HAS_INGREDIENT_ORIGINAL]->(o:Ingredients_original)
     WITH r, matched_dish_type, collect(o.name) AS orig_ingredients
 
@@ -510,26 +531,49 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
            matched_dish_type AS dish_type
     """
 
-    for dish_type, quota in request_data.quotas.items():
-        safe_quota = max(0, int(quota))
-        if safe_quota <= 0:
-            results[dish_type] = []
-            continue
+    quotas = {k: max(0, int(v)) for k, v in request_data.quotas.items()}
+    active_slots = {k: v for k, v in quotas.items() if v > 0}
 
-        fetch_limit = safe_quota * _NUTRITION_POOL_MULTIPLIER if nutrition_profile else safe_quota
-        params = {
-            "diet_tags": diet_tags,
-            "exclude_ids": exclude_ids,
-            "combined_exclusions": combined_exclusions,
-            "include_ingredients": include_ingredients,
-            "dish_types": [dish_type.strip().casefold()],
-            "limit": fetch_limit,
-            "randomize": randomize,
-        }
+    for slot in quotas:
+        if quotas[slot] == 0:
+            results[slot] = []
 
-        rows = run_query(query, params)
+    if not active_slots:
+        return results
 
-        # Collect candidate recipe_ids for batch nutrition fetch
+    all_dish_types = list(active_slots.keys())
+    # When nutrition filtering is active fetch a larger pool; otherwise fetch
+    # only what's needed per slot (sum of quotas).
+    if nutrition_profile:
+        fetch_limit = sum(active_slots.values()) * _NUTRITION_POOL_MULTIPLIER
+    else:
+        fetch_limit = sum(active_slots.values())
+
+    params = {
+        "diet_tags": diet_tags,
+        "exclude_ids": exclude_ids,
+        "combined_exclusions": combined_exclusions,
+        "include_ingredients": include_ingredients,
+        "all_dish_types": all_dish_types,
+        "randomize": randomize,
+        "fetch_limit": fetch_limit,
+    }
+
+    all_rows = run_query(query, params)
+
+    # Bucket rows by dish_type
+    rows_by_slot: dict[str, list[dict]] = {slot: [] for slot in active_slots}
+    for row in all_rows:
+        slot = str(row.get("dish_type") or "").strip().lower()
+        if slot in rows_by_slot and len(rows_by_slot[slot]) < (
+            quotas[slot] * _NUTRITION_POOL_MULTIPLIER if nutrition_profile else quotas[slot]
+        ):
+            rows_by_slot[slot].append(row)
+
+    # Collect all candidates across slots for a single Postgres batch fetch
+    all_candidates: dict[str, list[dict]] = {}
+    all_recipe_ids: list[str] = []
+    for slot, rows in rows_by_slot.items():
         candidates: list[dict] = []
         for row in rows:
             recipe_id = str(row.get("recipe_id") or "").strip()
@@ -541,63 +585,66 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
                 "title": title,
                 "ingredients": str(row.get("ingredients") or ""),
                 "directions": str(row.get("directions") or ""),
-                "dish_type": str(row.get("dish_type") or dish_type),
+                "dish_type": str(row.get("dish_type") or slot),
             })
+            all_recipe_ids.append(recipe_id)
+        all_candidates[slot] = candidates
 
-        # Batch-fetch nutrition — always needed (response always includes nutrition field)
-        nutrition_map: dict = {}
-        if candidates:
-            nutrition_map = get_recipe_nutrition_batch([c["recipe_id"] for c in candidates])
-            for c in candidates:
+    nutrition_map: dict = {}
+    if all_recipe_ids:
+        nutrition_map = get_recipe_nutrition_batch(all_recipe_ids)
+        for slot_candidates in all_candidates.values():
+            for c in slot_candidates:
                 c["_nutrition_raw"] = nutrition_map.get(c["recipe_id"])
 
-        # Post-filter by nutrition_profile if provided
+    def _passes_nutrition(c: dict) -> bool:
+        raw = c.get("_nutrition_raw")
+        if not raw:
+            return True
+        nutrients = raw.get("total_nutrients_per_serving") or raw.get("total_nutrients") or {}
+        if not isinstance(nutrients, dict):
+            return True
+
+        def _val(*keys: str) -> float | None:
+            for k in keys:
+                v = nutrients.get(k)
+                if v is not None:
+                    try:
+                        return float(v)
+                    except (TypeError, ValueError):
+                        pass
+            return None
+
+        np = nutrition_profile
+        kcal = _val("energy_kcal", "calories")
+        protein = _val("protein_g")
+        carbs = _val("carbohydrate_g", "carbs_g")
+        fat = _val("fat_g")
+        if np.min_calories is not None and kcal is not None and kcal < np.min_calories:
+            return False
+        if np.max_calories is not None and kcal is not None and kcal > np.max_calories:
+            return False
+        if np.min_protein_g is not None and protein is not None and protein < np.min_protein_g:
+            return False
+        if np.max_protein_g is not None and protein is not None and protein > np.max_protein_g:
+            return False
+        if np.min_carbs_g is not None and carbs is not None and carbs < np.min_carbs_g:
+            return False
+        if np.max_carbs_g is not None and carbs is not None and carbs > np.max_carbs_g:
+            return False
+        if np.min_fat_g is not None and fat is not None and fat < np.min_fat_g:
+            return False
+        if np.max_fat_g is not None and fat is not None and fat > np.max_fat_g:
+            return False
+        return True
+
+    for slot, candidates in all_candidates.items():
+        safe_quota = quotas[slot]
+
         if nutrition_profile:
-            def _passes_nutrition(c: dict) -> bool:
-                raw = c.get("_nutrition_raw")
-                if not raw:
-                    return True  # no data — don't silently exclude
-                nutrients = raw.get("total_nutrients_per_serving") or raw.get("total_nutrients") or {}
-                if not isinstance(nutrients, dict):
-                    return True
-
-                def _val(*keys: str) -> float | None:
-                    for k in keys:
-                        v = nutrients.get(k)
-                        if v is not None:
-                            try:
-                                return float(v)
-                            except (TypeError, ValueError):
-                                pass
-                    return None
-
-                kcal = _val("energy_kcal", "calories")
-                protein = _val("protein_g")
-                carbs = _val("carbohydrate_g", "carbs_g")
-                fat = _val("fat_g")
-
-                np = nutrition_profile
-                if np.min_calories is not None and kcal is not None and kcal < np.min_calories:
-                    return False
-                if np.max_calories is not None and kcal is not None and kcal > np.max_calories:
-                    return False
-                if np.min_protein_g is not None and protein is not None and protein < np.min_protein_g:
-                    return False
-                if np.max_protein_g is not None and protein is not None and protein > np.max_protein_g:
-                    return False
-                if np.min_carbs_g is not None and carbs is not None and carbs < np.min_carbs_g:
-                    return False
-                if np.max_carbs_g is not None and carbs is not None and carbs > np.max_carbs_g:
-                    return False
-                if np.min_fat_g is not None and fat is not None and fat < np.min_fat_g:
-                    return False
-                if np.max_fat_g is not None and fat is not None and fat > np.max_fat_g:
-                    return False
-                return True
-
             candidates = [c for c in candidates if _passes_nutrition(c)]
 
-        dish_type_results: list[dict] = []
+        slot_results: list[dict] = []
         for c in candidates[:safe_quota]:
             raw = c.pop("_nutrition_raw", None)
             nutrition_out: dict | None = None
@@ -620,10 +667,8 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
                         "fat_g": _pick("fat_g"),
                     }
             c["nutrition"] = nutrition_out
-            dish_type_results.append(c)
-            if c["recipe_id"] not in exclude_ids:
-                exclude_ids.append(c["recipe_id"])
+            slot_results.append(c)
 
-        results[dish_type] = dish_type_results
+        results[slot] = slot_results
 
     return results

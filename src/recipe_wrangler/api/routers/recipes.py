@@ -1199,7 +1199,7 @@ def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
         results = fetch_foodchat_candidates(request)
         return FoodChatResponse(results=results)
     except Exception as exc:
-        raise InternalError("Failed to fetch foodchat candidates", details=str(exc)) from exc
+        raise InternalError("Failed to fetch foodchat candidates") from exc
 
 @router.post(
     "/search",

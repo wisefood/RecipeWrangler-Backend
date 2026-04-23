@@ -465,7 +465,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
 
     // 2. Match recipes excluding provided IDs
     MATCH (r:Recipe)
-    WHERE coalesce(toString(r.recipe_id), toString(r.id), '') NOT IN $exclude_ids
+    WHERE NOT coalesce(toString(r.recipe_id), toString(r.id), '') IN $exclude_ids
       AND r.instructions IS NOT NULL
       AND size(r.instructions) > 0
 

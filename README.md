@@ -130,6 +130,7 @@ question
   "exclude_ingredients": ["cream"],
   "exclude_allergens": ["gluten"],
   "diet_tags": ["dairy-free"],
+  "dish_types": ["breakfast"],
   "max_duration_minutes": 45,
   "limit": 10,
   "offset": 0
@@ -144,6 +145,7 @@ filters
         ├── NOT EXISTS excluded_ingredients
         ├── NOT EXISTS allergens via HAS_ALLERGEN
         ├── EXISTS diet_tags via HAS_TAG
+        ├── EXISTS dish_types via HAS_TAG to Tag category=dish-type
         └── duration <= max_duration_minutes
   └── Execute on Neo4j → enriched recipe cards
         └── Attach image_url, duration, serves, nutri_score from PostgreSQL

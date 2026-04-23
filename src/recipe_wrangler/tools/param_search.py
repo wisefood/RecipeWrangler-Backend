@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from recipe_wrangler.schemas import RecipeSearchFilters
+from recipe_wrangler.utils.env_loader import load_runtime_env
+
+load_runtime_env()
+
 from recipe_wrangler.utils.neo4j_utils import run_query
 
 
@@ -39,6 +43,7 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
     exclude_ingredients = _normalize_terms(filters.exclude_ingredients)
     exclude_allergens = _normalize_terms(filters.exclude_allergens)
     diet_tags = _normalize_terms(filters.diet_tags)
+    dish_types = _normalize_terms(filters.dish_types)
     limit = max(1, min(int(filters.limit), 100))
     offset = max(0, int(filters.offset))
 
@@ -81,6 +86,16 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
         )
         params["diet_tags"] = diet_tags
 
+    if dish_types:
+        predicates.append(
+            "EXISTS { "
+            "MATCH (r)-[:HAS_TAG]->(dt:Tag) "
+            "WHERE dt.category = 'dish-type' "
+            "AND toLower(dt.name) IN $dish_types "
+            "}"
+        )
+        params["dish_types"] = dish_types
+
     if filters.max_duration_minutes is not None:
         predicates.append(
             "coalesce(toInteger(r.duration), 999999) <= $max_duration_minutes"
@@ -116,6 +131,7 @@ def _has_no_constraints(filters: RecipeSearchFilters) -> bool:
         and not _normalize_terms(filters.exclude_ingredients)
         and not _normalize_terms(filters.exclude_allergens)
         and not _normalize_terms(filters.diet_tags)
+        and not _normalize_terms(filters.dish_types)
         and filters.max_duration_minutes is None
     )
 

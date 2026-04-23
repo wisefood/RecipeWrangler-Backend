@@ -35,6 +35,8 @@ recipe-kg.md
 /notebooks/test_tools.ipynb
 .vscode/
 /preprocessing/one_off/
+/scripts/one_off/
+/scripts/neo4j/tag_dish_types_vllm.py
 /postgresql-docker/nutrients.dump
 /notebooks/test_tools.ipynb
 /preprocessing/neo4j

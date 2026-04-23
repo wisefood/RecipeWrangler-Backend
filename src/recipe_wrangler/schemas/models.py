@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
 class IngredientProfile(BaseModel):
@@ -104,9 +104,22 @@ class RecipeSearchFilters(BaseModel):
     exclude_ingredients: List[str] = Field(default_factory=list)
     exclude_allergens: List[str] = Field(default_factory=list)
     diet_tags: List[str] = Field(default_factory=list)
+    dish_types: List[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("dish_types", "dish_type"),
+    )
     max_duration_minutes: Optional[int] = None
     limit: int = Field(default=10, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
+
+    @field_validator("dish_types", mode="before")
+    @classmethod
+    def _coerce_dish_types(cls, value):  # noqa: N805
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            return [value]
+        return value
 
 
 class ParseRecipeRequest(BaseModel):

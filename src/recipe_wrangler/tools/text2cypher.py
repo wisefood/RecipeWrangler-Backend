@@ -45,7 +45,7 @@ Rules:
 - Use max_duration_minutes only when a max/prep/cook time limit is explicitly asked.
 - Use min_servings only when a lower-bound serving size is explicitly asked.
 - If the question is not about recipe retrieval, set unsupported_intent=true and explain why in unsupported_reason.
-- Keep limit in [1, 50]. Use 10 when unspecified.
+- Keep limit in [1, 100]. Use 50 when unspecified.
 - Return lowercase string values where reasonable.
 
 Question:
@@ -152,7 +152,7 @@ class ExtractConstraintsOutput(BaseModel):
     title_keywords: List[str] = Field(default_factory=list)
     max_duration_minutes: Optional[int] = None
     min_servings: Optional[int] = None
-    limit: int = 10
+    limit: int = 50
     unsupported_intent: bool = False
     unsupported_reason: Optional[str] = None
 
@@ -184,9 +184,9 @@ class RecipeSearchAppV2:
         self._build_chains()
         self.langgraph = self._build_state_graph().compile()
 
-    def invoke(self, question: str, exclude_allergens: Optional[List[str]] = None) -> OutputState:
+    def invoke(self, question: str, exclude_allergens: Optional[List[str]] = None, limit: int = 50) -> OutputState:
         return self.langgraph.invoke(
-            {"question": question, "exclude_allergens": exclude_allergens}
+            {"question": question, "exclude_allergens": exclude_allergens, "limit": limit}
         )
 
     def run_extract_constraints(self, question: str) -> OverallState:
@@ -247,12 +247,12 @@ class RecipeSearchAppV2:
         return [str(x).strip().casefold() for x in (items or []) if str(x).strip()]
 
     @staticmethod
-    def _clamp_limit(value: Any, default: int = 10) -> int:
+    def _clamp_limit(value: Any, default: int = 50) -> int:
         try:
             n = int(value)
         except (TypeError, ValueError):
             n = default
-        return max(1, min(50, n))
+        return max(1, min(100, n))
 
     def _get_recipe_property_key(self, *candidates: str) -> Optional[str]:
         node_props = (self.enhanced_graph.structured_schema or {}).get("node_props", {}).get("Recipe", [])
@@ -416,7 +416,7 @@ class RecipeSearchAppV2:
             if constraints.get("min_servings") is None and heuristics.get("min_servings") is not None:
                 constraints["min_servings"] = heuristics["min_servings"]
 
-        constraints["limit"] = self._clamp_limit(constraints.get("limit"), default=10)
+        constraints["limit"] = self._clamp_limit(constraints.get("limit"), default=50)
         return {
             "query_constraints": constraints,
             "exclude_allergens": state.get("exclude_allergens"),
@@ -454,7 +454,7 @@ class RecipeSearchAppV2:
             set(self._normalize_list(query_constraints.get("diet")) + self._normalize_list(prefs.get("diet")))
         )
         merged["title_keywords"] = sorted(set(self._normalize_list(query_constraints.get("title_keywords"))))
-        merged["limit"] = self._clamp_limit(query_constraints.get("limit"), default=10)
+        merged["limit"] = self._clamp_limit(query_constraints.get("limit"), default=50)
         return merged
 
     def _compose_cypher(self, state: OverallState) -> OverallState:
@@ -599,7 +599,14 @@ class RecipeSearchAppV2:
         )
         query_lines.append(
             "ORDER BY CASE WHEN has_profile THEN 0 ELSE 1 END, "
-            "CASE WHEN duration IS NOT NULL AND serves IS NOT NULL THEN 0 ELSE 1 END, title"
+            "CASE "
+            "WHEN toLower(coalesce(source, '')) = 'healthyfoods' THEN 0 "
+            "WHEN toLower(coalesce(source, '')) = 'foodhero' THEN 1 "
+            "WHEN toLower(coalesce(source, '')) = 'myplate' THEN 2 "
+            "WHEN toLower(coalesce(source, '')) IN ['irish_safefood', 'safefood', 'irish safefood'] THEN 3 "
+            "WHEN toLower(coalesce(source, '')) = 'recipe1m' THEN 4 "
+            "ELSE 5 END, "
+            "CASE WHEN duration IS NOT NULL AND serves IS NOT NULL THEN 0 ELSE 1 END, rand()"
         )
         query_lines.append(f"LIMIT {limit}")
         cypher = "\n".join(query_lines)

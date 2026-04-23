@@ -15,24 +15,17 @@ dependencies = [
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.0",
     "langchain>=0.3.0,<0.4.0",
-    "langchain-ollama>=0.1.0,<0.4.0",
     "langchain-huggingface>=0.3.0,<0.4.0",
     "langchain-groq==0.3.8",
     "langchain-neo4j>=0.1.0,<0.4.0",
     "langgraph>=1.0.0",
-    "langserve>=0.1.0",
     "neo4j>=5.20.0",
     "neo4j-graphrag>=1.6.0,<1.8.0",
     "chromadb==0.4.24",
     "numpy>=1.26.0,<2.0.0",
-    "qdrant-client>=1.7.0",
     "pandas>=2.2.0",
-    "openpyxl>=3.1.0",
     "tqdm>=4.66.0",
-    "ollama>=0.3.0",
-    "ipykernel>=7.1.0",
     "groq>=0.4.1,<1.0.0",
-    "langchain-groq>=0.3.8,<1.0.0",
     "sentencepiece>=0.2.1",
     "sentence-transformers>=5.2.2",
     "sqlalchemy>=2.0.0",
@@ -42,11 +35,23 @@ dependencies = [
     "bs4>=0.0.2",
     "requests>=2.32.5",
     "beautifulsoup4>=4.14.3",
-    "playwright>=1.58.0",
     "elasticsearch>=9.3.0",
     "openai>=2.30.0",
     "langchain-openai>=0.3.35",
     "redis==6.4.0",
+]
+
+[project.optional-dependencies]
+dev-tools = [
+    "ipykernel>=7.1.0",
+    "openpyxl>=3.1.0",
+    "playwright>=1.58.0",
+]
+experimental = [
+    "langchain-ollama>=0.1.0,<0.4.0",
+    "langserve>=0.1.0",
+    "ollama>=0.3.0",
+    "qdrant-client>=1.7.0",
 ]
 
 [tool.setuptools]

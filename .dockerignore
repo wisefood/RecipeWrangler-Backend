@@ -30,7 +30,7 @@ ENV/
 # Documentation and notebooks
 notebooks/
 *.md
-README.md
+!README.md
 
 # Docker
 Dockerfile*
@@ -49,6 +49,15 @@ neo4j-docker/
 
 # Preprocessing scripts (not needed for API)
 preprocessing/
+scripts/
+tests/
+test_*.py
+docs/
+Makefile
+uv.lock
+.env.example
+elasticsearch-docker/
+postgresql-docker/
 
 # Graphs and images
 graph/

@@ -365,6 +365,8 @@ docker compose -f elasticsearch-docker/docker-compose.yml up -d
 ```bash
 uv venv && source .venv/bin/activate
 uv pip install -e .
+# Optional notebook / browser / experimental tooling:
+# uv pip install -e ".[dev-tools,experimental]"
 ```
 
 ### 3. Configure environment

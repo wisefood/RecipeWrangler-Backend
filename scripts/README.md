@@ -7,6 +7,7 @@ These scripts populate the databases from raw data files. Run them once when set
 - All four services running (see root README)
 - `.env` configured with correct connection details
 - `uv pip install -e .` completed from the repo root
+- Install `uv pip install -e ".[dev-tools,experimental]"` as well if you need notebook/browser/Ollama extras
 
 ## Order of execution
 

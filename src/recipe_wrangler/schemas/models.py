@@ -87,6 +87,12 @@ class RecipeSearchRequest(BaseModel):
         default_factory=list,
         description="Allergen names to exclude (e.g., ['peanut', 'tree_nut'])",
     )
+    limit: int = Field(
+        default=50,
+        ge=1,
+        le=100,
+        description="Number of candidates to retrieve.",
+    )
 
 
 class RecipeSearchResponse(BaseModel):
@@ -104,6 +110,10 @@ class RecipeSearchFilters(BaseModel):
     exclude_ingredients: List[str] = Field(default_factory=list)
     exclude_allergens: List[str] = Field(default_factory=list)
     diet_tags: List[str] = Field(default_factory=list)
+    sources: List[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("sources", "source"),
+    )
     dish_types: List[str] = Field(
         default_factory=list,
         validation_alias=AliasChoices("dish_types", "dish_type"),
@@ -111,10 +121,21 @@ class RecipeSearchFilters(BaseModel):
     max_duration_minutes: Optional[int] = None
     limit: int = Field(default=10, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
+    sort_by: Optional[Literal["title_asc", "title_desc", "time_asc", "time_desc", "random"]] = None
+    include_facets: bool = Field(default=False)
 
     @field_validator("dish_types", mode="before")
     @classmethod
     def _coerce_dish_types(cls, value):  # noqa: N805
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            return [value]
+        return value
+
+    @field_validator("sources", mode="before")
+    @classmethod
+    def _coerce_sources(cls, value):  # noqa: N805
         if value is None or value == "":
             return []
         if isinstance(value, str):
@@ -271,7 +292,7 @@ class RecipeSubstituteResponse(BaseModel):
 
     original_ingredient: str
     substitute: str
-    substitution_source: Literal["graph_direct", "foodon_taxonomy"]
+    substitution_source: Optional[Literal["graph_direct", "foodon_taxonomy"]]
     candidates: List[str]
     modified_recipe_profile: Dict[str, Any]
 
@@ -324,3 +345,54 @@ class RecipeDetailResponse(BaseModel):
     nutrition_source: Optional[str] = None
     nutrition_profiling_details: Optional[List[Dict[str, Any]]] = None
     nutrition_profiling_debug: Optional[Dict[str, Any]] = None
+
+
+class FoodChatUserProfile(BaseModel):
+    allergies: List[str] = Field(default_factory=list)
+    diet: List[str] = Field(default_factory=list)
+
+
+class NutritionProfile(BaseModel):
+    """Macro target ranges per serving. All fields optional — only provided ranges are applied."""
+    min_calories: Optional[float] = None
+    max_calories: Optional[float] = None
+    min_protein_g: Optional[float] = None
+    max_protein_g: Optional[float] = None
+    min_carbs_g: Optional[float] = None
+    max_carbs_g: Optional[float] = None
+    min_fat_g: Optional[float] = None
+    max_fat_g: Optional[float] = None
+
+
+class FoodChatConstraints(BaseModel):
+    include_ingredients: List[str] = Field(default_factory=list)
+    exclude_ingredients: List[str] = Field(default_factory=list)
+    exclude_recipe_ids: List[str] = Field(default_factory=list)
+    nutrition_profile: Optional[NutritionProfile] = None
+
+
+class FoodChatRequest(BaseModel):
+    user_profile: FoodChatUserProfile = Field(default_factory=FoodChatUserProfile)
+    constraints: FoodChatConstraints = Field(default_factory=FoodChatConstraints)
+    quotas: Dict[str, int] = Field(default_factory=dict, description="e.g., {'breakfast': 5, 'lunch': 5, 'dinner': 5}")
+    randomize: bool = Field(default=True, description="When true, sort by rand() for diversity across plan iterations")
+
+
+class FoodChatNutrition(BaseModel):
+    calories: Optional[float] = None
+    protein_g: Optional[float] = None
+    carbs_g: Optional[float] = None
+    fat_g: Optional[float] = None
+
+
+class FoodChatRecipeItem(BaseModel):
+    recipe_id: str
+    title: str
+    ingredients: str
+    directions: str
+    dish_type: Optional[str] = None
+    nutrition: Optional[FoodChatNutrition] = None
+
+
+class FoodChatResponse(BaseModel):
+    results: Dict[str, List[FoodChatRecipeItem]]

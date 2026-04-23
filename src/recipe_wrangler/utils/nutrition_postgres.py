@@ -274,6 +274,83 @@ def fetch_recipe_nutrition_by_id(
         raise RuntimeError(f"Failed to fetch recipe nutrition: {e}") from e
 
 
+def fetch_recipe_nutrition_batch(
+    recipe_ids: list[str],
+) -> dict[str, dict]:
+    """Return per-serving macro totals for a list of recipe IDs in one query.
+
+    Returns a dict keyed by recipe_id. Each value has keys:
+    total_nutrients_per_serving (raw jsonb dict) and total_nutrients (fallback).
+    Recipes with no stored profile are absent from the result.
+    """
+    if not recipe_ids:
+        return {}
+
+    cfg = _get_config()
+    # DISTINCT ON picks the most-recently-updated row per recipe when multiple
+    # nutrition_source rows exist.
+    query_str = f"""
+        SELECT DISTINCT ON (recipe_id)
+            recipe_id,
+            total_nutrients_per_serving,
+            total_nutrients
+        FROM "{cfg['schema']}"."{cfg['profiles_table']}"
+        WHERE recipe_id = ANY(:ids)
+        ORDER BY recipe_id, updated_at DESC NULLS LAST
+    """
+    try:
+        with get_connection() as conn:
+            result = conn.execute(text(query_str), {"ids": list(recipe_ids)})
+            rows = result.mappings().all()
+    except SQLAlchemyError as e:
+        if cfg["use_docker"] and cfg["container"]:
+            safe_ids = ", ".join(
+                "'" + rid.replace("'", "''") + "'" for rid in recipe_ids
+            )
+            fallback_query = f"""
+                SELECT DISTINCT ON (recipe_id)
+                    recipe_id,
+                    total_nutrients_per_serving,
+                    total_nutrients
+                FROM "{cfg['schema']}"."{cfg['profiles_table']}"
+                WHERE recipe_id IN ({safe_ids})
+                ORDER BY recipe_id, updated_at DESC NULLS LAST
+            """
+            out = _run_psql_fallback(fallback_query, cfg)
+            if not out:
+                return {}
+            try:
+                parsed = json.loads(out)
+                rows = parsed if isinstance(parsed, list) else []
+            except Exception:
+                return {}
+        else:
+            raise RuntimeError(f"Failed to batch-fetch recipe nutrition: {e}") from e
+
+    result_map: dict[str, dict] = {}
+    for row in rows:
+        rid = str(row["recipe_id"]).strip()
+        if not rid:
+            continue
+        per_serving = row["total_nutrients_per_serving"]
+        totals = row["total_nutrients"]
+        if isinstance(per_serving, str):
+            try:
+                per_serving = json.loads(per_serving)
+            except Exception:
+                per_serving = None
+        if isinstance(totals, str):
+            try:
+                totals = json.loads(totals)
+            except Exception:
+                totals = None
+        result_map[rid] = {
+            "total_nutrients_per_serving": per_serving,
+            "total_nutrients": totals,
+        }
+    return result_map
+
+
 def fetch_recipe_profiling_trace_by_id(
     recipe_id: str,
     nutrition_source: Optional[str] = None,

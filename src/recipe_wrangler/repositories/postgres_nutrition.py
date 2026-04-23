@@ -8,10 +8,15 @@ from recipe_wrangler.utils.nutrition_postgres import (
     fetch_ingredient_nutrition_by_canonical_id_hungarian,
     fetch_ingredient_nutrition_by_canonical_id_irish,
     fetch_ingredient_nutrition_by_usda_id,
+    fetch_recipe_nutrition_batch,
     fetch_recipe_nutrition_by_id,
     fetch_recipe_profiling_trace_by_id,
     upsert_recipe_profiling_trace,
 )
+
+
+def get_recipe_nutrition_batch(recipe_ids: list[str]) -> dict[str, dict]:
+    return fetch_recipe_nutrition_batch(recipe_ids)
 
 
 def get_recipe_nutrition(recipe_id: str, nutrition_source: Optional[str] = None) -> Optional[dict]:

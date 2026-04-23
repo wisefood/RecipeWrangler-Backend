@@ -1,5 +1,12 @@
 from .models import (
+    FoodChatConstraints,
+    FoodChatNutrition,
+    FoodChatRecipeItem,
+    FoodChatRequest,
+    FoodChatResponse,
+    FoodChatUserProfile,
     IngredientProfile,
+    NutritionProfile,
     ParseRecipeRequest,
     ParseRecipeResponse,
     RecipeCardResponse,
@@ -19,7 +26,14 @@ from .models import (
 )
 
 __all__ = [
+    "FoodChatConstraints",
+    "FoodChatNutrition",
+    "FoodChatRecipeItem",
+    "FoodChatRequest",
+    "FoodChatResponse",
+    "FoodChatUserProfile",
     "IngredientProfile",
+    "NutritionProfile",
     "ParseRecipeRequest",
     "ParseRecipeResponse",
     "RecipeCardResponse",

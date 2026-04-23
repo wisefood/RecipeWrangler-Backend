@@ -366,7 +366,6 @@ def detect_allergens_from_names(ingredient_names: list[str]) -> list[str]:
                 found.add(allergen)
     return sorted(found)
 
-
 def infer_diet_tags(allergens: set[str]) -> list[str]:
     """Derive diet tags deterministically from the allergen set."""
     tags: list[str] = []
@@ -379,3 +378,252 @@ def infer_diet_tags(allergens: set[str]) -> list[str]:
     if not allergens.intersection({"fish", "crustacean_shellfish"}):
         tags.append("pescatarian_safe")
     return tags
+
+
+def _normalize_foodchat_terms(items: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        term = str(item or "").strip().casefold()
+        if not term:
+            continue
+        variants = [term]
+        if term.endswith("ies") and len(term) > 3:
+            variants.append(term[:-3] + "y")
+        elif term.endswith("s") and len(term) > 1 and not term.endswith("ss"):
+            variants.append(term[:-1])
+        for variant in variants:
+            if variant and variant not in seen:
+                seen.add(variant)
+                normalized.append(variant)
+    return normalized
+
+
+def _normalize_foodchat_tags(items: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        term = str(item or "").strip().casefold()
+        if not term:
+            continue
+        spaced = term.replace("_", " ").replace("-", " ")
+        variants = [
+            term,
+            spaced,
+            spaced.replace(" ", "_"),
+            spaced.replace(" ", "-"),
+        ]
+        for variant in variants:
+            cleaned = variant.strip()
+            if cleaned and cleaned not in seen:
+                seen.add(cleaned)
+                normalized.append(cleaned)
+    return normalized
+
+
+def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
+    """Fetch recipe candidates for FoodChat avoiding N+1 queries.
+
+    Fixes vs. prior implementation:
+    - dish_types: exact list match (IN) instead of substring CONTAINS
+    - dish_type returned per recipe so callers don't need to re-classify
+    - nutrition post-filter applied in Python after batch Postgres fetch
+    - randomize flag controls ORDER BY rand() vs. include_score-first ordering
+    """
+    from recipe_wrangler.repositories.postgres_nutrition import get_recipe_nutrition_batch
+
+    results: dict[str, list[dict]] = {}
+
+    allergies = _normalize_foodchat_terms(request_data.user_profile.allergies)
+    exclude_ingredients = _normalize_foodchat_terms(
+        request_data.constraints.exclude_ingredients
+    )
+    combined_exclusions = list(dict.fromkeys(allergies + exclude_ingredients))
+
+    include_ingredients = _normalize_foodchat_terms(
+        request_data.constraints.include_ingredients
+    )
+    exclude_ids: list[str] = [
+        str(recipe_id).strip()
+        for recipe_id in request_data.constraints.exclude_recipe_ids
+        if str(recipe_id).strip()
+    ]
+
+    diet_tags = _normalize_foodchat_tags(request_data.user_profile.diet)
+    nutrition_profile = request_data.constraints.nutrition_profile
+    randomize: bool = getattr(request_data, "randomize", True)
+
+    # Fetch a larger pool when nutrition filtering is active so post-filter
+    # doesn't exhaust the quota.
+    _NUTRITION_POOL_MULTIPLIER = 5
+
+    query = """
+    // 1. Find valid diet tags that actually exist in the DB
+    OPTIONAL MATCH (valid_tag:Tag)
+    WHERE toLower(valid_tag.name) IN $diet_tags
+    WITH collect(toLower(valid_tag.name)) AS valid_diet_tags
+
+    // 2. Match recipes excluding provided IDs
+    MATCH (r:Recipe)
+    WHERE coalesce(toString(r.recipe_id), toString(r.id), '') NOT IN $exclude_ids
+      AND r.instructions IS NOT NULL
+      AND size(r.instructions) > 0
+
+    // 3. Ensure recipe has all required diet tags (unknown tags are ignored)
+    OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
+    WITH r, valid_diet_tags, collect(toLower(t.name)) AS recipe_tags
+    WHERE ALL(d IN valid_diet_tags WHERE d IN recipe_tags)
+
+    // 4. Fetch ingredients and evaluate exclusions hierarchically
+    OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
+    WITH r, collect(i) AS ingredients
+    WHERE NOT ANY(i IN ingredients WHERE
+        ANY(ex IN $combined_exclusions WHERE toLower(i.name) CONTAINS ex)
+        OR EXISTS {
+            MATCH (i)-[:HAS_CLASS]->(:FoodOnClass)-[:SUBCLASS_OF*0..5]->(ancestor:FoodOnClass)
+            WHERE ANY(ex IN $combined_exclusions WHERE toLower(ancestor.name) CONTAINS ex)
+        }
+    )
+
+    // 5. Soft inclusion score
+    WITH r, ingredients,
+         size([i IN ingredients WHERE ANY(inc IN $include_ingredients WHERE toLower(i.name) CONTAINS inc)]) AS include_score
+
+    // 6. Exact dish_type match against authoritative Tag nodes
+    MATCH (r)-[:HAS_TAG]->(dt:Tag)
+    WHERE dt.category = 'dish-type' AND toLower(dt.name) IN $dish_types
+
+    WITH r, include_score, toLower(dt.name) AS matched_dish_type
+
+    // 7. Sort
+    ORDER BY CASE WHEN $randomize THEN rand() ELSE (1.0 - include_score) END ASC
+    LIMIT $limit
+
+    // 8. Flatten original ingredients and instructions
+    OPTIONAL MATCH (r)-[:HAS_INGREDIENT_ORIGINAL]->(o:Ingredients_original)
+    WITH r, matched_dish_type, collect(o.name) AS orig_ingredients
+
+    RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
+           r.title AS title,
+           reduce(s = '', x IN orig_ingredients | CASE WHEN s = '' THEN x ELSE s + ', ' + x END) AS ingredients,
+           reduce(s = '', x IN coalesce(r.instructions, []) | CASE WHEN s = '' THEN x ELSE s + ' ' + x END) AS directions,
+           matched_dish_type AS dish_type
+    """
+
+    for dish_type, quota in request_data.quotas.items():
+        safe_quota = max(0, int(quota))
+        if safe_quota <= 0:
+            results[dish_type] = []
+            continue
+
+        fetch_limit = safe_quota * _NUTRITION_POOL_MULTIPLIER if nutrition_profile else safe_quota
+        params = {
+            "diet_tags": diet_tags,
+            "exclude_ids": exclude_ids,
+            "combined_exclusions": combined_exclusions,
+            "include_ingredients": include_ingredients,
+            "dish_types": [dish_type.strip().casefold()],
+            "limit": fetch_limit,
+            "randomize": randomize,
+        }
+
+        rows = run_query(query, params)
+
+        # Collect candidate recipe_ids for batch nutrition fetch
+        candidates: list[dict] = []
+        for row in rows:
+            recipe_id = str(row.get("recipe_id") or "").strip()
+            title = str(row.get("title") or "").strip()
+            if not recipe_id or not title:
+                continue
+            candidates.append({
+                "recipe_id": recipe_id,
+                "title": title,
+                "ingredients": str(row.get("ingredients") or ""),
+                "directions": str(row.get("directions") or ""),
+                "dish_type": str(row.get("dish_type") or dish_type),
+            })
+
+        # Batch-fetch nutrition — always needed (response always includes nutrition field)
+        nutrition_map: dict = {}
+        if candidates:
+            nutrition_map = get_recipe_nutrition_batch([c["recipe_id"] for c in candidates])
+            for c in candidates:
+                c["_nutrition_raw"] = nutrition_map.get(c["recipe_id"])
+
+        # Post-filter by nutrition_profile if provided
+        if nutrition_profile:
+            def _passes_nutrition(c: dict) -> bool:
+                raw = c.get("_nutrition_raw")
+                if not raw:
+                    return True  # no data — don't silently exclude
+                nutrients = raw.get("total_nutrients_per_serving") or raw.get("total_nutrients") or {}
+                if not isinstance(nutrients, dict):
+                    return True
+
+                def _val(*keys: str) -> float | None:
+                    for k in keys:
+                        v = nutrients.get(k)
+                        if v is not None:
+                            try:
+                                return float(v)
+                            except (TypeError, ValueError):
+                                pass
+                    return None
+
+                kcal = _val("energy_kcal", "calories")
+                protein = _val("protein_g")
+                carbs = _val("carbohydrate_g", "carbs_g")
+                fat = _val("fat_g")
+
+                np = nutrition_profile
+                if np.min_calories is not None and kcal is not None and kcal < np.min_calories:
+                    return False
+                if np.max_calories is not None and kcal is not None and kcal > np.max_calories:
+                    return False
+                if np.min_protein_g is not None and protein is not None and protein < np.min_protein_g:
+                    return False
+                if np.max_protein_g is not None and protein is not None and protein > np.max_protein_g:
+                    return False
+                if np.min_carbs_g is not None and carbs is not None and carbs < np.min_carbs_g:
+                    return False
+                if np.max_carbs_g is not None and carbs is not None and carbs > np.max_carbs_g:
+                    return False
+                if np.min_fat_g is not None and fat is not None and fat < np.min_fat_g:
+                    return False
+                if np.max_fat_g is not None and fat is not None and fat > np.max_fat_g:
+                    return False
+                return True
+
+            candidates = [c for c in candidates if _passes_nutrition(c)]
+
+        dish_type_results: list[dict] = []
+        for c in candidates[:safe_quota]:
+            raw = c.pop("_nutrition_raw", None)
+            nutrition_out: dict | None = None
+            if raw:
+                nutrients = raw.get("total_nutrients_per_serving") or raw.get("total_nutrients") or {}
+                if isinstance(nutrients, dict):
+                    def _pick(*keys: str) -> float | None:
+                        for k in keys:
+                            v = nutrients.get(k)
+                            if v is not None:
+                                try:
+                                    return float(v)
+                                except (TypeError, ValueError):
+                                    pass
+                        return None
+                    nutrition_out = {
+                        "calories": _pick("energy_kcal", "calories"),
+                        "protein_g": _pick("protein_g"),
+                        "carbs_g": _pick("carbohydrate_g", "carbs_g"),
+                        "fat_g": _pick("fat_g"),
+                    }
+            c["nutrition"] = nutrition_out
+            dish_type_results.append(c)
+            if c["recipe_id"] not in exclude_ids:
+                exclude_ids.append(c["recipe_id"])
+
+        results[dish_type] = dish_type_results
+
+    return results

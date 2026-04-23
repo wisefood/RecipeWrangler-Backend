@@ -34,6 +34,7 @@ from recipe_wrangler.repositories.neo4j_recipes import (
     infer_diet_tags,
     update_recipe_in_neo4j,
     upsert_recipe_to_neo4j,
+    fetch_foodchat_candidates,
 )
 from recipe_wrangler.repositories.postgres_nutrition import (
     get_recipe_nutrition,
@@ -42,9 +43,9 @@ from recipe_wrangler.repositories.postgres_nutrition import (
 )
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
-from recipe_wrangler.repositories.chroma_matchers import query_usda_nutrition_candidates
 
 _USDA_MATCH_THRESHOLD = 0.4
+
 from recipe_wrangler.tools.recipe_profiling_chain import (
     Recipe_Profiling_Chain,
     Recipe_Profiling_Chain_Structured,
@@ -64,6 +65,8 @@ from recipe_wrangler.schemas import (
     RecipeSubstituteResponse,
     RecipeUpdateRequest,
     RecipeUpdateResponse,
+    FoodChatRequest,
+    FoodChatResponse,
 )
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
@@ -200,6 +203,55 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
         )
         if len(results) >= safe_limit:
             break
+    return results
+
+
+def _search_elastic_keyword(query: str, limit: int = 10) -> list[dict[str, Any]]:
+    """Search recipes in Elasticsearch using a multi_match query."""
+    settings = get_settings()
+    safe_limit = max(1, min(int(limit), 100))
+    payload = {
+        "size": safe_limit,
+        "_source": ["id", "title", "image_url", "source"],
+        "query": {
+            "function_score": {
+                "query": {
+                    "multi_match": {
+                        "query": query,
+                        "fields": ["title^3", "ingredients^2", "tags"],
+                        "fuzziness": "AUTO",
+                    }
+                },
+                "random_score": {},
+                "boost_mode": "multiply",
+            }
+        },
+    }
+    url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
+    response = requests.post(url, json=payload, timeout=settings.elastic_timeout)
+    response.raise_for_status()
+    body = response.json()
+    hits = body.get("hits", {}).get("hits", [])
+
+    results: list[dict[str, Any]] = []
+    for hit in hits:
+        source = hit.get("_source", {}) if isinstance(hit, dict) else {}
+        rid = _as_id(source.get("id")) or _as_id(hit.get("_id"))
+        title = source.get("title")
+        image_url = source.get("image_url")
+        source_name = _as_id(source.get("source"))
+        if not rid:
+            continue
+        if not isinstance(title, str) or not title.strip():
+            continue
+        results.append(
+            {
+                "recipe_id": rid,
+                "title": title.strip(),
+                "source": source_name.casefold() if source_name else None,
+                "image_url": image_url.strip() if image_url else None,
+            }
+        )
     return results
 
 
@@ -358,7 +410,7 @@ def _attach_image_urls(results: list[object]) -> list[object]:
             continue
         rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
         combined = dict(entry)
-        if rid and "image_url" not in combined:
+        if rid and _as_id(combined.get("image_url")) is None:
             combined["image_url"] = image_map.get(rid)
         enriched.append(combined)
 
@@ -651,6 +703,10 @@ def _build_nutri_score_breakdown(
             usda_id = canonical_food_id
         elif ingredient_name:
             try:
+                from recipe_wrangler.repositories.chroma_matchers import (
+                    query_usda_nutrition_candidates,
+                )
+
                 candidates = query_usda_nutrition_candidates(ingredient_name)
                 if candidates and candidates[0].get("distance", 1.0) < _USDA_MATCH_THRESHOLD:
                     usda_id = candidates[0].get("metadata", {}).get("usda_id")
@@ -1090,6 +1146,61 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
     return True, None
 
 
+
+@router.post(
+    "/foodchat_candidates",
+    response_model=FoodChatResponse,
+    tags=["recipes", "foodchat"],
+    summary="Retrieve diverse, customized meal candidates for FoodChat",
+)
+def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
+    """Retrieve diverse, filtered recipe candidates grouped by meal slot.
+
+    Designed for multi-day meal plan generation. Each key in ``quotas`` is a
+    dish-type tag (e.g. ``"breakfast"``, ``"lunch"``, ``"dinner"``) and its
+    value is how many recipes to return for that slot. The response mirrors
+    the same keys, each containing a list of recipe items.
+
+    **Filtering (hard constraints)**
+
+    - ``user_profile.allergies`` — excluded via the food taxonomy graph.
+      Excluding ``"dairy"`` also excludes recipes whose ingredients are
+      taxonomic descendants of dairy (e.g. parmesan, whey).
+    - ``user_profile.diet`` — recipe must carry *all* requested diet tags
+      (e.g. ``"vegan"``, ``"gluten-free"``). Tags not present in the database
+      are silently ignored to avoid empty results from typos.
+    - ``constraints.exclude_ingredients`` — hard ingredient exclusion
+      (substring + taxonomy ancestor match).
+    - ``constraints.exclude_recipe_ids`` — pass previously selected recipe IDs
+      to guarantee those are never returned. IDs picked in earlier slots within
+      the same call are also automatically excluded from subsequent slots.
+    - ``constraints.nutrition_profile`` — per-serving macro range filter
+      (min/max for calories, protein, carbs, fat). Applied as a post-filter on
+      a 5× candidate pool. Recipes with *no stored nutrition data always pass
+      through* — they are never silently dropped.
+
+    **Ranking (soft preferences)**
+
+    - ``constraints.include_ingredients`` — recipes containing these
+      ingredients are ranked higher; not a hard filter.
+    - ``randomize`` (default ``true``) — when ``true`` results are randomly
+      ordered, giving different recipes on each call and maximising week-plan
+      diversity. Set to ``false`` to rank by ingredient match score instead.
+
+    **Response per recipe**
+
+    Each item contains ``recipe_id``, ``title``, ``ingredients`` (comma-joined
+    original strings), ``directions`` (instructions joined as a single string),
+    ``dish_type`` (the authoritative server-side tag — no client-side
+    classification needed), and ``nutrition`` (``calories``, ``protein_g``,
+    ``carbs_g``, ``fat_g`` per serving; ``null`` when no profile is stored).
+    """
+    try:
+        results = fetch_foodchat_candidates(request)
+        return FoodChatResponse(results=results)
+    except Exception as exc:
+        raise InternalError("Failed to fetch foodchat candidates", details=str(exc)) from exc
+
 @router.post(
     "/search",
     response_model=None,
@@ -1102,34 +1213,37 @@ async def recipe_search(
     """Invoke the recipe search LangGraph pipeline and return its output."""
 
     question = str(payload.question or "").strip()
-    exclude_allergens = payload.exclude_allergens if isinstance(payload.exclude_allergens, list) else []
+    exclude_allergens = (
+        payload.exclude_allergens if isinstance(payload.exclude_allergens, list) else []
+    )
+    limit = max(1, min(int(payload.limit), 100))
 
     # If no free-text question is provided, return a random landing page.
     if not question:
         random_results: list[dict[str, Any]] = []
         try:
-            random_results = _random_myplate_from_elastic(limit=10)
+            random_results = _random_myplate_from_elastic(limit=limit)
         except Exception:  # noqa: BLE001
             random_results = []
 
-        return {"results": random_results or []}
-
-    # Lazily initialize Neo/Groq search stack only for non-empty queries.
-    recipe_search_app = get_recipe_search_app()
+        return {
+            "results": random_results or [],
+            "steps": ["landing_random_results"],
+            "cypher_statement": "",
+        }
 
     try:
-        result = recipe_search_app.invoke(question, exclude_allergens)
+        # Lazily initialize Neo/Groq search stack only for non-empty queries.
+        recipe_search_app = get_recipe_search_app()
+        result = recipe_search_app.invoke(question, exclude_allergens, limit=limit)
     except Exception as exc:  # noqa: BLE001 - bubble up as HTTP error
         # Keep the endpoint usable even if the primary graph/LLM path fails.
+        fallback_step = "fallback_elasticsearch"
         try:
-            fallback_results = search_recipes_by_params(
-                RecipeSearchFilters(
-                    exclude_allergens=exclude_allergens,
-                    limit=10,
-                )
-            )
+            fallback_results = _search_elastic_keyword(question, limit=limit)
         except Exception:
-            fallback_results = _random_myplate_from_elastic(limit=10)
+            fallback_results = _random_myplate_from_elastic(limit=limit)
+            fallback_step = "fallback_random_myplate"
 
         if not isinstance(fallback_results, list):
             fallback_results = []
@@ -1137,6 +1251,8 @@ async def recipe_search(
         fallback_results = _normalize_search_results(fallback_results)
         return {
             "results": fallback_results or [],
+            "steps": [fallback_step],
+            "cypher_statement": "",
             "warning": "Primary search path failed; returned fallback results.",
             "error": str(exc),
         }
@@ -1150,7 +1266,18 @@ async def recipe_search(
     if isinstance(raw_results, list):
         raw_results = _normalize_search_results(raw_results)
 
-    return {"results": raw_results}
+    steps = result.get("steps")
+    if not isinstance(steps, list):
+        steps = []
+    cypher_statement = result.get("cypher_statement")
+    if not isinstance(cypher_statement, str):
+        cypher_statement = ""
+
+    return {
+        "results": raw_results,
+        "steps": [str(step) for step in steps],
+        "cypher_statement": cypher_statement,
+    }
 
 
 @router.post(
@@ -1163,9 +1290,12 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
     """Run deterministic parameter-based recipe search and return results."""
 
     try:
-        results = search_recipes_by_params(payload)
+        search_output = search_recipes_by_params(payload)
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Neo4j", exc) from exc
+
+    results = search_output.get("results", []) if isinstance(search_output, dict) else []
+    facets = search_output.get("facets", {}) if isinstance(search_output, dict) else {}
 
     cards = []
     for row in results:
@@ -1186,7 +1316,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             "sust_score": row.get("sust_score"),
             "expert_recipe": row.get("expert_recipe", False),
         })
-    return {"results": cards}
+    return {"results": cards, "facets": facets}
 
 
 @router.post(

@@ -12,6 +12,12 @@ DEFAULT_BATCH_SIZE = int(os.getenv("EMBED_BATCH_SIZE", "8"))
 
 MODEL_KWARGS = {"device": DEFAULT_DEVICE}
 ENCODE_KWARGS = {"batch_size": DEFAULT_BATCH_SIZE}
+WARM_ON_IMPORT = os.getenv("EMBED_WARM_ON_IMPORT", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 @lru_cache(maxsize=None)
 def _get_embedder(model_name: str = DEFAULT_MODEL_NAME) -> HuggingFaceEmbeddings:
@@ -22,9 +28,10 @@ def _get_embedder(model_name: str = DEFAULT_MODEL_NAME) -> HuggingFaceEmbeddings
         encode_kwargs=ENCODE_KWARGS,
     )
 
-# Eagerly warm the default model at import time so the first request doesn't pay
-# the cold-start penalty and workers don't each reload it on their first query.
-_get_embedder(DEFAULT_MODEL_NAME)
+# Keep import-time startup lightweight by default. Opt in to warm-up for
+# environments where faster first-query latency matters more than boot time.
+if WARM_ON_IMPORT:
+    _get_embedder(DEFAULT_MODEL_NAME)
 
 def get_embeddings(text: str, model_name: Optional[str] = None) -> List[float]:
     """

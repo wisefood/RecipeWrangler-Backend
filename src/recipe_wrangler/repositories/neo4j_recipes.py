@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from recipe_wrangler.utils.neo4j_utils import driver, run_query
+
+logger = logging.getLogger(__name__)
 
 
 def count_recipes() -> int:
@@ -421,32 +424,76 @@ def _normalize_foodchat_tags(items: list[str]) -> list[str]:
     return normalized
 
 
+_SLOT_TO_DB_TAG: dict[str, str] = {
+    "breakfast": "breakfast",
+    "lunch": "main-dish",
+    "dinner": "main-dish",
+    "main-dish": "main-dish",
+    "snack": "snacks",
+    "snacks": "snacks",
+    "dessert": "desserts",
+    "desserts": "desserts",
+    "beverage": "beverages",
+    "beverages": "beverages",
+}
+
+
+_ES_POOL_MULTIPLIER = 10  # how many ES IDs to sample per quota unit before Neo4j filtering
+
+# Sources considered high-quality — boosted in ES random sampling.
+_TRUSTED_SOURCES = {"foodhero", "healthyfoods", "irish_safefood"}
+
+
+def _es_sample_ids(exclude_ids: list[str], pool_size: int) -> list[str]:
+    """Sample a random pool of candidate IDs from ES across all recipes.
+
+    No dish-type filter here — ES tags only carry diet labels, not dish types.
+    Neo4j handles dish-type filtering against the sampled pool.
+    """
+    import requests as _requests
+    from recipe_wrangler.api.config import get_settings
+    settings = get_settings()
+
+    bool_query: dict = {"must": [{"match_all": {}}]}
+    if exclude_ids:
+        bool_query["must_not"] = [{"ids": {"values": exclude_ids}}]
+
+    query: dict = {
+        "function_score": {
+            "query": {"bool": bool_query},
+            "random_score": {},
+            "boost_mode": "replace",
+        }
+    }
+
+    payload = {"size": pool_size, "_source": ["id"], "query": query}
+    url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
+    resp = _requests.post(url, json=payload, timeout=settings.elastic_timeout)
+    resp.raise_for_status()
+    hits = resp.json().get("hits", {}).get("hits", [])
+    return [str(h.get("_source", {}).get("id") or h.get("_id") or "").strip() for h in hits if h]
+
+
 def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     """Fetch recipe candidates for FoodChat.
 
-    All slots are fetched in a single Neo4j round-trip. Expensive steps
-    (diet-tag validation, allergen taxonomy traversal) are skipped when the
-    caller passes no constraints, so an unconstrained call is fast.
+    Neo4j scans by dish-type tag directly — ES has no dish-type tags so cannot
+    pre-filter. Expensive steps (allergen taxonomy, diet-tag validation) are
+    skipped when the caller passes no constraints. Postgres does a single batch
+    nutrition fetch across all slots.
     """
+    import time
     from recipe_wrangler.repositories.postgres_nutrition import get_recipe_nutrition_batch
 
     results: dict[str, list[dict]] = {}
 
     allergies = _normalize_foodchat_terms(request_data.user_profile.allergies)
-    exclude_ingredients = _normalize_foodchat_terms(
-        request_data.constraints.exclude_ingredients
-    )
+    exclude_ingredients = _normalize_foodchat_terms(request_data.constraints.exclude_ingredients)
     combined_exclusions = list(dict.fromkeys(allergies + exclude_ingredients))
-
-    include_ingredients = _normalize_foodchat_terms(
-        request_data.constraints.include_ingredients
-    )
+    include_ingredients = _normalize_foodchat_terms(request_data.constraints.include_ingredients)
     exclude_ids: list[str] = [
-        str(recipe_id).strip()
-        for recipe_id in request_data.constraints.exclude_recipe_ids
-        if str(recipe_id).strip()
+        str(rid).strip() for rid in request_data.constraints.exclude_recipe_ids if str(rid).strip()
     ]
-
     diet_tags = _normalize_foodchat_tags(request_data.user_profile.diet)
     nutrition_profile = request_data.constraints.nutrition_profile
     randomize: bool = getattr(request_data, "randomize", True)
@@ -457,26 +504,21 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     has_exclusions = bool(combined_exclusions)
     has_inclusions = bool(include_ingredients)
 
-    # Build the query conditionally so we don't pay for expensive steps when
-    # there are no constraints. Steps are injected as string blocks.
-
-    # Step 1: diet-tag validation — only needed when diet is requested
     if has_diet:
         diet_validation = """
     OPTIONAL MATCH (valid_tag:Tag)
     WHERE toLower(valid_tag.name) IN $diet_tags
     WITH collect(toLower(valid_tag.name)) AS valid_diet_tags
     """
-        diet_filter = "WHERE ALL(d IN valid_diet_tags WHERE d IN recipe_tags)"
         diet_tag_match = """
     OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
     WITH r, valid_diet_tags, collect(toLower(t.name)) AS recipe_tags
-    """ + diet_filter
+    WHERE ALL(d IN valid_diet_tags WHERE d IN recipe_tags)
+    """
     else:
         diet_validation = "WITH [] AS valid_diet_tags"
         diet_tag_match = ""
 
-    # Step 4: allergen/exclusion check — skip variable-depth traversal when empty
     if has_exclusions:
         exclusion_filter = """
     OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
@@ -493,20 +535,21 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     else:
         exclusion_filter = "WITH r, [] AS ingredients"
 
-    # Step 5: inclusion score — zero when no includes requested
-    if has_inclusions:
-        inclusion_score = "size([i IN ingredients WHERE ANY(inc IN $include_ingredients WHERE toLower(i.name) CONTAINS inc)])"
-    else:
-        inclusion_score = "0"
+    inclusion_score = (
+        "size([i IN ingredients WHERE ANY(inc IN $include_ingredients WHERE toLower(i.name) CONTAINS inc)])"
+        if has_inclusions else "0"
+    )
 
-    # Query template — $dish_type and $fetch_limit vary per slot.
-    query = f"""
+    neo4j_query = f"""
     {diet_validation}
 
-    MATCH (r:Recipe)
-    WHERE r.instructions IS NOT NULL
+    MATCH (r:Recipe)-[:HAS_TAG]->(dt:Tag)
+    WHERE dt.category = 'dish-type' AND toLower(dt.name) = $dish_type
+      AND r.instructions IS NOT NULL
       AND size(r.instructions) > 0
       AND (size($exclude_ids) = 0 OR NOT coalesce(toString(r.recipe_id), toString(r.id), '') IN $exclude_ids)
+
+    WITH r
 
     {diet_tag_match}
 
@@ -514,54 +557,31 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
 
     WITH r, {inclusion_score} AS include_score
 
-    MATCH (r)-[:HAS_TAG]->(dt:Tag)
-    WHERE dt.category = 'dish-type' AND toLower(dt.name) = $dish_type
-
-    WITH r, include_score, toLower(dt.name) AS matched_dish_type
-
     ORDER BY CASE WHEN $randomize THEN rand() ELSE (1.0 - include_score) END ASC
     LIMIT $fetch_limit
 
     OPTIONAL MATCH (r)-[:HAS_INGREDIENT_ORIGINAL]->(o:Ingredients_original)
-    WITH r, matched_dish_type, collect(o.name) AS orig_ingredients
+    WITH r, collect(o.name) AS orig_ingredients
 
     RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
            r.title AS title,
            reduce(s = '', x IN orig_ingredients | CASE WHEN s = '' THEN x ELSE s + ', ' + x END) AS ingredients,
-           reduce(s = '', x IN coalesce(r.instructions, []) | CASE WHEN s = '' THEN x ELSE s + ' ' + x END) AS directions,
-           matched_dish_type AS dish_type
+           reduce(s = '', x IN coalesce(r.instructions, []) | CASE WHEN s = '' THEN x ELSE s + ' ' + x END) AS directions
     """
 
-    # Map logical slot names (as callers use them) to the dish-type tag(s) stored in Neo4j.
-    _SLOT_TO_DB_TAG: dict[str, str] = {
-        "breakfast": "breakfast",
-        "lunch": "main-dish",
-        "dinner": "main-dish",
-        "main-dish": "main-dish",
-        "snack": "snacks",
-        "snacks": "snacks",
-        "dessert": "desserts",
-        "desserts": "desserts",
-        "beverage": "beverages",
-        "beverages": "beverages",
-    }
-
     quotas = {k: max(0, int(v)) for k, v in request_data.quotas.items()}
-
     for slot in quotas:
         if quotas[slot] == 0:
             results[slot] = []
-
     if not any(quotas.values()):
         return results
 
-    # Run one query per slot; collect all recipe IDs for a single Postgres batch.
     all_candidates: dict[str, list[dict]] = {}
     all_recipe_ids: list[str] = []
+    running_exclude = list(exclude_ids)
 
     base_params = {
         "diet_tags": diet_tags,
-        "exclude_ids": exclude_ids,
         "combined_exclusions": combined_exclusions,
         "include_ingredients": include_ingredients,
         "randomize": randomize,
@@ -574,10 +594,15 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
 
         db_tag = _SLOT_TO_DB_TAG.get(slot.strip().casefold(), slot.strip().casefold())
         fetch_limit = quota * _NUTRITION_POOL_MULTIPLIER if nutrition_profile else quota
-        # Grow exclude_ids with IDs already chosen in previous slots so overlapping
-        # DB tags (e.g. lunch + dinner both map to main-dish) don't produce duplicates.
-        rows = run_query(query, {**base_params, "dish_type": db_tag, "fetch_limit": fetch_limit,
-                                 "exclude_ids": base_params["exclude_ids"] + all_recipe_ids})
+
+        t0 = time.monotonic()
+        rows = run_query(neo4j_query, {
+            **base_params,
+            "dish_type": db_tag,
+            "fetch_limit": fetch_limit,
+            "exclude_ids": running_exclude,
+        })
+        logger.info("Neo4j slot=%s db_tag=%s rows=%d in %.2fs", slot, db_tag, len(rows), time.monotonic() - t0)
 
         candidates: list[dict] = []
         for row in rows:
@@ -590,14 +615,18 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
                 "title": title,
                 "ingredients": str(row.get("ingredients") or ""),
                 "directions": str(row.get("directions") or ""),
-                "dish_type": slot,  # return the caller's slot name, not the DB tag
+                "dish_type": slot,
             })
             all_recipe_ids.append(recipe_id)
+
+        running_exclude = running_exclude + [c["recipe_id"] for c in candidates]
         all_candidates[slot] = candidates
 
     nutrition_map: dict = {}
     if all_recipe_ids:
+        t2 = time.monotonic()
         nutrition_map = get_recipe_nutrition_batch(all_recipe_ids)
+        logger.info("Postgres nutrition batch ids=%d in %.2fs", len(all_recipe_ids), time.monotonic() - t2)
         for slot_candidates in all_candidates.values():
             for c in slot_candidates:
                 c["_nutrition_raw"] = nutrition_map.get(c["recipe_id"])

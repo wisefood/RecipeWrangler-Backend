@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import List, Optional
 
-from IPython.display import Image, display
 from langchain.tools import tool
 from langgraph.graph import END, START, StateGraph
 
@@ -234,5 +233,6 @@ def Recipe_Profiling_Chain_Structured(
 
 
 def visualize_pipeline_graph():
+    from IPython.display import Image, display
     graph = build_pipeline()
     display(Image(graph.get_graph().draw_mermaid_png()))

@@ -499,6 +499,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     else:
         inclusion_score = "0"
 
+    # Query template — $dish_type and $fetch_limit vary per slot.
     query = f"""
     {diet_validation}
 
@@ -514,7 +515,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     WITH r, {inclusion_score} AS include_score
 
     MATCH (r)-[:HAS_TAG]->(dt:Tag)
-    WHERE dt.category = 'dish-type' AND toLower(dt.name) IN $all_dish_types
+    WHERE dt.category = 'dish-type' AND toLower(dt.name) = $dish_type
 
     WITH r, include_score, toLower(dt.name) AS matched_dish_type
 
@@ -531,49 +532,53 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
            matched_dish_type AS dish_type
     """
 
+    # Map logical slot names (as callers use them) to the dish-type tag(s) stored in Neo4j.
+    _SLOT_TO_DB_TAG: dict[str, str] = {
+        "breakfast": "breakfast",
+        "lunch": "main-dish",
+        "dinner": "main-dish",
+        "main-dish": "main-dish",
+        "snack": "snacks",
+        "snacks": "snacks",
+        "dessert": "desserts",
+        "desserts": "desserts",
+        "beverage": "beverages",
+        "beverages": "beverages",
+    }
+
     quotas = {k: max(0, int(v)) for k, v in request_data.quotas.items()}
-    active_slots = {k: v for k, v in quotas.items() if v > 0}
 
     for slot in quotas:
         if quotas[slot] == 0:
             results[slot] = []
 
-    if not active_slots:
+    if not any(quotas.values()):
         return results
 
-    all_dish_types = list(active_slots.keys())
-    # When nutrition filtering is active fetch a larger pool; otherwise fetch
-    # only what's needed per slot (sum of quotas).
-    if nutrition_profile:
-        fetch_limit = sum(active_slots.values()) * _NUTRITION_POOL_MULTIPLIER
-    else:
-        fetch_limit = sum(active_slots.values())
+    # Run one query per slot; collect all recipe IDs for a single Postgres batch.
+    all_candidates: dict[str, list[dict]] = {}
+    all_recipe_ids: list[str] = []
 
-    params = {
+    base_params = {
         "diet_tags": diet_tags,
         "exclude_ids": exclude_ids,
         "combined_exclusions": combined_exclusions,
         "include_ingredients": include_ingredients,
-        "all_dish_types": all_dish_types,
         "randomize": randomize,
-        "fetch_limit": fetch_limit,
     }
 
-    all_rows = run_query(query, params)
+    for slot, quota in quotas.items():
+        if quota == 0:
+            all_candidates[slot] = []
+            continue
 
-    # Bucket rows by dish_type
-    rows_by_slot: dict[str, list[dict]] = {slot: [] for slot in active_slots}
-    for row in all_rows:
-        slot = str(row.get("dish_type") or "").strip().lower()
-        if slot in rows_by_slot and len(rows_by_slot[slot]) < (
-            quotas[slot] * _NUTRITION_POOL_MULTIPLIER if nutrition_profile else quotas[slot]
-        ):
-            rows_by_slot[slot].append(row)
+        db_tag = _SLOT_TO_DB_TAG.get(slot.strip().casefold(), slot.strip().casefold())
+        fetch_limit = quota * _NUTRITION_POOL_MULTIPLIER if nutrition_profile else quota
+        # Grow exclude_ids with IDs already chosen in previous slots so overlapping
+        # DB tags (e.g. lunch + dinner both map to main-dish) don't produce duplicates.
+        rows = run_query(query, {**base_params, "dish_type": db_tag, "fetch_limit": fetch_limit,
+                                 "exclude_ids": base_params["exclude_ids"] + all_recipe_ids})
 
-    # Collect all candidates across slots for a single Postgres batch fetch
-    all_candidates: dict[str, list[dict]] = {}
-    all_recipe_ids: list[str] = []
-    for slot, rows in rows_by_slot.items():
         candidates: list[dict] = []
         for row in rows:
             recipe_id = str(row.get("recipe_id") or "").strip()
@@ -585,7 +590,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
                 "title": title,
                 "ingredients": str(row.get("ingredients") or ""),
                 "directions": str(row.get("directions") or ""),
-                "dish_type": str(row.get("dish_type") or slot),
+                "dish_type": slot,  # return the caller's slot name, not the DB tag
             })
             all_recipe_ids.append(recipe_id)
         all_candidates[slot] = candidates

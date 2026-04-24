@@ -61,11 +61,14 @@ WITH r, collect({
     measurement: pretty
 }) AS ingredients
 OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
-WITH r, ingredients, collect(distinct t.name) AS raw_tags
+WITH r, ingredients,
+     collect(distinct t.name) AS raw_tags,
+     collect(distinct CASE WHEN t.category = 'dish-type' THEN t.name END) AS raw_dish_types
 RETURN
   r AS recipe,
   ingredients,
-  [tag IN raw_tags WHERE tag IS NOT NULL AND trim(toString(tag)) <> ""] AS tags
+  [tag IN raw_tags WHERE tag IS NOT NULL AND trim(toString(tag)) <> ""] AS tags,
+  [dt IN raw_dish_types WHERE dt IS NOT NULL AND trim(toString(dt)) <> ""] AS dish_types
 """
 
 
@@ -85,6 +88,11 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
     tags = []
     if isinstance(raw_tags, list):
         tags = [str(tag).strip() for tag in raw_tags if str(tag).strip()]
+
+    raw_dish_types = record.get("dish_types")
+    dish_types: list[str] = []
+    if isinstance(raw_dish_types, list):
+        dish_types = [str(dt).strip() for dt in raw_dish_types if str(dt).strip()]
 
     raw_ingredients = record.get("ingredients") or []
     ingredients: list[dict[str, Any]] = []
@@ -110,6 +118,7 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
         "image_url": recipe_props.get("image_url"),
         "edited": recipe_props.get("edited"),
         "tags": tags,
+        "dish_types": dish_types,
         "ingredients": ingredients,
         "instructions": instructions,
         "duration": recipe_props.get("duration"),

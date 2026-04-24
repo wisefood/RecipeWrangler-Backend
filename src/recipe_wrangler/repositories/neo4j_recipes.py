@@ -55,6 +55,27 @@ def fetch_recipe_image_urls_by_ids(ids: list[str]) -> dict[str, str | None]:
     }
 
 
+def fetch_recipe_dish_types_by_ids(ids: list[str]) -> dict[str, list[str]]:
+    """Return a mapping of recipe_id -> list of dish-type tag names."""
+    if not ids:
+        return {}
+    query = """
+    UNWIND $ids AS rid
+    MATCH (r:Recipe)
+    WHERE r.recipe_id = rid OR r.id = rid
+    OPTIONAL MATCH (r)-[:HAS_TAG]->(dt:Tag)
+      WHERE dt.category = 'dish-type'
+    WITH rid, [n IN collect(DISTINCT dt.name) WHERE n IS NOT NULL AND trim(toString(n)) <> ""] AS dish_types
+    RETURN rid AS recipe_id, dish_types
+    """
+    rows = run_query(query, {"ids": ids})
+    return {
+        str(record.get("recipe_id")): list(record.get("dish_types") or [])
+        for record in rows
+        if record.get("recipe_id") is not None
+    }
+
+
 def update_recipe_in_neo4j(
     recipe_id: str,
     instructions: list[str] | None = None,

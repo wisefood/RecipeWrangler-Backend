@@ -309,6 +309,7 @@ class RecipeCardResponse(BaseModel):
     duration: Optional[float] = None
     serves: Optional[float] = None
     tags: List[str] = Field(default_factory=list)
+    dish_types: List[str] = Field(default_factory=list)
     nutri_score_label: Optional[str] = None
     nutri_score_color: Optional[str] = None
 
@@ -324,6 +325,7 @@ class RecipeDetailResponse(BaseModel):
     image_url: Optional[str] = None
     edited: Optional[bool] = None
     tags: List[str] = Field(default_factory=list)
+    dish_types: List[str] = Field(default_factory=list)
     ingredients: List[Dict[str, Any]]
     instructions: List[str]
     duration: Optional[float]

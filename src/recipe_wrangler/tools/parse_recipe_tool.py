@@ -8,9 +8,23 @@ from langchain.tools import tool
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from recipe_wrangler.schemas import RecipeState
+
+
+def _coerce_float(value: Any) -> float:
+    try:
+        return max(0.0, float(str(value).strip()))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _coerce_int(value: Any) -> int:
+    try:
+        return max(0, int(float(str(value).strip())))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _normalize_text(value: str) -> str:
@@ -95,12 +109,25 @@ def parse_recipe_tool(recipe: str) -> dict:
         model_name = "llama-3.1-8b-instant"
 
     class ParsedRecipe(BaseModel):
-        title: str = Field(min_length=1)
-        ingredient_names: List[str] = Field(min_length=1)
-        measurements: List[str] = Field(min_length=1)
-        directions: List[str] = Field(min_length=1)
-        total_time: float = Field(ge=0)
-        serves: int = Field(ge=0)
+        title: str = Field(default="Untitled recipe")
+        ingredient_names: List[str] = Field(default_factory=list)
+        measurements: List[str] = Field(default_factory=list)
+        directions: List[str] = Field(default_factory=list)
+        total_time: str = Field(default="0")
+        serves: str = Field(default="0")
+
+        @field_validator("title", mode="before")
+        @classmethod
+        def _default_title(cls, v: Any) -> str:
+            text = (str(v).strip() if v is not None else "")
+            return text or "Untitled recipe"
+
+        @field_validator("total_time", "serves", mode="before")
+        @classmethod
+        def _stringify_number(cls, v: Any) -> str:
+            if v is None:
+                return "0"
+            return str(v).strip() or "0"
 
     llm_source = os.getenv("WEIGHT_LLM_SOURCE", "groq").strip().lower()
     if llm_source == "vllm":
@@ -159,8 +186,8 @@ def Recipe_Parser_Node(state: RecipeState) -> RecipeState:
         result["measurements"] or [],
     )
     state.directions = result["directions"]
-    state.total_time = result["total_time"]
-    state.serves = result["serves"]
+    state.total_time = _coerce_float(result.get("total_time"))
+    state.serves = _coerce_int(result.get("serves"))
 
     
     if debug:

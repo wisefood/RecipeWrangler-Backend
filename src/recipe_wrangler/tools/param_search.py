@@ -190,6 +190,11 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
     {order_by_clause}
     SKIP $offset
     LIMIT $limit
+    OPTIONAL MATCH (r)-[:HAS_TAG]->(dt:Tag)
+      WHERE dt.category = 'dish-type'
+    WITH recipe_id, title, source, source_id, image_url, duration, serves,
+         nutri_score, sust_score, expert_recipe,
+         [n IN collect(DISTINCT dt.name) WHERE n IS NOT NULL AND trim(toString(n)) <> ""] AS dish_types
     RETURN
       recipe_id,
       title,
@@ -200,7 +205,8 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
       serves,
       nutri_score,
       sust_score,
-      expert_recipe
+      expert_recipe,
+      dish_types
     """
 
 

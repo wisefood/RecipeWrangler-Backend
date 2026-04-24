@@ -28,6 +28,7 @@ from recipe_wrangler.tools.fetch_recipe_info import (
 from recipe_wrangler.repositories.neo4j_recipes import (
     count_recipes,
     detect_allergens_from_names,
+    fetch_recipe_dish_types_by_ids,
     fetch_recipe_image_urls_by_ids,
     fetch_recipe_scores_by_ids,
     find_ingredient_substitutes,
@@ -261,6 +262,7 @@ def _normalize_search_results(raw_results: list[object]) -> list[object]:
     raw_results = _attach_nutri_colors(raw_results)
     raw_results = _attach_recipe_scores(raw_results)
     raw_results = _attach_image_urls(raw_results)
+    raw_results = _attach_dish_types(raw_results)
     allowed_keys = {
         "recipe_id",
         "title",
@@ -270,6 +272,7 @@ def _normalize_search_results(raw_results: list[object]) -> list[object]:
         "nutri_score",
         "sust_score",
         "image_url",
+        "dish_types",
     }
 
     filtered_results: list[object] = []
@@ -412,6 +415,40 @@ def _attach_image_urls(results: list[object]) -> list[object]:
         combined = dict(entry)
         if rid and _as_id(combined.get("image_url")) is None:
             combined["image_url"] = image_map.get(rid)
+        enriched.append(combined)
+
+    return enriched
+
+
+def _attach_dish_types(results: list[object]) -> list[object]:
+    """Attach dish-type tag names for recipe rows by recipe_id/id when possible."""
+
+    if not results:
+        return results
+
+    ids: list[str] = []
+    for entry in results:
+        if not isinstance(entry, dict):
+            continue
+        candidate = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
+        if candidate:
+            ids.append(candidate)
+
+    if not ids:
+        return results
+
+    dish_type_map = fetch_recipe_dish_types_by_ids(ids)
+
+    enriched: list[object] = []
+    for entry in results:
+        if not isinstance(entry, dict):
+            enriched.append(entry)
+            continue
+        rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
+        combined = dict(entry)
+        existing = combined.get("dish_types")
+        if rid and (not isinstance(existing, list) or not existing):
+            combined["dish_types"] = dish_type_map.get(rid, [])
         enriched.append(combined)
 
     return enriched
@@ -885,6 +922,7 @@ def get_recipe(
             duration=recipe.get("duration"),
             serves=recipe.get("serves"),
             tags=recipe.get("tags") or [],
+            dish_types=recipe.get("dish_types") or [],
             nutri_score_label=nutri_score_str if isinstance(nutri_score_str, str) else None,
             nutri_score_color=_nutri_color_from_score(nutri_score_str),
         )
@@ -1304,6 +1342,9 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             cards.append(row)
             continue
         nutri_score = row.get("nutri_score")
+        dish_types = row.get("dish_types") or []
+        if not isinstance(dish_types, list):
+            dish_types = []
         cards.append({
             "recipe_id": row.get("recipe_id"),
             "title": row.get("title"),
@@ -1316,6 +1357,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             "nutri_score_color": _nutri_color_from_score(nutri_score),
             "sust_score": row.get("sust_score"),
             "expert_recipe": row.get("expert_recipe", False),
+            "dish_types": dish_types,
         })
     return {"results": cards, "facets": facets, "total": total}
 
@@ -1337,7 +1379,11 @@ async def recipe_profile(
         region = "US"
 
     if payload.parse_only:
-        from recipe_wrangler.tools.parse_recipe_tool import parse_recipe_tool
+        from recipe_wrangler.tools.parse_recipe_tool import (
+            _coerce_float,
+            _coerce_int,
+            parse_recipe_tool,
+        )
         try:
             parsed = parse_recipe_tool.invoke({"recipe": raw_recipe})
         except Exception as exc:
@@ -1348,8 +1394,8 @@ async def recipe_profile(
             f"{m} {n}".strip() if m else n
             for n, m in zip(names, measurements)
         ]
-        total_time = parsed.get("total_time") or 0
-        serves = parsed.get("serves") or 0
+        total_time = _coerce_float(parsed.get("total_time"))
+        serves = _coerce_int(parsed.get("serves"))
         try:
             auto_allergens = detect_allergens_from_names(names)
             auto_tags = list(infer_diet_tags(set(auto_allergens)))

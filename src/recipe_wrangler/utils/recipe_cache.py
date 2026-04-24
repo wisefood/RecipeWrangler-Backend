@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Iterable
 
 import redis
 
@@ -44,6 +44,11 @@ def _is_enabled() -> bool:
     return get_settings().recipe_cache_enabled
 
 
+def _default_ttl() -> int:
+    from recipe_wrangler.api.config import get_settings
+    return get_settings().redis_recipe_ttl
+
+
 def _key(recipe_id: str, variant: str | None = None) -> str:
     key = f"recipe:{recipe_id}"
     return f"{key}:{variant}" if variant else key
@@ -60,18 +65,68 @@ def cache_get(recipe_id: str, variant: str | None = None) -> dict[str, Any] | No
         return None
 
 
+def cache_mget(
+    recipe_ids: Iterable[str],
+    variant: str | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Bulk fetch via a single MGET. Returns {recipe_id: data} for hits only."""
+    if not _is_enabled():
+        return {}
+    ids = [rid for rid in recipe_ids if rid]
+    if not ids:
+        return {}
+    try:
+        keys = [_key(rid, variant) for rid in ids]
+        raws = _get_client().mget(keys)
+    except Exception:
+        logger.warning("Redis cache_mget failed", exc_info=True)
+        return {}
+
+    hits: dict[str, dict[str, Any]] = {}
+    for rid, raw in zip(ids, raws):
+        if not raw:
+            continue
+        try:
+            hits[rid] = json.loads(raw)
+        except Exception:
+            continue
+    return hits
+
+
 def cache_set(
     recipe_id: str,
     data: dict[str, Any],
-    ttl_seconds: int = 3600,
+    ttl_seconds: int | None = None,
     variant: str | None = None,
 ) -> None:
     if not _is_enabled():
         return
+    ttl = ttl_seconds if ttl_seconds is not None else _default_ttl()
     try:
-        _get_client().setex(_key(recipe_id, variant), ttl_seconds, json.dumps(data))
+        _get_client().setex(_key(recipe_id, variant), ttl, json.dumps(data))
     except Exception:
         logger.warning("Redis cache_set failed for %s", recipe_id, exc_info=True)
+
+
+def cache_mset(
+    entries: dict[str, dict[str, Any]],
+    ttl_seconds: int | None = None,
+    variant: str | None = None,
+) -> None:
+    """Bulk write via a pipeline. Each entry gets the same TTL."""
+    if not _is_enabled() or not entries:
+        return
+    ttl = ttl_seconds if ttl_seconds is not None else _default_ttl()
+    try:
+        client = _get_client()
+        pipe = client.pipeline(transaction=False)
+        for rid, data in entries.items():
+            if not rid:
+                continue
+            pipe.setex(_key(rid, variant), ttl, json.dumps(data))
+        pipe.execute()
+    except Exception:
+        logger.warning("Redis cache_mset failed (%d entries)", len(entries), exc_info=True)
 
 
 def cache_delete(recipe_id: str, variant: str | None = None) -> None:

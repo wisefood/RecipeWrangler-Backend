@@ -19,11 +19,18 @@ from recipe_wrangler.api.exceptions import (
 from recipe_wrangler.api.config import get_settings
 
 from recipe_wrangler.tools.param_search import search_recipes_by_params
-from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_set
+from recipe_wrangler.utils.recipe_cache import (
+    cache_delete,
+    cache_get,
+    cache_mget,
+    cache_mset,
+    cache_set,
+)
 from recipe_wrangler.utils.neo4j_utils import run_query as _run_query
 from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info,
     fetch_recipe_info_by_id,
+    fetch_recipe_info_by_ids,
 )
 from recipe_wrangler.repositories.neo4j_recipes import (
     count_recipes,
@@ -310,9 +317,46 @@ def _extract_title(candidate: dict[str, object]) -> str | None:
 
 
 def _attach_recipe_metadata(results: list[object]) -> list[object]:
-    """Augment each result row with full recipe metadata when possible."""
+    """Augment each result row with full recipe metadata when possible.
 
-    cache: dict[str, dict] = {}
+    Hot path for /search: uses Redis MGET for the base variant, falls back to a
+    single bulk Neo4j query for misses, then writes those misses back to Redis.
+    Title-only rows (no recipe_id) still go through the single-title fetch.
+    """
+
+    if not results:
+        return results
+
+    dict_entries = [e for e in results if isinstance(e, dict)]
+    ids: list[str] = []
+    seen_ids: set[str] = set()
+    for entry in dict_entries:
+        rid = _as_id(entry.get("id")) or _as_id(entry.get("recipe_id"))
+        if rid and rid not in seen_ids:
+            seen_ids.add(rid)
+            ids.append(rid)
+
+    metadata_by_id: dict[str, dict[str, Any]] = {}
+    if ids:
+        try:
+            metadata_by_id = cache_mget(ids, variant=_RECIPE_BASE_CACHE_VARIANT) or {}
+        except Exception:
+            metadata_by_id = {}
+
+        missing = [rid for rid in ids if rid not in metadata_by_id]
+        if missing:
+            try:
+                fetched = fetch_recipe_info_by_ids(missing) or {}
+            except Exception:
+                fetched = {}
+            if fetched:
+                metadata_by_id.update(fetched)
+                try:
+                    cache_mset(fetched, variant=_RECIPE_BASE_CACHE_VARIANT)
+                except Exception:
+                    pass
+
+    title_cache: dict[str, dict] = {}
     enriched: list[object] = []
 
     for entry in results:
@@ -320,27 +364,22 @@ def _attach_recipe_metadata(results: list[object]) -> list[object]:
             enriched.append(entry)
             continue
 
-        recipe_id = _as_id(entry.get("id"))
-        title = _extract_title(entry)
-        cache_key = recipe_id or title
+        recipe_id = _as_id(entry.get("id")) or _as_id(entry.get("recipe_id"))
+        metadata: dict[str, Any] = {}
 
-        if not cache_key:
-            enriched.append(entry)
-            continue
+        if recipe_id:
+            metadata = metadata_by_id.get(recipe_id) or {}
 
-        if cache_key not in cache:
-            metadata: dict[str, Any] = {}
-            try:
-                if recipe_id:
-                    metadata = fetch_recipe_info_by_id(recipe_id) or {}
-                if not metadata and title:
-                    metadata = fetch_recipe_info(title) or {}
-            except Exception:
-                metadata = {}
+        if not metadata:
+            title = _extract_title(entry)
+            if title:
+                if title not in title_cache:
+                    try:
+                        title_cache[title] = fetch_recipe_info(title) or {}
+                    except Exception:
+                        title_cache[title] = {}
+                metadata = title_cache[title]
 
-            cache[cache_key] = metadata
-
-        metadata = cache.get(cache_key) or {}
         if metadata:
             combined = dict(entry)
             combined["recipe_info"] = metadata

@@ -161,6 +161,86 @@ def fetch_recipe_info_by_id(recipe_id: str) -> Dict[str, Any]:
     return fetch_recipe_info(recipe_id=recipe_id)
 
 
+_RECIPE_INFO_BULK_QUERY = """
+UNWIND $ids AS rid
+MATCH (r:Recipe)
+WHERE toString(r.recipe_id) = rid OR toString(r.id) = rid
+
+OPTIONAL MATCH (r)-[rel:HAS_INGREDIENT]->(i:Ingredient)
+WITH rid, r, i, rel,
+    COALESCE(rel.measurement, '') AS meas,
+    COALESCE(rel.unit, '') AS unit
+WITH rid, r, i, meas, unit,
+    toFloat(CASE WHEN meas = '' THEN NULL ELSE meas END) AS qty
+WITH rid, r, i, meas, unit, qty,
+    CASE WHEN qty IS NULL THEN NULL ELSE toInteger(floor(qty)) END AS whole,
+    CASE WHEN qty IS NULL THEN NULL ELSE (qty - toInteger(floor(qty))) END AS frac
+WITH rid, r, i, meas, unit, whole,
+    CASE
+        WHEN frac IS NULL THEN NULL
+        WHEN abs(frac - 0.125) < 0.01 THEN '1/8'
+        WHEN abs(frac - 0.25)  < 0.01 THEN '1/4'
+        WHEN abs(frac - 0.333) < 0.02 THEN '1/3'
+        WHEN abs(frac - 0.5)   < 0.01 THEN '1/2'
+        WHEN abs(frac - 0.666) < 0.02 THEN '2/3'
+        WHEN abs(frac - 0.75)  < 0.01 THEN '3/4'
+        ELSE NULL
+    END AS fracTxt
+WITH rid, r, i, meas, unit,
+    CASE
+        WHEN fracTxt IS NULL AND (whole IS NULL OR unit = '') THEN meas
+        ELSE trim(
+            CASE
+                WHEN fracTxt IS NULL THEN toString(whole)
+                WHEN whole = 0 THEN fracTxt
+                ELSE toString(whole) + ' ' + fracTxt
+            END + CASE WHEN unit = '' THEN '' ELSE ' ' + unit END
+        )
+    END AS pretty
+WITH rid, r, i, meas, unit, pretty
+ORDER BY i.name
+WITH rid, r, collect({
+    name: i.name,
+    quantity: CASE WHEN meas = '' THEN NULL ELSE meas END,
+    unit: CASE WHEN unit = '' THEN NULL ELSE unit END,
+    measurement: pretty
+}) AS ingredients
+OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
+WITH rid, r, ingredients,
+     collect(distinct t.name) AS raw_tags,
+     collect(distinct CASE WHEN t.category = 'dish-type' THEN t.name END) AS raw_dish_types
+RETURN
+  rid AS lookup_id,
+  r AS recipe,
+  ingredients,
+  [tag IN raw_tags WHERE tag IS NOT NULL AND trim(toString(tag)) <> ""] AS tags,
+  [dt IN raw_dish_types WHERE dt IS NOT NULL AND trim(toString(dt)) <> ""] AS dish_types
+"""
+
+
+def fetch_recipe_info_by_ids(recipe_ids: list[str]) -> Dict[str, Dict[str, Any]]:
+    """Bulk fetch recipe metadata by a list of recipe_ids. Returns {lookup_id: data}."""
+
+    if not recipe_ids:
+        return {}
+
+    ids = [str(rid) for rid in recipe_ids if rid]
+    if not ids:
+        return {}
+
+    rows = run_query(_RECIPE_INFO_BULK_QUERY, {"ids": ids})
+    if not rows:
+        return {}
+
+    result: Dict[str, Dict[str, Any]] = {}
+    for record in rows:
+        lookup_id = record.get("lookup_id") if isinstance(record, dict) else None
+        if not lookup_id:
+            continue
+        result[str(lookup_id)] = _record_to_recipe_dict(record)
+    return result
+
+
 if _tool_decorator is not None:
     fetch_recipe_info_tool = _tool_decorator(fetch_recipe_info)
 else:  # pragma: no cover - runtime fallback when LangChain isn't installed

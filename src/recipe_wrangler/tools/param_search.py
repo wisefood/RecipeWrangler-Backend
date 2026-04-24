@@ -175,7 +175,7 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
     return f"""
     MATCH (r:Recipe)
     {where_clause}
-    RETURN
+    WITH r,
       coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
       r.title AS title,
       r.source AS source,
@@ -190,6 +190,17 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
     {order_by_clause}
     SKIP $offset
     LIMIT $limit
+    RETURN
+      recipe_id,
+      title,
+      source,
+      source_id,
+      image_url,
+      duration,
+      serves,
+      nutri_score,
+      sust_score,
+      expert_recipe
     """
 
 
@@ -204,6 +215,21 @@ def _build_facet_query(where_clause: str) -> str:
     MATCH (r)-[:HAS_TAG]->(t:Tag)
     RETURN coalesce(t.category, 'uncategorized') AS category, toLower(t.name) AS tag, count(DISTINCT r) AS count
     """
+
+
+def _build_count_query(where_clause: str) -> str:
+    return f"""
+    MATCH (r:Recipe)
+    {where_clause}
+    RETURN count(r) AS total
+    """
+
+
+def _run_count(query: str, params: dict[str, Any]) -> int:
+    rows = run_query(query, params)
+    if not rows:
+        return 0
+    return int(rows[0].get("total", 0) or 0)
 
 
 def _collect_facets(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -259,11 +285,26 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> dict[str, Any]:
         # Unprofiled recipe1m recipes are nearly unreachable via browse.
         rows = run_query(_build_result_query(where_clause, order_by_clause), params)
         facets = {}
+        total = 0
         if filters.include_facets:
             facets = _collect_facets(run_query(_build_facet_query(where_clause), params))
-        return {"results": [_strip_sort_fields(dict(row)) for row in rows], "facets": facets}
+            total = _run_count(_build_count_query(where_clause), params)
+        return {
+            "results": [_strip_sort_fields(dict(row)) for row in rows],
+            "facets": facets,
+            "total": total,
+        }
 
     query, facet_query, params = build_param_search_cypher(filters)
     rows = run_query(query, params)
-    facets = _collect_facets(run_query(facet_query, params)) if facet_query else {}
-    return {"results": [_strip_sort_fields(dict(row)) for row in rows], "facets": facets}
+    facets = {}
+    total = 0
+    if facet_query:
+        facets = _collect_facets(run_query(facet_query, params))
+        where_clause, _ = _build_where_clause(filters)
+        total = _run_count(_build_count_query(where_clause), params)
+    return {
+        "results": [_strip_sort_fields(dict(row)) for row in rows],
+        "facets": facets,
+        "total": total,
+    }

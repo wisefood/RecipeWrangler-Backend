@@ -1296,6 +1296,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
 
     results = search_output.get("results", []) if isinstance(search_output, dict) else []
     facets = search_output.get("facets", {}) if isinstance(search_output, dict) else {}
+    total = search_output.get("total", 0) if isinstance(search_output, dict) else 0
 
     cards = []
     for row in results:
@@ -1316,7 +1317,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             "sust_score": row.get("sust_score"),
             "expert_recipe": row.get("expert_recipe", False),
         })
-    return {"results": cards, "facets": facets}
+    return {"results": cards, "facets": facets, "total": total}
 
 
 @router.post(

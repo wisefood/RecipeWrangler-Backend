@@ -290,11 +290,10 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> dict[str, Any]:
         # Unconstrained browse: stable, paginatable profile-first recipe catalog.
         # Unprofiled recipe1m recipes are nearly unreachable via browse.
         rows = run_query(_build_result_query(where_clause, order_by_clause), params)
+        total = _run_count(_build_count_query(where_clause), params)
         facets = {}
-        total = 0
         if filters.include_facets:
             facets = _collect_facets(run_query(_build_facet_query(where_clause), params))
-            total = _run_count(_build_count_query(where_clause), params)
         return {
             "results": [_strip_sort_fields(dict(row)) for row in rows],
             "facets": facets,
@@ -303,12 +302,11 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> dict[str, Any]:
 
     query, facet_query, params = build_param_search_cypher(filters)
     rows = run_query(query, params)
+    where_clause, _ = _build_where_clause(filters)
+    total = _run_count(_build_count_query(where_clause), params)
     facets = {}
-    total = 0
     if facet_query:
         facets = _collect_facets(run_query(facet_query, params))
-        where_clause, _ = _build_where_clause(filters)
-        total = _run_count(_build_count_query(where_clause), params)
     return {
         "results": [_strip_sort_fields(dict(row)) for row in rows],
         "facets": facets,

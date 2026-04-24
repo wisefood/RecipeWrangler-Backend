@@ -45,6 +45,18 @@ app.include_router(health.router)
 app.include_router(recipes.router, prefix="/api/v1")
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Prime connection pools and query plan caches to avoid first-request latency."""
+    try:
+        from recipe_wrangler.tools.param_search import warmup as param_search_warmup
+        param_search_warmup()
+    except Exception:
+        # Warmup is best-effort; never block startup on a transient dep.
+        import logging
+        logging.getLogger(__name__).warning("param_search warmup failed", exc_info=True)
+
+
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on application shutdown."""

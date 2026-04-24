@@ -308,3 +308,22 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> dict[str, Any]:
         "facets": facets,
         "total": total,
     }
+
+
+def warmup() -> None:
+    """Prime the Neo4j driver pool and Cypher plan cache for /param_search.
+
+    First request cost (~1.2s) is dominated by Bolt handshake + query
+    compilation of the nested-CASE ordering. Running the exact query shapes
+    once at startup collapses subsequent requests to their steady-state
+    (~30ms) cost.
+    """
+    filters = RecipeSearchFilters(limit=1, offset=0, include_facets=True)
+    where_clause, params = _build_where_clause(
+        filters,
+        extra_predicates=["coalesce(r.has_profile, false) = true"],
+    )
+    order_by_clause = _order_by_clause(None)
+    run_query(_build_result_query(where_clause, order_by_clause), params)
+    run_query(_build_facet_query(where_clause), params)
+    run_query(_build_count_query(where_clause), params)

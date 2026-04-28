@@ -568,6 +568,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     WHERE dt.category = 'dish-type' AND toLower(dt.name) = $dish_type
       AND r.instructions IS NOT NULL
       AND size(r.instructions) > 0
+      AND toLower(coalesce(r.source, '')) <> 'recipe1m'
       AND (size($exclude_ids) = 0 OR NOT coalesce(toString(r.recipe_id), toString(r.id), '') IN $exclude_ids)
 
     WITH r

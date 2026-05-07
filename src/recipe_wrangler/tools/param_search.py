@@ -109,6 +109,7 @@ def build_param_search_cypher(filters: RecipeSearchFilters) -> tuple[str, dict[s
     RETURN
       coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
       r.title AS title,
+      r.url AS url,
       r.source AS source,
       r.source_id AS source_id,
       r.image_url AS image_url,
@@ -152,6 +153,7 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> list[dict[str, Any
             RETURN
               coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
               r.title AS title,
+              r.url AS url,
               r.source AS source,
               r.source_id AS source_id,
               r.image_url AS image_url,

@@ -154,6 +154,11 @@ class RecipeProfileRequest(BaseModel):
         default=True,
         description="Whether to persist profiling trace metadata into Postgres.",
     )
+    serves: Optional[float] = Field(
+        default=None,
+        gt=0,
+        description="Trusted serving count to use instead of the parser's inferred serving count.",
+    )
     parse_only: bool = Field(
         default=False,
         description=(
@@ -281,6 +286,7 @@ class RecipeCardResponse(BaseModel):
 
     recipe_id: Optional[str]
     title: Optional[str]
+    url: Optional[str] = None
     source: Optional[str] = None
     source_id: Optional[str] = None
     expert_recipe: bool = False
@@ -297,6 +303,7 @@ class RecipeDetailResponse(BaseModel):
 
     recipe_id: Optional[str]
     title: Optional[str]
+    url: Optional[str] = None
     source: Optional[str] = None
     source_id: Optional[str] = None
     expert_recipe: bool = False

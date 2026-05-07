@@ -34,6 +34,7 @@ from recipe_wrangler.repositories.neo4j_recipes import (
     fetch_recipe_scores_by_ids,
     find_ingredient_substitutes,
     infer_diet_tags,
+    resolve_collection_source_id,
     update_recipe_in_neo4j,
     upsert_recipe_to_neo4j,
 )
@@ -218,6 +219,7 @@ def _normalize_search_results(raw_results: list[object]) -> list[object]:
     allowed_keys = {
         "recipe_id",
         "title",
+        "url",
         "source",
         "duration",
         "serves",
@@ -957,6 +959,7 @@ def get_recipe(
         response = RecipeCardResponse(
             recipe_id=resolved_recipe_id,
             title=recipe.get("title"),
+            url=recipe.get("url"),
             source=recipe.get("source"),
             source_id=recipe.get("source_id"),
             expert_recipe=bool(recipe.get("expert_recipe", False)),
@@ -1337,6 +1340,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
         cards.append({
             "recipe_id": row.get("recipe_id"),
             "title": row.get("title"),
+            "url": row.get("url"),
             "source": row.get("source"),
             "source_id": row.get("source_id"),
             "image_url": row.get("image_url"),
@@ -1362,6 +1366,7 @@ async def recipe_profile(
     """Execute recipe profiling on raw recipe text."""
     raw_recipe = str(payload.raw_recipe or "").strip()
     region = str(payload.region or "IE").strip().upper()
+    trusted_serves = payload.serves
 
     if region not in {"IE", "US", "HU"}:
         region = "US"
@@ -1379,7 +1384,7 @@ async def recipe_profile(
             for n, m in zip(names, measurements)
         ]
         total_time = parsed.get("total_time") or 0
-        serves = parsed.get("serves") or 0
+        serves = trusted_serves or parsed.get("serves") or 0
         try:
             auto_allergens = detect_allergens_from_names(names)
             auto_tags = list(infer_diet_tags(set(auto_allergens)))
@@ -1404,7 +1409,12 @@ async def recipe_profile(
 
     try:
         profile_result = Recipe_Profiling_Chain.invoke(
-            {"recipe_text": raw_recipe, "debug": False, "region": region}
+            {
+                "recipe_text": raw_recipe,
+                "debug": False,
+                "region": region,
+                "trusted_serves": trusted_serves,
+            }
         )
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Profiling pipeline", exc) from exc
@@ -1448,6 +1458,8 @@ def _index_recipe_to_elastic(
     title: str,
     ingredient_names: list[str],
     tags: list[str],
+    source: str,
+    source_id: str | None,
 ) -> None:
     """Index a single recipe document into Elasticsearch (best-effort)."""
     settings = get_settings()
@@ -1455,6 +1467,8 @@ def _index_recipe_to_elastic(
     doc = {
         "id": recipe_id,
         "title": title,
+        "source": source,
+        "source_id": resolve_collection_source_id(source, source_id),
         "ingredients": ingredient_names,
         "tags": tags,
     }
@@ -1652,7 +1666,14 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
 
     # --- Elasticsearch index ---
     try:
-        _index_recipe_to_elastic(recipe_id, payload.title, ingredient_names, merged_tags)
+        _index_recipe_to_elastic(
+            recipe_id,
+            payload.title,
+            ingredient_names,
+            merged_tags,
+            "user",
+            payload.source_id,
+        )
     except Exception:
         pass  # non-fatal
 

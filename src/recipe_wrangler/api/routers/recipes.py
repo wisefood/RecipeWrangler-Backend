@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -45,6 +47,10 @@ from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
 from recipe_wrangler.repositories.chroma_matchers import query_usda_nutrition_candidates
 
 _USDA_MATCH_THRESHOLD = 0.4
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_HEALTHYFOODS_NUTRITION_PATH = (
+    _REPO_ROOT / "data/HealthyFoods/HealthyFood_recipes_nutrition.json"
+)
 from recipe_wrangler.tools.recipe_profiling_chain import (
     Recipe_Profiling_Chain,
     Recipe_Profiling_Chain_Structured,
@@ -688,6 +694,135 @@ def _build_nutri_score_breakdown(
     return breakdown
 
 
+def _source_ground_truth_nutrition_source(recipe_source: object) -> str | None:
+    source = str(recipe_source or "").strip()
+    mapping = {
+        "Irish_SafeFood": "safefood",
+        "SafeFood": "safefood",
+        "HealthyFoods": "healthyfoods_original",
+        "recipe1m": "recipe1m_original",
+    }
+    return mapping.get(source)
+
+
+def _source_ground_truth_nutrition_sources(recipe_source: object) -> list[str]:
+    primary = _source_ground_truth_nutrition_source(recipe_source)
+    if primary == "healthyfoods_original":
+        return ["healthyfoods_original", "healthyfoods"]
+    return [primary] if primary else []
+
+
+def _is_source_ground_truth_trace(trace: dict[str, Any] | None) -> bool:
+    if not isinstance(trace, dict) or trace.get("_computed_on_the_fly"):
+        return False
+    nutrition_source = str(trace.get("nutrition_source") or "").strip().lower()
+    pipeline_version = str(trace.get("pipeline_version") or "").strip().lower()
+    return (
+        nutrition_source in {"safefood", "recipe1m_original", "healthyfoods", "healthyfoods_original"}
+        or "ground_truth" in pipeline_version
+    )
+
+
+def _ground_truth_nutrition_payload(
+    source_trace: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Build source-provided nutrition payload for recipe detail responses."""
+    if not _is_source_ground_truth_trace(source_trace):
+        return None
+
+    total_nutrients_per_serving = _as_dict(source_trace.get("total_nutrients_per_serving"))
+    if not total_nutrients_per_serving:
+        return None
+
+    payload: dict[str, Any] = {
+        "recipe_source": source_trace.get("source"),
+        "nutrition_source": source_trace.get("nutrition_source"),
+        "nutrients_per_serving": total_nutrients_per_serving,
+        "nutri_score": source_trace.get("nutri_score"),
+    }
+    for key in (
+        "nutri_score_breakdown",
+        "computed_at",
+        "updated_at",
+        "pipeline_version",
+    ):
+        if source_trace.get(key) is not None:
+            payload[key] = source_trace.get(key)
+    return payload
+
+
+def _healthyfoods_nutrition_number(value: object) -> float | None:
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    return _coerce_float(text.split()[0])
+
+
+@lru_cache(maxsize=1)
+def _healthyfoods_source_nutrition_index() -> dict[str, dict[str, Any]]:
+    try:
+        data = json.loads(_HEALTHYFOODS_NUTRITION_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    recipes = data.get("recipes") if isinstance(data, dict) else None
+    if not isinstance(recipes, list):
+        return {}
+
+    index: dict[str, dict[str, Any]] = {}
+    for row in recipes:
+        if not isinstance(row, dict):
+            continue
+        for key in (row.get("url"), row.get("title")):
+            text_key = str(key or "").strip().lower()
+            if text_key:
+                index[text_key] = row
+    return index
+
+
+def _healthyfoods_ground_truth_nutrition(recipe: dict[str, Any]) -> dict[str, Any] | None:
+    if str(recipe.get("source") or "").strip() != "HealthyFoods":
+        return None
+    index = _healthyfoods_source_nutrition_index()
+    row = None
+    for key in (recipe.get("source_id"), recipe.get("url"), recipe.get("title")):
+        text_key = str(key or "").strip().lower()
+        if text_key and text_key in index:
+            row = index[text_key]
+            break
+    if not row:
+        return None
+
+    raw = row.get("nutrition_per_serve")
+    if not isinstance(raw, dict):
+        return None
+    per_serving = {
+        "energy_kcal": _healthyfoods_nutrition_number(raw.get("Calories")),
+        "energy_kj": _healthyfoods_nutrition_number(raw.get("Kilojoules")),
+        "protein_g": _healthyfoods_nutrition_number(raw.get("Protein")),
+        "fat_g": _healthyfoods_nutrition_number(raw.get("Total fat")),
+        "saturated_fat_g": _healthyfoods_nutrition_number(raw.get("Saturated fat")),
+        "carbohydrate_g": _healthyfoods_nutrition_number(raw.get("Carbohydrates")),
+        "sugar_g": _healthyfoods_nutrition_number(raw.get("Sugar")),
+        "fibre_g": _healthyfoods_nutrition_number(raw.get("Dietary fibre")),
+        "sodium_mg": _healthyfoods_nutrition_number(raw.get("Sodium")),
+        "calcium_mg": _healthyfoods_nutrition_number(raw.get("Calcium")),
+        "iron_mg": _healthyfoods_nutrition_number(raw.get("Iron")),
+    }
+    per_serving = {k: v for k, v in per_serving.items() if v is not None}
+    if not per_serving:
+        return None
+
+    return {
+        "recipe_source": "HealthyFoods",
+        "nutrition_source": "healthyfoods_original",
+        "nutrients_per_serving": per_serving,
+        "raw_nutrition_per_serving": raw,
+        "source_url": row.get("url"),
+    }
+
+
 @router.get(
     "/autocomplete",
     response_model=None,
@@ -859,6 +994,26 @@ def get_recipe(
     except Exception:
         stored_trace = None
 
+    source_ground_truth_trace = None
+    ground_truth_sources = _source_ground_truth_nutrition_sources(recipe.get("source"))
+    for ground_truth_source in ground_truth_sources:
+        try:
+            source_ground_truth_trace = get_recipe_profile_trace(
+                resolved_recipe_id,
+                nutrition_source=ground_truth_source,
+            )
+        except Exception:
+            source_ground_truth_trace = None
+        if source_ground_truth_trace:
+            break
+    if source_ground_truth_trace is None and _is_source_ground_truth_trace(stored_trace):
+        source_ground_truth_trace = stored_trace
+
+    ground_truth_nutrition = (
+        _ground_truth_nutrition_payload(source_ground_truth_trace)
+        or _healthyfoods_ground_truth_nutrition(recipe)
+    )
+
     # On-the-fly profiling for recipes with no stored trace (e.g. unprofiled recipe1m)
     if not stored_trace and not nutrition:
         try:
@@ -915,6 +1070,12 @@ def get_recipe(
             }
 
     payload = dict(recipe)
+    if ground_truth_nutrition:
+        payload["has_ground_truth_nutrition"] = True
+        payload["ground_truth_nutrition_source"] = ground_truth_nutrition.get("nutrition_source")
+        payload["ground_truth_nutrition"] = ground_truth_nutrition
+    else:
+        payload["has_ground_truth_nutrition"] = False
     profile_details = _as_list_of_dicts(
         stored_trace.get("nutrition_profiling_details") if isinstance(stored_trace, dict) else None
     )

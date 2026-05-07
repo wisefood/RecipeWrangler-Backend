@@ -322,5 +322,8 @@ class RecipeDetailResponse(BaseModel):
     total_nutrients_per_serving: Optional[Dict[str, Any]] = None
     nutri_score_breakdown: Optional[Dict[str, Any]] = None
     nutrition_source: Optional[str] = None
+    has_ground_truth_nutrition: bool = False
+    ground_truth_nutrition_source: Optional[str] = None
+    ground_truth_nutrition: Optional[Dict[str, Any]] = None
     nutrition_profiling_details: Optional[List[Dict[str, Any]]] = None
     nutrition_profiling_debug: Optional[Dict[str, Any]] = None

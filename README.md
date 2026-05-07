@@ -79,6 +79,14 @@ recipe_id
 
 **Returns:** Title, ingredients with quantities, step-by-step instructions, diet tags, Nutri-Score (A–E), macro/micronutrients per serving, carbon footprint.
 
+When Postgres has source-provided nutrition for the recipe, the response also includes:
+
+- `has_ground_truth_nutrition`
+- `ground_truth_nutrition_source`
+- `ground_truth_nutrition.nutrients_per_serving`
+
+Those fields expose original/source per-serving nutrition separately from computed regional profiles. SafeFood rows use `nutrition_source="safefood"`, Recipe1M original nutrition uses `nutrition_source="recipe1m_original"`, and HealthyFoods source nutrition uses `nutrition_source="healthyfoods_original"` when available. Computed profiles such as `usda`, `irish`, and `hungarian` are not marked as ground truth.
+
 ---
 
 ### POST /api/v1/recipes/search

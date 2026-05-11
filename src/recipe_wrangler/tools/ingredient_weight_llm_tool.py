@@ -14,10 +14,17 @@ load_runtime_env()
 _NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
 
 _SYSTEM_PROMPT = (
-    "Estimate ingredient weight in grams. "
-    "Return only one number (grams), no words, no units, no JSON. "
-    "Never ask follow-up questions. If unit or quantity is missing/unclear, "
-    "use a reasonable default assumption and still return one numeric grams value."
+    "You estimate the weight in grams of a cooking ingredient for a given quantity and unit. "
+    "Internally: estimate the grams of ONE unit of that specific ingredient, then multiply by the quantity. "
+    "Use realistic culinary reference weights, for example:\n"
+    "1 garlic clove ~3 g; 1 large egg ~50 g; 1 medium onion ~110 g; 1 medium tomato ~120 g; 1 medium carrot ~60 g; 1 lemon/lime ~65 g\n"
+    "1 cup flour ~125 g; 1 cup sugar ~200 g; 1 cup water or milk ~240 g; 1 cup uncooked rice ~185 g; 1 cup chopped herbs ~25 g\n"
+    "1 tablespoon oil ~14 g; 1 tablespoon butter ~14 g; 1 teaspoon salt ~6 g; 1 teaspoon ground spice ~2 g; 1 pinch ~0.3 g\n"
+    "1 slice bread ~30 g; 1 slice bacon ~14 g; 1 sheet phyllo ~18 g; 1 lasagne sheet ~100 g; 1 stick butter ~113 g\n"
+    "1 (14.5 oz) can ~410 g; 1 (15 oz) can ~425 g; 1 (28 oz) can ~795 g; 1 stock cube ~10 g; 1 standard package/box ~340-450 g\n"
+    "Never convert the unit name literally into grams - a 'clove', 'slice' or 'can' is not an ounce or a pound. "
+    "If the quantity or unit is missing or vague, assume one sensible typical amount and still answer. "
+    "Output ONLY the final number of grams - no words, no units, no JSON, no explanation."
 )
 
 

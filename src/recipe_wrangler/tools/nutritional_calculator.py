@@ -16,6 +16,7 @@ from recipe_wrangler.repositories.chroma_matchers import (
     query_irish_nutrition_candidates,
     query_usda_nutrition_candidates,
 )
+from recipe_wrangler.tools.nutrition_match import best_nutrition_match
 
 SOURCE_NUTRITION = "Irish Composition Table"
 
@@ -33,7 +34,17 @@ _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _STOP_TOKENS = {
     "fresh", "raw", "cooked", "dried", "whole", "large", "small", "medium",
     "cup", "cups", "tbsp", "tsp", "tablespoon", "teaspoon",
+    "white", "red", "green", "black",
 }
+_REGIONAL_USDA_LEXICAL_FALLBACK_TOKENS = {
+    "chickpea",
+    "chickpeas",
+    "garbanzo",
+    "tahini",
+    "wine",
+    "parsley",
+}
+_ZERO_IF_UNRELATED_TOKENS = {"stock", "broth"}
 _USDA_MISMATCH_GUARDS = {
     "chicken": {"fat", "skin", "drippings"},
     "pepper": {"sauce", "hot", "ready", "serve", "ready-to-serve"},
@@ -99,6 +110,31 @@ def _best_usda_match(
     return usda_match, usda_distance, usda_similarity
 
 
+def _usda_gap_nutrients(ingredient_name: str, min_similarity: float) -> dict:
+    """Return the nutrients that regional DBs commonly lack, sourced from USDA.
+
+    Used to fill sugars, saturated fat, and fibre for Hungarian, and any of
+    those fields that are null/zero in the Irish table. Returns zeros on failure.
+    """
+    usda_match, _, _ = _best_usda_match(ingredient_name, min_similarity)
+    if not usda_match:
+        return {"sugars_per_100g": 0.0, "saturated_fat_per_100g": 0.0, "fibre_per_100g": 0.0}
+    usda_id = (usda_match.get("metadata") or {}).get("usda_id")
+    nutrient_row = get_usda_ingredient_nutrition(str(usda_id)) if usda_id else None
+    if not nutrient_row:
+        return {"sugars_per_100g": 0.0, "saturated_fat_per_100g": 0.0, "fibre_per_100g": 0.0}
+    nutrients = nutrient_row.get("nutrients") or {}
+    return {
+        "sugars_per_100g": _nutrient_value(
+            nutrients.get("Sugars, total including NLEA", nutrients.get("Sugars, total")), 0.0
+        ),
+        "saturated_fat_per_100g": _nutrient_value(
+            nutrients.get("Fatty acids, total saturated"), 0.0
+        ),
+        "fibre_per_100g": _nutrient_value(nutrients.get("Fiber, total dietary"), 0.0),
+    }
+
+
 def _tokenize(text: object) -> set[str]:
     raw = str(text or "").strip().lower()
     if not raw:
@@ -115,6 +151,10 @@ def _candidate_name(match: dict) -> str:
         or match.get("document")
         or ""
     ).strip()
+
+
+def _meaningful_overlap(left: set[str], right: set[str]) -> set[str]:
+    return {token for token in left & right if token not in _STOP_TOKENS}
 
 
 def _select_usda_match(ingredient_name: str, matches: List[dict]) -> Optional[dict]:
@@ -149,6 +189,61 @@ def _select_usda_match(ingredient_name: str, matches: List[dict]) -> Optional[di
             best_match = match
 
     return best_match
+
+
+def _best_usda_lexical_match(
+    ingredient_name: str,
+    min_similarity: float = 0.6,
+) -> tuple[Optional[dict], Optional[float], Optional[float]]:
+    query_tokens = _tokenize(ingredient_name)
+    matches = query_usda_nutrition_candidates(ingredient_name) or []
+    best = None
+    best_distance = None
+    best_similarity = None
+    best_overlap = 0
+
+    for match in matches:
+        candidate_name = _candidate_name(match)
+        candidate_tokens = _tokenize(candidate_name)
+        overlap = len(_meaningful_overlap(query_tokens, candidate_tokens))
+        if overlap <= 0:
+            continue
+        distance = match.get("distance", None)
+        similarity = None if distance is None else (1.0 - float(distance))
+        if similarity is not None and similarity < float(min_similarity):
+            continue
+        candidate_sort_distance = float(distance) if distance is not None else float("inf")
+        if query_tokens & {"chickpea", "chickpeas", "garbanzo"}:
+            candidate_name_l = candidate_name.lower()
+            if "raw" in candidate_name_l and not any(
+                token in candidate_name_l for token in ("canned", "cooked")
+            ):
+                candidate_sort_distance += 0.08
+            if any(token in candidate_name_l for token in ("canned", "cooked")):
+                candidate_sort_distance -= 0.04
+
+        best_sort_distance = (
+            float(best_distance) if best_distance is not None else float("inf")
+        )
+        if best and query_tokens & {"chickpea", "chickpeas", "garbanzo"}:
+            best_name_l = _candidate_name(best).lower()
+            if "raw" in best_name_l and not any(
+                token in best_name_l for token in ("canned", "cooked")
+            ):
+                best_sort_distance += 0.08
+            if any(token in best_name_l for token in ("canned", "cooked")):
+                best_sort_distance -= 0.04
+
+        if overlap > best_overlap or (
+            overlap == best_overlap
+            and candidate_sort_distance < best_sort_distance
+        ):
+            best = match
+            best_distance = distance
+            best_similarity = similarity
+            best_overlap = overlap
+
+    return best, best_distance, best_similarity
 
 
 @tool(
@@ -201,30 +296,15 @@ def nutritional_tool_chroma(
         return query_irish_nutrition_candidates(name)
 
     for ing_name, weight_g in zip(ingredient_names, weights):
-        distance = None
-        similarity = None
-        matches = _query_nutrition(ing_name) or []
-        active_source = source_normalized
-        if active_source == "usda":
-            match = _select_usda_match(ing_name, matches)
-        else:
-            match = matches[0] if matches else None
+        m = best_nutrition_match(ing_name, source_normalized, float(min_similarity))
+        match = m.get("match")
+        active_source = m.get("source_key") or source_normalized
+        match_confidence = m.get("confidence")
+        match_reason = m.get("reason")
+        distance = None if match is None else match.get("distance")
+        similarity = m.get("similarity")
 
-        # HU source uses USDA as the only fallback source (never Irish).
-        if active_source == "hungarian" and not match:
-            usda_match, usda_distance, usda_similarity = _best_usda_match(
-                ing_name, float(min_similarity)
-            )
-            if usda_match is not None:
-                match = usda_match
-                active_source = "usda"
-                distance = usda_distance
-                similarity = usda_similarity
-            else:
-                distance = None
-                similarity = None
-
-        if not match:
+        if match is None:
             details.append({
                 "ingredient": ing_name,
                 "source": _source_label(active_source),
@@ -247,58 +327,13 @@ def nutritional_tool_chroma(
                 "sodium_mg": 0.0,
                 "fibre_g": 0.0,
                 "distance": None,
+                "similarity": similarity,
+                "match_confidence": match_confidence,
+                "match_reason": match_reason,
             })
             continue
-
-        # In your dataset, distance is top-level
-        if distance is None:
-            distance = match.get("distance", None)
-        similarity = None if distance is None else (1.0 - float(distance))
-
-        # Region-aware fallback:
-        # If IE/HU match is below threshold, retry with USDA candidates before zeroing.
-        if (
-            active_source in {"irish", "hungarian"}
-            and similarity is not None
-            and similarity < float(min_similarity)
-        ):
-            usda_match, usda_distance, usda_similarity = _best_usda_match(
-                ing_name, float(min_similarity)
-            )
-            if usda_match is not None:
-                match = usda_match
-                distance = usda_distance
-                similarity = usda_similarity
-                active_source = "usda"
 
         chroma_meta = match.get("metadata") or {}
-        if similarity is not None and similarity < float(min_similarity):
-            details.append({
-                "ingredient": ing_name,
-                "source": _source_label(active_source),
-                "source_nutrition": _source_label(active_source),
-                "matched_nutritional_ingredient": None,
-                "canonical_food_id": None,
-                "weight_g": float(weight_g),
-                "protein_per_100g": 0.0,
-                "carbs_per_100g": 0.0,
-                "fat_per_100g": 0.0,
-                "sugars_per_100g": 0.0,
-                "saturated_fat_per_100g": 0.0,
-                "sodium_per_100g_mg": 0.0,
-                "fibre_per_100g": 0.0,
-                "protein_g": 0.0,
-                "carbs_g": 0.0,
-                "fat_g": 0.0,
-                "sugar_g": 0.0,
-                "saturated_fat_g": 0.0,
-                "sodium_mg": 0.0,
-                "fibre_g": 0.0,
-                "distance": None if distance is None else float(distance),
-                "similarity": similarity,
-            })
-            continue
-
         canonical_food_id = chroma_meta.get("canonical_food_id")
         usda_id = chroma_meta.get("usda_id")
         nutrient_row = None
@@ -360,6 +395,8 @@ def nutritional_tool_chroma(
                 "fibre_g": 0.0,
                 "distance": None if distance is None else float(distance),
                 "similarity": similarity,
+                "match_confidence": match_confidence,
+                "match_reason": match_reason,
             })
             continue
 
@@ -385,17 +422,27 @@ def nutritional_tool_chroma(
                 fibre_per_100g = _to_float(meta.get("Fibre (g)", meta.get("Fiber (g)", 0.0)))
                 energy_kcal_per_100g = _to_float(meta.get(ENERGY_KCAL_KEY), default=0.0)
                 energy_kj_per_100g = _to_float(meta.get(ENERGY_KJ_KEY), default=0.0)
+                # Fill any missing fields from USDA
+                if sugars_per_100g == 0.0 or saturated_fat_per_100g == 0.0 or fibre_per_100g == 0.0:
+                    usda_gap = _usda_gap_nutrients(ing_name, float(min_similarity))
+                    if sugars_per_100g == 0.0:
+                        sugars_per_100g = usda_gap["sugars_per_100g"]
+                    if saturated_fat_per_100g == 0.0:
+                        saturated_fat_per_100g = usda_gap["saturated_fat_per_100g"]
+                    if fibre_per_100g == 0.0:
+                        fibre_per_100g = usda_gap["fibre_per_100g"]
             else:
                 protein_per_100g = _first_float(meta, HUNGARIAN_PROTEIN_KEYS, default=0.0)
                 carbs_per_100g = _first_float(meta, HUNGARIAN_CARB_KEYS, default=0.0)
                 fat_per_100g = _first_float(meta, HUNGARIAN_FAT_KEYS, default=0.0)
-                # Not present in the Hungarian source file currently; keep explicit zero.
-                sugars_per_100g = 0.0
-                saturated_fat_per_100g = 0.0
                 sodium_per_100g_mg = _first_float(meta, HUNGARIAN_SODIUM_KEYS, default=0.0)
-                fibre_per_100g = 0.0
                 energy_kcal_per_100g = _first_float(meta, HUNGARIAN_ENERGY_KCAL_KEYS, default=0.0)
                 energy_kj_per_100g = _first_float(meta, HUNGARIAN_ENERGY_KJ_KEYS, default=0.0)
+                # Sugars, saturated fat, fibre not in Hungarian DB — fill from USDA
+                usda_gap = _usda_gap_nutrients(ing_name, float(min_similarity))
+                sugars_per_100g = usda_gap["sugars_per_100g"]
+                saturated_fat_per_100g = usda_gap["saturated_fat_per_100g"]
+                fibre_per_100g = usda_gap["fibre_per_100g"]
 
             # Try to read kcal/100g from metadata; if missing, approximate via 4/4/9
             if energy_kcal_per_100g <= 0:
@@ -479,6 +526,8 @@ def nutritional_tool_chroma(
             "energy_kcal": float(energy_kcal),
             "distance": None if distance is None else float(distance),
             "similarity": similarity,
+            "match_confidence": match_confidence,
+            "match_reason": match_reason,
         })
 
         total_energy_kcal += energy_kcal

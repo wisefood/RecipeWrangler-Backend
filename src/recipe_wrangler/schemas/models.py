@@ -52,6 +52,12 @@ class RecipeState(BaseModel):
     allergens: List[str] = Field(default_factory=list)
 
     sustainability_per_kg: Optional[float] = None
+    total_sustainability: Optional[float] = None
+    total_sustainability_per_serving: Optional[float] = None
+    sustainability_details: List[Dict[str, Any]] = Field(default_factory=list)
+    sustainability_serves: Optional[float] = None
+    sustainability_profiling_details: Optional[List[Dict[str, Any]]] = None
+    sustainability_profiling_debug: Optional[Dict[str, Any]] = None
     total_protein_g: Optional[float] = None
     total_fat_g: Optional[float] = None
     total_carbohydrate_g: Optional[float] = None
@@ -68,6 +74,23 @@ class RecipeState(BaseModel):
     serves: Optional[float] = None
     serving_size_g: Optional[float] = None
     min_similarity: Optional[float] = None
+
+    # set by the profiling nodes (declared so they survive the LangGraph merge)
+    nutrition_source: Optional[str] = None
+    nutritional_source: Optional[str] = None
+    nutrition_source_key: Optional[str] = None
+    nutrition_serves: Optional[float] = None
+    nutritional_totals: Optional[Dict[str, Any]] = None
+    nutritional_details: Optional[List[Dict[str, Any]]] = None
+
+    # profiling quality flags (set by Recipe_Profiling_Node)
+    serves_source: Optional[str] = None            # "given" | "estimated"
+    weights_capped: Optional[bool] = None          # True if implausibly-inflated weights were trimmed
+    nutrition_coverage: Optional[float] = None     # fraction of recipe weight that got a nutrition match
+    nutrition_low_coverage: Optional[bool] = None  # True if nutrition_coverage < ~0.8
+    sustainability_coverage: Optional[float] = None
+    sustainability_low_coverage: Optional[bool] = None
+    profiling_quality: Dict[str, Any] = Field(default_factory=dict)
 
     similar_recipes: List[Dict[str, Any]] = Field(default_factory=list)
     agent_decision: Optional[str] = None
@@ -334,3 +357,7 @@ class RecipeDetailResponse(BaseModel):
     ground_truth_nutrition: Optional[Dict[str, Any]] = None
     nutrition_profiling_details: Optional[List[Dict[str, Any]]] = None
     nutrition_profiling_debug: Optional[Dict[str, Any]] = None
+    total_sustainability: Optional[float] = None
+    total_sustainability_per_serving: Optional[float] = None
+    sustainability_per_kg: Optional[float] = None
+    sustainability_profiling_details: Optional[List[Dict[str, Any]]] = None

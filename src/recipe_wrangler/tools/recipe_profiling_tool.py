@@ -15,6 +15,54 @@ NUTRI_SCORE_SOURCE_URL = (
     "https://nutriscore.blog/2022/12/25/spreadsheet-to-calculate-the-updated-version-of-the-nutri-score/"
 )
 
+# --- accuracy guards ------------------------------------------------------- #
+_SERVES_MIN = 1.0
+_SERVES_GIVEN_MAX = 50.0        # a *given* serves up to this is accepted (cookies/muffins/etc.)
+_SERVES_EST_MIN, _SERVES_EST_MAX = 1.0, 16.0  # an *estimated* serves is clamped to this
+_SERVING_EST_G = 450.0          # rough grams/serving used to estimate missing serves
+_PER_SERVING_TARGET_G = 700.0   # what a sanity-trimmed recipe is brought back to
+_PER_SERVING_CEILING_G = 2500.0  # above this/serving the recipe is "implausibly inflated"
+_LOW_COVERAGE_THRESHOLD = 0.80   # below this fraction of recipe weight matched -> flagged
+
+
+def _sanitize_serves(parsed: Any, total_weight_g: float) -> tuple[float, str]:
+    """Return (serves, source). 'given' if the parsed value is in [1, 50] (so a
+    legitimate "makes 24 cookies" survives), else 'estimated' from total recipe
+    weight at ~450 g/serving (clamped to [1, 16]). A wildly-large total weight
+    (parse artefact) is *not* trusted — fall back to 4 and let the weight cap trim it."""
+    try:
+        v = float(parsed)
+        if _SERVES_MIN <= v <= _SERVES_GIVEN_MAX:
+            return float(round(v)), "given"
+    except (TypeError, ValueError):
+        pass
+    if total_weight_g and 0 < total_weight_g <= _SERVES_EST_MAX * _SERVING_EST_G:
+        est = max(_SERVES_EST_MIN, min(_SERVES_EST_MAX, round(total_weight_g / _SERVING_EST_G)))
+        return float(est), "estimated"
+    if total_weight_g and total_weight_g > 0:
+        return 4.0, "estimated"
+    return 1.0, "estimated"
+
+
+def _cap_recipe_weights(weights: list[float], serves: float) -> tuple[list[float], bool]:
+    """Trim an implausibly-inflated recipe (e.g. parse artefact '313 cups flour' -> 39 kg)
+    so its total lands at a sane mass before it propagates to nutrition / Nutri-Score.
+    Returns (weights, was_capped)."""
+    w = [max(0.0, float(x)) for x in weights]
+    total = sum(w)
+    if total <= 0 or serves <= 0 or total <= serves * _PER_SERVING_CEILING_G:
+        return w, False
+    if w:
+        biggest = max(range(len(w)), key=lambda i: w[i])
+        if w[biggest] > 0.55 * total:
+            # one ingredient dominates -> trim only it, down toward the target total
+            trim = total - serves * _PER_SERVING_TARGET_G
+            w[biggest] = max(w[biggest] * 0.05, w[biggest] - trim)
+            return w, True
+    # uniformly inflated -> scale everything down to the ceiling
+    scale = (serves * _PER_SERVING_CEILING_G) / total
+    return [x * scale for x in w], True
+
 
 def _source_from_region(region: Any) -> str:
     region_norm = str(region or "IE").strip().upper()
@@ -72,6 +120,7 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
         "totals": {},
         "sustainability_per_kg": sustainability_result.get("sustainability_per_kg"),
         "sustainability_serves": sustainability_result.get("serves"),
+        "sustainability_details": sustainability_result.get("details", []),
     }
     merged["nutrition_source_key"] = nutrition_source_key
     merged["nutrition_source"] = nutrition_result.get("source")
@@ -243,7 +292,6 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     ode that runs nutrition + sustainability profiling for the recipe and writes the merged ingredient details, 
     totals, and source info back into the flow state.
     """
-    serves = state.serves or 1
     names: List[str] = state.ingredient_names or []
     measurements: List[str] = state.measurements or []
     raw_weights = state.weights or []
@@ -252,6 +300,14 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     else:
         weights = raw_weights
     weights = [float(x) for x in weights]
+
+    # accuracy guards: estimate/clamp serves, and trim an implausibly-inflated recipe.
+    _trusted = getattr(state, "trusted_serves", None)
+    serves, serves_source = _sanitize_serves(
+        _trusted if _trusted else state.serves, sum(weights)
+    )
+    raw_total_g = sum(weights)
+    weights, weights_capped = _cap_recipe_weights(weights, serves)
 
     region = (state.region or "IE").strip().upper()
     region_source = (
@@ -318,12 +374,44 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     total_sustainability = totals.get("total_sustainability")
     total_sustainability_per_serving = totals.get("total_sustainability_per_serving")
 
+    # coverage: fraction of recipe weight that got a real nutrition / CO2e match
+    _total_w = sum(float(p.get("weight_g") or 0.0) for p in merged) or 1.0
+    _matched_w = sum(
+        float(p.get("weight_g") or 0.0) for p in merged if p.get("matched_nutritional_ingredient")
+    )
+    nutrition_coverage = round(_matched_w / _total_w, 4)
+    nutrition_low_coverage = nutrition_coverage < _LOW_COVERAGE_THRESHOLD
+    _sus_details = profile.get("sustainability_details") or []
+    _sus_matched_w = sum(
+        float(d.get("weight_g") or 0.0) for d in _sus_details if d.get("cf_val") is not None
+    )
+    sustainability_coverage = round((_sus_matched_w / _total_w), 4) if _total_w else 0.0
+    sustainability_low_coverage = sustainability_coverage < _LOW_COVERAGE_THRESHOLD
+    quality_flags = {
+        "serves_source": serves_source,
+        "serves": serves,
+        "weights_capped": weights_capped,
+        "raw_total_weight_g": round(raw_total_g, 1),
+        "capped_total_weight_g": round(sum(weights), 1),
+        "nutrition_coverage": nutrition_coverage,
+        "nutrition_low_coverage": nutrition_low_coverage,
+        "sustainability_coverage": sustainability_coverage,
+        "sustainability_low_coverage": sustainability_low_coverage,
+    }
+
     out = {
         "ingredients": merged,
 
         # keep convenient totals (flattened)
         "profiling_totals": totals,
         "serves": serves,
+        "serves_source": serves_source,
+        "weights_capped": weights_capped,
+        "nutrition_coverage": nutrition_coverage,
+        "nutrition_low_coverage": nutrition_low_coverage,
+        "sustainability_coverage": sustainability_coverage,
+        "sustainability_low_coverage": sustainability_low_coverage,
+        "profiling_quality": quality_flags,
         "total_sustainability": total_sustainability,
         "total_sustainability_per_serving": total_sustainability_per_serving,
         "sustainability_per_kg": profile.get("sustainability_per_kg"),
@@ -336,6 +424,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "nutri_score": nutri_score_payload,
         "nutri_score_color": None if not nutri_score_payload else nutri_score_payload.get("color"),
         "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
+        "sustainability_profiling_details": profile.get("sustainability_details"),
 
         # keep entire tool output (optional, handy for debugging)
         "full_profile": {
@@ -344,6 +433,8 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
             "nutrition_summary": _build_nutrition_summary(totals, suffix, serves),
             "nutri_score": nutri_score_payload,
             "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
+            "profiling_quality": quality_flags,
+            "sustainability_profiling_details": profile.get("sustainability_details"),
         },
     }
     for key, value in out.items():
@@ -355,8 +446,10 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "source_key": out.get("nutrition_source_key"),
         "totals": totals,
         "ingredients": prof_items,
+        "quality": quality_flags,
         "nutri_score": nutri_score_payload,
         "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
+        "sustainability_profiling_details": profile.get("sustainability_details"),
     }
     state.pipeline_trace = trace
     return state

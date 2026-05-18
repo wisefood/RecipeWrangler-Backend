@@ -247,27 +247,11 @@ def query_density_db(query: str):
 
 def query_common_units_db(query: str):
     """
-    Function that queries the chromadb density of foods collection with input ingredient.
-    Returns only the closest match.
+    Deprecated.
+
+    The Chroma `common_units` collection is intentionally ignored by runtime
+    weight calculation because it is too small and stale to be a reliable unit
+    reference. Use the curated `unit_volume_ml_ground_truth` pipeline data
+    instead.
     """
-
-    COLLECTION_NAME = "common_units"
-
-    client = get_chroma_client()
-    collection = client.get_collection(name=COLLECTION_NAME)
-
-    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
-    vec = get_embeddings(query)
-
-    results = collection.query(
-        query_embeddings=[vec],
-        n_results=10,  
-        include=["documents", "metadatas", "distances"]
-    )
-
-    hits = []
-    for doc, meta, dist in zip(results["documents"][0],
-                               results["metadatas"][0],
-                               results["distances"][0]):
-        hits.append({"document": doc, "metadata": meta, "distance": dist})
-    return hits[0]
+    return None

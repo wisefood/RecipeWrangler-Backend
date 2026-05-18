@@ -321,8 +321,6 @@ def fetch_recipe_profiling_trace_by_id(
     """
     cfg = _get_config()
     query_str = f"""
-        SELECT row_to_json(t) as data
-        FROM (
             SELECT
                 recipe_id,
                 title,
@@ -334,6 +332,10 @@ def fetch_recipe_profiling_trace_by_id(
                 nutri_score_breakdown,
                 nutrition_profiling_details,
                 nutrition_profiling_debug,
+                total_sustainability,
+                total_sustainability_per_serving,
+                sustainability_per_kg,
+                sustainability_profiling_details,
                 trace,
                 pipeline_version,
                 computed_at,
@@ -342,7 +344,6 @@ def fetch_recipe_profiling_trace_by_id(
             WHERE recipe_id = :recipe_id
             {"AND nutrition_source = :nutrition_source" if nutrition_source else ""}
             LIMIT 1
-        ) t
     """
     try:
         with get_connection() as conn:
@@ -353,7 +354,16 @@ def fetch_recipe_profiling_trace_by_id(
             row = result.fetchone()
             if row is None:
                 return None
-            return row[0]
+            
+            # Check if we got a single column containing JSON (fallback or row_to_json)
+            if len(row) == 1:
+                if isinstance(row[0], dict):
+                    return row[0]
+                if isinstance(row[0], str):
+                    return json.loads(row[0])
+            
+            # Map the row to a dict using SQLAlchemy mapping
+            return dict(row._mapping)
     except SQLAlchemyError as e:
         if cfg["use_docker"] and cfg["container"]:
             query = f"""
@@ -370,6 +380,10 @@ def fetch_recipe_profiling_trace_by_id(
                         nutri_score_breakdown,
                         nutrition_profiling_details,
                         nutrition_profiling_debug,
+                        total_sustainability,
+                        total_sustainability_per_serving,
+                        sustainability_per_kg,
+                        sustainability_profiling_details,
                         trace,
                         pipeline_version,
                         computed_at,
@@ -403,18 +417,41 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
         raise ValueError("upsert_recipe_profiling_trace requires recipe_id")
 
     cfg = _get_config()
+    source = record.get("source")
+    source_text = str(source or "").strip()
+    raw_source_id = record.get("source_id")
+    if source_text == "recipe1m":
+        resolved_source_id = "urn:rcollection:recipe1m"
+    elif source_text == "HealthyFoods":
+        resolved_source_id = "urn:rcollection:healthyfood"
+    elif source_text == "FoodHero":
+        resolved_source_id = "urn:rcollection:foodhero"
+    elif source_text == "Irish_SafeFood":
+        resolved_source_id = "urn:rcollection:rcsi-recipes"
+    elif source_text == "MyPlate":
+        resolved_source_id = "urn:rcollection:myplate"
+    elif raw_source_id is not None and str(raw_source_id).strip():
+        resolved_source_id = str(raw_source_id).strip()
+    else:
+        resolved_source_id = source_text or None
+
     create_table_sql = f"""
         CREATE TABLE IF NOT EXISTS "{cfg['schema']}"."{cfg['profiles_table']}" (
             recipe_id text NOT NULL,
             nutrition_source text NOT NULL,
             title text,
             source text,
+            source_id text,
             total_nutrients jsonb,
             total_nutrients_per_serving jsonb,
             nutri_score jsonb,
             nutri_score_breakdown jsonb,
             nutrition_profiling_details jsonb,
             nutrition_profiling_debug jsonb,
+            total_sustainability float8,
+            total_sustainability_per_serving float8,
+            sustainability_per_kg float8,
+            sustainability_profiling_details jsonb,
             trace jsonb,
             pipeline_version text,
             computed_at timestamptz DEFAULT now(),
@@ -427,6 +464,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             recipe_id,
             title,
             source,
+            source_id,
             nutrition_source,
             total_nutrients,
             total_nutrients_per_serving,
@@ -434,6 +472,10 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             nutri_score_breakdown,
             nutrition_profiling_details,
             nutrition_profiling_debug,
+            total_sustainability,
+            total_sustainability_per_serving,
+            sustainability_per_kg,
+            sustainability_profiling_details,
             trace,
             pipeline_version,
             computed_at,
@@ -443,6 +485,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             :recipe_id,
             :title,
             :source,
+            :source_id,
             :nutrition_source,
             CAST(:total_nutrients AS jsonb),
             CAST(:total_nutrients_per_serving AS jsonb),
@@ -450,6 +493,10 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             CAST(:nutri_score_breakdown AS jsonb),
             CAST(:nutrition_profiling_details AS jsonb),
             CAST(:nutrition_profiling_debug AS jsonb),
+            :total_sustainability,
+            :total_sustainability_per_serving,
+            :sustainability_per_kg,
+            CAST(:sustainability_profiling_details AS jsonb),
             CAST(:trace AS jsonb),
             :pipeline_version,
             COALESCE(CAST(:computed_at AS timestamptz), now()),
@@ -458,16 +505,29 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
         ON CONFLICT (recipe_id, nutrition_source) DO UPDATE SET
             title = EXCLUDED.title,
             source = EXCLUDED.source,
+            source_id = EXCLUDED.source_id,
             total_nutrients = EXCLUDED.total_nutrients,
             total_nutrients_per_serving = EXCLUDED.total_nutrients_per_serving,
             nutri_score = EXCLUDED.nutri_score,
             nutri_score_breakdown = EXCLUDED.nutri_score_breakdown,
             nutrition_profiling_details = EXCLUDED.nutrition_profiling_details,
             nutrition_profiling_debug = EXCLUDED.nutrition_profiling_debug,
+            total_sustainability = EXCLUDED.total_sustainability,
+            total_sustainability_per_serving = EXCLUDED.total_sustainability_per_serving,
+            sustainability_per_kg = EXCLUDED.sustainability_per_kg,
+            sustainability_profiling_details = EXCLUDED.sustainability_profiling_details,
             trace = EXCLUDED.trace,
             pipeline_version = EXCLUDED.pipeline_version,
             computed_at = EXCLUDED.computed_at,
             updated_at = now()
+    """
+    alter_table_sql = f"""
+        ALTER TABLE "{cfg['schema']}"."{cfg['profiles_table']}"
+        ADD COLUMN IF NOT EXISTS source_id text,
+        ADD COLUMN IF NOT EXISTS total_sustainability float8,
+        ADD COLUMN IF NOT EXISTS total_sustainability_per_serving float8,
+        ADD COLUMN IF NOT EXISTS sustainability_per_kg float8,
+        ADD COLUMN IF NOT EXISTS sustainability_profiling_details jsonb
     """
 
     def _as_json(value: object) -> str:
@@ -476,7 +536,8 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
     params = {
         "recipe_id": recipe_id,
         "title": record.get("title"),
-        "source": record.get("source"),
+        "source": source,
+        "source_id": resolved_source_id,
         "nutrition_source": record.get("nutrition_source"),
         "total_nutrients": _as_json(record.get("total_nutrients")),
         "total_nutrients_per_serving": _as_json(record.get("total_nutrients_per_serving")),
@@ -484,6 +545,10 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
         "nutri_score_breakdown": _as_json(record.get("nutri_score_breakdown")),
         "nutrition_profiling_details": _as_json(record.get("nutrition_profiling_details")),
         "nutrition_profiling_debug": _as_json(record.get("nutrition_profiling_debug")),
+        "total_sustainability": record.get("total_sustainability"),
+        "total_sustainability_per_serving": record.get("total_sustainability_per_serving"),
+        "sustainability_per_kg": record.get("sustainability_per_kg"),
+        "sustainability_profiling_details": _as_json(record.get("sustainability_profiling_details")),
         "trace": _as_json(record.get("trace")),
         "pipeline_version": record.get("pipeline_version"),
         "computed_at": record.get("computed_at"),
@@ -494,6 +559,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             tx = conn.begin()
             try:
                 conn.execute(text(create_table_sql))
+                conn.execute(text(alter_table_sql))
                 conn.execute(text(upsert_sql), params)
                 tx.commit()
             except Exception:

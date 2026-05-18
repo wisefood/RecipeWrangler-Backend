@@ -9,7 +9,10 @@ from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_chroma
 from recipe_wrangler.tools.sustainability_calculator import (
     sustainability_tool_chroma,
 )
-from recipe_wrangler.utils.nutri_score import compute_nutri_score
+from recipe_wrangler.utils.nutri_score import (
+    compute_nutri_score,
+    compute_nutri_score_with_breakdown,
+)
 
 NUTRI_SCORE_SOURCE_URL = (
     "https://nutriscore.blog/2022/12/25/spreadsheet-to-calculate-the-updated-version-of-the-nutri-score/"
@@ -344,6 +347,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     nutrition_source_key = cast(str, profile.get("nutrition_source_key") or "unknown")
     suffix = f"_{nutrition_source_key}"
     nutri_score_payload: Dict[str, Any] | None = None
+    nutri_score_breakdown: Dict[str, Any] | None = None
     score_input = _build_total_nutrients_for_score(totals, suffix, float(serves))
     if score_input:
         score_ingredients = []
@@ -355,8 +359,9 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
             if usda_id:
                 entry["usda_id"] = usda_id
             score_ingredients.append(entry)
-        maybe_score = compute_nutri_score(score_input, score_ingredients)
+        maybe_score = compute_nutri_score_with_breakdown(score_input, score_ingredients)
         if "error" not in maybe_score:
+            nutri_score_breakdown = maybe_score.pop("breakdown", None)
             nutri_score_payload = maybe_score
 
     merged: List[Dict[str, Any]] = []
@@ -422,6 +427,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "nutrition_source": profile.get("nutrition_source") or nutrition_source,
         "nutrition_source_key": nutrition_source_key,
         "nutri_score": nutri_score_payload,
+        "nutri_score_breakdown": nutri_score_breakdown,
         "nutri_score_color": None if not nutri_score_payload else nutri_score_payload.get("color"),
         "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
         "sustainability_profiling_details": profile.get("sustainability_details"),
@@ -432,6 +438,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
             "directions": directions,
             "nutrition_summary": _build_nutrition_summary(totals, suffix, serves),
             "nutri_score": nutri_score_payload,
+            "nutri_score_breakdown": nutri_score_breakdown,
             "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
             "profiling_quality": quality_flags,
             "sustainability_profiling_details": profile.get("sustainability_details"),
@@ -448,6 +455,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "ingredients": prof_items,
         "quality": quality_flags,
         "nutri_score": nutri_score_payload,
+        "nutri_score_breakdown": nutri_score_breakdown,
         "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
         "sustainability_profiling_details": profile.get("sustainability_details"),
     }

@@ -11,6 +11,16 @@ from typing import Optional
 DEFAULT_WEIGHTS = Path(":pg:usda-weights-v2")
 DEFAULT_UNIT_VOLUMES = Path(":pg:unit_volume_ml_ground_truth")
 
+AMBIGUOUS_PORTION_DESC_PATTERNS = (
+    "dry yields",
+    "amount to make",
+    "guideline amount per",
+    "prepared",
+    "recipe",
+    "yields",
+    "yield",
+)
+
 
 def _load_data(path: str) -> list | dict:
     """Load from local file or Postgres depending on path sentinel."""
@@ -30,6 +40,8 @@ def _weights_by_name(weights_path: str) -> dict[str, list[dict]]:
     data = _load_data(weights_path)
     by_name: dict[str, list[dict]] = {}
     for row in data:
+        if not row.get("usda_id"):
+            continue
         name = row.get("food_name")
         if not name:
             continue
@@ -87,10 +99,51 @@ def _portions_for_food(
     return portions
 
 
+def _is_ambiguous_portion_desc(portion_desc: str) -> bool:
+    desc = str(portion_desc or "").strip().lower()
+    if any(pattern in desc for pattern in AMBIGUOUS_PORTION_DESC_PATTERNS):
+        return True
+    return bool(re.search(r"\byields?\b", desc))
+
+
+def _normalized_portion(portion: dict) -> Optional[dict]:
+    if _is_ambiguous_portion_desc(str(portion.get("portion_desc", ""))):
+        return None
+    try:
+        grams = float(portion.get("grams"))
+    except (TypeError, ValueError):
+        return None
+    if grams <= 0:
+        return None
+
+    grams_per_unit = None
+    try:
+        amount = float(portion.get("amount"))
+    except (TypeError, ValueError):
+        amount = None
+    if amount is not None and amount > 0:
+        grams_per_unit = grams / amount
+    else:
+        try:
+            raw_grams_per_unit = float(portion.get("grams_per_unit"))
+        except (TypeError, ValueError):
+            raw_grams_per_unit = None
+        if raw_grams_per_unit is not None and raw_grams_per_unit > 0:
+            grams_per_unit = raw_grams_per_unit
+
+    if grams_per_unit is None or grams_per_unit <= 0:
+        return None
+
+    normalized = dict(portion)
+    normalized["grams_per_unit"] = float(grams_per_unit)
+    return normalized
+
+
 def find_weight_match_by_name(
     name: str,
     unit: str,
     weights_path: Path = DEFAULT_WEIGHTS,
+    allow_unlinked: bool = False,
 ) -> Optional[dict]:
     key = str(name).strip().lower()
     if not key:
@@ -105,6 +158,8 @@ def find_weight_match_by_name(
     prefix = []
     contains = []
     for row in rows:
+        if not allow_unlinked and not row.get("usda_id"):
+            continue
         food_name = str(row.get("food_name", "")).strip()
         if not food_name:
             continue
@@ -120,9 +175,10 @@ def find_weight_match_by_name(
         for row in candidates:
             food_name = str(row.get("food_name", "")).strip()
             unit_matches = [
-                portion
+                normalized
                 for portion in row.get("portions", [])
-                if _portion_unit(str(portion.get("portion_desc", ""))) == unit_norm
+                if (normalized := _normalized_portion(portion)) is not None
+                and _portion_unit(str(normalized.get("portion_desc", ""))) == unit_norm
             ]
             best = _best_portion_for_name(unit_matches, key)
             if best:
@@ -236,17 +292,15 @@ def _density_from_portions(
 ) -> Optional[dict]:
     candidates: list[dict] = []
     for portion in portions:
-        portion_desc = str(portion.get("portion_desc", ""))
+        normalized = _normalized_portion(portion)
+        if normalized is None:
+            continue
+        portion_desc = str(normalized.get("portion_desc", ""))
         unit = _portion_unit(portion_desc)
         unit_ml = _volume_ml_for_unit(unit, unit_volumes_path=unit_volumes_path)
         if unit_ml is None:
             continue
-        try:
-            grams_per_unit = float(portion.get("grams_per_unit"))
-        except (TypeError, ValueError):
-            continue
-        if grams_per_unit <= 0:
-            continue
+        grams_per_unit = float(normalized["grams_per_unit"])
         candidates.append(
             {
                 "portion_desc": portion_desc,
@@ -351,7 +405,12 @@ def grams_for_food_id(
         return None
 
     unit_norm = _norm_unit(unit)
-    matches = [p for p in portions if _portion_unit(str(p.get("portion_desc", ""))) == unit_norm]
+    matches = [
+        normalized
+        for p in portions
+        if (normalized := _normalized_portion(p)) is not None
+        and _portion_unit(str(normalized.get("portion_desc", ""))) == unit_norm
+    ]
     if not matches:
         print(f"WARNING: no unit match for usda_id={usda_id} unit={unit}")
         return None
@@ -431,7 +490,12 @@ def match_portion(
     if not portions:
         return None
     unit_norm = _norm_unit(str(unit))
-    matches = [p for p in portions if _portion_unit(str(p.get("portion_desc", ""))) == unit_norm]
+    matches = [
+        normalized
+        for p in portions
+        if (normalized := _normalized_portion(p)) is not None
+        and _portion_unit(str(normalized.get("portion_desc", ""))) == unit_norm
+    ]
     return _best_portion_for_name(matches, name)
 
 
@@ -472,7 +536,12 @@ def weight_from_ingredient(
     if not portions:
         raise ValueError(f"No portions found for usda_id={usda_id} name={name}")
 
-    matches = [p for p in portions if _portion_unit(str(p.get("portion_desc", ""))) == unit_norm]
+    matches = [
+        normalized
+        for p in portions
+        if (normalized := _normalized_portion(p)) is not None
+        and _portion_unit(str(normalized.get("portion_desc", ""))) == unit_norm
+    ]
     try:
         qty = _parse_quantity(quantity)
     except (TypeError, ValueError):

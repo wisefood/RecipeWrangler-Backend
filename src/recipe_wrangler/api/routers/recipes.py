@@ -1086,11 +1086,23 @@ def get_recipe(
     profile_debug = _as_dict(
         stored_trace.get("nutrition_profiling_debug") if isinstance(stored_trace, dict) else None
     )
+    sustainability_details = _as_list_of_dicts(
+        stored_trace.get("sustainability_profiling_details") if isinstance(stored_trace, dict) else None
+    )
 
     if profile_details:
         payload["nutrition_profiling_details"] = profile_details
     if profile_debug:
         payload["nutrition_profiling_debug"] = profile_debug
+    if sustainability_details:
+        payload["sustainability_profiling_details"] = sustainability_details
+
+    if isinstance(stored_trace, dict):
+        payload.update({
+            "total_sustainability": stored_trace.get("total_sustainability"),
+            "total_sustainability_per_serving": stored_trace.get("total_sustainability_per_serving"),
+            "sustainability_per_kg": stored_trace.get("sustainability_per_kg"),
+        })
 
     if nutrition:
         nutri_score_payload = _coerce_nutri_score_payload(nutrition.get("nutri_score"))
@@ -1246,6 +1258,10 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
         "nutri_score_breakdown": profile_result.get("nutri_score_breakdown"),
         "nutrition_profiling_details": profile_result.get("ingredients"),
         "nutrition_profiling_debug": profile_result.get("pipeline_trace"),
+        "total_sustainability": profile_result.get("total_sustainability"),
+        "total_sustainability_per_serving": profile_result.get("total_sustainability_per_serving"),
+        "sustainability_per_kg": profile_result.get("sustainability_per_kg"),
+        "sustainability_profiling_details": profile_result.get("sustainability_profiling_details"),
         "trace": profile_result,
         "pipeline_version": profile_pipeline_version,
         "computed_at": datetime.now(timezone.utc).isoformat(),
@@ -1708,6 +1724,10 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
             if profile_result
             else {"profiling_skipped": True, "mode": "manual_nutrients"}
         ),
+        "total_sustainability": profile_result.get("total_sustainability") if profile_result else None,
+        "total_sustainability_per_serving": profile_result.get("total_sustainability_per_serving") if profile_result else None,
+        "sustainability_per_kg": profile_result.get("sustainability_per_kg") if profile_result else None,
+        "sustainability_profiling_details": profile_result.get("sustainability_profiling_details") if profile_result else None,
         "trace": (
             {"profile_result": profile_result}
             if profile_result

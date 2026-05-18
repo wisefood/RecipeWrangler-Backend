@@ -289,6 +289,9 @@ ALIASES: list[dict] = [
     {"names": ["worcestershire sauce"], "find": ["Sauce", "worcestershire"], "exclude": []},
     {"names": ["chicken stock", "chicken broth", "chicken stock cube", "chicken bouillon"], "find": ["Soup", "stock", "chicken", "home-prepared"], "exclude": ["bouillon", "broth", "cube"]},
     {"names": ["beef stock", "beef broth", "beef bouillon"], "find": ["Soup", "beef", "broth or bouillon", "ready-to-serve"], "exclude": ["cube", "low sodium", "canned condensed"]},
+    {"names": ["water", "cold water", "hot water", "boiling water", "warm water", "lukewarm water",
+               "iced water", "ice water", "tap water", "filtered water", "still water"],
+     "usda_id": "14411"},  # Beverages, water, tap, drinking (all-zero macros)
     {"names": ["coconut milk", "canned coconut milk"], "usda_id": "12118"},  # Nuts, coconut milk, canned
     {"names": ["tofu", "firm tofu", "silken tofu", "extra firm tofu"], "find": ["Tofu", "raw", "firm", "prepared with calcium sulfate"], "exclude": ["fried", "salted", "fermented", "okara", "soft"]},
     {"names": ["peanut butter", "smooth peanut butter", "crunchy peanut butter"], "find": ["Peanut butter", "smooth style", "with salt"], "exclude": ["reduced fat", "low sodium", "chunk"]},

@@ -67,6 +67,7 @@ class RecipeState(BaseModel):
     full_profile: Dict[str, Any] = Field(default_factory=dict)
     pipeline_trace: Dict[str, Any] = Field(default_factory=dict)
     nutri_score: Optional[Dict[str, Any]] = None
+    nutri_score_breakdown: Optional[Dict[str, Any]] = None
     nutri_score_color: Optional[str] = None
     nutri_score_source: Optional[str] = None
 

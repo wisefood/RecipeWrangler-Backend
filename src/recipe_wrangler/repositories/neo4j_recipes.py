@@ -7,6 +7,25 @@ from typing import Any
 from recipe_wrangler.utils.neo4j_utils import driver, run_query
 
 
+SOURCE_COLLECTION_IDS: dict[str, str] = {
+    "recipe1m": "urn:rcollection:recipe1m",
+    "HealthyFoods": "urn:rcollection:healthyfood",
+    "FoodHero": "urn:rcollection:foodhero",
+    "Irish_SafeFood": "urn:rcollection:rcsi-recipes",
+    "MyPlate": "urn:rcollection:myplate",
+}
+
+
+def resolve_collection_source_id(source: str, source_id: str | None = None) -> str | None:
+    mapped = SOURCE_COLLECTION_IDS.get(str(source))
+    if mapped is not None:
+        return mapped
+    if source_id is not None and str(source_id).strip():
+        return source_id
+    source_text = str(source).strip()
+    return source_text or None
+
+
 def count_recipes() -> int:
     rows = run_query("MATCH (r:Recipe) RETURN count(r) AS total")
     return int(rows[0]["total"]) if rows else 0
@@ -172,6 +191,8 @@ def upsert_recipe_to_neo4j(
         ingredient_names:  Clean names ("flour") — stored on Ingredient nodes.
         measurements:      Quantity+unit strings ("1 cup") — stored on HAS_INGREDIENT edge.
     """
+    source_id = resolve_collection_source_id(source, source_id)
+
     with driver.session() as session:
         # 1. Upsert the Recipe node
         session.run(

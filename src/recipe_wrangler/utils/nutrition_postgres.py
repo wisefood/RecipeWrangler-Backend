@@ -351,6 +351,42 @@ def fetch_recipe_nutrition_batch(
     return result_map
 
 
+_REGION_BY_SOURCE = {"usda": "us", "irish": "ie", "hungarian": "hu"}
+
+
+def fetch_all_recipe_scores() -> dict[str, dict]:
+    """Return per-region nutri scores + sustainability for every profiled recipe.
+
+    Shape: {recipe_id: {"us": {nutri_score, nutri_color}, "ie": {...}, "hu": {...},
+                        "sust_score": float|None}}
+
+    Nutri score is region-dependent — the same recipe scored against the US,
+    Irish or Hungarian food-composition DB can grade differently. Sustainability
+    is region-independent, so the first non-null value is used. One bulk query.
+    """
+    cfg = _get_config()
+    query_str = f"""
+        SELECT recipe_id, nutrition_source, nutri_score, total_sustainability_per_serving
+        FROM "{cfg['schema']}"."{cfg['profiles_table']}"
+        WHERE nutrition_source IN ('usda', 'irish', 'hungarian')
+    """
+    scores: dict[str, dict] = {}
+    with get_connection() as conn:
+        for recipe_id, source, nutri_score, sust in conn.execute(text(query_str)):
+            region = _REGION_BY_SOURCE.get(source)
+            if recipe_id is None or region is None:
+                continue
+            entry = scores.setdefault(str(recipe_id), {"sust_score": None})
+            grade = color = None
+            if isinstance(nutri_score, dict):
+                grade = nutri_score.get("nutri_score")
+                color = nutri_score.get("color")
+            entry[region] = {"nutri_score": grade, "nutri_color": color}
+            if entry["sust_score"] is None and sust is not None:
+                entry["sust_score"] = float(sust)
+    return scores
+
+
 def fetch_recipe_profiling_trace_by_id(
     recipe_id: str,
     nutrition_source: Optional[str] = None,

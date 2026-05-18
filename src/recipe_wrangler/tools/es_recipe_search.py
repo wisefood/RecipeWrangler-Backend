@@ -26,8 +26,21 @@ _VALID_REGIONS = {"us", "ie", "hu"}
 # (nutri_score_<r> / nutri_color_<r>) are appended per request.
 _BASE_SOURCE_FIELDS = [
     "id", "title", "url", "source", "source_id", "image_url",
-    "duration", "serves", "sust_score", "expert_recipe",
+    "duration", "serves", "sust_score", "expert_recipe", "dish_types",
 ]
+
+
+# Maps each known tag to its facet category (mirrors Tag.category in Neo4j).
+_TAG_CATEGORY = {
+    "nut_free": "dietary", "vegetarian": "dietary", "pescatarian": "dietary",
+    "pescatarian_safe": "dietary", "dairy_free": "dietary", "vegan": "dietary",
+    "gluten_free": "dietary", "gluten-free": "dietary", "high-protein": "dietary",
+    "low-carb": "dietary", "low-fat": "dietary",
+    "5_ingredients_or_less": "simplicity",
+    "30_minutes_or_less": "time",
+    "main-dish": "dish-type", "breakfast": "dish-type", "desserts": "dish-type",
+    "snacks": "dish-type", "beverages": "dish-type",
+}
 
 
 def _resolve_region(value: str) -> str:
@@ -51,6 +64,7 @@ class RecipeSearchConstraints:
     limit: int = 10
     offset: int = 0
     region: str = "us"  # which region's nutri score the card returns
+    include_facets: bool = False
 
 
 def _norm(items: list[str]) -> list[str]:
@@ -111,7 +125,7 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     offset = max(0, int(c.offset))
     region = _resolve_region(c.region)
 
-    return {
+    body: dict[str, Any] = {
         "from": offset,
         "size": limit,
         "_source": _BASE_SOURCE_FIELDS + [f"nutri_score_{region}", f"nutri_color_{region}"],
@@ -128,6 +142,13 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
             {"id": "asc"},
         ],
     }
+    if c.include_facets:
+        # Facet counts within the filtered result set — by source and by tag.
+        body["aggs"] = {
+            "source": {"terms": {"field": "source", "size": 50}},
+            "tags": {"terms": {"field": "tags", "size": 100}},
+        }
+    return body
 
 
 def _hit_to_card(hit: dict, region: str) -> dict[str, Any]:
@@ -145,7 +166,19 @@ def _hit_to_card(hit: dict, region: str) -> dict[str, Any]:
         "nutri_color": src.get(f"nutri_color_{region}"),
         "sust_score": src.get("sust_score"),
         "expert_recipe": bool(src.get("expert_recipe", False)),
+        "dish_types": src.get("dish_types") or [],
     }
+
+
+def _collect_facets(aggregations: dict) -> dict[str, dict[str, int]]:
+    """Shape ES aggregations into {category: {value: count}}, like the Neo4j facets."""
+    facets: dict[str, dict[str, int]] = {}
+    for bucket in aggregations.get("source", {}).get("buckets", []):
+        facets.setdefault("source", {})[bucket["key"]] = bucket["doc_count"]
+    for bucket in aggregations.get("tags", {}).get("buckets", []):
+        category = _TAG_CATEGORY.get(bucket["key"], "uncategorized")
+        facets.setdefault(category, {})[bucket["key"]] = bucket["doc_count"]
+    return facets
 
 
 def search_recipes_es(c: RecipeSearchConstraints) -> dict[str, Any]:
@@ -165,6 +198,7 @@ def search_recipes_es(c: RecipeSearchConstraints) -> dict[str, Any]:
     return {
         "results": [_hit_to_card(h, region) for h in hits.get("hits", [])],
         "total": hits.get("total", {}).get("value", 0),
+        "facets": _collect_facets(payload.get("aggregations", {})),
         "elapsed_ms": round(elapsed_ms, 1),
         "es_took_ms": payload.get("took"),
     }

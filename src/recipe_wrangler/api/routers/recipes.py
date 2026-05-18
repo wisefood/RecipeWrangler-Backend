@@ -1295,13 +1295,13 @@ def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
         raise InternalError("Failed to fetch foodchat candidates") from exc
 
 
-def _es_card(card: dict[str, Any]) -> dict[str, Any]:
-    """Shape an es_recipe_search card to the search-response card contract."""
+def _es_param_card(card: dict[str, Any]) -> dict[str, Any]:
+    """Shape an es_recipe_search card to the /param_search response contract."""
 
+    dish_types = card.get("dish_types") or []
     return {
         "recipe_id": card.get("recipe_id"),
         "title": card.get("title"),
-        "url": card.get("url"),
         "source": card.get("source"),
         "source_id": card.get("source_id"),
         "image_url": card.get("image_url"),
@@ -1311,6 +1311,24 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
         "nutri_score_color": card.get("nutri_color"),
         "sust_score": card.get("sust_score"),
         "expert_recipe": card.get("expert_recipe", False),
+        "dish_types": dish_types if isinstance(dish_types, list) else [],
+    }
+
+
+def _es_search_card(card: dict[str, Any]) -> dict[str, Any]:
+    """Shape an es_recipe_search card to the /search response contract."""
+
+    dish_types = card.get("dish_types") or []
+    return {
+        "recipe_id": card.get("recipe_id"),
+        "title": card.get("title"),
+        "source": card.get("source"),
+        "duration": card.get("duration"),
+        "serves": card.get("serves"),
+        "nutri_score": card.get("nutri_score"),
+        "sust_score": card.get("sust_score"),
+        "image_url": card.get("image_url"),
+        "dish_types": dish_types if isinstance(dish_types, list) else [],
     }
 
 @router.post(
@@ -1363,7 +1381,11 @@ async def recipe_search(
             )
         except Exception as exc:  # noqa: BLE001
             raise map_dependency_error("Elasticsearch", exc) from exc
-        return {"results": [_es_card(card) for card in es_out["results"]]}
+        return {
+            "results": [_es_search_card(card) for card in es_out["results"]],
+            "steps": [],
+            "cypher_statement": "",
+        }
 
     try:
         # Lazily initialize Neo/Groq search stack only for non-empty queries.
@@ -1434,11 +1456,16 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
                     max_duration_minutes=payload.max_duration_minutes,
                     limit=payload.limit,
                     offset=payload.offset,
+                    include_facets=payload.include_facets,
                 )
             )
         except Exception as exc:  # noqa: BLE001
             raise map_dependency_error("Elasticsearch", exc) from exc
-        return {"results": [_es_card(card) for card in es_out["results"]]}
+        return {
+            "results": [_es_param_card(card) for card in es_out["results"]],
+            "facets": es_out["facets"],
+            "total": es_out["total"],
+        }
 
     try:
         search_output = search_recipes_by_params(payload)

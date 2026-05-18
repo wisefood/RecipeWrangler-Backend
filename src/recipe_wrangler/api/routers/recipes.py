@@ -19,6 +19,7 @@ from recipe_wrangler.api.exceptions import (
 from recipe_wrangler.api.config import get_settings
 
 from recipe_wrangler.tools.param_search import search_recipes_by_params
+from recipe_wrangler.tools.es_recipe_search import RecipeSearchConstraints, search_recipes_es
 from recipe_wrangler.utils.recipe_cache import (
     cache_delete,
     cache_get,
@@ -1223,7 +1224,6 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
     return True, None
 
 
-
 @router.post(
     "/foodchat_candidates",
     response_model=FoodChatResponse,
@@ -1278,6 +1278,25 @@ def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
     except Exception as exc:
         raise InternalError("Failed to fetch foodchat candidates") from exc
 
+
+def _es_card(card: dict[str, Any]) -> dict[str, Any]:
+    """Shape an es_recipe_search card to the search-response card contract."""
+
+    return {
+        "recipe_id": card.get("recipe_id"),
+        "title": card.get("title"),
+        "url": card.get("url"),
+        "source": card.get("source"),
+        "source_id": card.get("source_id"),
+        "image_url": card.get("image_url"),
+        "duration": card.get("duration"),
+        "serves": card.get("serves"),
+        "nutri_score": card.get("nutri_score"),
+        "nutri_score_color": card.get("nutri_color"),
+        "sust_score": card.get("sust_score"),
+        "expert_recipe": card.get("expert_recipe", False),
+    }
+
 @router.post(
     "/search",
     response_model=None,
@@ -1308,6 +1327,27 @@ async def recipe_search(
             "steps": ["landing_random_results"],
             "cypher_statement": "",
         }
+
+    # Elasticsearch backend: reuse the LLM constraint extractor, then retrieve
+    # from the recipes_v2 index instead of composing/executing Cypher.
+    if get_settings().search_backend == "es":
+        try:
+            constraints = get_recipe_search_app().run_extract_constraints(question)["query_constraints"]
+            es_out = search_recipes_es(
+                RecipeSearchConstraints(
+                    include_ingredients=constraints.get("preferred_ingredients") or [],
+                    exclude_ingredients=constraints.get("excluded_ingredients") or [],
+                    exclude_allergens=list({*(constraints.get("allergens") or []), *exclude_allergens}),
+                    diet_tags=constraints.get("diet") or [],
+                    title_keywords=constraints.get("title_keywords") or [],
+                    max_duration_minutes=constraints.get("max_duration_minutes"),
+                    min_servings=constraints.get("min_servings"),
+                    limit=constraints.get("limit") or 10,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise map_dependency_error("Elasticsearch", exc) from exc
+        return {"results": [_es_card(card) for card in es_out["results"]]}
 
     try:
         # Lazily initialize Neo/Groq search stack only for non-empty queries.
@@ -1365,6 +1405,24 @@ async def recipe_search(
 )
 def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
     """Run deterministic parameter-based recipe search and return results."""
+
+    if get_settings().search_backend == "es":
+        try:
+            es_out = search_recipes_es(
+                RecipeSearchConstraints(
+                    include_ingredients=payload.include_ingredients,
+                    exclude_ingredients=payload.exclude_ingredients,
+                    exclude_allergens=payload.exclude_allergens,
+                    diet_tags=payload.diet_tags,
+                    dish_types=payload.dish_types,
+                    max_duration_minutes=payload.max_duration_minutes,
+                    limit=payload.limit,
+                    offset=payload.offset,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise map_dependency_error("Elasticsearch", exc) from exc
+        return {"results": [_es_card(card) for card in es_out["results"]]}
 
     try:
         search_output = search_recipes_by_params(payload)

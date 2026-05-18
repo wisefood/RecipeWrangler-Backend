@@ -100,6 +100,58 @@ def _realign_measurements(
     # Preserve tail measurements (if parser returned more than ingredient count).
     return reordered + measurements[n:]
 
+
+_SOURCE_MEASUREMENT_RE = re.compile(
+    r"^\s*"
+    r"(?P<qty>(?:\d+\s+)?\d+(?:\.\d+)?(?:/\d+)?|[½⅓⅔¼¾⅛⅜⅝⅞])"
+    r"\s*"
+    r"(?P<unit>tablespoons?|tbsp\.?|teaspoons?|tsp\.?|cups?|ml|millilitres?|milliliters?|"
+    r"g|grams?|kg|oz\.?|ounces?|cloves?|spears?|sprigs?|small|medium|large)\b"
+    r"(?:\s+of\b)?",
+    re.IGNORECASE,
+)
+
+
+def _recover_measurements_from_source(
+    ingredient_names: list[str],
+    measurements: list[str],
+    recipe: str,
+) -> list[str]:
+    """Restore source units when the LLM parser returned a bare number."""
+    source_lines = [line.strip() for line in str(recipe or "").splitlines() if line.strip()]
+    recovered = list(measurements)
+
+    for idx, name in enumerate(ingredient_names):
+        if idx >= len(recovered):
+            break
+        current = str(recovered[idx] or "").strip()
+        if not current or re.search(r"[a-zA-Z]", current):
+            continue
+
+        name_tokens = {
+            _singularize(token)
+            for token in re.findall(r"[a-zA-Z]+", str(name).lower())
+            if len(token) > 2
+        }
+        if not name_tokens:
+            continue
+
+        for line in source_lines:
+            line_tokens = {
+                _singularize(token)
+                for token in re.findall(r"[a-zA-Z]+", line.lower())
+                if len(token) > 2
+            }
+            if not (name_tokens & line_tokens):
+                continue
+            match = _SOURCE_MEASUREMENT_RE.match(line)
+            if match:
+                recovered[idx] = f"{match.group('qty')} {match.group('unit')}".strip()
+                break
+
+    return recovered
+
+
 @tool
 def parse_recipe_tool(recipe: str) -> dict:
     """Parses a raw recipe text into structured fields."""
@@ -147,9 +199,26 @@ def parse_recipe_tool(recipe: str) -> dict:
                 "RULES FOR INGREDIENT NAMES:\n"
                 "- Extract ONLY the core noun. Remove all descriptors, adjectives, and processing instructions "
                 "(e.g., remove 'unsweetened', 'non-fat', 'all-purpose', 'canola', 'large', 'sifted').\n"
-                "- Example: '1 cup applesauce, unsweetened' -> 'applesauce'.\n\n"
+                "- Example: '1 cup applesauce, unsweetened' -> 'applesauce'.\n"
+                "- Do not include recipe section headings, component names, or preparation group titles as "
+                "ingredients when they are followed by the actual ingredients for that component. For example, "
+                "exclude headings like 'For the sauce', 'Dressing', 'Salad', or 'Falafels' if the following "
+                "lines list the sauce/dressing/salad/falafel ingredients.\n"
+                "- A component name can be an ingredient only when it has its own quantity or is clearly used "
+                "as an edible ingredient line, e.g. '4 falafels' or '200g falafel'.\n"
+                "- If a source line has multiple ingredients collapsed together, split it into separate "
+                "ingredient rows instead of returning the collapsed line as one ingredient.\n\n"
+                "- Do not add optional ingredients mentioned only in the instructions or serving notes. "
+                "For example, if the ingredient list does not contain olive oil, do not add olive oil just "
+                "because an instruction says it can optionally be added.\n"
+                "- Prefer the explicit ingredient list over the instructions. Use instructions only for "
+                "directions, timing, and disambiguating preparation.\n\n"
                 "RULES FOR MEASUREMENTS:\n"
                 "- Return a single numeric float followed by the unit (e.g., '2.5 tbsp', '1.0 cup').\n"
+                "- Preserve the original measurement unit. Do not drop units such as tablespoon, teaspoon, "
+                "ml, g, clove, small, medium, or large.\n"
+                "- For countable items with a size adjective, keep the size adjective in the measurement, "
+                "e.g. '2 small onions' -> ingredient_name 'onions', measurement '2.0 small'.\n"
                 "- If a range is given (e.g., '2-3 tbsp'), calculate the mean average (e.g., '2.5 tbsp').\n"
                 "- If no unit is present (e.g., '2 eggs'), return only the number as a string (e.g., '2.0').\n"
                 "- Convert all fractions to decimals (e.g., '1/2' becomes '0.5')."
@@ -185,9 +254,15 @@ def Recipe_Parser_Node(state: RecipeState) -> RecipeState:
         state.ingredient_names or [],
         result["measurements"] or [],
     )
+    state.measurements = _recover_measurements_from_source(
+        state.ingredient_names or [],
+        state.measurements or [],
+        state.raw_recipe or "",
+    )
     state.directions = result["directions"]
     state.total_time = _coerce_float(result.get("total_time"))
-    state.serves = _coerce_int(result.get("serves"))
+    trusted_serves = getattr(state, "trusted_serves", None)
+    state.serves = trusted_serves or _coerce_int(result.get("serves"))
 
     
     if debug:

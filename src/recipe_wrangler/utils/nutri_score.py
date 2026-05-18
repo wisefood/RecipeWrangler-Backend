@@ -95,6 +95,54 @@ def compute_nutri_score(
     return {"score": score, "nutri_score": grade, "color": color}
 
 
+def compute_nutri_score_with_breakdown(
+    total_nutrients: dict,
+    ingredients: list[dict],
+    food_type: str = "solid",
+) -> dict:
+    """Like ``compute_nutri_score`` but also returns the point-level breakdown.
+
+    Returns ``{"error": ...}`` on missing data, otherwise
+    ``{"score", "nutri_score", "color", "breakdown": {...}}``.
+    """
+    nutrients = total_nutrients.get("nutrients", {})
+    total_weight_g = _total_weight_grams(ingredients)
+    if not nutrients or total_weight_g == 0.0:
+        return {"error": "missing data"}
+
+    raw_data = {
+        "energy": _nutrient_value(nutrients, "Energy"),
+        "sugar": _nutrient_value(nutrients, "Sugars, total"),
+        "saturated_fats": _nutrient_value(nutrients, "Fatty acids, total saturated"),
+        "sodium": _nutrient_value(nutrients, "Sodium, Na"),
+        "fibers": _nutrient_value(nutrients, "Fiber, total dietary"),
+        "proteins": _nutrient_value(nutrients, "Protein"),
+    }
+    if None in raw_data.values():
+        return {"error": "missing data"}
+
+    nutrient_values = {
+        "energy": _per_100g(raw_data["energy"], total_weight_g),
+        "sugar": _per_100g(raw_data["sugar"], total_weight_g),
+        "saturated_fats": _per_100g(raw_data["saturated_fats"], total_weight_g),
+        "sodium": _per_100g(raw_data["sodium"], total_weight_g),
+        "fibers": _per_100g(raw_data["fibers"], total_weight_g),
+        "proteins": _per_100g(raw_data["proteins"], total_weight_g),
+        "fruit_percentage": fruits_veg_legumes_percent(ingredients),
+    }
+    try:
+        breakdown = compute_nutri_score_breakdown_from_values(nutrient_values, food_type)
+    except Exception:
+        return {"error": "missing data"}
+    breakdown["inputs"] = {"total_weight_g": total_weight_g}
+    return {
+        "score": breakdown["score"],
+        "nutri_score": breakdown["nutri_score"],
+        "color": breakdown["color"],
+        "breakdown": breakdown,
+    }
+
+
 def compute_nutri_score_breakdown_from_values(
     nutrient_values: dict[str, float],
     food_type: str = "solid",

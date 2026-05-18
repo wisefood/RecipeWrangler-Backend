@@ -6,6 +6,10 @@ Fills, when missing:
 2) nutri_score_breakdown from existing nutrient totals + ingredient weights
 3) nutri_score from breakdown when missing
 
+Ground-truth specific paths (no ingredient-weight data available):
+- 'safefood'          → reads ground_truth_per_100g from trace (full fields)
+- 'recipe1m_original' → reads nutr_values_per100g from trace (fibre=0, fruit_pct=0)
+
 Data sources:
 - Postgres `nutrients-recipe-profiles` rows
 - Neo4j Recipe.serves fallback when serves missing from trace
@@ -324,6 +328,95 @@ def _compute_breakdown(
         return None
 
 
+# ---------------------------------------------------------------------------
+# Ground-truth Nutri-Score helpers (no ingredient-weight data available)
+# ---------------------------------------------------------------------------
+
+def _compute_breakdown_from_per100g(
+    nutrient_values: dict[str, float],
+    source_label: str,
+) -> dict[str, Any] | None:
+    """Compute Nutri-Score breakdown from already-normalised per-100g nutrient values.
+
+    ``nutrient_values`` must use the keys expected by
+    ``compute_nutri_score_breakdown_from_values``:
+      energy (kJ), sugar (g), saturated_fats (g), sodium (mg),
+      fibers (g), proteins (g), fruit_percentage (%).
+    """
+    try:
+        breakdown = compute_nutri_score_breakdown_from_values(nutrient_values, "solid")
+        breakdown["inputs"] = {"source": source_label, "basis": "per_100g_direct"}
+        return breakdown
+    except Exception:
+        return None
+
+
+def _nutri_score_from_safefood_trace(trace_obj: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract per-100g ground-truth values from a SafeFood trace and compute Nutri-Score.
+
+    The trace stores ``ground_truth_per_100g`` with keys:
+      energy_kcal, fat_g, saturated_fat_g, carbohydrate_g, sugar_g,
+      fibre_g, protein_g, sodium_mg  (sodium already converted from salt)
+    """
+    gt = trace_obj.get("ground_truth_per_100g")
+    if not isinstance(gt, dict):
+        return None
+
+    energy_kcal = _to_float(gt.get("energy_kcal"))
+    sugar = _to_float(gt.get("sugar_g"))
+    sat_fat = _to_float(gt.get("saturated_fat_g"))
+    sodium = _to_float(gt.get("sodium_mg"))
+    fibre = _to_float(gt.get("fibre_g"))
+    protein = _to_float(gt.get("protein_g"))
+
+    if any(v is None for v in (energy_kcal, sugar, sat_fat, sodium, fibre, protein)):
+        return None
+
+    nutrient_values = {
+        "energy": energy_kcal * 4.184,  # kcal/100g → kJ/100g
+        "sugar": sugar,
+        "saturated_fats": sat_fat,
+        "sodium": sodium,
+        "fibers": fibre,
+        "proteins": protein,
+        "fruit_percentage": 0.0,  # not available in the ground-truth export
+    }
+    return _compute_breakdown_from_per100g(nutrient_values, "safefood_ground_truth_per100g")
+
+
+def _nutri_score_from_recipe1m_original_trace(trace_obj: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract per-100g ground-truth values from a Recipe1M original trace and compute Nutri-Score.
+
+    The trace stores ``nutr_values_per100g`` with keys:
+      energy (kcal), fat (g), protein (g), salt (g), saturates (g), sugars (g).
+    Fibre is absent — it is approximated as 0 (best-effort).
+    """
+    nutr = trace_obj.get("nutr_values_per100g")
+    if not isinstance(nutr, dict):
+        return None
+
+    energy_kcal = _to_float(nutr.get("energy"))
+    fat = _to_float(nutr.get("fat"))
+    protein = _to_float(nutr.get("protein"))
+    salt_g = _to_float(nutr.get("salt"))  # salt g/100g → sodium mg/100g
+    sat_fat = _to_float(nutr.get("saturates"))
+    sugar = _to_float(nutr.get("sugars"))
+
+    if any(v is None for v in (energy_kcal, fat, protein, salt_g, sat_fat, sugar)):
+        return None
+
+    nutrient_values = {
+        "energy": energy_kcal * 4.184,          # kcal/100g → kJ/100g
+        "sugar": sugar,
+        "saturated_fats": sat_fat,
+        "sodium": salt_g * 400.0,               # salt g → sodium mg (×400)
+        "fibers": 0.0,                           # not present in recipe1m ground truth
+        "proteins": protein,
+        "fruit_percentage": 0.0,                 # not available
+    }
+    return _compute_breakdown_from_per100g(nutrient_values, "recipe1m_original_per100g_fibre0")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write", action="store_true", help="Persist changes to Postgres.")
@@ -418,7 +511,23 @@ def main() -> None:
 
         new_breakdown = breakdown_existing
         if not isinstance(breakdown_existing, dict) or args.force_breakdown:
-            if total_weight_g > 0:
+            # Ground-truth sources: derive Nutri-Score from per-100g trace data directly.
+            if nutrition_source == "safefood" and isinstance(trace_obj, dict):
+                computed = _nutri_score_from_safefood_trace(trace_obj)
+                if isinstance(computed, dict):
+                    new_breakdown = computed
+                    updated_breakdown += 1
+                else:
+                    skipped_no_weight += 1
+            elif nutrition_source == "recipe1m_original" and isinstance(trace_obj, dict):
+                computed = _nutri_score_from_recipe1m_original_trace(trace_obj)
+                if isinstance(computed, dict):
+                    new_breakdown = computed
+                    updated_breakdown += 1
+                else:
+                    skipped_no_weight += 1
+            elif total_weight_g > 0:
+                # Normal pipeline row: normalise totals by total ingredient weight.
                 computed = _compute_breakdown(totals, total_weight_g, fvl_ingredients)
                 if isinstance(computed, dict):
                     new_breakdown = computed

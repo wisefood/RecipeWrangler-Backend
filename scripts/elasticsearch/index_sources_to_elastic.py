@@ -43,6 +43,8 @@ RETURN
   rid AS id,
   coalesce(toString(r.title), "") AS title,
   coalesce(toString(r.image_url), "") AS image_url,
+  coalesce(toString(r.source), "") AS source,
+  coalesce(toString(r.source_id), "") AS source_id,
   ingredients,
   collect(DISTINCT coalesce(toString(t.name), toString(t.title))) AS tags
 ORDER BY id
@@ -77,6 +79,8 @@ def _iter_bulk_lines(recipes: Iterable[dict], index: str) -> Iterable[str]:
                 "id": rid,
                 "title": recipe["title"],
                 "image_url": recipe["image_url"],
+                "source": recipe["source"],
+                "source_id": recipe["source_id"],
                 "ingredients": recipe["ingredients"],
                 "tags": recipe["tags"],
             },
@@ -94,6 +98,8 @@ def fetch_from_neo4j(sources: list[str], uri: str, username: str, password: str)
                 "id": _clean_str(row["id"]),
                 "title": _clean_str(row["title"]),
                 "image_url": _clean_str(row["image_url"]),
+                "source": _clean_str(row["source"]),
+                "source_id": _clean_str(row["source_id"]),
                 "ingredients": _clean_list(row["ingredients"]),
                 "tags": _clean_list(row["tags"]),
             }

@@ -1,9 +1,11 @@
 """FastAPI application exposing RecipeWrangler services."""
 
 import os
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from recipe_wrangler.api.routers.generic import install_error_handler
 import recipe_wrangler.api.logsys as logsys
 import uvicorn
@@ -39,6 +41,11 @@ logsys.configure()
 
 app = create_app()
 install_error_handler(app)
+
+# Serve locally generated images (e.g. Irish_SafeFood FLUX images)
+_data_dir = Path(__file__).resolve().parents[3] / "data"
+if _data_dir.exists():
+    app.mount("/static/data", StaticFiles(directory=str(_data_dir)), name="static_data")
 
 # Register routers
 app.include_router(health.router)

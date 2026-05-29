@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     guardrails_model: str = Field("llama-3.1-8b-instant", alias="GUARDRAILS_MODEL")
     search_temperature: float = Field(0.0, alias="SEARCH_TEMPERATURE")
     strict_value_mapping: bool = Field(True, alias="STRICT_VALUE_MAPPING")
-    # Recipe retrieval backend: "neo4j" (graph/Cypher) or "es" (Elasticsearch recipes_v2).
-    search_backend: str = Field("neo4j", alias="SEARCH_BACKEND")
+    # Recipe retrieval backend: "es" (Elasticsearch recipes_v2, default) or "neo4j" (legacy graph/Cypher).
+    search_backend: str = Field("es", alias="SEARCH_BACKEND")
     neo4j_connect_timeout: float = Field(5.0, alias="NEO4J_CONNECT_TIMEOUT")
     elastic_url: str = Field("http://localhost:9200", alias="ELASTIC_URL")
     elastic_index: str = Field("recipes", alias="ELASTIC_INDEX")
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
 
     @field_validator("search_backend", mode="before")
     def _normalize_search_backend(cls, value):  # noqa: N805
-        value = str(value or "neo4j").strip().lower()
+        value = str(value or "es").strip().lower()
         if value not in {"neo4j", "es"}:
             raise ValueError("SEARCH_BACKEND must be 'neo4j' or 'es'")
         return value

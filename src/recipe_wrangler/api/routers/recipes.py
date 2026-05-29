@@ -1294,7 +1294,7 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
     "/search",
     response_model=None,
     tags=["recipes"],
-    summary="Search recipes via the knowledge graph",
+    summary="Search recipes via the SEARCH_BACKEND engine (Elasticsearch by default; Neo4j legacy)",
 )
 async def recipe_search(
     payload: RecipeSearchRequest,
@@ -1378,7 +1378,7 @@ async def recipe_search(
     "/param_search",
     response_model=None,
     tags=["recipes"],
-    summary="Build Cypher for deterministic parameter-based recipe search",
+    summary="Deterministic parameter-based recipe search via SEARCH_BACKEND (Elasticsearch by default; Neo4j legacy)",
 )
 def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
     """Run deterministic parameter-based recipe search and return results."""

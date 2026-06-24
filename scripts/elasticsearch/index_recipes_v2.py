@@ -59,15 +59,23 @@ INDEX_BODY = {
             "allergens": {"type": "keyword"},
             "duration": {"type": "float"},
             "serves": {"type": "float"},
+            "cost_category": {"type": "keyword"},
             "nutri_score_us": {"type": "keyword"},
             "nutri_color_us": {"type": "keyword"},
             "nutri_score_ie": {"type": "keyword"},
             "nutri_color_ie": {"type": "keyword"},
             "nutri_score_hu": {"type": "keyword"},
             "nutri_color_hu": {"type": "keyword"},
+            "nutri_score_eu": {"type": "keyword"},
+            "nutri_color_eu": {"type": "keyword"},
             "sust_score": {"type": "float"},
             "expert_recipe": {"type": "boolean"},
             "has_profile": {"type": "boolean"},
+            "has_rcsi_nutrition": {"type": "boolean"},
+            "has_planeat_nutrition": {"type": "boolean"},
+            "nutri_score_planeat": {"type": "keyword"},
+            "nutri_color_planeat": {"type": "keyword"},
+            "ground_truth_nutrition_source": {"type": "keyword"},
         }
     },
 }
@@ -98,8 +106,11 @@ RETURN
   coalesce(toString(r.source_id), "") AS source_id,
   r.duration AS duration,
   r.serves AS serves,
+  coalesce(toString(r.cost_category), "") AS cost_category,
   coalesce(r.expert_recipe, false) AS expert_recipe,
   coalesce(r.has_profile, false) AS has_profile,
+  coalesce(r.has_rcsi_lab_nutrition, false) AS has_rcsi_nutrition,
+  coalesce(toString(r.ground_truth_nutrition_source), "") AS ground_truth_nutrition_source,
   ingredients, allergens, tags, dish_types
 ORDER BY id
 """
@@ -155,13 +166,19 @@ def fetch_from_neo4j(sources: list[str] | None, uri: str, username: str, passwor
                 "dish_types": _clean_list(row["dish_types"]),
                 "duration": _to_float(row["duration"]),
                 "serves": _to_float(row["serves"]),
+                "cost_category": _clean_str(row["cost_category"]) or None,
                 # Per-region nutri scores + sustainability filled from Postgres below.
                 "nutri_score_us": None, "nutri_color_us": None,
                 "nutri_score_ie": None, "nutri_color_ie": None,
                 "nutri_score_hu": None, "nutri_color_hu": None,
+                "nutri_score_eu": None, "nutri_color_eu": None,
                 "sust_score": None,
                 "expert_recipe": bool(row["expert_recipe"]),
                 "has_profile": bool(row["has_profile"]),
+                "has_rcsi_nutrition": bool(row["has_rcsi_nutrition"]),
+                "ground_truth_nutrition_source": _clean_str(
+                    row["ground_truth_nutrition_source"]
+                ),
             }
         )
     return recipes
@@ -243,7 +260,7 @@ def main() -> None:
         score = scores.get(recipe["id"])
         if score:
             matched += 1
-            for region in ("us", "ie", "hu"):
+            for region in ("us", "ie", "hu", "eu"):
                 region_score = score.get(region)
                 if region_score:
                     recipe[f"nutri_score_{region}"] = region_score["nutri_score"]

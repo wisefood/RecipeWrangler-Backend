@@ -167,7 +167,7 @@ def _index_elastic(recipe_id: str, rec: dict, allergens: list[str],
             "cost_category": None,
         }
         requests.put(
-            f"{settings.elastic_url}/{settings.elastic_index}/_doc/{recipe_id}",
+            f"{settings.elastic_url}/recipes_v2/_doc/{recipe_id}",
             json=doc,
             timeout=5,
         ).raise_for_status()

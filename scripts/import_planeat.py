@@ -257,6 +257,7 @@ def process_recipe(rec: dict, write: bool) -> str:
     nutrition = rec.get("nutrition") or {}
 
     ingredient_details = rec.get("ingredient_details") or []
+    computed_weight_g = sum(float(d.get("weight_g") or 0) for d in ingredient_details)
     ingredient_names = [d["name"] for d in ingredient_details]
     measurements = [d.get("measurement") or f"{d.get('weight_g', '')}g" for d in ingredient_details]
     ingredient_lines = [
@@ -269,7 +270,8 @@ def process_recipe(rec: dict, write: bool) -> str:
         instructions = [instructions]
 
     allergens = detect_allergens_from_names(ingredient_names)
-    breakdown = _compute_nutri_score(nutrition) if nutrition else None
+    nutrition_for_score = {**nutrition, "total_weight_g": computed_weight_g} if computed_weight_g > 0 else nutrition
+    breakdown = _compute_nutri_score(nutrition_for_score) if nutrition else None
 
     if not write:
         return (

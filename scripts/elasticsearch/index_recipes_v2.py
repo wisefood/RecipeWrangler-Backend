@@ -110,6 +110,7 @@ RETURN
   coalesce(r.expert_recipe, false) AS expert_recipe,
   coalesce(r.has_profile, false) AS has_profile,
   coalesce(r.has_rcsi_lab_nutrition, false) AS has_rcsi_nutrition,
+  coalesce(r.has_planeat_nutrition, false) AS has_planeat_nutrition,
   coalesce(toString(r.ground_truth_nutrition_source), "") AS ground_truth_nutrition_source,
   ingredients, allergens, tags, dish_types
 ORDER BY id
@@ -176,6 +177,7 @@ def fetch_from_neo4j(sources: list[str] | None, uri: str, username: str, passwor
                 "expert_recipe": bool(row["expert_recipe"]),
                 "has_profile": bool(row["has_profile"]),
                 "has_rcsi_nutrition": bool(row["has_rcsi_nutrition"]),
+                "has_planeat_nutrition": bool(row["has_planeat_nutrition"]),
                 "ground_truth_nutrition_source": _clean_str(
                     row["ground_truth_nutrition_source"]
                 ),

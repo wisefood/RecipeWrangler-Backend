@@ -75,6 +75,9 @@ INDEX_BODY = {
             "has_planeat_nutrition": {"type": "boolean"},
             "nutri_score_planeat": {"type": "keyword"},
             "nutri_color_planeat": {"type": "keyword"},
+            "has_slovenian_nutrition": {"type": "boolean"},
+            "nutri_score_slovenian": {"type": "keyword"},
+            "nutri_color_slovenian": {"type": "keyword"},
             "ground_truth_nutrition_source": {"type": "keyword"},
         }
     },

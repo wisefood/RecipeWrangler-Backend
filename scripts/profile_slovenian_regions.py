@@ -166,6 +166,9 @@ def _process_region(rec: dict, region: str, settings, write: bool) -> str:
     if not ingredients:
         return "skip-no-ingredients"
 
+    ingredients = [i for i in ingredients if i.get("amount") is not None and float(i.get("amount", 0)) > 0]
+    if not ingredients:
+        return "skip-no-ingredients"
     names = [i["name"] for i in ingredients]
     weights = [float(i["amount"]) for i in ingredients]
     total_weight_g = float(sum(weights)) * rec["yield_factor"]

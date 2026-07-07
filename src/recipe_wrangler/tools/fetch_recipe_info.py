@@ -112,6 +112,7 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "recipe_id": recipe_props.get("recipe_id") or recipe_props.get("id"),
         "title": recipe_props.get("title"),
+        "url": recipe_props.get("url"),
         "source": recipe_props.get("source"),
         "source_id": recipe_props.get("source_id"),
         "expert_recipe": bool(recipe_props.get("expert_recipe", False)),

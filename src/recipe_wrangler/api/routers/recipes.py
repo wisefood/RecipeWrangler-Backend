@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -20,30 +22,22 @@ from recipe_wrangler.api.config import get_settings
 
 from recipe_wrangler.tools.param_search import search_recipes_by_params
 from recipe_wrangler.tools.es_recipe_search import RecipeSearchConstraints, search_recipes_es
-from recipe_wrangler.utils.recipe_cache import (
-    cache_delete,
-    cache_get,
-    cache_mget,
-    cache_mset,
-    cache_set,
-)
+from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_set
 from recipe_wrangler.utils.neo4j_utils import run_query as _run_query
 from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info,
     fetch_recipe_info_by_id,
-    fetch_recipe_info_by_ids,
 )
 from recipe_wrangler.repositories.neo4j_recipes import (
     count_recipes,
     detect_allergens_from_names,
-    fetch_recipe_dish_types_by_ids,
     fetch_recipe_image_urls_by_ids,
     fetch_recipe_scores_by_ids,
     find_ingredient_substitutes,
     infer_diet_tags,
+    resolve_collection_source_id,
     update_recipe_in_neo4j,
     upsert_recipe_to_neo4j,
-    fetch_foodchat_candidates,
 )
 from recipe_wrangler.repositories.postgres_nutrition import (
     get_recipe_nutrition,
@@ -52,9 +46,13 @@ from recipe_wrangler.repositories.postgres_nutrition import (
 )
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
+from recipe_wrangler.repositories.chroma_matchers import query_usda_nutrition_candidates
 
 _USDA_MATCH_THRESHOLD = 0.4
-
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_HEALTHYFOODS_NUTRITION_PATH = (
+    _REPO_ROOT / "data/HealthyFoods/HealthyFood_recipes_nutrition.json"
+)
 from recipe_wrangler.tools.recipe_profiling_chain import (
     Recipe_Profiling_Chain,
     Recipe_Profiling_Chain_Structured,
@@ -74,8 +72,6 @@ from recipe_wrangler.schemas import (
     RecipeSubstituteResponse,
     RecipeUpdateRequest,
     RecipeUpdateResponse,
-    FoodChatRequest,
-    FoodChatResponse,
 )
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
@@ -215,72 +211,22 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
     return results
 
 
-def _search_elastic_keyword(query: str, limit: int = 10) -> list[dict[str, Any]]:
-    """Search recipes in Elasticsearch using a multi_match query."""
-    settings = get_settings()
-    safe_limit = max(1, min(int(limit), 100))
-    payload = {
-        "size": safe_limit,
-        "_source": ["id", "title", "image_url", "source"],
-        "query": {
-            "function_score": {
-                "query": {
-                    "multi_match": {
-                        "query": query,
-                        "fields": ["title^3", "ingredients^2", "tags"],
-                        "fuzziness": "AUTO",
-                    }
-                },
-                "random_score": {},
-                "boost_mode": "multiply",
-            }
-        },
-    }
-    url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
-    response = requests.post(url, json=payload, timeout=settings.elastic_timeout)
-    response.raise_for_status()
-    body = response.json()
-    hits = body.get("hits", {}).get("hits", [])
-
-    results: list[dict[str, Any]] = []
-    for hit in hits:
-        source = hit.get("_source", {}) if isinstance(hit, dict) else {}
-        rid = _as_id(source.get("id")) or _as_id(hit.get("_id"))
-        title = source.get("title")
-        image_url = source.get("image_url")
-        source_name = _as_id(source.get("source"))
-        if not rid:
-            continue
-        if not isinstance(title, str) or not title.strip():
-            continue
-        results.append(
-            {
-                "recipe_id": rid,
-                "title": title.strip(),
-                "source": source_name.casefold() if source_name else None,
-                "image_url": image_url.strip() if image_url else None,
-            }
-        )
-    return results
-
-
 def _normalize_search_results(raw_results: list[object]) -> list[object]:
     """Attach metadata and keep only public keys for search responses."""
 
     raw_results = _attach_nutri_colors(raw_results)
     raw_results = _attach_recipe_scores(raw_results)
     raw_results = _attach_image_urls(raw_results)
-    raw_results = _attach_dish_types(raw_results)
     allowed_keys = {
         "recipe_id",
         "title",
+        "url",
         "source",
         "duration",
         "serves",
         "nutri_score",
         "sust_score",
         "image_url",
-        "dish_types",
     }
 
     filtered_results: list[object] = []
@@ -318,46 +264,9 @@ def _extract_title(candidate: dict[str, object]) -> str | None:
 
 
 def _attach_recipe_metadata(results: list[object]) -> list[object]:
-    """Augment each result row with full recipe metadata when possible.
+    """Augment each result row with full recipe metadata when possible."""
 
-    Hot path for /search: uses Redis MGET for the base variant, falls back to a
-    single bulk Neo4j query for misses, then writes those misses back to Redis.
-    Title-only rows (no recipe_id) still go through the single-title fetch.
-    """
-
-    if not results:
-        return results
-
-    dict_entries = [e for e in results if isinstance(e, dict)]
-    ids: list[str] = []
-    seen_ids: set[str] = set()
-    for entry in dict_entries:
-        rid = _as_id(entry.get("id")) or _as_id(entry.get("recipe_id"))
-        if rid and rid not in seen_ids:
-            seen_ids.add(rid)
-            ids.append(rid)
-
-    metadata_by_id: dict[str, dict[str, Any]] = {}
-    if ids:
-        try:
-            metadata_by_id = cache_mget(ids, variant=_RECIPE_BASE_CACHE_VARIANT) or {}
-        except Exception:
-            metadata_by_id = {}
-
-        missing = [rid for rid in ids if rid not in metadata_by_id]
-        if missing:
-            try:
-                fetched = fetch_recipe_info_by_ids(missing) or {}
-            except Exception:
-                fetched = {}
-            if fetched:
-                metadata_by_id.update(fetched)
-                try:
-                    cache_mset(fetched, variant=_RECIPE_BASE_CACHE_VARIANT)
-                except Exception:
-                    pass
-
-    title_cache: dict[str, dict] = {}
+    cache: dict[str, dict] = {}
     enriched: list[object] = []
 
     for entry in results:
@@ -365,22 +274,27 @@ def _attach_recipe_metadata(results: list[object]) -> list[object]:
             enriched.append(entry)
             continue
 
-        recipe_id = _as_id(entry.get("id")) or _as_id(entry.get("recipe_id"))
-        metadata: dict[str, Any] = {}
+        recipe_id = _as_id(entry.get("id"))
+        title = _extract_title(entry)
+        cache_key = recipe_id or title
 
-        if recipe_id:
-            metadata = metadata_by_id.get(recipe_id) or {}
+        if not cache_key:
+            enriched.append(entry)
+            continue
 
-        if not metadata:
-            title = _extract_title(entry)
-            if title:
-                if title not in title_cache:
-                    try:
-                        title_cache[title] = fetch_recipe_info(title) or {}
-                    except Exception:
-                        title_cache[title] = {}
-                metadata = title_cache[title]
+        if cache_key not in cache:
+            metadata: dict[str, Any] = {}
+            try:
+                if recipe_id:
+                    metadata = fetch_recipe_info_by_id(recipe_id) or {}
+                if not metadata and title:
+                    metadata = fetch_recipe_info(title) or {}
+            except Exception:
+                metadata = {}
 
+            cache[cache_key] = metadata
+
+        metadata = cache.get(cache_key) or {}
         if metadata:
             combined = dict(entry)
             combined["recipe_info"] = metadata
@@ -453,42 +367,8 @@ def _attach_image_urls(results: list[object]) -> list[object]:
             continue
         rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
         combined = dict(entry)
-        if rid and _as_id(combined.get("image_url")) is None:
+        if rid and "image_url" not in combined:
             combined["image_url"] = image_map.get(rid)
-        enriched.append(combined)
-
-    return enriched
-
-
-def _attach_dish_types(results: list[object]) -> list[object]:
-    """Attach dish-type tag names for recipe rows by recipe_id/id when possible."""
-
-    if not results:
-        return results
-
-    ids: list[str] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            continue
-        candidate = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        if candidate:
-            ids.append(candidate)
-
-    if not ids:
-        return results
-
-    dish_type_map = fetch_recipe_dish_types_by_ids(ids)
-
-    enriched: list[object] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            enriched.append(entry)
-            continue
-        rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        combined = dict(entry)
-        existing = combined.get("dish_types")
-        if rid and (not isinstance(existing, list) or not existing):
-            combined["dish_types"] = dish_type_map.get(rid, [])
         enriched.append(combined)
 
     return enriched
@@ -780,10 +660,6 @@ def _build_nutri_score_breakdown(
             usda_id = canonical_food_id
         elif ingredient_name:
             try:
-                from recipe_wrangler.repositories.chroma_matchers import (
-                    query_usda_nutrition_candidates,
-                )
-
                 candidates = query_usda_nutrition_candidates(ingredient_name)
                 if candidates and candidates[0].get("distance", 1.0) < _USDA_MATCH_THRESHOLD:
                     usda_id = candidates[0].get("metadata", {}).get("usda_id")
@@ -819,6 +695,135 @@ def _build_nutri_score_breakdown(
         "ingredients_with_usda_id_count": len(fvl_ingredients),
     }
     return breakdown
+
+
+def _source_ground_truth_nutrition_source(recipe_source: object) -> str | None:
+    source = str(recipe_source or "").strip()
+    mapping = {
+        "Irish_SafeFood": "safefood",
+        "SafeFood": "safefood",
+        "HealthyFoods": "healthyfoods_original",
+        "recipe1m": "recipe1m_original",
+    }
+    return mapping.get(source)
+
+
+def _source_ground_truth_nutrition_sources(recipe_source: object) -> list[str]:
+    primary = _source_ground_truth_nutrition_source(recipe_source)
+    if primary == "healthyfoods_original":
+        return ["healthyfoods_original", "healthyfoods"]
+    return [primary] if primary else []
+
+
+def _is_source_ground_truth_trace(trace: dict[str, Any] | None) -> bool:
+    if not isinstance(trace, dict) or trace.get("_computed_on_the_fly"):
+        return False
+    nutrition_source = str(trace.get("nutrition_source") or "").strip().lower()
+    pipeline_version = str(trace.get("pipeline_version") or "").strip().lower()
+    return (
+        nutrition_source in {"safefood", "recipe1m_original", "healthyfoods", "healthyfoods_original"}
+        or "ground_truth" in pipeline_version
+    )
+
+
+def _ground_truth_nutrition_payload(
+    source_trace: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Build source-provided nutrition payload for recipe detail responses."""
+    if not _is_source_ground_truth_trace(source_trace):
+        return None
+
+    total_nutrients_per_serving = _as_dict(source_trace.get("total_nutrients_per_serving"))
+    if not total_nutrients_per_serving:
+        return None
+
+    payload: dict[str, Any] = {
+        "recipe_source": source_trace.get("source"),
+        "nutrition_source": source_trace.get("nutrition_source"),
+        "nutrients_per_serving": total_nutrients_per_serving,
+        "nutri_score": source_trace.get("nutri_score"),
+    }
+    for key in (
+        "nutri_score_breakdown",
+        "computed_at",
+        "updated_at",
+        "pipeline_version",
+    ):
+        if source_trace.get(key) is not None:
+            payload[key] = source_trace.get(key)
+    return payload
+
+
+def _healthyfoods_nutrition_number(value: object) -> float | None:
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    return _coerce_float(text.split()[0])
+
+
+@lru_cache(maxsize=1)
+def _healthyfoods_source_nutrition_index() -> dict[str, dict[str, Any]]:
+    try:
+        data = json.loads(_HEALTHYFOODS_NUTRITION_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    recipes = data.get("recipes") if isinstance(data, dict) else None
+    if not isinstance(recipes, list):
+        return {}
+
+    index: dict[str, dict[str, Any]] = {}
+    for row in recipes:
+        if not isinstance(row, dict):
+            continue
+        for key in (row.get("url"), row.get("title")):
+            text_key = str(key or "").strip().lower()
+            if text_key:
+                index[text_key] = row
+    return index
+
+
+def _healthyfoods_ground_truth_nutrition(recipe: dict[str, Any]) -> dict[str, Any] | None:
+    if str(recipe.get("source") or "").strip() != "HealthyFoods":
+        return None
+    index = _healthyfoods_source_nutrition_index()
+    row = None
+    for key in (recipe.get("source_id"), recipe.get("url"), recipe.get("title")):
+        text_key = str(key or "").strip().lower()
+        if text_key and text_key in index:
+            row = index[text_key]
+            break
+    if not row:
+        return None
+
+    raw = row.get("nutrition_per_serve")
+    if not isinstance(raw, dict):
+        return None
+    per_serving = {
+        "energy_kcal": _healthyfoods_nutrition_number(raw.get("Calories")),
+        "energy_kj": _healthyfoods_nutrition_number(raw.get("Kilojoules")),
+        "protein_g": _healthyfoods_nutrition_number(raw.get("Protein")),
+        "fat_g": _healthyfoods_nutrition_number(raw.get("Total fat")),
+        "saturated_fat_g": _healthyfoods_nutrition_number(raw.get("Saturated fat")),
+        "carbohydrate_g": _healthyfoods_nutrition_number(raw.get("Carbohydrates")),
+        "sugar_g": _healthyfoods_nutrition_number(raw.get("Sugar")),
+        "fibre_g": _healthyfoods_nutrition_number(raw.get("Dietary fibre")),
+        "sodium_mg": _healthyfoods_nutrition_number(raw.get("Sodium")),
+        "calcium_mg": _healthyfoods_nutrition_number(raw.get("Calcium")),
+        "iron_mg": _healthyfoods_nutrition_number(raw.get("Iron")),
+    }
+    per_serving = {k: v for k, v in per_serving.items() if v is not None}
+    if not per_serving:
+        return None
+
+    return {
+        "recipe_source": "HealthyFoods",
+        "nutrition_source": "healthyfoods_original",
+        "nutrients_per_serving": per_serving,
+        "raw_nutrition_per_serving": raw,
+        "source_url": row.get("url"),
+    }
 
 
 @router.get(
@@ -955,6 +960,7 @@ def get_recipe(
         response = RecipeCardResponse(
             recipe_id=resolved_recipe_id,
             title=recipe.get("title"),
+            url=recipe.get("url"),
             source=recipe.get("source"),
             source_id=recipe.get("source_id"),
             expert_recipe=bool(recipe.get("expert_recipe", False)),
@@ -962,7 +968,6 @@ def get_recipe(
             duration=recipe.get("duration"),
             serves=recipe.get("serves"),
             tags=recipe.get("tags") or [],
-            dish_types=recipe.get("dish_types") or [],
             nutri_score_label=nutri_score_str if isinstance(nutri_score_str, str) else None,
             nutri_score_color=_nutri_color_from_score(nutri_score_str),
         )
@@ -992,6 +997,26 @@ def get_recipe(
             stored_trace = get_recipe_profile_trace(resolved_recipe_id)
     except Exception:
         stored_trace = None
+
+    source_ground_truth_trace = None
+    ground_truth_sources = _source_ground_truth_nutrition_sources(recipe.get("source"))
+    for ground_truth_source in ground_truth_sources:
+        try:
+            source_ground_truth_trace = get_recipe_profile_trace(
+                resolved_recipe_id,
+                nutrition_source=ground_truth_source,
+            )
+        except Exception:
+            source_ground_truth_trace = None
+        if source_ground_truth_trace:
+            break
+    if source_ground_truth_trace is None and _is_source_ground_truth_trace(stored_trace):
+        source_ground_truth_trace = stored_trace
+
+    ground_truth_nutrition = (
+        _ground_truth_nutrition_payload(source_ground_truth_trace)
+        or _healthyfoods_ground_truth_nutrition(recipe)
+    )
 
     # On-the-fly profiling for recipes with no stored trace (e.g. unprofiled recipe1m)
     if not stored_trace and not nutrition:
@@ -1049,6 +1074,12 @@ def get_recipe(
             }
 
     payload = dict(recipe)
+    if ground_truth_nutrition:
+        payload["has_ground_truth_nutrition"] = True
+        payload["ground_truth_nutrition_source"] = ground_truth_nutrition.get("nutrition_source")
+        payload["ground_truth_nutrition"] = ground_truth_nutrition
+    else:
+        payload["has_ground_truth_nutrition"] = False
     profile_details = _as_list_of_dicts(
         stored_trace.get("nutrition_profiling_details") if isinstance(stored_trace, dict) else None
     )
@@ -1240,68 +1271,13 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
     return True, None
 
 
-@router.post(
-    "/foodchat_candidates",
-    response_model=FoodChatResponse,
-    tags=["recipes", "foodchat"],
-    summary="Retrieve diverse, customized meal candidates for FoodChat",
-)
-def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
-    """Retrieve diverse, filtered recipe candidates grouped by meal slot.
+def _es_card(card: dict[str, Any]) -> dict[str, Any]:
+    """Shape an es_recipe_search card to the search-response card contract."""
 
-    Designed for multi-day meal plan generation. Each key in ``quotas`` is a
-    dish-type tag (e.g. ``"breakfast"``, ``"lunch"``, ``"dinner"``) and its
-    value is how many recipes to return for that slot. The response mirrors
-    the same keys, each containing a list of recipe items.
-
-    **Filtering (hard constraints)**
-
-    - ``user_profile.allergies`` — excluded via the food taxonomy graph.
-      Excluding ``"dairy"`` also excludes recipes whose ingredients are
-      taxonomic descendants of dairy (e.g. parmesan, whey).
-    - ``user_profile.diet`` — recipe must carry *all* requested diet tags
-      (e.g. ``"vegan"``, ``"gluten-free"``). Tags not present in the database
-      are silently ignored to avoid empty results from typos.
-    - ``constraints.exclude_ingredients`` — hard ingredient exclusion
-      (substring + taxonomy ancestor match).
-    - ``constraints.exclude_recipe_ids`` — pass previously selected recipe IDs
-      to guarantee those are never returned. IDs picked in earlier slots within
-      the same call are also automatically excluded from subsequent slots.
-    - ``constraints.nutrition_profile`` — per-serving macro range filter
-      (min/max for calories, protein, carbs, fat). Applied as a post-filter on
-      a 5× candidate pool. Recipes with *no stored nutrition data always pass
-      through* — they are never silently dropped.
-
-    **Ranking (soft preferences)**
-
-    - ``constraints.include_ingredients`` — recipes containing these
-      ingredients are ranked higher; not a hard filter.
-    - ``randomize`` (default ``true``) — when ``true`` results are randomly
-      ordered, giving different recipes on each call and maximising week-plan
-      diversity. Set to ``false`` to rank by ingredient match score instead.
-
-    **Response per recipe**
-
-    Each item contains ``recipe_id``, ``title``, ``ingredients`` (comma-joined
-    original strings), ``directions`` (instructions joined as a single string),
-    ``dish_type`` (the authoritative server-side tag — no client-side
-    classification needed), and ``nutrition`` (``calories``, ``protein_g``,
-    ``carbs_g``, ``fat_g`` per serving; ``null`` when no profile is stored).
-    """
-    try:
-        results = fetch_foodchat_candidates(request)
-        return FoodChatResponse(results=results)
-    except Exception as exc:
-        raise InternalError("Failed to fetch foodchat candidates") from exc
-
-
-def _es_param_card(card: dict[str, Any]) -> dict[str, Any]:
-    """Shape an es_recipe_search card to the /param_search response contract."""
-
-    dish_types = card.get("dish_types") or []
     return {
         "recipe_id": card.get("recipe_id"),
         "title": card.get("title"),
+        "url": card.get("url"),
         "source": card.get("source"),
         "source_id": card.get("source_id"),
         "image_url": card.get("image_url"),
@@ -1311,31 +1287,14 @@ def _es_param_card(card: dict[str, Any]) -> dict[str, Any]:
         "nutri_score_color": card.get("nutri_color"),
         "sust_score": card.get("sust_score"),
         "expert_recipe": card.get("expert_recipe", False),
-        "dish_types": dish_types if isinstance(dish_types, list) else [],
     }
 
-
-def _es_search_card(card: dict[str, Any]) -> dict[str, Any]:
-    """Shape an es_recipe_search card to the /search response contract."""
-
-    dish_types = card.get("dish_types") or []
-    return {
-        "recipe_id": card.get("recipe_id"),
-        "title": card.get("title"),
-        "source": card.get("source"),
-        "duration": card.get("duration"),
-        "serves": card.get("serves"),
-        "nutri_score": card.get("nutri_score"),
-        "sust_score": card.get("sust_score"),
-        "image_url": card.get("image_url"),
-        "dish_types": dish_types if isinstance(dish_types, list) else [],
-    }
 
 @router.post(
     "/search",
     response_model=None,
     tags=["recipes"],
-    summary="Search recipes via the knowledge graph",
+    summary="Search recipes via the SEARCH_BACKEND engine (Elasticsearch by default; Neo4j legacy)",
 )
 async def recipe_search(
     payload: RecipeSearchRequest,
@@ -1343,30 +1302,26 @@ async def recipe_search(
     """Invoke the recipe search LangGraph pipeline and return its output."""
 
     question = str(payload.question or "").strip()
-    exclude_allergens = (
-        payload.exclude_allergens if isinstance(payload.exclude_allergens, list) else []
-    )
-    limit = max(1, min(int(payload.limit), 100))
+    exclude_allergens = payload.exclude_allergens if isinstance(payload.exclude_allergens, list) else []
 
     # If no free-text question is provided, return a random landing page.
     if not question:
         random_results: list[dict[str, Any]] = []
         try:
-            random_results = _random_myplate_from_elastic(limit=limit)
+            random_results = _random_myplate_from_elastic(limit=10)
         except Exception:  # noqa: BLE001
             random_results = []
 
-        return {
-            "results": random_results or [],
-            "steps": ["landing_random_results"],
-            "cypher_statement": "",
-        }
+        return {"results": random_results or []}
+
+    # Lazily initialize Neo/Groq search stack only for non-empty queries.
+    recipe_search_app = get_recipe_search_app()
 
     # Elasticsearch backend: reuse the LLM constraint extractor, then retrieve
     # from the recipes_v2 index instead of composing/executing Cypher.
     if get_settings().search_backend == "es":
         try:
-            constraints = get_recipe_search_app().run_extract_constraints(question)["query_constraints"]
+            constraints = recipe_search_app.run_extract_constraints(question)["query_constraints"]
             es_out = search_recipes_es(
                 RecipeSearchConstraints(
                     include_ingredients=constraints.get("preferred_ingredients") or [],
@@ -1381,24 +1336,21 @@ async def recipe_search(
             )
         except Exception as exc:  # noqa: BLE001
             raise map_dependency_error("Elasticsearch", exc) from exc
-        return {
-            "results": [_es_search_card(card) for card in es_out["results"]],
-            "steps": [],
-            "cypher_statement": "",
-        }
+        return {"results": [_es_card(card) for card in es_out["results"]]}
 
     try:
-        # Lazily initialize Neo/Groq search stack only for non-empty queries.
-        recipe_search_app = get_recipe_search_app()
-        result = recipe_search_app.invoke(question, exclude_allergens, limit=limit)
+        result = recipe_search_app.invoke(question, exclude_allergens)
     except Exception as exc:  # noqa: BLE001 - bubble up as HTTP error
         # Keep the endpoint usable even if the primary graph/LLM path fails.
-        fallback_step = "fallback_elasticsearch"
         try:
-            fallback_results = _search_elastic_keyword(question, limit=limit)
+            fallback_results = search_recipes_by_params(
+                RecipeSearchFilters(
+                    exclude_allergens=exclude_allergens,
+                    limit=10,
+                )
+            )
         except Exception:
-            fallback_results = _random_myplate_from_elastic(limit=limit)
-            fallback_step = "fallback_random_myplate"
+            fallback_results = _random_myplate_from_elastic(limit=10)
 
         if not isinstance(fallback_results, list):
             fallback_results = []
@@ -1406,8 +1358,6 @@ async def recipe_search(
         fallback_results = _normalize_search_results(fallback_results)
         return {
             "results": fallback_results or [],
-            "steps": [fallback_step],
-            "cypher_statement": "",
             "warning": "Primary search path failed; returned fallback results.",
             "error": str(exc),
         }
@@ -1421,25 +1371,14 @@ async def recipe_search(
     if isinstance(raw_results, list):
         raw_results = _normalize_search_results(raw_results)
 
-    steps = result.get("steps")
-    if not isinstance(steps, list):
-        steps = []
-    cypher_statement = result.get("cypher_statement")
-    if not isinstance(cypher_statement, str):
-        cypher_statement = ""
-
-    return {
-        "results": raw_results,
-        "steps": [str(step) for step in steps],
-        "cypher_statement": cypher_statement,
-    }
+    return {"results": raw_results}
 
 
 @router.post(
     "/param_search",
     response_model=None,
     tags=["recipes"],
-    summary="Build Cypher for deterministic parameter-based recipe search",
+    summary="Deterministic parameter-based recipe search via SEARCH_BACKEND (Elasticsearch by default; Neo4j legacy)",
 )
 def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
     """Run deterministic parameter-based recipe search and return results."""
@@ -1456,25 +1395,16 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
                     max_duration_minutes=payload.max_duration_minutes,
                     limit=payload.limit,
                     offset=payload.offset,
-                    include_facets=payload.include_facets,
                 )
             )
         except Exception as exc:  # noqa: BLE001
             raise map_dependency_error("Elasticsearch", exc) from exc
-        return {
-            "results": [_es_param_card(card) for card in es_out["results"]],
-            "facets": es_out["facets"],
-            "total": es_out["total"],
-        }
+        return {"results": [_es_card(card) for card in es_out["results"]]}
 
     try:
-        search_output = search_recipes_by_params(payload)
+        results = search_recipes_by_params(payload)
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Neo4j", exc) from exc
-
-    results = search_output.get("results", []) if isinstance(search_output, dict) else []
-    facets = search_output.get("facets", {}) if isinstance(search_output, dict) else {}
-    total = search_output.get("total", 0) if isinstance(search_output, dict) else 0
 
     cards = []
     for row in results:
@@ -1482,12 +1412,10 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             cards.append(row)
             continue
         nutri_score = row.get("nutri_score")
-        dish_types = row.get("dish_types") or []
-        if not isinstance(dish_types, list):
-            dish_types = []
         cards.append({
             "recipe_id": row.get("recipe_id"),
             "title": row.get("title"),
+            "url": row.get("url"),
             "source": row.get("source"),
             "source_id": row.get("source_id"),
             "image_url": row.get("image_url"),
@@ -1497,9 +1425,8 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             "nutri_score_color": _nutri_color_from_score(nutri_score),
             "sust_score": row.get("sust_score"),
             "expert_recipe": row.get("expert_recipe", False),
-            "dish_types": dish_types,
         })
-    return {"results": cards, "facets": facets, "total": total}
+    return {"results": cards}
 
 
 @router.post(
@@ -1514,16 +1441,13 @@ async def recipe_profile(
     """Execute recipe profiling on raw recipe text."""
     raw_recipe = str(payload.raw_recipe or "").strip()
     region = str(payload.region or "IE").strip().upper()
+    trusted_serves = payload.serves
 
     if region not in {"IE", "US", "HU"}:
         region = "US"
 
     if payload.parse_only:
-        from recipe_wrangler.tools.parse_recipe_tool import (
-            _coerce_float,
-            _coerce_int,
-            parse_recipe_tool,
-        )
+        from recipe_wrangler.tools.parse_recipe_tool import parse_recipe_tool
         try:
             parsed = parse_recipe_tool.invoke({"recipe": raw_recipe})
         except Exception as exc:
@@ -1534,8 +1458,8 @@ async def recipe_profile(
             f"{m} {n}".strip() if m else n
             for n, m in zip(names, measurements)
         ]
-        total_time = _coerce_float(parsed.get("total_time"))
-        serves = _coerce_int(parsed.get("serves"))
+        total_time = parsed.get("total_time") or 0
+        serves = trusted_serves or parsed.get("serves") or 0
         try:
             auto_allergens = detect_allergens_from_names(names)
             auto_tags = list(infer_diet_tags(set(auto_allergens)))
@@ -1560,7 +1484,12 @@ async def recipe_profile(
 
     try:
         profile_result = Recipe_Profiling_Chain.invoke(
-            {"recipe_text": raw_recipe, "debug": False, "region": region}
+            {
+                "recipe_text": raw_recipe,
+                "debug": False,
+                "region": region,
+                "trusted_serves": trusted_serves,
+            }
         )
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Profiling pipeline", exc) from exc
@@ -1604,6 +1533,8 @@ def _index_recipe_to_elastic(
     title: str,
     ingredient_names: list[str],
     tags: list[str],
+    source: str,
+    source_id: str | None,
 ) -> None:
     """Index a single recipe document into Elasticsearch (best-effort)."""
     settings = get_settings()
@@ -1611,6 +1542,8 @@ def _index_recipe_to_elastic(
     doc = {
         "id": recipe_id,
         "title": title,
+        "source": source,
+        "source_id": resolve_collection_source_id(source, source_id),
         "ingredients": ingredient_names,
         "tags": tags,
     }
@@ -1812,7 +1745,14 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
 
     # --- Elasticsearch index ---
     try:
-        _index_recipe_to_elastic(recipe_id, payload.title, ingredient_names, merged_tags)
+        _index_recipe_to_elastic(
+            recipe_id,
+            payload.title,
+            ingredient_names,
+            merged_tags,
+            "user",
+            payload.source_id,
+        )
     except Exception:
         pass  # non-fatal
 

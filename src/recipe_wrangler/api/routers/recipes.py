@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -58,6 +59,15 @@ from recipe_wrangler.tools.recipe_profiling_chain import (
     Recipe_Profiling_Chain_Structured,
     split_ingredient_lines,
 )
+
+_PROFILE_TIMEOUT_SECONDS = 25.0
+
+
+async def _invoke_profile_with_timeout(payload: dict[str, Any]) -> dict[str, Any]:
+    return await asyncio.wait_for(
+        asyncio.to_thread(Recipe_Profiling_Chain_Structured.invoke, payload),
+        timeout=_PROFILE_TIMEOUT_SECONDS,
+    )
 
 from ..dependencies import get_recipe_search_app
 from recipe_wrangler.schemas import (
@@ -1626,7 +1636,7 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
     else:
         # --- Nutrition profiling ---
         try:
-            profile_result = Recipe_Profiling_Chain_Structured.invoke({
+            profile_result = await _invoke_profile_with_timeout({
                 "title": payload.title,
                 "ingredient_names": ingredient_names,
                 "measurements": measurements,
@@ -1850,8 +1860,9 @@ async def recipe_substitute(
     serves = float(recipe.get("serves") or 1)
     total_time = recipe.get("duration")
 
+    profile_error: str | None = None
     try:
-        profile_result = Recipe_Profiling_Chain_Structured.invoke({
+        profile_result = await _invoke_profile_with_timeout({
             "title": recipe.get("title") or "",
             "ingredient_names": modified_ingredient_names,
             "measurements": modified_measurements,
@@ -1861,17 +1872,25 @@ async def recipe_substitute(
             "region": region,
             "debug": False,
         })
+        if not isinstance(profile_result, dict):
+            raise InternalError(
+                detail="Profiling pipeline returned unexpected payload",
+                extra={"title": "ProfilingPipelineError"},
+            )
+
+        # Strip top-level None values (unset pipeline state)
+        profile_result = {k: v for k, v in profile_result.items() if v is not None}
     except Exception as exc:
-        raise map_dependency_error("Profiling pipeline", exc) from exc
-
-    if not isinstance(profile_result, dict):
-        raise InternalError(
-            detail="Profiling pipeline returned unexpected payload",
-            extra={"title": "ProfilingPipelineError"},
-        )
-
-    # Strip top-level None values (unset pipeline state)
-    profile_result = {k: v for k, v in profile_result.items() if v is not None}
+        profile_error = str(exc)
+        profile_result = {
+            "status": "profiling_unavailable",
+            "region": region,
+            "title": recipe.get("title") or "",
+            "serves": serves,
+            "modified_ingredients": modified_ingredient_names,
+            "measurements": modified_measurements,
+            "error": profile_error,
+        }
 
     return RecipeSubstituteResponse(
         original_ingredient=payload.ingredient,

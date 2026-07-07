@@ -4,9 +4,12 @@ import os
 from functools import lru_cache
 from typing import List, Optional
 from langchain_huggingface import HuggingFaceEmbeddings
+from recipe_wrangler.utils.env_loader import load_runtime_env
+
+load_runtime_env()
 
 # Allow overriding model/device/batch via env to avoid GPU OOM.
-DEFAULT_MODEL_NAME = os.getenv("EMBED_MODEL_NAME", "Qwen/Qwen3-Embedding-8B")
+DEFAULT_MODEL_NAME = os.getenv("EMBED_MODEL_NAME", "BAAI/bge-small-en-v1.5")
 DEFAULT_DEVICE = os.getenv("EMBED_DEVICE", "cpu")
 DEFAULT_BATCH_SIZE = int(os.getenv("EMBED_BATCH_SIZE", "8"))
 
@@ -21,10 +24,6 @@ def _get_embedder(model_name: str = DEFAULT_MODEL_NAME) -> HuggingFaceEmbeddings
         model_kwargs=MODEL_KWARGS,
         encode_kwargs=ENCODE_KWARGS,
     )
-
-# Eagerly warm the default model at import time so the first request doesn't pay
-# the cold-start penalty and workers don't each reload it on their first query.
-_get_embedder(DEFAULT_MODEL_NAME)
 
 def get_embeddings(text: str, model_name: Optional[str] = None) -> List[float]:
     """

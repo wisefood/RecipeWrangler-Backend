@@ -73,6 +73,12 @@ CLAUDE.md
 /docs/superpowers/
 **/SKILL.md
 
+# Hide local docs, notebooks, and one-off reports from repo
+/docs/
+/notebooks/
+/RECIPE_DATASETS.md
+/test_foodchat.py
+
 # Generated figures and rendered document assets
 *.png
 *.jpg

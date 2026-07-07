@@ -81,9 +81,6 @@ CLAUDE.md
 *.pdf
 *.drawio
 /docs/figures/
-src/recipe_wrangler/services/
-src/recipe_wrangler/services/adaptation/
-src/recipe_wrangler/services/README.md
 
 # Generated analysis/export directories
 /artifacts/

@@ -10,6 +10,7 @@ can flag weak matches instead of silently trusting or zeroing them.
 from __future__ import annotations
 
 import math
+import os
 import re
 from functools import lru_cache
 from typing import Optional
@@ -18,7 +19,16 @@ from recipe_wrangler.utils.env_loader import load_runtime_env
 
 load_runtime_env()
 
+# Modular fallback source. Override via NUTRITION_FALLBACK_SOURCE in .env.
+# Used as the secondary pool after the primary (irish / hungarian / default).
+# Valid: "usda" | "eu". Passing source="usda" or source="eu" directly to
+# best_nutrition_match bypasses this and uses that source alone.
+NUTRITION_FALLBACK_SOURCE = os.getenv("NUTRITION_FALLBACK_SOURCE", "usda").strip().lower()
+if NUTRITION_FALLBACK_SOURCE not in {"usda", "eu"}:
+    NUTRITION_FALLBACK_SOURCE = "usda"
+
 from recipe_wrangler.repositories.chroma_matchers import (  # noqa: E402
+    query_eu_nutrition_candidates,
     query_hungarian_nutrition_candidates,
     query_irish_nutrition_candidates,
     query_usda_nutrition_candidates,
@@ -447,11 +457,19 @@ def _candidate_name(match: dict) -> str:
 
 def _candidate_pools(source: str) -> list[tuple[str, object]]:
     # Resolved at call time (not import time) so the functions stay patchable.
+    fb = NUTRITION_FALLBACK_SOURCE
+    fallback_fn = (
+        query_eu_nutrition_candidates
+        if fb == "eu"
+        else query_usda_nutrition_candidates
+    )
     if source == "hungarian":
-        return [("hungarian", query_hungarian_nutrition_candidates), ("usda", query_usda_nutrition_candidates)]
+        return [("hungarian", query_hungarian_nutrition_candidates), (fb, fallback_fn)]
     if source == "usda":
         return [("usda", query_usda_nutrition_candidates)]
-    return [("irish", query_irish_nutrition_candidates), ("usda", query_usda_nutrition_candidates)]
+    if source == "eu":
+        return [("eu", query_eu_nutrition_candidates)]
+    return [("irish", query_irish_nutrition_candidates), (fb, fallback_fn)]
 
 
 # Tuning knobs (kept loose; the audit drives these).
@@ -493,8 +511,14 @@ def best_nutrition_match(name: str, source: str = "irish", min_similarity: float
     # 0) hand-curated alias table — trusted; wins outright when it hits.
     #    Try the raw name first so "unsalted butter" hits its own alias before
     #    clean_query strips "unsalted" and "butter" hits the salted-butter alias.
-    alias = _alias_lookup(str(name or ""))
-    if alias is None:
+    #    The alias table maps to USDA ids — skip when fallback must avoid USDA
+    #    composition (EU, IE, HU all route through EU on fallback, never USDA).
+    _no_usda = source == "eu" or (
+        source in {"irish", "hungarian"}
+        and NUTRITION_FALLBACK_SOURCE == "eu"
+    )
+    alias = None if _no_usda else _alias_lookup(str(name or ""))
+    if alias is None and not _no_usda:
         alias = _alias_lookup(cleaned)
     if alias:
         return {
@@ -524,7 +548,9 @@ def best_nutrition_match(name: str, source: str = "irish", min_similarity: float
     # (the table maps "chicken breast" -> "Oscar Mayer, Chicken Breast",
     # "mango" -> "Mango, dried, sweetened"), it competes as a *vanilla*
     # candidate — no curated prior, no "curated" label.
-    link = _curated_link(cleaned)
+    # Curated recipe1m -> USDA link: USDA-only, so skip whenever USDA must not
+    # appear in the result (EU, IE, HU).
+    link = None if _no_usda else _curated_link(cleaned)
     if link:
         _q_raw = set(_TOKEN_RE.findall(str(name or "").lower()))
         _label_words = set(_TOKEN_RE.findall(str(link.get("label") or "").lower()))

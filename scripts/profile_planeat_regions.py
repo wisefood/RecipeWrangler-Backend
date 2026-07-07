@@ -9,7 +9,7 @@ is needed. For each recipe and each region this script:
      -> aggregate),
   2. computes a per-100g Nutri-Score,
   3. upserts a profiling trace row into Postgres
-     (source="PLANEAT", nutrition_source=region),
+     (source="Curated Hungarian Recipes", nutrition_source=region),
   4. patches the recipe's recipes_v2 Elasticsearch document with the per-region
      Nutri-Score grade and color.
 
@@ -138,7 +138,7 @@ def _process_region(rec: dict, region: str, settings, write: bool) -> str:
         {
             "recipe_id": recipe_id,
             "title": title,
-            "source": "PLANEAT",
+            "source": "Curated Hungarian Recipes",
             "nutrition_source": region,
             "pipeline_version": "cofid_direct_weight_known",
             "total_nutrients": totals,

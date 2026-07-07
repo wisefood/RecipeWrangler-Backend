@@ -7,7 +7,7 @@ import openpyxl
 THRESHOLDS = {
     "HealthyFoods": 806.50,
     "Recipe1M": 29122.33,
-    "Irish_SafeFood": 777.75,
+    "Curated Irish Recipes": 777.75,
     "Slovenian_OPKP": 640.88,
     "MyPlate": 861.28
 }
@@ -77,7 +77,7 @@ def clean_irish_safefood(removed_list):
     ws = wb["in"]
     rows = list(ws.iter_rows(min_row=1, values_only=False))
     
-    threshold = THRESHOLDS["Irish_SafeFood"]
+    threshold = THRESHOLDS["Curated Irish Recipes"]
     new_wb = openpyxl.Workbook()
     new_ws = new_wb.active
     new_ws.title = "in"
@@ -91,7 +91,7 @@ def clean_irish_safefood(removed_list):
         if val is None or val <= threshold:
             new_ws.append([cell.value for cell in row])
         else:
-            removed_list.append({"dataset": "Irish_SafeFood", "title": row[1].value, "calories": val})
+            removed_list.append({"dataset": "Curated Irish Recipes", "title": row[1].value, "calories": val})
             
     new_wb.save(out_path)
 

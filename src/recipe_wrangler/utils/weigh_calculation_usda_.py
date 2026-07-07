@@ -26,8 +26,15 @@ def _load_data(path: str) -> list | dict:
     """Load from local file or Postgres depending on path sentinel."""
     if path.startswith(":pg:"):
         from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data
-        return load_pipeline_data(path[4:])
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+        try:
+            return load_pipeline_data(path[4:])
+        except Exception:
+            return []
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
 
 
 @lru_cache(maxsize=1)

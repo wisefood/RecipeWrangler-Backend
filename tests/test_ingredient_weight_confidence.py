@@ -21,13 +21,13 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
             }
         )
 
-    def test_to_taste_zero_does_not_call_live_llm(self):
+    def test_to_taste_min_does_not_call_live_llm(self):
         with patch.object(mod, "_live_llm_weight_fallback", side_effect=AssertionError):
             result = self.invoke_debug(["salt"], ["to taste"])
 
         detail = result["details"][0]
-        self.assertEqual(result["weights"], [0.0])
-        self.assertEqual(detail["match_type"], "to_taste_zero")
+        self.assertEqual(result["weights"], [mod.TO_TASTE_MIN_GRAMS])
+        self.assertEqual(detail["match_type"], "to_taste_min")
         self.assertEqual(detail["confidence"], 0.9)
 
     def test_liquid_density_for_olive_oil_ml(self):

@@ -32,7 +32,7 @@ import os  # noqa: E402
 from neo4j import GraphDatabase  # noqa: E402
 
 OUT_DIR = REPO_ROOT / "data_to_send" / "viz"
-SOURCES = ("HealthyFoods", "MyPlate", "FoodHero", "Irish_SafeFood", "recipe1m")
+SOURCES = ("HealthyFoods", "MyPlate", "FoodHero", "Curated Irish Recipes", "recipe1m")
 DEFAULT_TOP_N = 30
 
 

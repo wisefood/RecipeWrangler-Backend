@@ -49,7 +49,7 @@ load_runtime_env()
 from neo4j import GraphDatabase  # noqa: E402
 
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
-SOURCES_PROFILED = ("HealthyFoods", "MyPlate", "Irish_SafeFood", "recipe1m")
+SOURCES_PROFILED = ("HealthyFoods", "MyPlate", "Curated Irish Recipes", "recipe1m")
 SOURCES_SKIP_WRITE = ("FoodHero",)  # see module docstring
 OUT_DIR = REPO_ROOT / "data_to_send" / "migration"
 SAMPLE_SIZE = 200

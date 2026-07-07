@@ -24,7 +24,7 @@ def get_missing():
     with driver.session() as s:
         return s.run("""
             MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)
-            WHERE r.source = 'Irish_SafeFood'
+            WHERE r.source = 'Curated Irish Recipes'
               AND r.image_url IS NULL
             WITH r, collect(i.name) as ingredients
             RETURN r.recipe_id, r.title, ingredients, r.instructions

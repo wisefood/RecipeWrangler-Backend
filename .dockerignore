@@ -64,5 +64,7 @@ graph/
 .coverage
 htmlcov/
 
-# Claude
+# Agent/tool configs
 .claude/
+.blackboxcli/
+.codex

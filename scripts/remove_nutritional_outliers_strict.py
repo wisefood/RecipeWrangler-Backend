@@ -84,7 +84,7 @@ def clean_irish_safefood(removed_list):
             continue
         val = parse_calories(row[25].value)
         if val is None or val <= THRESHOLD_PER_SERVING: new_ws.append([cell.value for cell in row])
-        else: removed_list.append({"dataset": "Irish_SafeFood", "title": row[1].value, "calories": val})
+        else: removed_list.append({"dataset": "Curated Irish Recipes", "title": row[1].value, "calories": val})
     new_wb.save(out_path)
 
 def clean_myplate(removed_list):

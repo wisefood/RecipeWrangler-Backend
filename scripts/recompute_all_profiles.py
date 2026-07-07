@@ -61,15 +61,15 @@ from recipe_wrangler.tools.recipe_profiling_tool import (  # noqa: E402
 from recipe_wrangler.utils.neo4j_utils import run_query  # noqa: E402
 from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace  # noqa: E402
 
-REGIONS = ["IE", "HU", "US"]
-REGION_TO_SOURCE = {"IE": "irish", "HU": "hungarian", "US": "usda"}
+REGIONS = ["IE", "HU", "US", "EU"]
+REGION_TO_SOURCE = {"IE": "irish", "HU": "hungarian", "US": "usda", "EU": "eu"}
 PIPELINE_VERSION = "recompute_2026-05-11"
 
 NEO4J_SOURCES = {
     "healthyfoods": "HealthyFoods",
     "myplate": "MyPlate",
     "foodhero": "FoodHero",
-    "irish_safefood": "Irish_SafeFood",
+    "irish_safefood": "Curated Irish Recipes",
 }
 ALL_SOURCES = list(NEO4J_SOURCES.keys()) + ["recipe1m"]
 

@@ -81,6 +81,17 @@ class Bm25Tests(unittest.TestCase):
 
 
 class BestNutritionMatchTests(unittest.TestCase):
+    def setUp(self):
+        # These tests exercise USDA fallback behavior independently of runtime
+        # regional configuration (production may select the EU fallback pool).
+        self._fallback_patch = patch.object(
+            nm, "NUTRITION_FALLBACK_SOURCE", "usda"
+        )
+        self._fallback_patch.start()
+
+    def tearDown(self):
+        self._fallback_patch.stop()
+
     def _patch_pools(self, irish=None, usda=None):
         # bypass the alias table + curated table to test the vector/rerank path
         return (

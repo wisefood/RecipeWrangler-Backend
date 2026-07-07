@@ -213,6 +213,41 @@ def query_nutritional_db_hungarian(query: str):
         hits.append({"document": doc, "metadata": meta, "distance": dist})
     return hits
 
+
+@lru_cache(maxsize=4096)
+def query_nutritional_db_eu(query: str):
+    """
+    Function that queries the chromadb EU nutritional collection (Ciqual FR +
+    CoFID UK + NEVO NL composite) with input ingredient.
+    """
+
+    COLLECTION_NAME = "nutritional_ingredients_eu"
+
+    client = get_chroma_client()
+    collection = client.get_collection(name=COLLECTION_NAME)
+
+    ensure_ingredients_in_collection.invoke({
+        "ingredient_names": [query],
+        "state": {"persist_path": PERSIST_PATH, "collection_name": "ingredients", "debug": False}
+    })
+
+    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
+    vec = get_ingredient_embedding(query)
+
+    results = collection.query(
+        query_embeddings=[vec],
+        n_results=10,
+        include=["documents", "metadatas", "distances"]
+    )
+
+    hits = []
+    for doc, meta, dist in zip(results["documents"][0],
+                               results["metadatas"][0],
+                               results["distances"][0]):
+        hits.append({"document": doc, "metadata": meta, "distance": dist})
+    return hits
+
+
 def query_density_db(query: str):
     """
     Function that queries the chromadb density of foods collection with input ingredient

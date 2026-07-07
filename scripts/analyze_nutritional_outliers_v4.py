@@ -98,7 +98,7 @@ def main():
         ws = wb["in"]
         rows = list(ws.iter_rows(min_row=3, values_only=True))
         cals = [parse_calories(row[25]) for row in rows if len(row) > 25]
-        results["Irish_SafeFood"] = calculate_outliers(cals)
+        results["Curated Irish Recipes"] = calculate_outliers(cals)
 
     # 4. Recipe1M
     print("Analyzing Recipe1M...")

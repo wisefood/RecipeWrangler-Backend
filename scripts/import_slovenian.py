@@ -41,7 +41,7 @@ from recipe_wrangler.repositories.neo4j_recipes import (
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace
 
-SOURCE = "Slovenian_Curated"
+SOURCE = "Curated Slovenian Recipes"
 NUTRITION_SOURCE = "slovenian"
 PIPELINE_VERSION = "opkp_direct"
 XLSX_FILE = REPO_ROOT / "data" / "Slovenia" / "Slovenian_Recipes.xlsx"

@@ -72,7 +72,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = REPO_ROOT / "data_to_send"
 CKPT_FILE = OUT_DIR / "backfill_weight_trace.checkpoint.json"
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
-NEO4J_SOURCES = ("HealthyFoods", "MyPlate", "FoodHero", "Irish_SafeFood")
+NEO4J_SOURCES = ("HealthyFoods", "MyPlate", "FoodHero", "Curated Irish Recipes")
 
 _stop = False
 

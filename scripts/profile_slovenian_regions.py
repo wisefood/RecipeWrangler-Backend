@@ -5,7 +5,7 @@ For each recipe x region (irish, hungarian, eu) this script:
   1. calls nutritional_tool_chroma (Chroma match -> Postgres per-100g -> scale -> aggregate),
   2. computes a per-100g Nutri-Score,
   3. upserts a profiling trace row into Postgres
-     (source="Slovenian_Curated", nutrition_source=region,
+     (source="Curated Slovenian Recipes", nutrition_source=region,
       pipeline_version="opkp_direct_weight_known"),
   4. patches the recipe's recipes_v2 Elasticsearch doc with the per-region
      Nutri-Score grade and color.
@@ -46,7 +46,7 @@ from recipe_wrangler.utils.nutrition_postgres import (  # noqa: E402
     upsert_recipe_profiling_trace,
 )
 
-SOURCE = "Slovenian_Curated"
+SOURCE = "Curated Slovenian Recipes"
 PIPELINE_VERSION = "opkp_direct_weight_known"
 REGIONS = ["irish", "hungarian", "eu"]
 ES_REGION_CODE = {"irish": "ie", "hungarian": "hu", "eu": "eu"}

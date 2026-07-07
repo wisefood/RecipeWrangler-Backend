@@ -118,7 +118,7 @@ def _nutrition_source_from_region(region: str | None) -> str | None:
     region_norm = str(region).strip().upper()
     if not region_norm:
         return None
-    mapping = {"US": "usda", "IE": "irish", "HU": "hungarian"}
+    mapping = {"US": "usda", "IE": "irish", "HU": "hungarian", "EU": "eu"}
     return mapping.get(region_norm)
 
 
@@ -700,8 +700,8 @@ def _build_nutri_score_breakdown(
 def _source_ground_truth_nutrition_source(recipe_source: object) -> str | None:
     source = str(recipe_source or "").strip()
     mapping = {
-        "Irish_SafeFood": "safefood",
-        "SafeFood": "safefood",
+        "Curated Irish Recipes": "safefood_rcsi",
+        "SafeFood": "safefood_rcsi",
         "HealthyFoods": "healthyfoods_original",
         "recipe1m": "recipe1m_original",
     }
@@ -710,6 +710,8 @@ def _source_ground_truth_nutrition_source(recipe_source: object) -> str | None:
 
 def _source_ground_truth_nutrition_sources(recipe_source: object) -> list[str]:
     primary = _source_ground_truth_nutrition_source(recipe_source)
+    if primary == "safefood_rcsi":
+        return ["safefood_rcsi", "safefood"]
     if primary == "healthyfoods_original":
         return ["healthyfoods_original", "healthyfoods"]
     return [primary] if primary else []
@@ -721,7 +723,13 @@ def _is_source_ground_truth_trace(trace: dict[str, Any] | None) -> bool:
     nutrition_source = str(trace.get("nutrition_source") or "").strip().lower()
     pipeline_version = str(trace.get("pipeline_version") or "").strip().lower()
     return (
-        nutrition_source in {"safefood", "recipe1m_original", "healthyfoods", "healthyfoods_original"}
+        nutrition_source in {
+            "safefood_rcsi",
+            "safefood",
+            "recipe1m_original",
+            "healthyfoods",
+            "healthyfoods_original",
+        }
         or "ground_truth" in pipeline_version
     )
 
@@ -967,6 +975,7 @@ def get_recipe(
             image_url=recipe.get("image_url"),
             duration=recipe.get("duration"),
             serves=recipe.get("serves"),
+            cost_category=recipe.get("cost_category"),
             tags=recipe.get("tags") or [],
             nutri_score_label=nutri_score_str if isinstance(nutri_score_str, str) else None,
             nutri_score_color=_nutri_color_from_score(nutri_score_str),
@@ -1283,6 +1292,7 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
         "image_url": card.get("image_url"),
         "duration": card.get("duration"),
         "serves": card.get("serves"),
+        "cost_category": card.get("cost_category"),
         "nutri_score": card.get("nutri_score"),
         "nutri_score_color": card.get("nutri_color"),
         "sust_score": card.get("sust_score"),
@@ -1421,6 +1431,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             "image_url": row.get("image_url"),
             "duration": row.get("duration"),
             "serves": row.get("serves"),
+            "cost_category": row.get("cost_category"),
             "nutri_score": nutri_score,
             "nutri_score_color": _nutri_color_from_score(nutri_score),
             "sust_score": row.get("sust_score"),

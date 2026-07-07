@@ -20,20 +20,20 @@ from recipe_wrangler.api.config import get_settings
 # Index built by scripts/elasticsearch/index_recipes_v2.py
 ES_INDEX = "recipes_v2"
 
-_VALID_REGIONS = {"us", "ie", "hu"}
+_VALID_REGIONS = {"eu", "ie", "hu"}
 
 # Region-agnostic fields returned per hit. The region-specific nutri fields
 # (nutri_score_<r> / nutri_color_<r>) are appended per request.
 _BASE_SOURCE_FIELDS = [
     "id", "title", "url", "source", "source_id", "image_url",
-    "duration", "serves", "sust_score", "expert_recipe",
+    "duration", "serves", "cost_category", "sust_score", "expert_recipe",
 ]
 
 
 def _resolve_region(value: str) -> str:
-    """Normalize a region selector (US/IE/HU, any case) to us/ie/hu; default us."""
-    region = (value or "us").strip().lower()
-    return region if region in _VALID_REGIONS else "us"
+    """Normalize a region selector (EU/IE/HU, any case) to eu/ie/hu; default eu."""
+    region = (value or "eu").strip().lower()
+    return region if region in _VALID_REGIONS else "eu"
 
 
 @dataclass
@@ -50,7 +50,7 @@ class RecipeSearchConstraints:
     min_servings: int | None = None
     limit: int = 10
     offset: int = 0
-    region: str = "us"  # which region's nutri score the card returns
+    region: str = "eu"  # which region's nutri score the card returns
 
 
 def _norm(items: list[str]) -> list[str]:
@@ -70,10 +70,10 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     must: list[dict] = []
     must_not: list[dict] = []
 
-    # Only profiled recipes — those carrying a stored Postgres nutrition
-    # profile. Excludes unprofiled recipes that would otherwise be live-
-    # profiled on the detail page from low-quality (recipe1m) source data.
-    filter_.append({"exists": {"field": "nutri_score_us"}})
+    # Only profiled recipes — those carrying a stored EU (global) nutrition
+    # profile. EU is the global composition pool, so an EU nutri score is the
+    # marker that a recipe has been profiled.
+    filter_.append({"exists": {"field": "nutri_score_eu"}})
 
     # Included ingredients — every term must match (AND).
     for ing in _norm(c.include_ingredients):
@@ -141,6 +141,7 @@ def _hit_to_card(hit: dict, region: str) -> dict[str, Any]:
         "image_url": src.get("image_url") or None,
         "duration": src.get("duration"),
         "serves": src.get("serves"),
+        "cost_category": src.get("cost_category"),
         "nutri_score": src.get(f"nutri_score_{region}"),
         "nutri_color": src.get(f"nutri_color_{region}"),
         "sust_score": src.get("sust_score"),

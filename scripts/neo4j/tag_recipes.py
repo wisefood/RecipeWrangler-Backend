@@ -1,4 +1,6 @@
+import argparse
 import os
+import re
 from typing import Optional
 
 from neo4j import GraphDatabase
@@ -32,6 +34,34 @@ def _ensure_constraints(driver) -> None:
     )
     with driver.session() as session:
         session.run(statement)
+
+
+def _keyword_regex(keyword: str) -> str:
+    escaped = re.escape(keyword.strip().casefold()).replace(r"\ ", r"\s+")
+    return rf".*\b{escaped}(e?s)?\b.*"
+
+
+PLANT_OR_CANONICAL_EXCLUSION_REGEXES = [
+    r".*\bplant[ -]*based\b.*",
+    r".*\bvegan\b.*",
+    r".*\bvegetarian\b.*",
+    r".*\b(coconut|soy|soya|almond|oat|rice|cashew|hazelnut|hemp|pea)"
+    r"([ -]+(flavoured|flavored))?[ -]+(milk|cream|yogurt|yoghurt)\b.*",
+    r".*\b(milk|cream|yogurt|yoghurt)[ -]+alternative\b.*",
+    r".*\b(non[ -]*dairy|dairy[ -]*free)\b.*",
+    r".*\b(peanut|almond|cashew|hazelnut|walnut|seed|nut)[ -]+butter\b.*",
+    r".*\bbutter[ -]*beans?\b.*",
+    r".*\bbeans?,[ -]*butter\b.*",
+    r".*\bbutternut\b.*",
+    r".*\bcream[ -]+substitute\b.*",
+    r".*\bcream[ -]+rice\b.*",
+    r".*\bbutter[ -]+almond\b.*",
+    r".*\bquorn\b.*",
+    r".*\bcream[ -]+parsley\b.*",
+    r"^(chicken chilli|chicken cube|beef spread|pork sauce)$",
+    r"^(chicken stock vegetable|stock vegetable chicken|vegetable chicken stock"
+    r"|vegetable stock beef)$",
+]
 
 
 def _tag_dairy_free(driver) -> int:
@@ -73,6 +103,41 @@ def _tag_nut_free(driver) -> int:
         return int(result.single()["tagged"])
 
 
+def _tag_gluten_free(driver) -> int:
+    query = """
+    MATCH (r:Recipe)
+    WHERE EXISTS {
+        MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)
+    }
+    AND NOT EXISTS {
+        MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(a:Allergen)
+        WHERE a.name IN ["wheat", "gluten"]
+    }
+    MERGE (t:Tag {name: "gluten_free"})
+    SET t.category = "dietary"
+    MERGE (r)-[:HAS_TAG]->(t)
+    RETURN count(distinct r) AS tagged
+    """
+    with driver.session() as session:
+        result = session.run(query)
+        return int(result.single()["tagged"])
+
+
+def _tag_vegetarian_or_vegan(driver) -> int:
+    query = """
+    MATCH (r:Recipe)-[:HAS_TAG]->(source_tag:Tag)
+    WHERE source_tag.name IN ["vegetarian", "vegan"]
+    WITH DISTINCT r
+    MERGE (t:Tag {name: "vegetarian_or_vegan"})
+    SET t.category = "dietary"
+    MERGE (r)-[:HAS_TAG]->(t)
+    RETURN count(r) AS tagged
+    """
+    with driver.session() as session:
+        result = session.run(query)
+        return int(result.single()["tagged"])
+
+
 def _tag_foodon_free(
     driver,
     tag_name: str,
@@ -80,6 +145,7 @@ def _tag_foodon_free(
     exclude_roots: list[str],
     forbidden_keywords: list[str],
     exclude_keywords: list[str],
+    exclude_name_regexes: list[str],
 ) -> int:
     query = """
     MATCH (r:Recipe)
@@ -91,6 +157,8 @@ def _tag_foodon_free(
         MATCH (i)-[:HAS_CLASS]->(f:FoodOnClass)
         MATCH (f)-[:SUBCLASS_OF*0..]->(a:FoodOnClass)
         WHERE a.foodon_id IN $forbidden_roots
+          AND none(pattern IN $exclude_name_regexes
+                   WHERE toLower(i.name) =~ pattern)
           AND NOT EXISTS {
             MATCH (i)-[:HAS_CLASS]->(f2:FoodOnClass)
             MATCH (f2)-[:SUBCLASS_OF*0..]->(e:FoodOnClass)
@@ -100,8 +168,11 @@ def _tag_foodon_free(
     AND NOT EXISTS {
         MATCH (r)-[:HAS_INGREDIENT]->(i2:Ingredient)
         WHERE i2.name IS NOT NULL
-          AND any(k IN $forbidden_keywords WHERE toLower(i2.name) CONTAINS k)
+          AND any(pattern IN $forbidden_keyword_regexes
+                  WHERE toLower(i2.name) =~ pattern)
           AND NOT any(x IN $exclude_keywords WHERE toLower(i2.name) CONTAINS x)
+          AND none(pattern IN $exclude_name_regexes
+                   WHERE toLower(i2.name) =~ pattern)
     }
     MERGE (t:Tag {name: $tag_name})
     SET t.category = "dietary"
@@ -115,9 +186,25 @@ def _tag_foodon_free(
             forbidden_roots=forbidden_roots,
             exclude_roots=exclude_roots,
             forbidden_keywords=[k.casefold() for k in forbidden_keywords],
+            forbidden_keyword_regexes=[
+                _keyword_regex(k) for k in forbidden_keywords
+            ],
             exclude_keywords=[k.casefold() for k in exclude_keywords],
+            exclude_name_regexes=exclude_name_regexes,
         )
         return int(result.single()["tagged"])
+
+
+def _clear_recipe_tags(driver, tag_names: list[str]) -> int:
+    query = """
+    MATCH (:Recipe)-[rel:HAS_TAG]->(t:Tag)
+    WHERE t.name IN $tag_names
+    DELETE rel
+    RETURN count(rel) AS deleted
+    """
+    with driver.session() as session:
+        result = session.run(query, tag_names=tag_names)
+        return int(result.single()["deleted"])
 
 
 def _tag_pescatarian(
@@ -212,6 +299,32 @@ def _tag_five_ingredients_or_less(driver) -> int:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Generate recipe-level dietary and convenience tags."
+    )
+    parser.add_argument(
+        "--replace-dietary",
+        action="store_true",
+        help="Delete existing dietary tag edges before rebuilding them.",
+    )
+    parser.add_argument(
+        "--tags",
+        nargs="+",
+        choices=[
+            "dairy_free",
+            "nut_free",
+            "gluten_free",
+            "vegetarian",
+            "vegan",
+            "vegetarian_or_vegan",
+            "pescatarian",
+            "30_minutes_or_less",
+            "5_ingredients_or_less",
+        ],
+        help="Only rebuild the selected recipe tags (default: all).",
+    )
+    args = parser.parse_args()
+
     if load_dotenv:
         load_dotenv()
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
@@ -265,8 +378,6 @@ def main() -> None:
         "FOODON_00001248",  # fish food product
         "FOODON_00001293",  # shellfish food product
         "FOODON_00001256",  # dairy food product
-        "FOODON_00001274",  # egg food product
-        "FOODON_00001178",  # honey food product
         "FOODON_00001900",  # gelatin refined food product
         "FOODON_00001899",  # gelatin dessert food product
         "CHEBI_5291",       # gelatin
@@ -278,8 +389,6 @@ def main() -> None:
         "butter",
         "cream",
         "yogurt",
-        "egg",
-        "honey",
         "gelatin",
         "whey",
         "casein",
@@ -361,9 +470,39 @@ def main() -> None:
     driver = _connect(uri, username, password, no_auth)
     try:
         _ensure_constraints(driver)
+        if args.replace_dietary:
+            selected_dietary = set(
+                args.tags
+                or [
+                    "dairy_free",
+                    "nut_free",
+                    "gluten_free",
+                    "vegetarian",
+                    "vegan",
+                    "vegetarian_or_vegan",
+                    "pescatarian",
+                ]
+            )
+            deleted = _clear_recipe_tags(
+                driver,
+                sorted(
+                    selected_dietary
+                    & {
+                        "dairy_free",
+                        "nut_free",
+                        "gluten_free",
+                        "vegetarian",
+                        "vegan",
+                        "vegetarian_or_vegan",
+                        "pescatarian",
+                    }
+                ),
+            )
+            print(f"deleted existing dietary tag edges: {deleted}")
         tasks = [
             ("dairy_free", lambda: _tag_dairy_free(driver)),
             ("nut_free", lambda: _tag_nut_free(driver)),
+            ("gluten_free", lambda: _tag_gluten_free(driver)),
             (
                 "vegetarian",
                 lambda: _tag_foodon_free(
@@ -373,6 +512,7 @@ def main() -> None:
                     plant_based_analog_roots,
                     vegetarian_forbidden_keywords,
                     plant_based_exclude_keywords,
+                    PLANT_OR_CANONICAL_EXCLUSION_REGEXES,
                 ),
             ),
             (
@@ -384,7 +524,12 @@ def main() -> None:
                     plant_based_analog_roots,
                     vegan_forbidden_keywords,
                     plant_based_exclude_keywords,
+                    PLANT_OR_CANONICAL_EXCLUSION_REGEXES,
                 ),
+            ),
+            (
+                "vegetarian_or_vegan",
+                lambda: _tag_vegetarian_or_vegan(driver),
             ),
             (
                 "pescatarian",
@@ -401,6 +546,9 @@ def main() -> None:
             ("30_minutes_or_less", lambda: _tag_30_minutes_or_less(driver)),
             ("5_ingredients_or_less", lambda: _tag_five_ingredients_or_less(driver)),
         ]
+        if args.tags:
+            selected_tags = set(args.tags)
+            tasks = [task for task in tasks if task[0] in selected_tags]
         iterator = tqdm(tasks, desc="Tagging recipes") if tqdm else tasks
         for name, fn in iterator:
             tagged = fn()

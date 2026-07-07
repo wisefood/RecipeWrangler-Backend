@@ -7,11 +7,13 @@ from langchain.tools import tool
 
 from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.repositories.postgres_nutrition import (
+    get_eu_ingredient_nutrition,
     get_hungarian_ingredient_nutrition,
     get_irish_ingredient_nutrition,
     get_usda_ingredient_nutrition,
 )
 from recipe_wrangler.repositories.chroma_matchers import (
+    query_eu_nutrition_candidates,
     query_hungarian_nutrition_candidates,
     query_irish_nutrition_candidates,
     query_usda_nutrition_candidates,
@@ -19,6 +21,7 @@ from recipe_wrangler.repositories.chroma_matchers import (
 from recipe_wrangler.tools.nutrition_match import best_nutrition_match
 
 SOURCE_NUTRITION = "Irish Composition Table"
+SOURCE_NUTRITION_EU = "EU Composite (Ciqual+CoFID+NEVO)"
 
 PROTEIN_KEY = "Protein (g)"
 CARB_KEY    = "Carbohydrate (g)"
@@ -92,6 +95,8 @@ def _source_label(source_key: str) -> str:
         return SOURCE_NUTRITION_USDA
     if source_key == "hungarian":
         return SOURCE_NUTRITION_HUNGARIAN
+    if source_key == "eu":
+        return SOURCE_NUTRITION_EU
     return SOURCE_NUTRITION
 
 
@@ -293,6 +298,8 @@ def nutritional_tool_chroma(
             return query_usda_nutrition_candidates(name)
         if source_normalized == "hungarian":
             return query_hungarian_nutrition_candidates(name)
+        if source_normalized == "eu":
+            return query_eu_nutrition_candidates(name)
         return query_irish_nutrition_candidates(name)
 
     for ing_name, weight_g in zip(ingredient_names, weights):
@@ -336,6 +343,7 @@ def nutritional_tool_chroma(
         chroma_meta = match.get("metadata") or {}
         canonical_food_id = chroma_meta.get("canonical_food_id")
         usda_id = chroma_meta.get("usda_id")
+        eu_id = chroma_meta.get("eu_id")
         nutrient_row = None
         if active_source == "irish":
             if canonical_food_id:
@@ -347,6 +355,9 @@ def nutritional_tool_chroma(
                 nutrient_row = get_hungarian_ingredient_nutrition(
                     str(canonical_food_id)
                 )
+        elif active_source == "eu":
+            if eu_id:
+                nutrient_row = get_eu_ingredient_nutrition(str(eu_id))
         else:
             if usda_id:
                 nutrient_row = get_usda_ingredient_nutrition(str(usda_id))
@@ -376,7 +387,7 @@ def nutritional_tool_chroma(
                 "source_nutrition": _source_label(active_source),
                 "matched_nutritional_ingredient": None,
                 "canonical_food_id": (
-                    canonical_food_id if active_source in {"irish", "hungarian"} else usda_id
+                    canonical_food_id if active_source in {"irish", "hungarian"} else (eu_id if active_source == "eu" else usda_id)
                 ),
                 "weight_g": float(weight_g),
                 "protein_per_100g": 0.0,
@@ -505,7 +516,7 @@ def nutritional_tool_chroma(
             "source_nutrition": _source_label(active_source),
             "matched_nutritional_ingredient": matched_name,
             "canonical_food_id": (
-                canonical_food_id if active_source in {"irish", "hungarian"} else usda_id
+                canonical_food_id if active_source in {"irish", "hungarian"} else (eu_id if active_source == "eu" else usda_id)
             ),
             "weight_g": float(weight_g),
             "protein_per_100g": protein_per_100g,

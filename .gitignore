@@ -59,3 +59,80 @@ logs/
 *.log
 
 CLAUDE.md
+
+# Agent/tool configs (machine-local, contain secrets)
+/.claude/
+/.blackboxcli/
+/.codex
+
+# Per-machine memory index (not project state)
+/MEMORY.md
+
+# Local agent skills, plans, and scratch instructions
+/.superpowers/
+/docs/superpowers/
+**/SKILL.md
+
+# Generated figures and rendered document assets
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+*.drawio
+/docs/figures/
+
+# Generated analysis/export directories
+/artifacts/
+/exports/
+/output/
+/section5_outputs/
+/section5_final_outputs/
+
+# Loose presentation/screenshot artifacts in docs/
+/docs/image.png
+
+# One-off analysis reports that scripts write to repo root
+/nutritional_outlier_report.md
+/removed_outliers_detailed_report.md
+/removed_outliers_strict_report.md
+/revised_outlier_analysis.md
+/revised_outlier_report_per_serving.md
+
+# Resume-state files written by long-running import scripts
+/scripts/*.checkpoint*.json
+
+# Generated deliverables and local working notes
+/D2.2 - Initial version of the RecipeWrangler application_v2.docx.md
+/docs/D2.2_*.md
+/docs/*_STATUS.md
+/docs/*_COMPLETE.md
+/docs/*_progress.md
+/docs/section5-deliverable-prompt.md
+/docs/puppeteer-config.json
+
+# One-off experiment launchers; reusable implementation stays tracked
+/scripts/run_weight_*.sh
+/scripts/run_vllm_*.sh
+/scripts/audit_*.py
+/scripts/assemble_section5_*.py
+/scripts/evaluate_*.py
+/scripts/*sensitivity*.py
+/scripts/export_*_vllm.py
+/scripts/gen_*.py
+/scripts/generate_*figures.py
+/scripts/generate_*reports.py
+/scripts/generate_section5_*.py
+/scripts/reprofile_*.py
+/scripts/score_*.py
+/scripts/backfill_safefood_llama_failures.py
+/scripts/compute_sustainability_*stats.py
+/scripts/viz/
+
+# Analysis narratives generated during one-off evaluation work
+/docs/eu-vs-usda-coverage.md
+/docs/pipeline-evaluation-shifts.md
+/docs/presentation-diagrams.md
+/docs/sensitivity_analysis_findings.md
+/docs/system-functionality-report.md
+/new_dataset_or_regional_table_integration.md

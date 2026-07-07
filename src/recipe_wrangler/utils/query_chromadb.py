@@ -13,36 +13,24 @@ import numpy as np
 import recipe_wrangler
 from recipe_wrangler.utils.chroma_client import get_chroma_client
 from recipe_wrangler.utils.get_embeddings import get_embeddings
-from recipe_wrangler.tools.ingredient_embeddings_tool import (
-    ensure_ingredients_in_collection,
-)
 
 REPO_ROOT = Path(recipe_wrangler.__file__).resolve().parents[2]  # package -> src -> repo
 PERSIST_PATH = REPO_ROOT / "chroma_db"
 
 def get_ingredient_embedding(ingredient_name: str):
     """
-    Function that returns the embeddings of an existing ingredient of the chromadb ingredients collection
+    Return query embedding for ingredient name.
+
+    Avoid runtime lookup in Chroma `ingredients` collection. That metadata `get()`
+    path can block indefinitely against remote server; direct embedding is stable
+    and enough for similarity search against nutrition/sustainability collections.
     """
-    client = get_chroma_client()
-    collection = client.get_collection(name="ingredients")
-
-    res = collection.get(
-        where={"name": ingredient_name},
-        include=["embeddings", "metadatas"]
-    )
-
-    embs = res.get("embeddings")
-    if embs is None or len(embs) == 0:
-        # Fallback to on-the-fly embeddings so profiling doesn't fail on missing entries.
-        return get_embeddings(ingredient_name)
-
-    vec = embs[0]  # first embedding
+    vec = get_embeddings(ingredient_name)
 
     # Normalize to a flat Python list
     if isinstance(vec, np.ndarray):
         vec = vec.ravel().tolist()
-    elif isinstance(vec, list) and len(vec) == 1 and isinstance(vec[0], (list, np.ndarray)):
+    elif isinstance(vec, list) and len(vec) == 1 and isinstance(vec[0], (list, np.ndarray, tuple)):
         vec = np.asarray(vec).ravel().tolist()
     elif not isinstance(vec, list):
         vec = list(vec)
@@ -88,12 +76,6 @@ def query_sustainability_db(query: str):
     client = get_chroma_client()
     collection = client.get_collection(name=COLLECTION_NAME)
 
-    ensure_ingredients_in_collection.invoke({
-        "ingredient_names": [query],
-        "state": {"persist_path": PERSIST_PATH, "collection_name": "ingredients", "debug": False}
-    })
-
-    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
     vec = get_ingredient_embedding(query)
 
     results = collection.query(
@@ -127,13 +109,6 @@ def query_nutritional_db_irish(query: str):
     client = get_chroma_client()
     collection = client.get_collection(name=COLLECTION_NAME)
 
-    
-    ensure_ingredients_in_collection.invoke({
-        "ingredient_names": [query],
-        "state": {"persist_path": PERSIST_PATH, "collection_name": "ingredients", "debug": False}
-    })
-    
-    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
     vec = get_ingredient_embedding(query)  # comes from "ingredients" collection
 
     results = collection.query(
@@ -160,12 +135,6 @@ def query_nutritional_db_usda(query: str):
     client = get_chroma_client()
     collection = client.get_collection(name=COLLECTION_NAME)
 
-    ensure_ingredients_in_collection.invoke({
-        "ingredient_names": [query],
-        "state": {"persist_path": PERSIST_PATH, "collection_name": "ingredients", "debug": False}
-    })
-
-    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
     vec = get_ingredient_embedding(query)  # comes from "ingredients" collection
 
     results = collection.query(
@@ -192,12 +161,6 @@ def query_nutritional_db_hungarian(query: str):
     client = get_chroma_client()
     collection = client.get_collection(name=COLLECTION_NAME)
 
-    ensure_ingredients_in_collection.invoke({
-        "ingredient_names": [query],
-        "state": {"persist_path": PERSIST_PATH, "collection_name": "ingredients", "debug": False}
-    })
-
-    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
     vec = get_ingredient_embedding(query)  # comes from "ingredients" collection
 
     results = collection.query(
@@ -212,6 +175,35 @@ def query_nutritional_db_hungarian(query: str):
                                results["distances"][0]):
         hits.append({"document": doc, "metadata": meta, "distance": dist})
     return hits
+
+
+@lru_cache(maxsize=4096)
+def query_nutritional_db_eu(query: str):
+    """
+    Function that queries the chromadb EU nutritional collection (Ciqual FR +
+    CoFID UK + NEVO NL composite) with input ingredient.
+    """
+
+    COLLECTION_NAME = "nutritional_ingredients_eu"
+
+    client = get_chroma_client()
+    collection = client.get_collection(name=COLLECTION_NAME)
+
+    vec = get_ingredient_embedding(query)
+
+    results = collection.query(
+        query_embeddings=[vec],
+        n_results=10,
+        include=["documents", "metadatas", "distances"]
+    )
+
+    hits = []
+    for doc, meta, dist in zip(results["documents"][0],
+                               results["metadatas"][0],
+                               results["distances"][0]):
+        hits.append({"document": doc, "metadata": meta, "distance": dist})
+    return hits
+
 
 def query_density_db(query: str):
     """
@@ -229,7 +221,6 @@ def query_density_db(query: str):
         "state": {"persist_path": PERSIST_PATH, "collection_name": "ingredients", "debug": False}
     })
 
-    from recipe_wrangler.utils.query_chromadb import get_ingredient_embedding
     vec = get_ingredient_embedding(query) 
 
     results = collection.query(

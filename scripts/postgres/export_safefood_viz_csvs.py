@@ -18,9 +18,9 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from recipe_wrangler.utils.nutrition_postgres import _get_config, get_connection  # noqa: E402
 
 DEFAULT_OUT_DIR = REPO_ROOT / "data_to_send" / "viz" / "safefood"
-DATASET_SOURCE = "Irish_SafeFood"
-REFERENCE_SOURCE = "safefood"
-CALCULATED_SOURCES = ("usda", "irish", "hungarian")
+DATASET_SOURCE = "Curated Irish Recipes"
+REFERENCE_SOURCE = "safefood_rcsi"
+CALCULATED_SOURCES = ("eu", "irish", "hungarian")
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
 
 NUTRIENTS = (
@@ -204,7 +204,7 @@ def _write_deviation_detail(detail: pd.DataFrame, out_dir: Path) -> Path:
 def _write_nutriscore_distribution(df: pd.DataFrame, out_dir: Path) -> Path:
     path = out_dir / "safefood_nutriscore_distribution_per_source.csv"
     rows = []
-    for source in CALCULATED_SOURCES:
+    for source in (REFERENCE_SOURCE, *CALCULATED_SOURCES):
         source_df = df[(df["source"] == source) & df["nutri_label"].notna()]
         total = int(len(source_df))
         counts = source_df["nutri_label"].value_counts()

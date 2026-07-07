@@ -124,6 +124,7 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
         "instructions": instructions,
         "duration": recipe_props.get("duration"),
         "serves": recipe_props.get("serves"),
+        "cost_category": recipe_props.get("cost_category"),
     }
 
 

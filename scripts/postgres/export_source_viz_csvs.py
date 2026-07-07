@@ -22,9 +22,9 @@ from recipe_wrangler.utils.nutrition_postgres import _get_config, get_connection
 
 load_runtime_env()
 
-CALCULATED_SOURCES = ("usda", "irish", "hungarian")
+CALCULATED_SOURCES = ("eu", "irish", "hungarian")
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
-GROUND_TRUTH_NUTRITION_SOURCES = ("safefood", "recipe1m_original", "scraped")
+GROUND_TRUTH_NUTRITION_SOURCES = ("safefood_rcsi", "safefood", "recipe1m_original", "scraped", "planeat", "slovenian")
 NUTRIENTS = (
     "energy_kcal",
     "protein_g",
@@ -40,11 +40,11 @@ MACRO_DEVIATION_NUTRIENTS = ("energy_kcal", "protein_g", "fat_g", "sugar_g")
 
 SOURCES = {
     "safefood": {
-        "db_source": "Irish_SafeFood",
+        "db_source": "Curated Irish Recipes",
         "out_dir": REPO_ROOT / "data_to_send" / "viz" / "safefood",
         "prefix": "safefood",
-        "reference_source": "safefood",
-        "source_order": ("safefood", *CALCULATED_SOURCES),
+        "reference_source": "safefood_rcsi",
+        "source_order": ("safefood_rcsi", *CALCULATED_SOURCES),
     },
     "healthyfoods": {
         "db_source": "HealthyFoods",
@@ -74,10 +74,26 @@ SOURCES = {
         "reference_source": "recipe1m_original",
         "source_order": ("recipe1m_original", *CALCULATED_SOURCES),
     },
+    "planeat": {
+        "db_source": "Curated Hungarian Recipes",
+        "out_dir": REPO_ROOT / "data_to_send" / "viz" / "planeat",
+        "prefix": "planeat",
+        "reference_source": "planeat",
+        "source_order": ("planeat", *CALCULATED_SOURCES),
+        "pipeline_version": "cofid_direct_weight_known",
+    },
+    "slovenian": {
+        "db_source": "Curated Slovenian Recipes",
+        "out_dir": REPO_ROOT / "data_to_send" / "viz" / "slovenian",
+        "prefix": "slovenian",
+        "reference_source": "slovenian",
+        "source_order": ("slovenian", *CALCULATED_SOURCES),
+        "pipeline_version": "opkp_direct_weight_known",
+    },
 }
 
 HEALTHYFOODS_NUTRITION = (
-    REPO_ROOT / "data" / "HealthyFoods" / "HealthyFood_recipes_nutrition.json"
+    REPO_ROOT / "data" / "HealthyFoods" / "HealthyFood_recipes_nutrition_clean.json"
 )
 
 
@@ -162,7 +178,7 @@ def _fetch_healthyfoods_serving_weights(pipeline_version: str) -> dict[str, floa
 
     Serving weight is estimated as total ingredient weight (sum of weight_g from
     nutrition_profiling_details) divided by serves (from the trace).
-    Uses the usda profile row as the reference since ingredient weights are
+    Uses the eu profile row as the reference since ingredient weights are
     identical across regions.
     """
     cfg = _get_config()
@@ -173,7 +189,7 @@ def _fetch_healthyfoods_serving_weights(pipeline_version: str) -> dict[str, floa
             trace->'profile_result'->>'serves' AS serves_str,
             trace->'healthyfoods_recipe'->>'serves' AS hf_serves_str
         FROM "{cfg['schema']}"."{cfg['profiles_table']}"
-        WHERE source = 'HealthyFoods' AND nutrition_source = 'usda'
+        WHERE source = 'HealthyFoods' AND nutrition_source = 'eu'
           AND pipeline_version = :pv
           AND nutrition_profiling_details IS NOT NULL
     """
@@ -468,14 +484,62 @@ def _write_nutriscore_distribution(
     return path
 
 
+def _write_nutriscore_confusion(
+    df: pd.DataFrame,
+    out_dir: Path,
+    prefix: str,
+    reference_source: str,
+    calculated_sources: tuple[str, ...],
+) -> Path:
+    """Long-form confusion pairs (ref grade x pipeline grade) per calculated source.
+
+    One row per (source, ground_truth_label, predicted_label) with a count, ready
+    to pivot into a 5x5 confusion matrix per region. Joins reference and
+    calculated rows by recipe_id (or title when reference has no recipe_id).
+    """
+    path = out_dir / f"{prefix}_nutriscore_confusion_from_{reference_source}.csv"
+    grades = ("A", "B", "C", "D", "E")
+    reference = df[(df["source"] == reference_source) & df["nutri_label"].notna()].copy()
+    calculated = df[df["source"].isin(calculated_sources) & df["nutri_label"].notna()].copy()
+
+    join_key = "title" if reference["recipe_id"].isna().all() else "recipe_id"
+    ref_labels = reference.set_index(join_key)["nutri_label"]
+    ref_labels = ref_labels[~ref_labels.index.duplicated(keep="first")]
+
+    rows: list[dict[str, Any]] = []
+    for source in calculated_sources:
+        src_df = calculated[calculated["source"] == source]
+        src_labels = src_df.set_index(join_key)["nutri_label"]
+        src_labels = src_labels[~src_labels.index.duplicated(keep="first")]
+        joined = pd.DataFrame({"truth": ref_labels, "pred": src_labels}).dropna()
+        counts = joined.groupby(["truth", "pred"]).size()
+        for truth in grades:
+            row_total = int(counts.loc[truth].sum()) if truth in counts.index.get_level_values(0) else 0
+            for pred in grades:
+                count = int(counts.get((truth, pred), 0))
+                rows.append(
+                    {
+                        "source": source,
+                        "truth_label": truth,
+                        "pred_label": pred,
+                        "count": count,
+                        "truth_total": row_total,
+                        "row_pct": round((count / row_total) * 100.0, 1) if row_total else 0.0,
+                    }
+                )
+    pd.DataFrame(rows).to_csv(path, index=False)
+    return path
+
+
 def export_source(key: str, basis: str, pipeline_version: str) -> list[Path]:
     cfg = SOURCES[key]
     out_dir: Path = cfg["out_dir"]
     out_dir.mkdir(parents=True, exist_ok=True)
-    df = _fetch_profiles(cfg["db_source"], basis, pipeline_version)
+    pv = cfg.get("pipeline_version", pipeline_version)
+    df = _fetch_profiles(cfg["db_source"], basis, pv)
     if df.empty:
         raise RuntimeError(f"No Postgres profiles found for {cfg['db_source']}.")
-    df = _add_reference_rows(key, df, pipeline_version)
+    df = _add_reference_rows(key, df, pv)
 
     prefix = cfg["prefix"]
     reference_source = cfg["reference_source"]
@@ -504,6 +568,11 @@ def export_source(key: str, basis: str, pipeline_version: str) -> list[Path]:
             )
         )
         paths.append(_write_deviation_detail(detail, out_dir, prefix))
+        paths.append(
+            _write_nutriscore_confusion(
+                df, out_dir, prefix, reference_source, CALCULATED_SOURCES
+            )
+        )
     return paths
 
 

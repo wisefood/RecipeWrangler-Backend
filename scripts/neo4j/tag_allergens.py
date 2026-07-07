@@ -1,4 +1,6 @@
+import argparse
 import os
+import re
 from typing import Optional
 from pathlib import Path
 
@@ -82,6 +84,10 @@ ALLERGENS = {
             "pecan",
             "cashew",
             "pistachio",
+            "hazelnut",
+            "macadamia",
+            "brazil nut",
+            "pine nut",
         ],
     },
     "wheat": {
@@ -250,7 +256,139 @@ ALLERGENS = {
             "oats",
         ],
     },
+    "celery": {
+        "roots": [
+            "FOODON_00001704",  # celery food product
+            "FOODON_00001705",  # leaf celery food product
+        ],
+        "keywords": [
+            "celery",
+            "celeriac",
+            "celery seed",
+            "celery salt",
+        ],
+    },
+    "mustard": {
+        "roots": [
+            "FOODON_00002053",  # mustard food product
+        ],
+        "keywords": [
+            "mustard",
+            "mustard seed",
+            "mustard powder",
+            "mustard flour",
+        ],
+    },
+    "sulphites": {
+        # Sulphites are additives rather than a FoodOn food-product branch, so
+        # they are detected from explicit ingredient/additive names.
+        "roots": [],
+        "keywords": [
+            "sulphite",
+            "sulphites",
+            "sulfite",
+            "sulfites",
+            "sulphur dioxide",
+            "sulfur dioxide",
+            "metabisulphite",
+            "metabisulfite",
+            "bisulphite",
+            "bisulfite",
+            "sodium sulphite",
+            "sodium sulfite",
+            "potassium sulphite",
+            "potassium sulfite",
+            "e220",
+            "e221",
+            "e222",
+            "e223",
+            "e224",
+            "e225",
+            "e226",
+            "e227",
+            "e228",
+        ],
+    },
+    "lupin": {
+        "roots": [
+            "FOODON_00001206",  # lupin seed food product
+            "FOODON_00002012",  # lupine bean food product
+        ],
+        "keywords": [
+            "lupin",
+            "lupine",
+            "lupin bean",
+            "lupini",
+            "lupin flour",
+        ],
+    },
+    "molluscs": {
+        "roots": [
+            "FOODON_00002044",  # mollusc food product
+        ],
+        "keywords": [
+            "mollusc",
+            "mollusk",
+            "clam",
+            "mussel",
+            "oyster",
+            "scallop",
+            "squid",
+            "octopus",
+            "cuttlefish",
+            "whelk",
+            "cockle",
+            "abalone",
+            "snail",
+        ],
+    },
 }
+
+MILK_PLANT_EXCLUSION_REGEXES = [
+    r".*\b(coconut|soy|soya|almond|oat|rice|cashew|hazelnut|hemp|pea)"
+    r"([ -]+(flavoured|flavored))?[ -]+(milk|cream|yogurt|yoghurt)\b.*",
+    r".*\b(milk|cream|yogurt|yoghurt)[ -]+alternative\b.*",
+    r".*\bnon[ -]*dairy\b.*",
+    r".*\bdairy[ -]*free\b.*",
+    r".*\bplant[ -]*based\b.*",
+    r".*\bvegan\b.*",
+    r".*\b(peanut|almond|cashew|hazelnut|walnut|seed|nut)[ -]+butter\b.*",
+    r".*\bbutter[ -]*beans?\b.*",
+    r".*\bbeans?,[ -]*butter\b.*",
+    r".*\bbutternut\b.*",
+    r".*\bcream[ -]+substitute\b.*",
+    # Known lossy canonical forms produced from non-dairy source phrases.
+    r"^(powdered butter|cream rice|cream parsley|milk rice|coconut paste milk"
+    r"|butter almond|oil cocoa butter|butter paper)$",
+    r"^cream sherry$",
+]
+
+GLUTEN_SAFE_REGEXES = [
+    r".*\bgluten[ -]*free\b.*",
+    # HealthyFoods canonicalization removed "free" from these source terms.
+    r"^gluten[ -]+(baking flour|self raising flour|flour|soy sauce|bread|"
+    r"pasta|flour almond coconut|flour mix|bread mix)$",
+    r".*\bbuckwheat\b.*",
+    r".*\b(rice|tapioca|potato|almond|coconut|besan|chickpea|corn|maize|"
+    r"quinoa|cassava|arrowroot)[ -]+flour\b.*",
+    r".*\b(rice|pulse|chickpea|corn|maize|quinoa)[ -]+"
+    r"(noodles?|pasta|spaghetti)\b.*",
+    r".*\btamari\b.*",
+    r"^(ground|minced|fresh|crystallized|crystallised|pickled|glace)?"
+    r"[ -]*ginger$",
+    r".*\b(wine|vinegar|vinaigrette)\b.*",
+]
+
+ALLERGEN_EXCLUSION_REGEXES = {
+    "milk": MILK_PLANT_EXCLUSION_REGEXES,
+    "gluten": GLUTEN_SAFE_REGEXES,
+    "wheat": GLUTEN_SAFE_REGEXES,
+}
+
+
+def _keyword_regex(keyword: str) -> str:
+    escaped = re.escape(keyword.strip().casefold()).replace(r"\ ", r"\s+")
+    return rf".*\b{escaped}(e?s)?\b.*"
 
 
 def _connect(uri: str, username: str, password: Optional[str], no_auth: bool):
@@ -277,6 +415,21 @@ def _tag_by_foodon(driver, allergen_name: str, roots: list[str]) -> int:
     MATCH (i:Ingredient)-[:HAS_CLASS]->(f:FoodOnClass)
     MATCH (f)-[:SUBCLASS_OF*0..]->(a:FoodOnClass)
     WHERE a.foodon_id IN $roots
+      AND none(pattern IN $name_exclusions
+               WHERE toLower(i.name) =~ pattern)
+      AND (
+        $allergen_name <> 'milk'
+        OR (
+          none(pattern IN $milk_exclusions
+               WHERE toLower(i.name) =~ pattern)
+          AND NOT EXISTS {
+            MATCH (i)-[:HAS_CLASS]->(plant_class:FoodOnClass)
+            MATCH (plant_class)-[:SUBCLASS_OF*0..]->(
+              plant_root:FoodOnClass {foodon_id: 'FOODON_00001015'}
+            )
+          }
+        )
+      )
     WITH i,
          collect(distinct a.foodon_id) AS foodon_ids,
          collect(distinct a.label) AS foodon_labels
@@ -292,17 +445,57 @@ def _tag_by_foodon(driver, allergen_name: str, roots: list[str]) -> int:
     RETURN count(distinct i) AS tagged
     """
     with driver.session() as session:
-        result = session.run(query, allergen_name=allergen_name, roots=roots)
+        result = session.run(
+            query,
+            allergen_name=allergen_name,
+            roots=roots,
+            milk_exclusions=MILK_PLANT_EXCLUSION_REGEXES,
+            name_exclusions=ALLERGEN_EXCLUSION_REGEXES.get(
+                allergen_name, []
+            ),
+        )
         return int(result.single()["tagged"])
 
 
 def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
     keywords = [k.strip().casefold() for k in keywords if k.strip()]
+    keyword_regexes = [_keyword_regex(keyword) for keyword in keywords]
     query = """
     MATCH (i:Ingredient)
     WHERE i.name IS NOT NULL
-      AND any(k IN $keywords WHERE toLower(i.name) CONTAINS k)
-    WITH i, [k IN $keywords WHERE toLower(i.name) CONTAINS k] AS hits
+      AND (
+        ($allergen_name IN ['milk', 'gluten', 'wheat']
+         AND any(pattern IN $keyword_regexes
+                 WHERE toLower(i.name) =~ pattern))
+        OR
+        (NOT $allergen_name IN ['milk', 'gluten', 'wheat']
+         AND any(pattern IN $keyword_regexes
+                 WHERE toLower(i.name) =~ pattern))
+      )
+      AND none(pattern IN $name_exclusions
+               WHERE toLower(i.name) =~ pattern)
+      AND (
+        $allergen_name <> 'milk'
+        OR (
+          none(pattern IN $milk_exclusions
+               WHERE toLower(i.name) =~ pattern)
+          AND NOT EXISTS {
+            MATCH (i)-[:HAS_CLASS]->(plant_class:FoodOnClass)
+            MATCH (plant_class)-[:SUBCLASS_OF*0..]->(
+              plant_root:FoodOnClass {foodon_id: 'FOODON_00001015'}
+            )
+          }
+        )
+      )
+    WITH i, [idx IN range(0, size($keywords) - 1)
+             WHERE (
+               ($allergen_name IN ['milk', 'gluten', 'wheat']
+                AND toLower(i.name) =~ $keyword_regexes[idx])
+               OR
+               (NOT $allergen_name IN ['milk', 'gluten', 'wheat']
+                AND toLower(i.name) =~ $keyword_regexes[idx])
+             ) |
+             $keywords[idx]] AS hits
     MERGE (al:Allergen {name: $allergen_name})
     MERGE (i)-[r:HAS_ALLERGEN]->(al)
     SET r.sources = CASE
@@ -317,11 +510,51 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
     RETURN count(distinct i) AS tagged
     """
     with driver.session() as session:
-        result = session.run(query, allergen_name=allergen_name, keywords=keywords)
+        result = session.run(
+            query,
+            allergen_name=allergen_name,
+            keywords=keywords,
+            keyword_regexes=keyword_regexes,
+            milk_exclusions=MILK_PLANT_EXCLUSION_REGEXES,
+            name_exclusions=ALLERGEN_EXCLUSION_REGEXES.get(
+                allergen_name, []
+            ),
+        )
         return int(result.single()["tagged"])
 
 
+def _clear_allergen_edges(driver, allergen_names: set[str]) -> int:
+    query = """
+    MATCH (:Ingredient)-[r:HAS_ALLERGEN]->(a:Allergen)
+    WHERE a.name IN $allergen_names
+    DELETE r
+    RETURN count(r) AS deleted
+    """
+    with driver.session() as session:
+        result = session.run(query, allergen_names=sorted(allergen_names))
+        return int(result.single()["deleted"])
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Tag Neo4j ingredients with supported allergen groups."
+    )
+    parser.add_argument(
+        "--allergens",
+        nargs="+",
+        choices=sorted(ALLERGENS),
+        help="Only backfill the selected allergen labels (default: all).",
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help=(
+            "Delete existing HAS_ALLERGEN edges for the selected allergens "
+            "before rebuilding them."
+        ),
+    )
+    args = parser.parse_args()
+
     if load_dotenv:
         root = Path(__file__).resolve().parents[2]
         load_dotenv(root / ".env")
@@ -333,7 +566,15 @@ def main() -> None:
     driver = _connect(uri, username, password, no_auth)
     try:
         _ensure_constraints(driver)
-        items = list(ALLERGENS.items())
+        selected = set(args.allergens or ALLERGENS)
+        if args.replace:
+            deleted = _clear_allergen_edges(driver, selected)
+            print(f"deleted existing edges: {deleted}")
+        items = [
+            (name, config)
+            for name, config in ALLERGENS.items()
+            if name in selected
+        ]
         iterator = tqdm(items, desc="Tagging allergens") if tqdm else items
         for allergen_name, config in iterator:
             foodon_tagged = _tag_by_foodon(

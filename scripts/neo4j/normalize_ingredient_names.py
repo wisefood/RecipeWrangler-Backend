@@ -45,7 +45,7 @@ load_runtime_env()
 
 from neo4j import GraphDatabase  # noqa: E402
 
-DEFAULT_SOURCES = ("HealthyFoods", "MyPlate", "Irish_SafeFood", "recipe1m")
+DEFAULT_SOURCES = ("HealthyFoods", "MyPlate", "Curated Irish Recipes", "recipe1m")
 
 USDA_CATEGORY_WORDS = {
     "spices", "spice",

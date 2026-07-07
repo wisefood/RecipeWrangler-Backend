@@ -4,9 +4,12 @@ import os
 from functools import lru_cache
 from typing import List, Optional
 from langchain_huggingface import HuggingFaceEmbeddings
+from recipe_wrangler.utils.env_loader import load_runtime_env
+
+load_runtime_env()
 
 # Allow overriding model/device/batch via env to avoid GPU OOM.
-DEFAULT_MODEL_NAME = os.getenv("EMBED_MODEL_NAME", "Qwen/Qwen3-Embedding-8B")
+DEFAULT_MODEL_NAME = os.getenv("EMBED_MODEL_NAME", "BAAI/bge-small-en-v1.5")
 DEFAULT_DEVICE = os.getenv("EMBED_DEVICE", "cpu")
 DEFAULT_BATCH_SIZE = int(os.getenv("EMBED_BATCH_SIZE", "8"))
 
@@ -42,6 +45,6 @@ def get_embeddings(text: str, model_name: Optional[str] = None) -> List[float]:
 def get_embeddings_batch(texts: List[str], model_name: Optional[str] = None) -> List[List[float]]:
     """
     Embed a list of strings efficiently; override model_name to switch models.
-    Default model: Qwen3-Embedding-8B
+    Default model follows EMBED_MODEL_NAME (repo default: BAAI/bge-small-en-v1.5).
     """
     return _get_embedder(model_name or DEFAULT_MODEL_NAME).embed_documents([t or "" for t in texts])

@@ -32,6 +32,10 @@ def _get_config():
             "NUTRITION_INGREDIENTS_HUNGARIAN_TABLE",
             "nutrients-ingredients-hungarian",
         ),
+        "eu_ingredients_table": _env(
+            "NUTRITION_INGREDIENTS_EU_TABLE",
+            "nutrients-ingredients-eu",
+        ),
         "profiles_table": _env("NUTRITION_PROFILES_TABLE", "nutrients-recipe-profiles"),
         "use_docker": _env("NUTRITION_USE_DOCKER", "0") == "1",
         "container": _env("NUTRITION_CONTAINER", _env("POSTGRES_CONTAINER", "")),
@@ -274,7 +278,49 @@ def fetch_recipe_nutrition_by_id(
         raise RuntimeError(f"Failed to fetch recipe nutrition: {e}") from e
 
 
-_REGION_BY_SOURCE = {"usda": "us", "irish": "ie", "hungarian": "hu"}
+_REGION_BY_SOURCE = {"usda": "us", "irish": "ie", "hungarian": "hu", "eu": "eu"}
+
+
+def fetch_ingredient_nutrition_by_eu_id(eu_id: str) -> Optional[dict]:
+    """Return ingredient nutrient record from the EU composite Postgres table.
+
+    The row's JSONB ``nutrients`` column is keyed by USDA-canonical nutrient
+    names (Protein, Carbohydrate by difference, Total lipid (fat), …), so the
+    downstream USDA-shaped consumer in ``nutritional_calculator`` reads it
+    directly without a per-source branch.
+    """
+    cfg = _get_config()
+    query_str = f"""
+        SELECT row_to_json(t) AS data
+        FROM (
+            SELECT id, food_name, source, country, food_group, nutrients
+            FROM "{cfg['schema']}"."{cfg['eu_ingredients_table']}"
+            WHERE id = :eu_id
+            LIMIT 1
+        ) t
+    """
+    try:
+        with get_connection() as conn:
+            row = conn.execute(text(query_str), {"eu_id": str(eu_id)}).fetchone()
+            if row is None:
+                return None
+            return row[0]
+    except SQLAlchemyError as e:
+        if cfg["use_docker"] and cfg["container"]:
+            q = f"""
+                SELECT row_to_json(t)
+                FROM (
+                    SELECT id, food_name, source, country, food_group, nutrients
+                    FROM "{cfg['schema']}"."{cfg['eu_ingredients_table']}"
+                    WHERE id = '{str(eu_id).replace("'", "''")}'
+                    LIMIT 1
+                ) t
+            """
+            out = _run_psql_fallback(q, cfg)
+            if not out:
+                return None
+            return json.loads(out)
+        raise RuntimeError(f"Failed to fetch EU ingredient nutrition: {e}") from e
 
 
 def fetch_all_recipe_scores() -> dict[str, dict]:
@@ -291,7 +337,7 @@ def fetch_all_recipe_scores() -> dict[str, dict]:
     query_str = f"""
         SELECT recipe_id, nutrition_source, nutri_score, total_sustainability_per_serving
         FROM "{cfg['schema']}"."{cfg['profiles_table']}"
-        WHERE nutrition_source IN ('usda', 'irish', 'hungarian')
+        WHERE nutrition_source IN ('usda', 'irish', 'hungarian', 'eu')
     """
     scores: dict[str, dict] = {}
     with get_connection() as conn:
@@ -426,7 +472,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
         resolved_source_id = "urn:rcollection:healthyfood"
     elif source_text == "FoodHero":
         resolved_source_id = "urn:rcollection:foodhero"
-    elif source_text == "Irish_SafeFood":
+    elif source_text == "Curated Irish Recipes":
         resolved_source_id = "urn:rcollection:rcsi-recipes"
     elif source_text == "MyPlate":
         resolved_source_id = "urn:rcollection:myplate"

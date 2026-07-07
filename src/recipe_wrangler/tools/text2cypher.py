@@ -115,7 +115,8 @@ Allowed Tag values:
 - category=time: 30_minutes_or_less
 
 Allowed Allergen values:
-- crustacean_shellfish, egg, fish, milk, peanut, sesame, soy, tree_nut, wheat
+- celery, crustacean_shellfish, egg, fish, gluten, lupin, milk, molluscs,
+  mustard, peanut, sesame, soy, sulphites, tree_nut, wheat
 """
 
 

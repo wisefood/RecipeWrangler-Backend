@@ -317,6 +317,7 @@ class RecipeCardResponse(BaseModel):
     image_url: Optional[str] = None
     duration: Optional[float] = None
     serves: Optional[float] = None
+    cost_category: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     nutri_score_label: Optional[str] = None
     nutri_score_color: Optional[str] = None
@@ -338,6 +339,7 @@ class RecipeDetailResponse(BaseModel):
     instructions: List[str]
     duration: Optional[float]
     serves: Optional[float]
+    cost_category: Optional[str] = None
     total_kcal_per_serving: Optional[float] = None
     total_protein_g_per_serving: Optional[float] = None
     total_carbs_g_per_serving: Optional[float] = None

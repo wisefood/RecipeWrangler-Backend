@@ -378,7 +378,7 @@ curl -X POST http://localhost:8001/api/v1/recipes/ \
 
 ### POST /api/v1/recipes/{recipe_id}/substitute
 
-**Purpose:** Find the best substitute for a given ingredient in a recipe and return the full nutrition profile of the modified recipe.
+**Purpose:** Find the best substitute for a given ingredient in a recipe and try to re-profile the modified recipe.
 
 **Input:**
 ```json
@@ -415,7 +415,11 @@ recipe_id + ingredient
 
 **Databases:** Neo4j (recipe + substitution graph), Chroma (nutrition matching), PostgreSQL (nutrient data).
 
-**Returns:** `original_ingredient`, `substitute` (best pick), `substitution_source` (`graph_direct` or `foodon_taxonomy`), `candidates` (all found), `modified_recipe_profile` (full profiling output).
+**Returns:** `original_ingredient`, `substitute` (best pick), `substitution_source` (`graph_direct` or `foodon_taxonomy`), `candidates` (all found), `modified_recipe_profile`.
+
+`modified_recipe_profile` has two modes:
+- Normal path: full profiling output with recalculated nutrition.
+- Fallback path: `status="profiling_unavailable"` plus modified ingredient list and measurements. This keeps API call usable even when downstream profiling stack is unavailable or too slow.
 
 **Example:**
 ```bash
@@ -423,6 +427,82 @@ curl -X POST http://localhost:8001/api/v1/recipes/dfe70383db/substitute \
   -H "Content-Type: application/json" \
   -d '{"ingredient": "butter", "region": "IE"}'
 ```
+
+---
+
+## Experimental Adaptation API
+
+Tracked in repo as standalone service:
+- `POST /api/v1/recipes/{recipe_id}/adapt/suggestions`
+- `POST /api/v1/recipes/{recipe_id}/adapt/simulate`
+
+Local run:
+```bash
+PYTHONPATH=src uvicorn recipe_wrangler.services.adaptation.app:app --reload --port 8101
+```
+
+Swagger UI:
+`http://127.0.0.1:8101/docs`
+
+### POST /api/v1/recipes/{recipe_id}/adapt/suggestions
+
+**Purpose:** Recommend what to change in recipe.
+
+**Input:**
+```json
+{
+  "region": "IE",
+  "mode": "nutrition",
+  "max_swaps": 1,
+  "use_llm": false
+}
+```
+
+**Mechanism:**
+```
+recipe_id
+  ├── PostgreSQL → load stored profiling trace
+  ├── Find worst offender
+  │     nutrition mode       → worst negative Nutri-Score contributor
+  │     sustainability mode  → highest CO2e contributor
+  │     reduce_quantity mode → worst nutrient contributor for portion cut
+  ├── Neo4j → find substitute candidates
+  │     1. MISKG substitutions
+  │     2. FoodOn taxonomy siblings
+  ├── Guard candidates by food-class compatibility
+  ├── Re-simulate candidates with nutrition/sustainability calculators
+  └── Return ranked suggestions
+```
+
+**Returns:** offending ingredient, contribution percentage, ranked suggestions, simulated improvement metrics. If recipe is already good enough for chosen mode, endpoint returns a validation-style error instead of fake suggestions.
+
+### POST /api/v1/recipes/{recipe_id}/adapt/simulate
+
+**Purpose:** Simulate exact swap chosen by client.
+
+**Input:**
+```json
+{
+  "region": "IE",
+  "swap": {
+    "original_ingredient": "cinnamon",
+    "substitute_ingredient": "vanilla"
+  }
+}
+```
+
+**Mechanism:**
+```
+recipe_id + explicit swap
+  ├── PostgreSQL → load stored profile
+  ├── Resolve original ingredient weight/details
+  ├── Match substitute nutrition + sustainability
+  ├── Recompute totals, per-serving, per-100g
+  ├── Recompute Nutri-Score breakdown
+  └── Return before/after deltas
+```
+
+**Returns:** original/simulated Nutri-Score, nutrient deltas, original/simulated per-serving and per-100g totals, and CO2e deltas when available.
 
 ---
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from recipe_wrangler.utils.neo4j_utils import driver, run_query
@@ -15,6 +16,7 @@ SOURCE_COLLECTION_IDS: dict[str, str] = {
     "HealthyFoods": "urn:rcollection:healthyfood",
     "FoodHero": "urn:rcollection:foodhero",
     "Irish_SafeFood": "urn:rcollection:rcsi-recipes",
+    "Curated Irish Recipes": "urn:rcollection:rcsi-recipes",
     "MyPlate": "urn:rcollection:myplate",
 }
 
@@ -27,26 +29,6 @@ def resolve_collection_source_id(source: str, source_id: str | None = None) -> s
         return source_id
     source_text = str(source).strip()
     return source_text or None
-
-
-SOURCE_COLLECTION_IDS: dict[str, str] = {
-    "recipe1m": "urn:rcollection:recipe1m",
-    "HealthyFoods": "urn:rcollection:healthyfood",
-    "FoodHero": "urn:rcollection:foodhero",
-    "Irish_SafeFood": "urn:rcollection:rcsi-recipes",
-    "MyPlate": "urn:rcollection:myplate",
-}
-
-
-def resolve_collection_source_id(source: str, source_id: str | None = None) -> str | None:
-    mapped = SOURCE_COLLECTION_IDS.get(str(source))
-    if mapped is not None:
-        return mapped
-    if source_id is not None and str(source_id).strip():
-        return source_id
-    source_text = str(source).strip()
-    return source_text or None
-
 
 def count_recipes() -> int:
     rows = run_query("MATCH (r:Recipe) RETURN count(r) AS total")
@@ -346,10 +328,80 @@ _ALLERGEN_KEYWORDS: dict[str, list[str]] = {
     "wheat": ["wheat", "whole wheat", "durum", "semolina", "spelt", "farro", "flour", "bread", "pasta", "noodle"],
     "soy": ["soy", "soya", "soybean", "tofu", "miso", "tempeh", "edamame"],
     "fish": ["fish", "cod", "bass", "tuna", "salmon", "tilapia", "halibut", "trout", "sardine", "anchovy"],
-    "crustacean_shellfish": ["crab", "lobster", "shrimp", "prawn", "crawfish", "crayfish", "scallop", "clam", "oyster", "mussel"],
+    "crustacean_shellfish": ["crab", "lobster", "shrimp", "prawn", "crawfish", "crayfish", "crustacean", "langostino"],
     "sesame": ["sesame", "tahini", "sesame oil", "sesame seed"],
     "gluten": ["gluten", "wheat", "barley", "rye", "malt", "brewer"],
+    "celery": ["celery", "celeriac", "celery seed", "celery salt"],
+    "mustard": ["mustard", "mustard seed", "mustard powder", "mustard flour"],
+    "sulphites": [
+        "sulphite", "sulphites", "sulfite", "sulfites",
+        "sulphur dioxide", "sulfur dioxide",
+        "metabisulphite", "metabisulfite", "bisulphite", "bisulfite",
+        "sodium sulphite", "sodium sulfite", "potassium sulphite", "potassium sulfite",
+        "e220", "e221", "e222", "e223", "e224", "e225", "e226", "e227", "e228",
+    ],
+    "lupin": ["lupin", "lupine", "lupin bean", "lupini", "lupin flour"],
+    "molluscs": [
+        "mollusc", "mollusk", "clam", "mussel", "oyster", "scallop",
+        "squid", "octopus", "cuttlefish", "whelk", "cockle", "abalone", "snail",
+    ],
 }
+
+_PLANT_DAIRY_ALTERNATIVE_PATTERNS = (
+    r"\b(?:coconut|soy|soya|almond|oat|rice|cashew|hazelnut|hemp|pea)"
+    r"(?:[\s-]+(?:flavoured|flavored))?[\s-]+(?:milk|cream|yogurt|yoghurt)\b",
+    r"\b(?:milk|cream|yogurt|yoghurt)[\s-]+alternative\b",
+    r"\bnon[\s-]*dairy\b",
+    r"\bdairy[\s-]*free\b",
+    r"\bplant[\s-]*based\b",
+    r"\bvegan\b",
+    r"\b(?:peanut|almond|cashew|hazelnut|walnut|seed|nut)[\s-]+butter\b",
+    r"\bbutter[\s-]*beans?\b",
+    r"\bbeans?,[\s-]*butter\b",
+    r"\bbutternut\b",
+    r"\bcream[\s-]+substitute\b",
+    r"^(?:powdered butter|cream rice|cream parsley|milk rice|"
+    r"coconut paste milk|butter almond|oil cocoa butter|butter paper)$",
+    r"^cream sherry$",
+)
+
+_GLUTEN_SAFE_PATTERNS = (
+    r"\bgluten[\s-]*free\b",
+    r"^gluten[\s-]+(?:baking flour|self raising flour|flour|soy sauce|bread|"
+    r"pasta|flour almond coconut|flour mix|bread mix)$",
+    r"\bbuckwheat\b",
+    r"\b(?:rice|tapioca|potato|almond|coconut|besan|chickpea|corn|maize|"
+    r"quinoa|cassava|arrowroot)[\s-]+flour\b",
+    r"\b(?:rice|pulse|chickpea|corn|maize|quinoa)[\s-]+"
+    r"(?:noodles?|pasta|spaghetti)\b",
+    r"\btamari\b",
+    r"^(?:ground|minced|fresh|crystallized|crystallised|pickled|glace)?"
+    r"[\s-]*ginger$",
+    r"\b(?:wine|vinegar|vinaigrette)\b",
+)
+
+
+def _is_plant_dairy_alternative(name: str) -> bool:
+    normalized = re.sub(r"\s+", " ", name.strip().casefold())
+    return any(
+        re.search(pattern, normalized)
+        for pattern in _PLANT_DAIRY_ALTERNATIVE_PATTERNS
+    )
+
+
+def _is_gluten_safe_name(name: str) -> bool:
+    normalized = re.sub(r"\s+", " ", name.strip().casefold())
+    return any(re.search(pattern, normalized) for pattern in _GLUTEN_SAFE_PATTERNS)
+
+
+def _keyword_matches(name: str, keyword: str) -> bool:
+    """Match an allergen keyword as words, not as an arbitrary substring."""
+    pattern = (
+        r"(?<!\w)"
+        + re.escape(keyword.casefold()).replace(r"\ ", r"\s+")
+        + r"(?:e?s)?(?!\w)"
+    )
+    return re.search(pattern, name.casefold()) is not None
 
 
 def find_ingredient_substitutes(ingredient_name: str) -> dict[str, Any]:
@@ -426,7 +478,14 @@ def detect_allergens_from_names(ingredient_names: list[str]) -> list[str]:
     for name in ingredient_names:
         name_lower = name.strip().lower()
         for allergen, keywords in _ALLERGEN_KEYWORDS.items():
-            if any(kw in name_lower for kw in keywords):
+            if allergen == "milk" and _is_plant_dairy_alternative(name_lower):
+                continue
+            if allergen in {"gluten", "wheat"} and _is_gluten_safe_name(
+                name_lower
+            ):
+                continue
+            matched = any(_keyword_matches(name_lower, kw) for kw in keywords)
+            if matched:
                 found.add(allergen)
     return sorted(found)
 
@@ -439,7 +498,7 @@ def infer_diet_tags(allergens: set[str]) -> list[str]:
         tags.append("nut_free")
     if "gluten" not in allergens and "wheat" not in allergens:
         tags.append("gluten_free")
-    if not allergens.intersection({"fish", "crustacean_shellfish"}):
+    if not allergens.intersection({"fish", "crustacean_shellfish", "molluscs"}):
         tags.append("pescatarian_safe")
     return tags
 

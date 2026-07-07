@@ -287,7 +287,7 @@ def Recipe_Profiling_Chain(
     source = (
         "irish"
         if normalized_region == "IE"
-        else ("usda" if normalized_region == "US" else ("hungarian" if normalized_region == "HU" else None))
+        else ("usda" if normalized_region == "US" else ("hungarian" if normalized_region == "HU" else ("eu" if normalized_region == "EU" else None)))
     )
     initial_state = RecipeState(
         raw_recipe=recipe_text,
@@ -363,7 +363,7 @@ def Recipe_Profiling_Chain_Structured(
     source = (
         "irish"
         if normalized_region == "IE"
-        else ("usda" if normalized_region == "US" else ("hungarian" if normalized_region == "HU" else None))
+        else ("usda" if normalized_region == "US" else ("hungarian" if normalized_region == "HU" else ("eu" if normalized_region == "EU" else None)))
     )
     initial_state = RecipeState(
         title=title,

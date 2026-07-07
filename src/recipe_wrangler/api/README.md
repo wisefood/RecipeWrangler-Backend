@@ -22,6 +22,27 @@ Environment:
 - `GET /api/v1/recipes/{recipe_id}` — fetch recipe metadata by recipe_id
 - `POST /api/v1/recipes/search` — LangGraph search over the recipe graph; returns results + cypher_statement + steps
 - `POST /api/v1/recipes/profile` — run the parsing + profiling chain on raw recipe text (may be GPU-heavy)
+- `POST /api/v1/recipes/{recipe_id}/substitute` — swap one ingredient using Neo4j substitution graph; returns either recalculated profile or fallback modified ingredient payload
+
+## Substitution Mechanism
+- Load recipe from Neo4j.
+- Confirm requested ingredient exists.
+- Find candidates from `HAS_SUBSTITUTION` edges first, then FoodOn taxonomy fallback.
+- Replace ingredient name, keep original measurements.
+- Try structured profiling chain on modified recipe.
+- If profiling stack unavailable or too slow, return `modified_recipe_profile.status="profiling_unavailable"` instead of `503`.
+
+## Experimental Adaptation Service
+Standalone app, not mounted on main backend by default.
+
+Run:
+```bash
+PYTHONPATH=src uvicorn recipe_wrangler.services.adaptation.app:app --reload --port 8101
+```
+
+Endpoints:
+- `POST /api/v1/recipes/{recipe_id}/adapt/suggestions` — recommend swaps or quantity reduction for worst offender
+- `POST /api/v1/recipes/{recipe_id}/adapt/simulate` — simulate one exact swap and return before/after deltas
 
 ## Curl examples
 ```bash

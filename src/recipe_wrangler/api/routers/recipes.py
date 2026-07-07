@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -58,6 +59,15 @@ from recipe_wrangler.tools.recipe_profiling_chain import (
     Recipe_Profiling_Chain_Structured,
     split_ingredient_lines,
 )
+
+_PROFILE_TIMEOUT_SECONDS = 25.0
+
+
+async def _invoke_profile_with_timeout(payload: dict[str, Any]) -> dict[str, Any]:
+    return await asyncio.wait_for(
+        asyncio.to_thread(Recipe_Profiling_Chain_Structured.invoke, payload),
+        timeout=_PROFILE_TIMEOUT_SECONDS,
+    )
 
 from ..dependencies import get_recipe_search_app
 from recipe_wrangler.schemas import (
@@ -118,7 +128,7 @@ def _nutrition_source_from_region(region: str | None) -> str | None:
     region_norm = str(region).strip().upper()
     if not region_norm:
         return None
-    mapping = {"US": "usda", "IE": "irish", "HU": "hungarian"}
+    mapping = {"US": "usda", "IE": "irish", "HU": "hungarian", "EU": "eu"}
     return mapping.get(region_norm)
 
 
@@ -700,8 +710,8 @@ def _build_nutri_score_breakdown(
 def _source_ground_truth_nutrition_source(recipe_source: object) -> str | None:
     source = str(recipe_source or "").strip()
     mapping = {
-        "Irish_SafeFood": "safefood",
-        "SafeFood": "safefood",
+        "Curated Irish Recipes": "safefood_rcsi",
+        "SafeFood": "safefood_rcsi",
         "HealthyFoods": "healthyfoods_original",
         "recipe1m": "recipe1m_original",
     }
@@ -710,6 +720,8 @@ def _source_ground_truth_nutrition_source(recipe_source: object) -> str | None:
 
 def _source_ground_truth_nutrition_sources(recipe_source: object) -> list[str]:
     primary = _source_ground_truth_nutrition_source(recipe_source)
+    if primary == "safefood_rcsi":
+        return ["safefood_rcsi", "safefood"]
     if primary == "healthyfoods_original":
         return ["healthyfoods_original", "healthyfoods"]
     return [primary] if primary else []
@@ -721,7 +733,13 @@ def _is_source_ground_truth_trace(trace: dict[str, Any] | None) -> bool:
     nutrition_source = str(trace.get("nutrition_source") or "").strip().lower()
     pipeline_version = str(trace.get("pipeline_version") or "").strip().lower()
     return (
-        nutrition_source in {"safefood", "recipe1m_original", "healthyfoods", "healthyfoods_original"}
+        nutrition_source in {
+            "safefood_rcsi",
+            "safefood",
+            "recipe1m_original",
+            "healthyfoods",
+            "healthyfoods_original",
+        }
         or "ground_truth" in pipeline_version
     )
 
@@ -967,6 +985,7 @@ def get_recipe(
             image_url=recipe.get("image_url"),
             duration=recipe.get("duration"),
             serves=recipe.get("serves"),
+            cost_category=recipe.get("cost_category"),
             tags=recipe.get("tags") or [],
             nutri_score_label=nutri_score_str if isinstance(nutri_score_str, str) else None,
             nutri_score_color=_nutri_color_from_score(nutri_score_str),
@@ -1283,6 +1302,7 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
         "image_url": card.get("image_url"),
         "duration": card.get("duration"),
         "serves": card.get("serves"),
+        "cost_category": card.get("cost_category"),
         "nutri_score": card.get("nutri_score"),
         "nutri_score_color": card.get("nutri_color"),
         "sust_score": card.get("sust_score"),
@@ -1421,6 +1441,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             "image_url": row.get("image_url"),
             "duration": row.get("duration"),
             "serves": row.get("serves"),
+            "cost_category": row.get("cost_category"),
             "nutri_score": nutri_score,
             "nutri_score_color": _nutri_color_from_score(nutri_score),
             "sust_score": row.get("sust_score"),
@@ -1615,7 +1636,7 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
     else:
         # --- Nutrition profiling ---
         try:
-            profile_result = Recipe_Profiling_Chain_Structured.invoke({
+            profile_result = await _invoke_profile_with_timeout({
                 "title": payload.title,
                 "ingredient_names": ingredient_names,
                 "measurements": measurements,
@@ -1839,8 +1860,9 @@ async def recipe_substitute(
     serves = float(recipe.get("serves") or 1)
     total_time = recipe.get("duration")
 
+    profile_error: str | None = None
     try:
-        profile_result = Recipe_Profiling_Chain_Structured.invoke({
+        profile_result = await _invoke_profile_with_timeout({
             "title": recipe.get("title") or "",
             "ingredient_names": modified_ingredient_names,
             "measurements": modified_measurements,
@@ -1850,17 +1872,25 @@ async def recipe_substitute(
             "region": region,
             "debug": False,
         })
+        if not isinstance(profile_result, dict):
+            raise InternalError(
+                detail="Profiling pipeline returned unexpected payload",
+                extra={"title": "ProfilingPipelineError"},
+            )
+
+        # Strip top-level None values (unset pipeline state)
+        profile_result = {k: v for k, v in profile_result.items() if v is not None}
     except Exception as exc:
-        raise map_dependency_error("Profiling pipeline", exc) from exc
-
-    if not isinstance(profile_result, dict):
-        raise InternalError(
-            detail="Profiling pipeline returned unexpected payload",
-            extra={"title": "ProfilingPipelineError"},
-        )
-
-    # Strip top-level None values (unset pipeline state)
-    profile_result = {k: v for k, v in profile_result.items() if v is not None}
+        profile_error = str(exc)
+        profile_result = {
+            "status": "profiling_unavailable",
+            "region": region,
+            "title": recipe.get("title") or "",
+            "serves": serves,
+            "modified_ingredients": modified_ingredient_names,
+            "measurements": modified_measurements,
+            "error": profile_error,
+        }
 
     return RecipeSubstituteResponse(
         original_ingredient=payload.ingredient,

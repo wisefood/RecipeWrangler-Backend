@@ -6,7 +6,7 @@ For each of 47 recipes:
   2. Parse duration from prep + cook time strings
   3. Run Recipe_Profiling_Chain (Groq parse + weight + nutrition) for US region
   4. Reuse parsed ingredients for IE and HU regions (structured chain, no re-parse)
-  5. Upsert to Neo4j with source='Irish_SafeFood', portion_weight_g stored
+  5. Upsert to Neo4j with source='Curated Irish Recipes', portion_weight_g stored
   6. Persist US / IE / HU pipeline nutrition profiles + SafeFood ground truth to Postgres
   7. Generate FLUX.1-dev image via HuggingFace Inference API
   8. Update Neo4j image_url; index in Elasticsearch
@@ -51,7 +51,8 @@ EXCEL = Path("data/Irish_SafeFood/Irish Recipes_SafeFood.xlsx")
 IMAGE_DIR = Path("data/Irish_SafeFood/images")
 IMAGE_URL_PREFIX = "/static/data/Irish_SafeFood/images"
 CHECKPOINT = Path("scripts/import_irish_safefood.checkpoint.json")
-SOURCE = "Irish_SafeFood"
+SOURCE = "Curated Irish Recipes"
+LAB_NUTRITION_SOURCE = "safefood_rcsi"
 REGIONS = [("US", "usda"), ("IE", "irish"), ("HU", "hungarian")]
 
 _stop = False
@@ -376,13 +377,16 @@ def main():
                 "nutri_score": None,
                 "nutri_score_breakdown": None,
                 "nutrition_profiling_details": None,
-                "nutrition_profiling_debug": {"source": "excel_ground_truth"},
-                "pipeline_version": f"{SOURCE}_ground_truth",
+                "nutrition_profiling_debug": {
+                    "source": "safefood_rcsi",
+                    "source_label": "RCSI SafeFood lab nutrition",
+                },
+                "pipeline_version": "safefood_rcsi_ground_truth",
                 "computed_at": now_iso,
             }
-            # Store SafeFood label values as the explicit reference profile only.
-            upsert_recipe_profiling_trace({**ground_truth_trace, "nutrition_source": "safefood"})
-            print(f"  [postgres] ground truth stored (safefood).", flush=True)
+            # Store RCSI/SafeFood lab values as the explicit reference profile only.
+            upsert_recipe_profiling_trace({**ground_truth_trace, "nutrition_source": LAB_NUTRITION_SOURCE})
+            print(f"  [postgres] ground truth stored ({LAB_NUTRITION_SOURCE}).", flush=True)
         except Exception as e:
             errors += 1
             print(f"  [postgres] ground_truth ERROR: {e}", flush=True)

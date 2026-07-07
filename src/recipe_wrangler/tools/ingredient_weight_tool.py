@@ -411,6 +411,9 @@ _QUALIFIER_WORDS = {
 HERB_SPICE_FOOD_GROUP = "Spices and Herbs"
 HERB_MISSING_UNIT_FALLBACK_UNIT = "pinch"
 HERB_MISSING_UNIT_FALLBACK_GRAMS = 0.3
+# "to taste" / "as needed" / "optional" lines: a fixed, negligible-but-nonzero
+# weight so seasonings register a token contribution instead of vanishing to 0.
+TO_TASTE_MIN_GRAMS = 0.5
 LARGE_BARE_NUMBER_GRAMS_THRESHOLD = 50.0
 VEGETABLES_FOOD_GROUP = "Vegetables and Vegetable Products"
 LLM_UNIT_GRAMS_CSV_PATH = (
@@ -1522,6 +1525,8 @@ def _common_unit_reference_grams(
         return 18.0, "large egg yolk"
     if unit_norm == "pinch" and (tokens & PEPPER_PINCH_TOKENS or _is_pinch_default_candidate(name, None, False)):
         return HERB_MISSING_UNIT_FALLBACK_GRAMS, "pinch"
+    if unit_norm == "dash" and _is_pinch_default_candidate(name, None, False):
+        return _VOLUME_UNIT_ML["dash"], "seasoning dash"
     if unit_norm == "packet" and (tokens & GELATIN_PACKET_TOKENS or "gelatin" in name_norm):
         return 7.0, "gelatin packet"
     if unit_norm == "envelope" and (tokens & HERB_SPICE_CLASS_TOKENS or "sazon" in tokens or "seasoning" in tokens):
@@ -1604,21 +1609,33 @@ def _common_unit_reference_grams(
         return sized(67.0, "lime")
     if single_count_unit and "orange" in tokens:
         return sized(131.0, "orange")
+    if single_count_unit and "carrot" in tokens and "baby" in tokens:
+        return sized(12.0, "baby carrot")
     if single_count_unit and "carrot" in tokens:
         return sized(61.0, "carrot")
+    if single_count_unit and "onion" in tokens and (tokens & {"spring", "green", "scallion", "scallions"}):
+        return sized(15.0, "spring/green onion")
+    if single_count_unit and "onion" in tokens and (tokens & {"pearl", "baby", "pickling", "silverskin"}):
+        return sized(10.0, "pearl onion")
     if single_count_unit and "onion" in tokens:
         return sized(110.0, "onion")
+    if single_count_unit and "potato" in tokens and (tokens & {"baby", "new"}):
+        return sized(25.0, "baby/new potato")
     if single_count_unit and "potato" in tokens:
         return sized(173.0, "potato")
     if single_count_unit and "avocado" in tokens:
         return sized(150.0, "avocado")
+    if single_count_unit and "tomato" in tokens and (tokens & {"cherry", "grape"}):
+        return sized(17.0, "cherry/grape tomato")
+    if single_count_unit and "tomato" in tokens and (tokens & {"plum", "roma"}):
+        return sized(62.0, "plum tomato")
     if single_count_unit and "tomato" in tokens:
         return sized(123.0, "tomato")
     if single_count_unit and "peach" in tokens:
         return sized(150.0, "peach")
     if single_count_unit and "shallot" in tokens:
         return sized(25.0, "shallot")
-    if single_count_unit and ("jalapeno" in tokens or "chile" in tokens):
+    if single_count_unit and (tokens & {"jalapeno", "chile", "chilli", "chili"}):
         return sized(14.0, "jalapeno chile")
     if single_count_unit and ("zucchini" in tokens or "squash" in tokens):
         return sized(196.0, "summer squash")
@@ -2126,9 +2143,19 @@ def _lookup_name_variants(name: str) -> list[str]:
 
 
 def _csv_rows_from_path_or_pg(path: Path, pg_name: str) -> list[dict]:
-    """Return CSV rows from Postgres."""
+    """Return static rows from Postgres, then local CSV when DB is unavailable."""
     from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data
-    return load_pipeline_data(pg_name)
+
+    try:
+        return load_pipeline_data(pg_name)
+    except Exception:
+        if not path.exists():
+            return []
+        try:
+            with path.open("r", encoding="utf-8-sig", newline="") as handle:
+                return list(csv.DictReader(handle))
+        except (OSError, csv.Error):
+            return []
 
 
 @lru_cache(maxsize=1)
@@ -2693,9 +2720,9 @@ def _compute_confidence(detail: dict) -> tuple[float, str]:
     elif match_type_norm == "direct_mass":
         base = 1.0
         reason = "direct mass conversion"
-    elif match_type_norm == "to_taste_zero":
+    elif match_type_norm == "to_taste_min":
         base = 0.9
-        reason = "deliberate zero for optional/to-taste measurement"
+        reason = "deliberate minimal weight for optional/to-taste measurement"
     elif match_type_norm == OFFLINE_REFERENCE_MATCH_TYPE:
         # Vetted by the offline rebuild pipeline. Source distinguishes
         # accepted-deterministic (highest trust) from llm_rebuilt (LLM
@@ -2903,7 +2930,7 @@ def ingredient_weight_tool_usda(
         unit_missing_from_measurement = unit is None
         unit_inferred = False
         if _is_zero_measurement(measurement):
-            weights.append(0.0)
+            weights.append(TO_TASTE_MIN_GRAMS)
             details.append({
                 "name": name,
                 "measurement_raw": measurement,
@@ -2918,11 +2945,11 @@ def ingredient_weight_tool_usda(
                 "usda_match_collection": None,
                 "usda_match_canonical": None,
                 "portion_match": {
-                    "portion_desc": "optional/to-taste zero fallback",
-                    "grams_per_unit": 0.0,
+                    "portion_desc": "optional/to-taste minimal fallback",
+                    "grams_per_unit": TO_TASTE_MIN_GRAMS,
                 },
-                "match_type": "to_taste_zero",
-                "weight_grams": 0.0,
+                "match_type": "to_taste_min",
+                "weight_grams": TO_TASTE_MIN_GRAMS,
                 "error": None,
                 "fallback": True,
             })

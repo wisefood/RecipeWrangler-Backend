@@ -149,7 +149,7 @@ def main():
     sample_outliers["Recipe1M"] = extreme_1m
 
     print("Analyzing Irish_SafeFood...")
-    results["Irish_SafeFood"] = analyze_irish_safefood()
+    results["Curated Irish Recipes"] = analyze_irish_safefood()
     
     print("Analyzing Slovenian_OPKP...")
     results["Slovenian_OPKP"] = analyze_slovenian_opkp()

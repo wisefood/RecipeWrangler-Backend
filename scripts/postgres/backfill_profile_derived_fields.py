@@ -7,7 +7,8 @@ Fills, when missing:
 3) nutri_score from breakdown when missing
 
 Ground-truth specific paths (no ingredient-weight data available):
-- 'safefood'          → reads ground_truth_per_100g from trace (full fields)
+- 'safefood_rcsi'     → reads ground_truth_per_100g from trace (full fields)
+- 'safefood'          → legacy label for the same SafeFood lab format
 - 'recipe1m_original' → reads nutr_values_per100g from trace (fibre=0, fruit_pct=0)
 
 Data sources:
@@ -423,10 +424,22 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=None, help="Optional max rows to scan.")
     parser.add_argument("--force-breakdown", action="store_true", help="Recompute nutri_score_breakdown even if one already exists.")
     parser.add_argument("--skip-serves-map", action="store_true", help="Skip Neo4j serves lookup (use only trace-embedded serves). Speeds up runs where per-serving data already exists.")
+    parser.add_argument(
+        "--nutrition-source",
+        action="append",
+        default=None,
+        help="Restrict to one nutrition_source. Repeat for multiple sources.",
+    )
     args = parser.parse_args()
 
     cfg = _get_config()
     table = f"\"{cfg['schema']}\".\"{cfg['profiles_table']}\""
+
+    source_filter = ""
+    params: dict[str, Any] = {}
+    if args.nutrition_source:
+        source_filter = "WHERE nutrition_source = ANY(:nutrition_sources)"
+        params["nutrition_sources"] = [str(s).strip().lower() for s in args.nutrition_source if str(s).strip()]
 
     with get_connection() as conn:
         rows = conn.execute(
@@ -442,9 +455,11 @@ def main() -> None:
                     nutrition_profiling_details,
                     trace
                 FROM {table}
+                {source_filter}
                 ORDER BY recipe_id, nutrition_source
                 """
-            )
+            ),
+            params,
         ).mappings().all()
 
     if args.limit and args.limit > 0:
@@ -512,7 +527,7 @@ def main() -> None:
         new_breakdown = breakdown_existing
         if not isinstance(breakdown_existing, dict) or args.force_breakdown:
             # Ground-truth sources: derive Nutri-Score from per-100g trace data directly.
-            if nutrition_source == "safefood" and isinstance(trace_obj, dict):
+            if nutrition_source in {"safefood_rcsi", "safefood"} and isinstance(trace_obj, dict):
                 computed = _nutri_score_from_safefood_trace(trace_obj)
                 if isinstance(computed, dict):
                     new_breakdown = computed
@@ -604,4 +619,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

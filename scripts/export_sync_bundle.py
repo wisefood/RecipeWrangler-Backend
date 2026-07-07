@@ -241,7 +241,7 @@ def export_assets(bundle_dir: Path) -> dict[str, Any]:
     target = bundle_dir / "assets"
     target.mkdir(parents=True, exist_ok=True)
 
-    source_dir = REPO_ROOT / "data" / "Irish_SafeFood" / "images"
+    source_dir = REPO_ROOT / "data" / "Curated Irish Recipes" / "images"
     out_path = target / f"irish_safefood_images_{bundle_dir.name}.tar.gz"
 
     with tarfile.open(out_path, "w:gz") as tar:

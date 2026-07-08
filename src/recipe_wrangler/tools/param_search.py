@@ -11,6 +11,7 @@ from recipe_wrangler.utils.env_loader import load_runtime_env
 load_runtime_env()
 
 from recipe_wrangler.utils.neo4j_utils import run_query
+from recipe_wrangler.utils.recipe_status import NEO4J_NOT_DISABLED
 
 
 _SOURCE_NORM_EXPR = 'toLower(trim(coalesce(toString(r.source), "")))'
@@ -168,6 +169,11 @@ def _build_where_clause(
         )
         params["max_duration_minutes"] = int(filters.max_duration_minutes)
 
+    # Soft-deleted recipes are hidden everywhere; the console opts in via
+    # include_disabled to find and re-enable them.
+    if not filters.include_disabled:
+        predicates.append(NEO4J_NOT_DISABLED)
+
     where_clause = f"WHERE {' AND '.join(predicates)}" if predicates else ""
     return where_clause, params
 
@@ -187,6 +193,7 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
       coalesce(r.nutriscore, null) AS nutri_score,
       coalesce(r.totalsustainabilityperserving, null) AS sust_score,
       coalesce(r.expert_recipe, false) AS expert_recipe,
+      coalesce(r.status, 'active') AS status,
       {_STABLE_RECIPE_SORT_FIELDS}
     {order_by_clause}
     SKIP $offset
@@ -194,7 +201,7 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
     OPTIONAL MATCH (r)-[:HAS_TAG]->(dt:Tag)
       WHERE dt.category = 'dish-type'
     WITH recipe_id, title, source, source_id, image_url, duration, serves,
-         nutri_score, sust_score, expert_recipe,
+         nutri_score, sust_score, expert_recipe, status,
          [n IN collect(DISTINCT dt.name) WHERE n IS NOT NULL AND trim(toString(n)) <> ""] AS dish_types
     RETURN
       recipe_id,
@@ -207,6 +214,7 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
       nutri_score,
       sust_score,
       expert_recipe,
+      status,
       dish_types
     """
 

@@ -30,6 +30,12 @@ from recipe_wrangler.tools.es_recipe_search import (
     search_recipes_es,
 )
 from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_mget, cache_mset, cache_set
+from recipe_wrangler.utils.recipe_status import (
+    STATUS_ACTIVE,
+    STATUS_DISABLED,
+    es_not_disabled_clause,
+    sync_recipe_status_to_es,
+)
 from recipe_wrangler.utils.neo4j_utils import run_query as _run_query
 from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info,
@@ -47,6 +53,8 @@ from recipe_wrangler.repositories.neo4j_recipes import (
     find_ingredient_substitutes,
     infer_diet_tags,
     resolve_collection_source_id,
+    resolve_recipe_ids_by_query,
+    set_recipe_status,
     update_recipe_in_neo4j,
     upsert_recipe_to_neo4j,
 )
@@ -86,9 +94,13 @@ from recipe_wrangler.schemas import (
     FoodChatResponse,
     RecipeCardNutrition,
     RecipeCardResponse,
+    RecipeBulkStatusRequest,
     RecipeCreateRequest,
     RecipeCreateResponse,
     RecipeDetailResponse,
+    RecipeDisableByQueryRequest,
+    RecipeDisableRequest,
+    RecipeStatusResponse,
     RecipeDetailsBatchRequest,
     RecipeDetailsBatchResponse,
     RecipeProfileRequest,
@@ -203,7 +215,8 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
                         "must": [
                             {"term": {"source.keyword": "myplate"}},
                             {"exists": {"field": "image_url"}},
-                        ]
+                        ],
+                        "must_not": [es_not_disabled_clause()],
                     }
                 },
                 "random_score": {},
@@ -253,10 +266,17 @@ def _search_elastic_keyword(query: str, limit: int = 10) -> list[dict[str, Any]]
         "query": {
             "function_score": {
                 "query": {
-                    "multi_match": {
-                        "query": query,
-                        "fields": ["title^3", "ingredients^2", "tags"],
-                        "fuzziness": "AUTO",
+                    "bool": {
+                        "must": [
+                            {
+                                "multi_match": {
+                                    "query": query,
+                                    "fields": ["title^3", "ingredients^2", "tags"],
+                                    "fuzziness": "AUTO",
+                                }
+                            }
+                        ],
+                        "must_not": [es_not_disabled_clause()],
                     }
                 },
                 "random_score": {},
@@ -934,10 +954,17 @@ def recipe_autocomplete(
         "size": limit,
         "_source": ["id", "title"],
         "query": {
-            "multi_match": {
-                "query": query,
-                "type": "bool_prefix",
-                "fields": ["title", "title._2gram", "title._3gram"],
+            "bool": {
+                "must": [
+                    {
+                        "multi_match": {
+                            "query": query,
+                            "type": "bool_prefix",
+                            "fields": ["title", "title._2gram", "title._3gram"],
+                        }
+                    }
+                ],
+                "must_not": [es_not_disabled_clause()],
             }
         },
     }
@@ -1007,29 +1034,37 @@ def get_recipe(
         default=False,
         description="When true, return only card-level fields (no nutrition data).",
     ),
+    include_disabled: bool = Query(
+        default=False,
+        description="Console/admin: also resolve disabled (soft-deleted) recipes.",
+    ),
 ) -> RecipeDetailResponse | RecipeCardResponse:
+    # Console reads of potentially-disabled recipes bypass the cache entirely —
+    # public cache entries must never be populated from an include_disabled read.
     detail_cache_variant = _recipe_response_cache_variant(region, slim)
-    cached_response = _cached_recipe_response(recipe_id, detail_cache_variant, slim)
-    if cached_response is not None:
-        return cached_response
+    if not include_disabled:
+        cached_response = _cached_recipe_response(recipe_id, detail_cache_variant, slim)
+        if cached_response is not None:
+            return cached_response
 
-    recipe = cache_get(recipe_id, variant=_RECIPE_BASE_CACHE_VARIANT)
+    recipe = None if include_disabled else cache_get(recipe_id, variant=_RECIPE_BASE_CACHE_VARIANT)
     if recipe is None:
         try:
-            recipe = fetch_recipe_info_by_id(recipe_id)
+            recipe = fetch_recipe_info_by_id(recipe_id, include_disabled=include_disabled)
         except Exception as exc:  # noqa: BLE001
             raise map_dependency_error("Neo4j", exc) from exc
 
         if not recipe:
             raise NotFoundError("Recipe not found")
 
-        cache_set(recipe_id, recipe, variant=_RECIPE_BASE_CACHE_VARIANT)
+        if not include_disabled:
+            cache_set(recipe_id, recipe, variant=_RECIPE_BASE_CACHE_VARIANT)
 
     # A request can match either r.recipe_id or r.id. Nutrition/profile stores are keyed by
     # canonical recipe_id, so prefer the resolved recipe_id from Neo4j when available.
     resolved_recipe_id = str(recipe.get("recipe_id") or recipe_id)
     recipe["recipe_id"] = resolved_recipe_id
-    if resolved_recipe_id != recipe_id:
+    if resolved_recipe_id != recipe_id and not include_disabled:
         cache_set(resolved_recipe_id, recipe, variant=_RECIPE_BASE_CACHE_VARIANT)
         cached_response = _cached_recipe_response(
             resolved_recipe_id,
@@ -1060,8 +1095,10 @@ def get_recipe(
             tags=recipe.get("tags") or [],
             nutri_score_label=nutri_score_str if isinstance(nutri_score_str, str) else None,
             nutri_score_color=_nutri_color_from_score(nutri_score_str),
+            status=str(recipe.get("status") or "active"),
         )
-        _cache_recipe_response(recipe_id, resolved_recipe_id, detail_cache_variant, response)
+        if not include_disabled:
+            _cache_recipe_response(recipe_id, resolved_recipe_id, detail_cache_variant, response)
         return response
 
     preferred_nutrition_source = _nutrition_source_from_region(region)
@@ -1299,7 +1336,8 @@ def get_recipe(
             )
 
     response = RecipeDetailResponse(**payload)
-    _cache_recipe_response(recipe_id, resolved_recipe_id, detail_cache_variant, response)
+    if not include_disabled:
+        _cache_recipe_response(recipe_id, resolved_recipe_id, detail_cache_variant, response)
     return response
 
 
@@ -1378,6 +1416,7 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
         "nutri_score_color": card.get("nutri_color"),
         "sust_score": card.get("sust_score"),
         "expert_recipe": card.get("expert_recipe", False),
+        "status": card.get("status") or "active",
     }
 
 
@@ -1701,6 +1740,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
                     offset=payload.offset,
                     include_facets=payload.include_facets,
                     sort_by=payload.sort_by,
+                    include_disabled=payload.include_disabled,
                 )
             )
         except ResultWindowExceededError as exc:
@@ -1745,6 +1785,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             "nutri_score_color": _nutri_color_from_score(nutri_score),
             "sust_score": row.get("sust_score"),
             "expert_recipe": row.get("expert_recipe", False),
+            "status": row.get("status") or "active",
         })
     return {"results": cards, **extra}
 
@@ -2303,3 +2344,147 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
         pass
 
     return RecipeUpdateResponse(recipe_id=recipe_id, updated_fields=updated_fields, tags=current_tags, allergens=current_allergens)
+
+
+# ---------------------------------------------------------------------------
+# Recipe soft-delete (disable/enable) endpoints
+# ---------------------------------------------------------------------------
+
+_STATUS_RESPONSE_ID_CAP = 1000
+
+
+def _es_status_indices() -> tuple[str, list[str]]:
+    """Both indices that serve recipes: recipes_v2 (search) + the legacy
+    autocomplete/fallback index."""
+    settings = get_settings()
+    from recipe_wrangler.tools.es_recipe_search import ES_INDEX
+    indices = list(dict.fromkeys([ES_INDEX, settings.elastic_index]))
+    return settings.elastic_url, indices
+
+
+def _apply_recipe_status(
+    recipe_ids: list[str],
+    status: str,
+    reason: str | None,
+) -> RecipeStatusResponse:
+    """Shared write path: Neo4j status flip -> ES dual-index sync -> cache purge."""
+    try:
+        updated_ids = set_recipe_status(recipe_ids, status, reason)
+    except Exception as exc:  # noqa: BLE001
+        raise map_dependency_error("Neo4j", exc) from exc
+
+    es_stats: dict[str, dict[str, int]] = {}
+    if updated_ids:
+        es_url, indices = _es_status_indices()
+        # Best-effort: a failed ES sync is reported in the response, never fatal —
+        # Neo4j is the source of truth and a re-run converges ES.
+        es_stats = sync_recipe_status_to_es(updated_ids, status, es_url=es_url, indices=indices)
+
+        updated_set = set(updated_ids)
+        for rid in updated_ids:
+            cache_delete(rid)
+        # Requested aliases (r.id lookups) may have their own cache keys.
+        for rid in recipe_ids:
+            if str(rid) not in updated_set:
+                cache_delete(str(rid))
+
+    return RecipeStatusResponse(
+        status=status,  # type: ignore[arg-type]
+        requested=len(recipe_ids),
+        updated=len(updated_ids),
+        recipe_ids=updated_ids[:_STATUS_RESPONSE_ID_CAP],
+        es_sync=es_stats,
+        message=f"{len(updated_ids)} recipe(s) set to '{status}'",
+    )
+
+
+@router.post(
+    "/disable",
+    response_model=RecipeStatusResponse,
+    tags=["recipes"],
+    summary="Bulk disable (soft-delete) recipes by explicit IDs",
+)
+def recipes_bulk_disable(payload: RecipeBulkStatusRequest) -> RecipeStatusResponse:
+    """Disable every listed recipe so it is never served to any consumer.
+
+    Reversible via the enable endpoints; recipe data is retained everywhere.
+    """
+    response = _apply_recipe_status(payload.recipe_ids, STATUS_DISABLED, payload.reason)
+    if response.updated == 0:
+        raise NotFoundError(detail="No recipes matched the provided IDs")
+    return response
+
+
+@router.post(
+    "/enable",
+    response_model=RecipeStatusResponse,
+    tags=["recipes"],
+    summary="Bulk re-enable previously disabled recipes by explicit IDs",
+)
+def recipes_bulk_enable(payload: RecipeBulkStatusRequest) -> RecipeStatusResponse:
+    response = _apply_recipe_status(payload.recipe_ids, STATUS_ACTIVE, None)
+    if response.updated == 0:
+        raise NotFoundError(detail="No recipes matched the provided IDs")
+    return response
+
+
+@router.post(
+    "/disable-by-query",
+    response_model=RecipeStatusResponse,
+    tags=["recipes"],
+    summary="Bulk disable every recipe matching param_search filters",
+)
+def recipes_disable_by_query(payload: RecipeDisableByQueryRequest) -> RecipeStatusResponse:
+    """Resolve the matching ID set via the param_search WHERE clause (paged),
+    then disable in batches. Returns the affected count; for corpus-scale
+    operations prefer `scripts/disable_recipes.py`.
+    """
+    from recipe_wrangler.tools.param_search import _build_where_clause, _has_no_constraints
+
+    filters = RecipeSearchFilters(**payload.model_dump(exclude={"reason", "allow_unfiltered"}))
+    if _has_no_constraints(filters) and not payload.allow_unfiltered:
+        raise InvalidError(
+            "Refusing an unconstrained disable-by-query (it would disable every "
+            "recipe). Pass allow_unfiltered=true if that is really intended."
+        )
+
+    where_clause, params = _build_where_clause(filters)
+    try:
+        matched_ids = resolve_recipe_ids_by_query(where_clause, params)
+    except Exception as exc:  # noqa: BLE001
+        raise map_dependency_error("Neo4j", exc) from exc
+
+    if not matched_ids:
+        return RecipeStatusResponse(
+            status=STATUS_DISABLED,
+            requested=0,
+            updated=0,
+            message="No recipes matched the query",
+        )
+    return _apply_recipe_status(matched_ids, STATUS_DISABLED, payload.reason)
+
+
+@router.post(
+    "/{recipe_id}/disable",
+    response_model=RecipeStatusResponse,
+    tags=["recipes"],
+    summary="Disable (soft-delete) a single recipe",
+)
+def recipe_disable(recipe_id: str, payload: RecipeDisableRequest | None = None) -> RecipeStatusResponse:
+    response = _apply_recipe_status([recipe_id], STATUS_DISABLED, payload.reason if payload else None)
+    if response.updated == 0:
+        raise NotFoundError(detail=f"Recipe {recipe_id} not found")
+    return response
+
+
+@router.post(
+    "/{recipe_id}/enable",
+    response_model=RecipeStatusResponse,
+    tags=["recipes"],
+    summary="Re-enable a previously disabled recipe",
+)
+def recipe_enable(recipe_id: str) -> RecipeStatusResponse:
+    response = _apply_recipe_status([recipe_id], STATUS_ACTIVE, None)
+    if response.updated == 0:
+        raise NotFoundError(detail=f"Recipe {recipe_id} not found")
+    return response

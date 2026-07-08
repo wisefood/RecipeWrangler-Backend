@@ -16,6 +16,7 @@ from typing import Any
 import requests
 
 from recipe_wrangler.api.config import get_settings
+from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
 
 # Index built by scripts/elasticsearch/index_recipes_v2.py
 ES_INDEX = "recipes_v2"
@@ -27,6 +28,7 @@ _VALID_REGIONS = {"eu", "ie", "hu"}
 _BASE_SOURCE_FIELDS = [
     "id", "title", "url", "source", "source_id", "image_url",
     "duration", "serves", "cost_category", "sust_score", "expert_recipe",
+    "status",
 ]
 
 
@@ -54,6 +56,7 @@ class RecipeSearchConstraints:
     region: str = "eu"  # which region's nutri score the card returns
     include_facets: bool = False
     sort_by: str | None = None
+    include_disabled: bool = False  # console/admin: surface soft-deleted recipes
 
 
 class ResultWindowExceededError(Exception):
@@ -122,6 +125,11 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     # profile. EU is the global composition pool, so an EU nutri score is the
     # marker that a recipe has been profiled.
     filter_.append({"exists": {"field": "nutri_score_eu"}})
+
+    # Soft-deleted recipes are hidden everywhere; the console opts in via
+    # include_disabled to find and re-enable them.
+    if not c.include_disabled:
+        must_not.append(es_not_disabled_clause())
 
     # Included ingredients — every term must match (AND).
     for ing in _norm(c.include_ingredients):
@@ -232,6 +240,7 @@ def _hit_to_card(hit: dict, region: str) -> dict[str, Any]:
         "nutri_color": src.get(f"nutri_color_{region}"),
         "sust_score": src.get("sust_score"),
         "expert_recipe": bool(src.get("expert_recipe", False)),
+        "status": src.get("status") or "active",
     }
 
 

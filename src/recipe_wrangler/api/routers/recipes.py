@@ -18,12 +18,17 @@ from recipe_wrangler.api.error_mapping import map_dependency_error
 from recipe_wrangler.api.exceptions import (
     DataError,
     InternalError,
+    InvalidError,
     NotFoundError,
 )
 from recipe_wrangler.api.config import get_settings
 
 from recipe_wrangler.tools.param_search import search_recipes_by_params
-from recipe_wrangler.tools.es_recipe_search import RecipeSearchConstraints, search_recipes_es
+from recipe_wrangler.tools.es_recipe_search import (
+    RecipeSearchConstraints,
+    ResultWindowExceededError,
+    search_recipes_es,
+)
 from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_mget, cache_mset, cache_set
 from recipe_wrangler.utils.neo4j_utils import run_query as _run_query
 from recipe_wrangler.tools.fetch_recipe_info import (
@@ -1689,13 +1694,17 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
                     exclude_ingredients=payload.exclude_ingredients,
                     exclude_allergens=payload.exclude_allergens,
                     diet_tags=payload.diet_tags,
+                    sources=payload.sources,
                     dish_types=payload.dish_types,
                     max_duration_minutes=payload.max_duration_minutes,
                     limit=payload.limit,
                     offset=payload.offset,
                     include_facets=payload.include_facets,
+                    sort_by=payload.sort_by,
                 )
             )
+        except ResultWindowExceededError as exc:
+            raise InvalidError(str(exc)) from exc
         except Exception as exc:  # noqa: BLE001
             raise map_dependency_error("Elasticsearch", exc) from exc
         return {

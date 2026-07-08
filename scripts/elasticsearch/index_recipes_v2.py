@@ -43,7 +43,9 @@ DEFAULT_NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
 CURATED_SOURCES = {"foodhero", "healthyfoods"}
 
 INDEX_BODY = {
-    "settings": {"number_of_shards": 1, "number_of_replicas": 0},
+    # max_result_window must cover the profiled corpus (~37k docs) so the
+    # recipes page can from/size-paginate to the last page without a 400.
+    "settings": {"number_of_shards": 1, "number_of_replicas": 0, "max_result_window": 100000},
     "mappings": {
         "properties": {
             "id": {"type": "keyword"},

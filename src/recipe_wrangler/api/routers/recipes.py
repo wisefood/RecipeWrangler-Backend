@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import requests
 from fastapi import APIRouter, Query
+from starlette.concurrency import run_in_threadpool
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
 from recipe_wrangler.api.exceptions import (
@@ -23,15 +24,19 @@ from recipe_wrangler.api.config import get_settings
 
 from recipe_wrangler.tools.param_search import search_recipes_by_params
 from recipe_wrangler.tools.es_recipe_search import RecipeSearchConstraints, search_recipes_es
-from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_set
+from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_mget, cache_mset, cache_set
 from recipe_wrangler.utils.neo4j_utils import run_query as _run_query
 from recipe_wrangler.tools.fetch_recipe_info import (
     fetch_recipe_info,
+    fetch_recipe_info_by_ids,
     fetch_recipe_info_by_id,
 )
 from recipe_wrangler.repositories.neo4j_recipes import (
     count_recipes,
+    fetch_foodchat_candidates,
     detect_allergens_from_names,
+    fetch_recipe_allergens_by_ids,
+    fetch_recipe_dish_types_by_ids,
     fetch_recipe_image_urls_by_ids,
     fetch_recipe_scores_by_ids,
     find_ingredient_substitutes,
@@ -42,6 +47,7 @@ from recipe_wrangler.repositories.neo4j_recipes import (
 )
 from recipe_wrangler.repositories.postgres_nutrition import (
     get_recipe_nutrition,
+    get_recipe_nutrition_batch,
     get_recipe_profile_trace,
     save_recipe_profile_trace,
 )
@@ -71,10 +77,15 @@ async def _invoke_profile_with_timeout(payload: dict[str, Any]) -> dict[str, Any
 
 from ..dependencies import get_recipe_search_app
 from recipe_wrangler.schemas import (
+    FoodChatRequest,
+    FoodChatResponse,
+    RecipeCardNutrition,
     RecipeCardResponse,
     RecipeCreateRequest,
     RecipeCreateResponse,
     RecipeDetailResponse,
+    RecipeDetailsBatchRequest,
+    RecipeDetailsBatchResponse,
     RecipeProfileRequest,
     RecipeSearchFilters,
     RecipeSearchRequest,
@@ -136,6 +147,12 @@ def _recipe_response_cache_variant(region: str | None, slim: bool) -> str:
     region_key = str(region or "default").strip().upper() or "DEFAULT"
     region_key = "".join(ch if ch.isalnum() else "_" for ch in region_key)
     return f"detail:region:{region_key}:slim:{int(slim)}"
+
+
+def _card_nutrition_cache_variant(region: str | None) -> str:
+    region_key = str(region or "default").strip().upper() or "DEFAULT"
+    region_key = "".join(ch if ch.isalnum() else "_" for ch in region_key)
+    return f"card_nutrition:region:{region_key}"
 
 
 def _cached_recipe_response(
@@ -218,6 +235,55 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
         )
         if len(results) >= safe_limit:
             break
+    return results
+
+
+def _search_elastic_keyword(query: str, limit: int = 10) -> list[dict[str, Any]]:
+    """Search recipes in Elasticsearch using a multi_match query."""
+    settings = get_settings()
+    safe_limit = max(1, min(int(limit), 100))
+    payload = {
+        "size": safe_limit,
+        "_source": ["id", "title", "image_url", "source"],
+        "query": {
+            "function_score": {
+                "query": {
+                    "multi_match": {
+                        "query": query,
+                        "fields": ["title^3", "ingredients^2", "tags"],
+                        "fuzziness": "AUTO",
+                    }
+                },
+                "random_score": {},
+                "boost_mode": "multiply",
+            }
+        },
+    }
+    url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
+    response = requests.post(url, json=payload, timeout=settings.elastic_timeout)
+    response.raise_for_status()
+    body = response.json()
+    hits = body.get("hits", {}).get("hits", [])
+
+    results: list[dict[str, Any]] = []
+    for hit in hits:
+        source = hit.get("_source", {}) if isinstance(hit, dict) else {}
+        rid = _as_id(source.get("id")) or _as_id(hit.get("_id"))
+        title = source.get("title")
+        image_url = source.get("image_url")
+        source_name = _as_id(source.get("source"))
+        if not rid:
+            continue
+        if not isinstance(title, str) or not title.strip():
+            continue
+        results.append(
+            {
+                "recipe_id": rid,
+                "title": title.strip(),
+                "source": source_name.casefold() if source_name else None,
+                "image_url": image_url.strip() if image_url else None,
+            }
+        )
     return results
 
 
@@ -1311,6 +1377,214 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.post(
+    "/foodchat_candidates",
+    response_model=FoodChatResponse,
+    tags=["recipes", "foodchat"],
+    summary="Retrieve diverse, customized meal candidates for FoodChat",
+)
+def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
+    """Retrieve diverse, filtered recipe candidates grouped by meal slot.
+
+    Designed for multi-day meal plan generation. Each key in ``quotas`` is a
+    dish-type tag (e.g. ``"breakfast"``, ``"lunch"``, ``"dinner"``) and its
+    value is how many recipes to return for that slot. The response mirrors
+    the same keys, each containing a list of recipe items.
+
+    **Filtering (hard constraints)**
+
+    - ``user_profile.allergies`` — excluded via the food taxonomy graph.
+      Excluding ``"dairy"`` also excludes recipes whose ingredients are
+      taxonomic descendants of dairy (e.g. parmesan, whey).
+    - ``user_profile.diet`` — recipe must carry *all* requested diet tags
+      (e.g. ``"vegan"``, ``"gluten-free"``). Tags not present in the database
+      are silently ignored to avoid empty results from typos.
+    - ``constraints.exclude_ingredients`` — hard ingredient exclusion
+      (substring + taxonomy ancestor match).
+    - ``constraints.exclude_recipe_ids`` — pass previously selected recipe IDs
+      to guarantee those are never returned. IDs picked in earlier slots within
+      the same call are also automatically excluded from subsequent slots.
+    - ``constraints.nutrition_profile`` — per-serving macro range filter
+      (min/max for calories, protein, carbs, fat). Applied as a post-filter on
+      a 5× candidate pool. Recipes with *no stored nutrition data always pass
+      through* — they are never silently dropped.
+
+    **Ranking (soft preferences)**
+
+    - ``constraints.include_ingredients`` — recipes containing these
+      ingredients are ranked higher; not a hard filter.
+    - ``constraints.favorite_recipe_ids`` — favorited recipes are boosted to
+      the top of their meal slot; not a hard filter. Favorites still pass
+      through all hard constraints above (a favorite violating an allergy or
+      listed in ``exclude_recipe_ids`` is never returned).
+    - ``randomize`` (default ``true``) — when ``true`` results are randomly
+      ordered, giving different recipes on each call and maximising week-plan
+      diversity. Set to ``false`` to rank by ingredient match score instead.
+
+    **Response per recipe**
+
+    Each item contains ``recipe_id``, ``title``, ``ingredients`` (comma-joined
+    original strings), ``directions`` (instructions joined as a single string),
+    ``dish_type`` (the authoritative server-side tag — no client-side
+    classification needed), and ``nutrition`` (``calories``, ``protein_g``,
+    ``carbs_g``, ``fat_g`` per serving; ``null`` when no profile is stored).
+    """
+    try:
+        results = fetch_foodchat_candidates(request)
+        return FoodChatResponse(results=results)
+    except Exception as exc:
+        raise InternalError("Failed to fetch foodchat candidates") from exc
+
+
+
+def _build_card_nutrition(
+    recipe_id: str,
+    recipe: dict[str, Any],
+    nutrition: dict[str, Any] | None,
+    allergens: list[str],
+    nutri_score: object,
+) -> RecipeCardNutrition:
+    """Assemble a slim card with per-serving macros from Neo4j metadata + stored nutrition."""
+
+    kcal = protein = carbs = fat = None
+    if nutrition:
+        total_nutrients = _as_dict(nutrition.get("total_nutrients"))
+        total_nutrients_per_serving = _as_dict(nutrition.get("total_nutrients_per_serving"))
+        nutrient_basis = (
+            total_nutrients_per_serving
+            if isinstance(total_nutrients_per_serving, dict)
+            else total_nutrients
+        )
+        kcal = _extract_nutrient_value(
+            nutrient_basis,
+            ["Energy", "Energy (kcal)", "Energy, kcal"],
+        )
+        protein = _extract_nutrient_value(nutrient_basis, ["Protein"])
+        carbs = _extract_nutrient_value(
+            nutrient_basis,
+            ["Carbohydrate", "Carbohydrate, by difference", "Carbohydrate, by diff."],
+        )
+        fat = _extract_nutrient_value(
+            nutrient_basis,
+            ["Total lipid (fat)", "Fat", "Total fat"],
+        )
+        if not isinstance(total_nutrients_per_serving, dict):
+            serves = recipe.get("serves")
+            kcal = _per_serving(kcal, serves)
+            protein = _per_serving(protein, serves)
+            carbs = _per_serving(carbs, serves)
+            fat = _per_serving(fat, serves)
+
+    label = nutri_score.strip() if isinstance(nutri_score, str) and nutri_score.strip() else None
+
+    return RecipeCardNutrition(
+        recipe_id=recipe_id,
+        title=recipe.get("title"),
+        image_url=recipe.get("image_url"),
+        duration=recipe.get("duration"),
+        tags=recipe.get("tags") or [],
+        dish_types=recipe.get("dish_types") or [],
+        allergens=allergens,
+        kcal_per_serving=kcal,
+        protein_g_per_serving=protein,
+        carbs_g_per_serving=carbs,
+        fat_g_per_serving=fat,
+        nutri_score_label=label,
+    )
+
+
+@router.post(
+    "/details",
+    response_model=RecipeDetailsBatchResponse,
+    tags=["recipes", "foodchat"],
+    summary="Batch retrieve slim recipe cards with per-serving macros",
+)
+def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetailsBatchResponse:
+    """Batch recipe-details lookup for FoodChat plan enrichment.
+
+    Consumed by FoodChat when enriching generated meal plans and by its
+    edit-verification predicates (allergen / macro checks on proposed swaps).
+
+    - Accepts 1-30 recipe ids; ``results`` is keyed by the requested id.
+      Missing/unknown ids are simply absent from ``results`` — never an error.
+    - **Guarantee:** per-serving macros (kcal/protein/carbs/fat) come from the
+      nutrition store when a stored profile exists, else they are ``null``.
+      When only whole-recipe totals are stored they are divided by ``serves``.
+    - ``region`` namespaces the per-recipe response cache; the batch nutrition
+      lookup returns the most recently updated stored profile per recipe.
+    - Read-only and batch-shaped: one Redis MGET, then for cache misses only a
+      single bulk Neo4j metadata query, one batch Postgres nutrition query,
+      and batch allergen/score queries.
+    """
+    variant = _card_nutrition_cache_variant(request.region)
+    requested_ids = list(dict.fromkeys(request.recipe_ids))
+
+    results: dict[str, RecipeCardNutrition] = {}
+    for rid, data in cache_mget(requested_ids, variant=variant).items():
+        try:
+            results[rid] = RecipeCardNutrition(**data)
+        except Exception:
+            cache_delete(rid, variant=variant)
+
+    missing = [rid for rid in requested_ids if rid not in results]
+    if not missing:
+        return RecipeDetailsBatchResponse(results=results)
+
+    try:
+        recipes = fetch_recipe_info_by_ids(missing)
+    except Exception as exc:  # noqa: BLE001
+        raise map_dependency_error("Neo4j", exc) from exc
+
+    if not recipes:
+        return RecipeDetailsBatchResponse(results=results)
+
+    # Nutrition/score stores are keyed by canonical recipe_id; a request may
+    # have matched r.id instead, so look up both forms in one batch call.
+    found_ids = list(recipes.keys())
+    resolved_ids = [
+        str(recipe.get("recipe_id"))
+        for recipe in recipes.values()
+        if _as_id(recipe.get("recipe_id"))
+    ]
+    nutrition_ids = list(dict.fromkeys(found_ids + resolved_ids))
+
+    try:
+        nutrition_map = get_recipe_nutrition_batch(nutrition_ids)
+    except Exception:  # noqa: BLE001 - nutrition is best-effort; macros stay null
+        nutrition_map = {}
+
+    try:
+        allergen_map = fetch_recipe_allergens_by_ids(found_ids)
+    except Exception:  # noqa: BLE001
+        allergen_map = {}
+
+    try:
+        score_map = fetch_recipe_scores_by_ids(found_ids)
+    except Exception:  # noqa: BLE001
+        score_map = {}
+
+    fresh: dict[str, dict[str, Any]] = {}
+    for rid in missing:
+        recipe = recipes.get(rid)
+        if not recipe:
+            continue
+        resolved_id = _as_id(recipe.get("recipe_id")) or rid
+        card = _build_card_nutrition(
+            recipe_id=resolved_id,
+            recipe=recipe,
+            nutrition=nutrition_map.get(resolved_id) or nutrition_map.get(rid),
+            allergens=allergen_map.get(rid, []),
+            nutri_score=(score_map.get(rid) or {}).get("nutri_score"),
+        )
+        results[rid] = card
+        fresh[rid] = card.model_dump(mode="json")
+
+    if fresh:
+        cache_mset(fresh, variant=variant)
+
+    return RecipeDetailsBatchResponse(results=results)
+
+
+@router.post(
     "/search",
     response_model=None,
     tags=["recipes"],
@@ -1323,12 +1597,15 @@ async def recipe_search(
 
     question = str(payload.question or "").strip()
     exclude_allergens = payload.exclude_allergens if isinstance(payload.exclude_allergens, list) else []
+    # Page size for the random-landing and fallback paths (the request model
+    # carries no limit field; the primary pipeline uses its own default).
+    limit = 10
 
     # If no free-text question is provided, return a random landing page.
     if not question:
         random_results: list[dict[str, Any]] = []
         try:
-            random_results = _random_myplate_from_elastic(limit=10)
+            random_results = await run_in_threadpool(_random_myplate_from_elastic, limit=limit)
         except Exception:  # noqa: BLE001
             random_results = []
 
@@ -1359,18 +1636,19 @@ async def recipe_search(
         return {"results": [_es_card(card) for card in es_out["results"]]}
 
     try:
-        result = recipe_search_app.invoke(question, exclude_allergens)
+        result = await run_in_threadpool(
+            recipe_search_app.invoke, question, exclude_allergens
+        )
     except Exception as exc:  # noqa: BLE001 - bubble up as HTTP error
         # Keep the endpoint usable even if the primary graph/LLM path fails.
         try:
-            fallback_results = search_recipes_by_params(
-                RecipeSearchFilters(
-                    exclude_allergens=exclude_allergens,
-                    limit=10,
-                )
+            fallback_results = await run_in_threadpool(
+                _search_elastic_keyword, question, limit=limit
             )
         except Exception:
-            fallback_results = _random_myplate_from_elastic(limit=10)
+            fallback_results = await run_in_threadpool(
+                _random_myplate_from_elastic, limit=limit
+            )
 
         if not isinstance(fallback_results, list):
             fallback_results = []
@@ -1426,6 +1704,13 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Neo4j", exc) from exc
 
+    # search_recipes_by_params returns {results, total, facets} since the
+    # facets/total rework; tolerate the legacy bare-list shape too.
+    extra: dict = {}
+    if isinstance(results, dict):
+        extra = {k: v for k, v in results.items() if k in ("total", "facets")}
+        results = results.get("results", [])
+
     cards = []
     for row in results:
         if not isinstance(row, dict):
@@ -1447,7 +1732,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             "sust_score": row.get("sust_score"),
             "expert_recipe": row.get("expert_recipe", False),
         })
-    return {"results": cards}
+    return {"results": cards, **extra}
 
 
 @router.post(

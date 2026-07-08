@@ -55,25 +55,34 @@ class ParamSearchTests(unittest.TestCase):
         self.assertIn('= "foodhero" THEN 1', query)
         self.assertIn('= "myplate" THEN 2', query)
         self.assertIn('= "irish_safefood" THEN 3', query)
-        self.assertIn('= "recipe1m" THEN 4', query)
+        self.assertIn('= "recipe1m" THEN 5', query)
+        self.assertIn('ELSE 4', query)
 
     def test_unconstrained_browse_can_return_source_facets(self):
-        with patch(
-            "recipe_wrangler.tools.param_search.run_query",
-            side_effect=[
-                [{"recipe_id": "1", "title": "A"}],
-                [
+        # Three queries fire concurrently: results, count, facets. Route each
+        # mock response by query shape so call ordering doesn't matter.
+        def mock_run_query(query, _params):
+            if "RETURN count(r) AS total" in query:
+                return [{"total": 1}]
+            if "RETURN 'source' AS category" in query:
+                return [
                     {"category": "source", "tag": "healthyfoods", "count": 3},
                     {"category": "dish-type", "tag": "breakfast", "count": 2},
-                ],
-            ],
+                ]
+            return [{"recipe_id": "1", "title": "A"}]
+
+        with patch(
+            "recipe_wrangler.tools.param_search.run_query",
+            side_effect=mock_run_query,
         ) as mock_run:
             result = search_recipes_by_params(RecipeSearchFilters(include_facets=True))
 
         self.assertEqual(result["facets"]["source"]["healthyfoods"], 3)
         self.assertEqual(result["facets"]["dish-type"]["breakfast"], 2)
-        first_query = mock_run.call_args_list[0].args[0]
-        self.assertIn("coalesce(r.has_profile, false) = true", first_query)
+        self.assertEqual(result["total"], 1)
+        # Every call must have passed through the unconstrained-browse predicate.
+        for call in mock_run.call_args_list:
+            self.assertIn("coalesce(r.has_profile, false) = true", call.args[0])
 
 
 if __name__ == "__main__":

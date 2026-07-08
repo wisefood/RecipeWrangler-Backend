@@ -3,6 +3,8 @@
 import os
 import sys
 import json
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass
 from operator import add
 from typing import Annotated, Any, List, Optional, TypedDict
@@ -20,8 +22,6 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_neo4j import Neo4jGraph
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
-
-from recipe_wrangler.utils.user_preferences import get_user_preferences
 
 
 EXTRACT_CONSTRAINTS_SYSTEM_PROMPT = (
@@ -180,10 +180,35 @@ class RecipeSearchAppV2:
             model=self.model,
             temperature=self.temperature,
             max_retries=2,
+            timeout=4,
         )
         self._structured_extraction_enabled = True
+        self._llm_constraints_cache: "OrderedDict[tuple[str, bool], str]" = OrderedDict()
+        self._llm_constraints_cache_lock = threading.Lock()
+        self._llm_constraints_cache_max = 512
         self._build_chains()
         self.langgraph = self._build_state_graph().compile()
+
+    def _llm_constraints_cache_get(self, key: tuple[str, bool]) -> Optional[dict]:
+        with self._llm_constraints_cache_lock:
+            payload = self._llm_constraints_cache.get(key)
+            if payload is None:
+                return None
+            self._llm_constraints_cache.move_to_end(key)
+        # Decode outside the lock; load a fresh dict so callers cannot mutate
+        # the cached entry.
+        return json.loads(payload)
+
+    def _llm_constraints_cache_put(self, key: tuple[str, bool], value: dict) -> None:
+        try:
+            payload = json.dumps(value)
+        except (TypeError, ValueError):
+            return
+        with self._llm_constraints_cache_lock:
+            self._llm_constraints_cache[key] = payload
+            self._llm_constraints_cache.move_to_end(key)
+            while len(self._llm_constraints_cache) > self._llm_constraints_cache_max:
+                self._llm_constraints_cache.popitem(last=False)
 
     def invoke(self, question: str, exclude_allergens: Optional[List[str]] = None, limit: int = 50) -> OutputState:
         return self.langgraph.invoke(
@@ -192,9 +217,6 @@ class RecipeSearchAppV2:
 
     def run_extract_constraints(self, question: str) -> OverallState:
         return self._extract_constraints({"question": question})
-
-    def run_load_user_preferences(self) -> OverallState:
-        return self._load_user_preferences({})
 
     def run_compose_cypher(
         self,
@@ -384,6 +406,15 @@ class RecipeSearchAppV2:
         schema_text = EXTRACT_CONSTRAINTS_SCHEMA_CONTEXT
         question = state.get("question") or ""
 
+        cache_key: Optional[tuple[str, bool]] = None
+        normalized_question = question.strip().casefold()
+        if normalized_question:
+            cache_key = (normalized_question, self._structured_extraction_enabled)
+            cached = self._llm_constraints_cache_get(cache_key)
+            if cached is not None:
+                constraints = cached
+                return self._finalize_extracted_constraints(state, question, constraints)
+
         constraints = ExtractConstraintsOutput().model_dump()
         if self._structured_extraction_enabled:
             try:
@@ -401,6 +432,19 @@ class RecipeSearchAppV2:
         else:
             constraints = self._extract_constraints_with_json_text(question, schema_text)
 
+        if cache_key is not None:
+            # Re-key under the (possibly toggled) extractor flag so a flip
+            # invalidates stale entries instead of returning them later.
+            self._llm_constraints_cache_put(
+                (normalized_question, self._structured_extraction_enabled),
+                constraints,
+            )
+
+        return self._finalize_extracted_constraints(state, question, constraints)
+
+    def _finalize_extracted_constraints(
+        self, state: InputState, question: str, constraints: dict
+    ) -> OverallState:
         if self._looks_empty_constraints(constraints):
             heuristics = self._heuristic_extract_constraints(question)
             for key in [
@@ -422,13 +466,6 @@ class RecipeSearchAppV2:
             "query_constraints": constraints,
             "exclude_allergens": state.get("exclude_allergens"),
             "steps": ["extract_constraints"],
-        }
-
-    def _load_user_preferences(self, _: OverallState) -> OverallState:
-        prefs = get_user_preferences() or {}
-        return {
-            "platform_preferences": prefs,
-            "steps": ["load_user_preferences"],
         }
 
     def _merge_constraints(self, query_constraints: dict, platform_preferences: dict, exclude_allergens: Optional[List[str]]) -> dict:
@@ -586,30 +623,63 @@ class RecipeSearchAppV2:
                 title_words = json.dumps(title_keywords)
                 predicates.append(f"ALL(word IN {title_words} WHERE toLower({title_access}) CONTAINS word)")
 
+        # Exclude recipe1m from /search results entirely; lower-quality source.
+        predicates.append("toLower(coalesce(r.source, '')) <> 'recipe1m'")
+
         where_clause = f"WHERE {' AND '.join(predicates)}" if predicates else ""
 
-        query_lines = ["MATCH (r:Recipe)"]
-        if where_clause:
-            query_lines.append(where_clause)
+        # Two-stage sort: rank by stable priorities, take a bounded pool, then
+        # randomly sample within that pool. Without the windowed LIMIT, the
+        # planner has to materialize and rank every matching recipe before
+        # rand() picks $limit of them.
+        pool_size = max(int(limit) * 5, int(limit))
+        if pool_size > 500:
+            pool_size = 500
+
         dur_expr = duration_access if duration_access else "r.duration"
         srv_expr = serves_access if serves_access else "r.serves"
-        query_lines.append(
-            f"RETURN DISTINCT coalesce(toString({id_access}), toString(r.id), toString(r.recipe_id)) AS recipe_id, {title_access} AS title, coalesce(r.url, '') AS url, coalesce(r.source, '') AS source, coalesce(r.has_profile, false) AS has_profile, {dur_expr} AS duration, {srv_expr} AS serves"
-            if title_prop
-            else f"RETURN DISTINCT coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, coalesce(r.title, r.name) AS title, coalesce(r.url, '') AS url, coalesce(r.source, '') AS source, coalesce(r.has_profile, false) AS has_profile, {dur_expr} AS duration, {srv_expr} AS serves"
-        )
-        query_lines.append(
+
+        if title_prop:
+            projection = (
+                f"coalesce(toString({id_access}), toString(r.id), toString(r.recipe_id)) AS recipe_id, "
+                f"{title_access} AS title, coalesce(r.source, '') AS source, "
+                f"coalesce(r.has_profile, false) AS has_profile, "
+                f"{dur_expr} AS duration, {srv_expr} AS serves"
+            )
+        else:
+            projection = (
+                "coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id, "
+                "coalesce(r.title, r.name) AS title, coalesce(r.source, '') AS source, "
+                "coalesce(r.has_profile, false) AS has_profile, "
+                f"{dur_expr} AS duration, {srv_expr} AS serves"
+            )
+
+        priority_order_by = (
             "ORDER BY CASE WHEN has_profile THEN 0 ELSE 1 END, "
             "CASE "
             "WHEN toLower(coalesce(source, '')) = 'healthyfoods' THEN 0 "
             "WHEN toLower(coalesce(source, '')) = 'foodhero' THEN 1 "
             "WHEN toLower(coalesce(source, '')) = 'myplate' THEN 2 "
             "WHEN toLower(coalesce(source, '')) IN ['irish_safefood', 'safefood', 'irish safefood'] THEN 3 "
-            "WHEN toLower(coalesce(source, '')) = 'recipe1m' THEN 4 "
-            "ELSE 5 END, "
-            "CASE WHEN duration IS NOT NULL AND serves IS NOT NULL THEN 0 ELSE 1 END, rand()"
+            "WHEN toLower(coalesce(source, '')) = 'recipe1m' THEN 5 "
+            "ELSE 4 END, "
+            "CASE WHEN duration IS NOT NULL AND serves IS NOT NULL THEN 0 ELSE 1 END"
         )
+
+        query_lines = ["MATCH (r:Recipe)"]
+        if where_clause:
+            query_lines.append(where_clause)
+        query_lines.append(f"WITH DISTINCT {projection}")
+        query_lines.append(priority_order_by)
+        query_lines.append(f"LIMIT {pool_size}")
+        query_lines.append(
+            "WITH recipe_id, title, source, has_profile, duration, serves"
+        )
+        query_lines.append("ORDER BY rand()")
         query_lines.append(f"LIMIT {limit}")
+        query_lines.append(
+            "RETURN recipe_id, title, source, has_profile, duration, serves"
+        )
         cypher = "\n".join(query_lines)
 
         return {
@@ -639,12 +709,10 @@ class RecipeSearchAppV2:
     def _build_state_graph(self) -> StateGraph:
         g = StateGraph(OverallState, input_schema=InputState, output_schema=OutputState)
         g.add_node("extract_constraints", self._extract_constraints)
-        g.add_node("load_user_preferences", self._load_user_preferences)
         g.add_node("compose_cypher", self._compose_cypher)
         g.add_node("execute_cypher", self._execute_cypher)
         g.add_edge(START, "extract_constraints")
-        g.add_edge("extract_constraints", "load_user_preferences")
-        g.add_edge("load_user_preferences", "compose_cypher")
+        g.add_edge("extract_constraints", "compose_cypher")
         g.add_edge("compose_cypher", "execute_cypher")
         g.add_edge("execute_cypher", END)
         return g
@@ -661,7 +729,7 @@ def _main(argv: list[str]) -> int:
     parser.add_argument("--graph-path", type=str, default="recipe_langgraph_v2.png", help="Output path for PNG")
     parser.add_argument(
         "--stage",
-        choices=["extract_constraints", "load_user_preferences", "compose_cypher", "execute_cypher"],
+        choices=["extract_constraints", "compose_cypher", "execute_cypher"],
         help="Run a specific stage instead of the full graph",
     )
     parser.add_argument("--constraints", type=str, help="JSON object for compose_cypher stage (query constraints)")
@@ -696,8 +764,6 @@ def _main(argv: list[str]) -> int:
             if not args.question:
                 parser.error("--stage extract_constraints requires --question")
             pprint(app.run_extract_constraints(args.question))
-        elif args.stage == "load_user_preferences":
-            pprint(app.run_load_user_preferences())
         elif args.stage == "compose_cypher":
             if not (args.question and args.constraints):
                 parser.error("--stage compose_cypher requires --question and --constraints")

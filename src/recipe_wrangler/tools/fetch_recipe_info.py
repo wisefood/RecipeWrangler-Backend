@@ -11,6 +11,7 @@ except ImportError:  # pragma: no cover - optional dependency for LangChain inte
     _tool_decorator = None
 
 from recipe_wrangler.utils.neo4j_utils import run_query
+from recipe_wrangler.utils.recipe_status import NEO4J_NOT_DISABLED
 
 
 
@@ -18,7 +19,7 @@ _RECIPE_INFO_QUERY = """
 // Purpose: Fetch recipe metadata from Neo4j (title, ingredients, instructions, duration, serves, tags).
 
 MATCH (r:Recipe)
-WHERE {match_predicate}
+WHERE ({match_predicate}) AND {status_predicate}
 
 // -------- ingredients (format decimals -> common fractions) --------
 OPTIONAL MATCH (r)-[rel:HAS_INGREDIENT]->(i:Ingredient)
@@ -118,6 +119,8 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
         "expert_recipe": bool(recipe_props.get("expert_recipe", False)),
         "image_url": recipe_props.get("image_url"),
         "edited": recipe_props.get("edited"),
+        "status": str(recipe_props.get("status") or "active"),
+        "disabled_reason": recipe_props.get("disabled_reason"),
         "tags": tags,
         "dish_types": dish_types,
         "ingredients": ingredients,
@@ -128,8 +131,16 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def fetch_recipe_info(recipe_title: str | None = None, recipe_id: str | None = None) -> Dict[str, Any]:
-    """Fetch recipe metadata by title or recipe_id property."""
+def fetch_recipe_info(
+    recipe_title: str | None = None,
+    recipe_id: str | None = None,
+    include_disabled: bool = False,
+) -> Dict[str, Any]:
+    """Fetch recipe metadata by title or recipe_id property.
+
+    Disabled (soft-deleted) recipes are excluded unless ``include_disabled``
+    is set — the console passes it so admins can inspect and re-enable them.
+    """
 
     if recipe_id is None and recipe_title is not None:
         import re
@@ -148,7 +159,12 @@ def fetch_recipe_info(recipe_title: str | None = None, recipe_id: str | None = N
     else:
         return {}
 
-    query = _RECIPE_INFO_QUERY.replace("{match_predicate}", match_predicate)
+    status_predicate = "true" if include_disabled else NEO4J_NOT_DISABLED
+    query = (
+        _RECIPE_INFO_QUERY
+        .replace("{match_predicate}", match_predicate)
+        .replace("{status_predicate}", status_predicate)
+    )
     result = run_query(query, params)
     if not result:
         return {}
@@ -157,16 +173,16 @@ def fetch_recipe_info(recipe_title: str | None = None, recipe_id: str | None = N
     return recipe
 
 
-def fetch_recipe_info_by_id(recipe_id: str) -> Dict[str, Any]:
+def fetch_recipe_info_by_id(recipe_id: str, include_disabled: bool = False) -> Dict[str, Any]:
     """Fetch recipe metadata by recipe_id property."""
 
-    return fetch_recipe_info(recipe_id=recipe_id)
+    return fetch_recipe_info(recipe_id=recipe_id, include_disabled=include_disabled)
 
 
 _RECIPE_INFO_BULK_QUERY = """
 UNWIND $ids AS rid
 MATCH (r:Recipe)
-WHERE toString(r.recipe_id) = rid OR toString(r.id) = rid
+WHERE (toString(r.recipe_id) = rid OR toString(r.id) = rid) AND {status_predicate}
 
 OPTIONAL MATCH (r)-[rel:HAS_INGREDIENT]->(i:Ingredient)
 WITH rid, r, i, rel,
@@ -220,7 +236,10 @@ RETURN
 """
 
 
-def fetch_recipe_info_by_ids(recipe_ids: list[str]) -> Dict[str, Dict[str, Any]]:
+def fetch_recipe_info_by_ids(
+    recipe_ids: list[str],
+    include_disabled: bool = False,
+) -> Dict[str, Dict[str, Any]]:
     """Bulk fetch recipe metadata by a list of recipe_ids. Returns {lookup_id: data}."""
 
     if not recipe_ids:
@@ -230,7 +249,9 @@ def fetch_recipe_info_by_ids(recipe_ids: list[str]) -> Dict[str, Dict[str, Any]]
     if not ids:
         return {}
 
-    rows = run_query(_RECIPE_INFO_BULK_QUERY, {"ids": ids})
+    status_predicate = "true" if include_disabled else NEO4J_NOT_DISABLED
+    query = _RECIPE_INFO_BULK_QUERY.replace("{status_predicate}", status_predicate)
+    rows = run_query(query, {"ids": ids})
     if not rows:
         return {}
 

@@ -7,8 +7,11 @@ import re
 from typing import Any
 
 from recipe_wrangler.utils.neo4j_utils import driver, run_query
+from recipe_wrangler.utils.recipe_status import NEO4J_NOT_DISABLED, STATUS_DISABLED
 
 logger = logging.getLogger(__name__)
+
+_STATUS_BATCH_SIZE = 5000
 
 
 SOURCE_COLLECTION_IDS: dict[str, str] = {
@@ -31,8 +34,69 @@ def resolve_collection_source_id(source: str, source_id: str | None = None) -> s
     return source_text or None
 
 def count_recipes() -> int:
-    rows = run_query("MATCH (r:Recipe) RETURN count(r) AS total")
+    rows = run_query(f"MATCH (r:Recipe) WHERE {NEO4J_NOT_DISABLED} RETURN count(r) AS total")
     return int(rows[0]["total"]) if rows else 0
+
+
+def set_recipe_status(
+    recipe_ids: list[str],
+    status: str,
+    reason: str | None = None,
+) -> list[str]:
+    """Set `status` on recipes by ID (matches recipe_id or id). Returns the
+    resolved canonical recipe_ids that were updated — the caller needs them
+    for ES sync and cache invalidation, and their count is the affected count.
+
+    Disabling stamps disabled_at/disabled_reason; enabling clears them.
+    """
+    ids = list(dict.fromkeys(str(rid).strip() for rid in recipe_ids if str(rid).strip()))
+    if not ids:
+        return []
+
+    query = """
+    UNWIND $ids AS rid
+    MATCH (r:Recipe)
+    WHERE toString(r.recipe_id) = rid OR toString(r.id) = rid
+    SET r.status = $status,
+        r.disabled_at = (CASE WHEN $status = $disabled THEN datetime() ELSE null END),
+        r.disabled_reason = (CASE WHEN $status = $disabled THEN $reason ELSE null END)
+    RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id
+    """
+    updated: list[str] = []
+    for start in range(0, len(ids), _STATUS_BATCH_SIZE):
+        rows = run_query(query, {
+            "ids": ids[start:start + _STATUS_BATCH_SIZE],
+            "status": status,
+            "disabled": STATUS_DISABLED,
+            "reason": reason,
+        })
+        updated.extend(str(row["recipe_id"]) for row in rows if row.get("recipe_id"))
+    return updated
+
+
+def resolve_recipe_ids_by_query(where_clause: str, params: dict[str, Any]) -> list[str]:
+    """Page through all recipe IDs matching a param_search WHERE clause.
+
+    Used by by-query bulk disable/enable — resolves the full ID set in pages
+    so ~1M-recipe operations never materialize one giant result.
+    """
+    query = f"""
+    MATCH (r:Recipe)
+    {where_clause}
+    RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id
+    ORDER BY recipe_id
+    SKIP $skip LIMIT $page_size
+    """
+    ids: list[str] = []
+    skip = 0
+    page_params = {k: v for k, v in params.items() if k not in ("limit", "offset")}
+    while True:
+        rows = run_query(query, {**page_params, "skip": skip, "page_size": _STATUS_BATCH_SIZE})
+        if not rows:
+            break
+        ids.extend(str(row["recipe_id"]) for row in rows if row.get("recipe_id"))
+        skip += _STATUS_BATCH_SIZE
+    return list(dict.fromkeys(ids))
 
 
 def fetch_recipe_scores_by_ids(ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -704,6 +768,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
       AND r.instructions IS NOT NULL
       AND size(r.instructions) > 0
       AND toLower(coalesce(r.source, '')) <> 'recipe1m'
+      AND {NEO4J_NOT_DISABLED}
       AND (size($exclude_ids) = 0 OR NOT coalesce(toString(r.recipe_id), toString(r.id), '') IN $exclude_ids)
 
     WITH r

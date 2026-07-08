@@ -142,6 +142,10 @@ class RecipeSearchFilters(BaseModel):
     sort_by: Optional[Literal["title_asc", "title_desc", "time_asc", "time_desc", "random"]] = None
     include_facets: bool = Field(default=False)
     include_total: bool = Field(default=True)
+    include_disabled: bool = Field(
+        default=False,
+        description="When true, disabled (soft-deleted) recipes appear in results — console/admin use only.",
+    )
 
     @field_validator("dish_types", mode="before")
     @classmethod
@@ -233,6 +237,44 @@ class RecipeUpdateResponse(BaseModel):
     tags: List[str] = Field(default_factory=list)
     allergens: List[str] = Field(default_factory=list)
     message: str = "Recipe updated successfully"
+
+
+class RecipeDisableRequest(BaseModel):
+    """Payload for disabling a single recipe (soft delete)."""
+
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
+class RecipeBulkStatusRequest(BaseModel):
+    """Payload for bulk disable/enable by explicit recipe IDs."""
+
+    recipe_ids: List[str] = Field(..., min_length=1, max_length=100000)
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
+class RecipeDisableByQueryRequest(RecipeSearchFilters):
+    """Bulk disable every recipe matching the given search filters.
+
+    Refuses an unconstrained query unless ``allow_unfiltered`` is set — a
+    typo'd empty body must not disable the whole corpus.
+    """
+
+    reason: Optional[str] = Field(default=None, max_length=500)
+    allow_unfiltered: bool = Field(default=False)
+
+
+class RecipeStatusResponse(BaseModel):
+    """Result of a disable/enable operation."""
+
+    status: Literal["active", "disabled"]
+    requested: int
+    updated: int
+    recipe_ids: List[str] = Field(
+        default_factory=list,
+        description="Resolved canonical IDs that changed (omitted beyond 1000 for bulk ops).",
+    )
+    es_sync: Dict[str, Dict[str, int]] = Field(default_factory=dict)
+    message: str = "Recipe status updated"
 
 
 class RecipeCreateRequest(BaseModel):
@@ -337,6 +379,7 @@ class RecipeCardResponse(BaseModel):
     tags: List[str] = Field(default_factory=list)
     nutri_score_label: Optional[str] = None
     nutri_score_color: Optional[str] = None
+    status: str = "active"
 
 
 class RecipeDetailResponse(BaseModel):
@@ -350,6 +393,8 @@ class RecipeDetailResponse(BaseModel):
     expert_recipe: bool = False
     image_url: Optional[str] = None
     edited: Optional[bool] = None
+    status: str = "active"
+    disabled_reason: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     ingredients: List[Dict[str, Any]]
     instructions: List[str]

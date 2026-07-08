@@ -10,6 +10,7 @@ from operator import add
 from typing import Annotated, Any, List, Optional, TypedDict
 
 from recipe_wrangler.utils.env_loader import load_runtime_env
+from recipe_wrangler.utils.recipe_status import NEO4J_NOT_DISABLED
 
 load_runtime_env()
 
@@ -625,6 +626,8 @@ class RecipeSearchAppV2:
 
         # Exclude recipe1m from /search results entirely; lower-quality source.
         predicates.append("toLower(coalesce(r.source, '')) <> 'recipe1m'")
+        # Soft-deleted recipes are hidden everywhere.
+        predicates.append(NEO4J_NOT_DISABLED)
 
         where_clause = f"WHERE {' AND '.join(predicates)}" if predicates else ""
 

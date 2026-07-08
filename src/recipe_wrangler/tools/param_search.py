@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from recipe_wrangler.schemas import RecipeSearchFilters
@@ -33,8 +34,8 @@ _STABLE_RECIPE_SORT_FIELDS = f"""
         WHEN {_CANONICAL_SOURCE_EXPR} = "foodhero" THEN 1
         WHEN {_CANONICAL_SOURCE_EXPR} = "myplate" THEN 2
         WHEN {_CANONICAL_SOURCE_EXPR} = "irish_safefood" THEN 3
-        WHEN {_CANONICAL_SOURCE_EXPR} = "recipe1m" THEN 4
-        ELSE 5
+        WHEN {_CANONICAL_SOURCE_EXPR} = "recipe1m" THEN 5
+        ELSE 4
       END AS _sort_source,
       CASE WHEN coalesce(r.has_profile, false) THEN 0 ELSE 1 END AS _sort_profile,
       CASE WHEN r.duration IS NOT NULL AND r.serves IS NOT NULL THEN 0 ELSE 1 END AS _sort_complete,
@@ -277,6 +278,32 @@ def _has_no_constraints(filters: RecipeSearchFilters) -> bool:
     )
 
 
+def _execute_search_queries(
+    *,
+    result_query: str,
+    count_query: str,
+    facet_query: str | None,
+    params: dict[str, Any],
+    include_total: bool,
+) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]]]:
+    """Run the result/count/facet queries concurrently against Neo4j.
+
+    The Neo4j Python driver maintains a connection pool, so issuing the three
+    queries on threads costs no extra session setup vs. sequential calls.
+    """
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        results_fut = ex.submit(run_query, result_query, params)
+        count_fut = ex.submit(_run_count, count_query, params) if include_total else None
+        facets_fut = ex.submit(run_query, facet_query, params) if facet_query else None
+
+        rows = results_fut.result()
+        total = count_fut.result() if count_fut is not None else 0
+        facets = _collect_facets(facets_fut.result()) if facets_fut is not None else {}
+
+    return rows, total, facets
+
+
 def search_recipes_by_params(filters: RecipeSearchFilters) -> dict[str, Any]:
     """Execute parameter-based recipe search."""
 
@@ -289,11 +316,17 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> dict[str, Any]:
 
         # Unconstrained browse: stable, paginatable profile-first recipe catalog.
         # Unprofiled recipe1m recipes are nearly unreachable via browse.
-        rows = run_query(_build_result_query(where_clause, order_by_clause), params)
-        total = _run_count(_build_count_query(where_clause), params)
-        facets = {}
-        if filters.include_facets:
-            facets = _collect_facets(run_query(_build_facet_query(where_clause), params))
+        result_query = _build_result_query(where_clause, order_by_clause)
+        count_query = _build_count_query(where_clause)
+        facet_query = _build_facet_query(where_clause) if filters.include_facets else None
+
+        rows, total, facets = _execute_search_queries(
+            result_query=result_query,
+            count_query=count_query,
+            facet_query=facet_query,
+            params=params,
+            include_total=filters.include_total,
+        )
         return {
             "results": [_strip_sort_fields(dict(row)) for row in rows],
             "facets": facets,
@@ -301,12 +334,16 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> dict[str, Any]:
         }
 
     query, facet_query, params = build_param_search_cypher(filters)
-    rows = run_query(query, params)
     where_clause, _ = _build_where_clause(filters)
-    total = _run_count(_build_count_query(where_clause), params)
-    facets = {}
-    if facet_query:
-        facets = _collect_facets(run_query(facet_query, params))
+    count_query = _build_count_query(where_clause)
+
+    rows, total, facets = _execute_search_queries(
+        result_query=query,
+        count_query=count_query,
+        facet_query=facet_query,
+        params=params,
+        include_total=filters.include_total,
+    )
     return {
         "results": [_strip_sort_fields(dict(row)) for row in rows],
         "facets": facets,

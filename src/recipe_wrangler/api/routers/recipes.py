@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import requests
 from fastapi import APIRouter, Query
+from starlette.concurrency import run_in_threadpool
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
 from recipe_wrangler.api.exceptions import (
@@ -35,6 +36,7 @@ from recipe_wrangler.tools.fetch_recipe_info import (
 from recipe_wrangler.repositories.neo4j_recipes import (
     count_recipes,
     detect_allergens_from_names,
+    fetch_recipe_allergens_by_ids,
     fetch_recipe_dish_types_by_ids,
     fetch_recipe_image_urls_by_ids,
     fetch_recipe_scores_by_ids,
@@ -46,6 +48,7 @@ from recipe_wrangler.repositories.neo4j_recipes import (
 )
 from recipe_wrangler.repositories.postgres_nutrition import (
     get_recipe_nutrition,
+    get_recipe_nutrition_batch,
     get_recipe_profile_trace,
     save_recipe_profile_trace,
 )
@@ -62,10 +65,13 @@ from recipe_wrangler.tools.recipe_profiling_chain import (
 
 from ..dependencies import get_recipe_search_app
 from recipe_wrangler.schemas import (
+    RecipeCardNutrition,
     RecipeCardResponse,
     RecipeCreateRequest,
     RecipeCreateResponse,
     RecipeDetailResponse,
+    RecipeDetailsBatchRequest,
+    RecipeDetailsBatchResponse,
     RecipeProfileRequest,
     RecipeSearchFilters,
     RecipeSearchRequest,
@@ -129,6 +135,12 @@ def _recipe_response_cache_variant(region: str | None, slim: bool) -> str:
     region_key = str(region or "default").strip().upper() or "DEFAULT"
     region_key = "".join(ch if ch.isalnum() else "_" for ch in region_key)
     return f"detail:region:{region_key}:slim:{int(slim)}"
+
+
+def _card_nutrition_cache_variant(region: str | None) -> str:
+    region_key = str(region or "default").strip().upper() or "DEFAULT"
+    region_key = "".join(ch if ch.isalnum() else "_" for ch in region_key)
+    return f"card_nutrition:region:{region_key}"
 
 
 def _cached_recipe_response(
@@ -1260,6 +1272,10 @@ def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
 
     - ``constraints.include_ingredients`` — recipes containing these
       ingredients are ranked higher; not a hard filter.
+    - ``constraints.favorite_recipe_ids`` — favorited recipes are boosted to
+      the top of their meal slot; not a hard filter. Favorites still pass
+      through all hard constraints above (a favorite violating an allergy or
+      listed in ``exclude_recipe_ids`` is never returned).
     - ``randomize`` (default ``true``) — when ``true`` results are randomly
       ordered, giving different recipes on each call and maximising week-plan
       diversity. Set to ``false`` to rank by ingredient match score instead.
@@ -1277,6 +1293,155 @@ def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
         return FoodChatResponse(results=results)
     except Exception as exc:
         raise InternalError("Failed to fetch foodchat candidates") from exc
+
+
+def _build_card_nutrition(
+    recipe_id: str,
+    recipe: dict[str, Any],
+    nutrition: dict[str, Any] | None,
+    allergens: list[str],
+    nutri_score: object,
+) -> RecipeCardNutrition:
+    """Assemble a slim card with per-serving macros from Neo4j metadata + stored nutrition."""
+
+    kcal = protein = carbs = fat = None
+    if nutrition:
+        total_nutrients = _as_dict(nutrition.get("total_nutrients"))
+        total_nutrients_per_serving = _as_dict(nutrition.get("total_nutrients_per_serving"))
+        nutrient_basis = (
+            total_nutrients_per_serving
+            if isinstance(total_nutrients_per_serving, dict)
+            else total_nutrients
+        )
+        kcal = _extract_nutrient_value(
+            nutrient_basis,
+            ["Energy", "Energy (kcal)", "Energy, kcal"],
+        )
+        protein = _extract_nutrient_value(nutrient_basis, ["Protein"])
+        carbs = _extract_nutrient_value(
+            nutrient_basis,
+            ["Carbohydrate", "Carbohydrate, by difference", "Carbohydrate, by diff."],
+        )
+        fat = _extract_nutrient_value(
+            nutrient_basis,
+            ["Total lipid (fat)", "Fat", "Total fat"],
+        )
+        if not isinstance(total_nutrients_per_serving, dict):
+            serves = recipe.get("serves")
+            kcal = _per_serving(kcal, serves)
+            protein = _per_serving(protein, serves)
+            carbs = _per_serving(carbs, serves)
+            fat = _per_serving(fat, serves)
+
+    label = nutri_score.strip() if isinstance(nutri_score, str) and nutri_score.strip() else None
+
+    return RecipeCardNutrition(
+        recipe_id=recipe_id,
+        title=recipe.get("title"),
+        image_url=recipe.get("image_url"),
+        duration=recipe.get("duration"),
+        tags=recipe.get("tags") or [],
+        dish_types=recipe.get("dish_types") or [],
+        allergens=allergens,
+        kcal_per_serving=kcal,
+        protein_g_per_serving=protein,
+        carbs_g_per_serving=carbs,
+        fat_g_per_serving=fat,
+        nutri_score_label=label,
+    )
+
+
+@router.post(
+    "/details",
+    response_model=RecipeDetailsBatchResponse,
+    tags=["recipes", "foodchat"],
+    summary="Batch retrieve slim recipe cards with per-serving macros",
+)
+def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetailsBatchResponse:
+    """Batch recipe-details lookup for FoodChat plan enrichment.
+
+    Consumed by FoodChat when enriching generated meal plans and by its
+    edit-verification predicates (allergen / macro checks on proposed swaps).
+
+    - Accepts 1-30 recipe ids; ``results`` is keyed by the requested id.
+      Missing/unknown ids are simply absent from ``results`` — never an error.
+    - **Guarantee:** per-serving macros (kcal/protein/carbs/fat) come from the
+      nutrition store when a stored profile exists, else they are ``null``.
+      When only whole-recipe totals are stored they are divided by ``serves``.
+    - ``region`` namespaces the per-recipe response cache; the batch nutrition
+      lookup returns the most recently updated stored profile per recipe.
+    - Read-only and batch-shaped: one Redis MGET, then for cache misses only a
+      single bulk Neo4j metadata query, one batch Postgres nutrition query,
+      and batch allergen/score queries.
+    """
+    variant = _card_nutrition_cache_variant(request.region)
+    requested_ids = list(dict.fromkeys(request.recipe_ids))
+
+    results: dict[str, RecipeCardNutrition] = {}
+    for rid, data in cache_mget(requested_ids, variant=variant).items():
+        try:
+            results[rid] = RecipeCardNutrition(**data)
+        except Exception:
+            cache_delete(rid, variant=variant)
+
+    missing = [rid for rid in requested_ids if rid not in results]
+    if not missing:
+        return RecipeDetailsBatchResponse(results=results)
+
+    try:
+        recipes = fetch_recipe_info_by_ids(missing)
+    except Exception as exc:  # noqa: BLE001
+        raise map_dependency_error("Neo4j", exc) from exc
+
+    if not recipes:
+        return RecipeDetailsBatchResponse(results=results)
+
+    # Nutrition/score stores are keyed by canonical recipe_id; a request may
+    # have matched r.id instead, so look up both forms in one batch call.
+    found_ids = list(recipes.keys())
+    resolved_ids = [
+        str(recipe.get("recipe_id"))
+        for recipe in recipes.values()
+        if _as_id(recipe.get("recipe_id"))
+    ]
+    nutrition_ids = list(dict.fromkeys(found_ids + resolved_ids))
+
+    try:
+        nutrition_map = get_recipe_nutrition_batch(nutrition_ids)
+    except Exception:  # noqa: BLE001 - nutrition is best-effort; macros stay null
+        nutrition_map = {}
+
+    try:
+        allergen_map = fetch_recipe_allergens_by_ids(found_ids)
+    except Exception:  # noqa: BLE001
+        allergen_map = {}
+
+    try:
+        score_map = fetch_recipe_scores_by_ids(found_ids)
+    except Exception:  # noqa: BLE001
+        score_map = {}
+
+    fresh: dict[str, dict[str, Any]] = {}
+    for rid in missing:
+        recipe = recipes.get(rid)
+        if not recipe:
+            continue
+        resolved_id = _as_id(recipe.get("recipe_id")) or rid
+        card = _build_card_nutrition(
+            recipe_id=resolved_id,
+            recipe=recipe,
+            nutrition=nutrition_map.get(resolved_id) or nutrition_map.get(rid),
+            allergens=allergen_map.get(rid, []),
+            nutri_score=(score_map.get(rid) or {}).get("nutri_score"),
+        )
+        results[rid] = card
+        fresh[rid] = card.model_dump(mode="json")
+
+    if fresh:
+        cache_mset(fresh, variant=variant)
+
+    return RecipeDetailsBatchResponse(results=results)
+
 
 @router.post(
     "/search",
@@ -1299,7 +1464,7 @@ async def recipe_search(
     if not question:
         random_results: list[dict[str, Any]] = []
         try:
-            random_results = _random_myplate_from_elastic(limit=limit)
+            random_results = await run_in_threadpool(_random_myplate_from_elastic, limit=limit)
         except Exception:  # noqa: BLE001
             random_results = []
 
@@ -1312,14 +1477,20 @@ async def recipe_search(
     try:
         # Lazily initialize Neo/Groq search stack only for non-empty queries.
         recipe_search_app = get_recipe_search_app()
-        result = recipe_search_app.invoke(question, exclude_allergens, limit=limit)
+        result = await run_in_threadpool(
+            recipe_search_app.invoke, question, exclude_allergens, limit=limit
+        )
     except Exception as exc:  # noqa: BLE001 - bubble up as HTTP error
         # Keep the endpoint usable even if the primary graph/LLM path fails.
         fallback_step = "fallback_elasticsearch"
         try:
-            fallback_results = _search_elastic_keyword(question, limit=limit)
+            fallback_results = await run_in_threadpool(
+                _search_elastic_keyword, question, limit=limit
+            )
         except Exception:
-            fallback_results = _random_myplate_from_elastic(limit=limit)
+            fallback_results = await run_in_threadpool(
+                _random_myplate_from_elastic, limit=limit
+            )
             fallback_step = "fallback_random_myplate"
 
         if not isinstance(fallback_results, list):

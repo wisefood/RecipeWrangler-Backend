@@ -76,6 +76,26 @@ def fetch_recipe_dish_types_by_ids(ids: list[str]) -> dict[str, list[str]]:
     }
 
 
+def fetch_recipe_allergens_by_ids(ids: list[str]) -> dict[str, list[str]]:
+    """Return a mapping of recipe_id -> distinct allergen names (via ingredients)."""
+    if not ids:
+        return {}
+    query = """
+    UNWIND $ids AS rid
+    MATCH (r:Recipe)
+    WHERE r.recipe_id = rid OR r.id = rid
+    OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
+    WITH rid, [n IN collect(DISTINCT al.name) WHERE n IS NOT NULL AND trim(toString(n)) <> ""] AS allergens
+    RETURN rid AS recipe_id, allergens
+    """
+    rows = run_query(query, {"ids": ids})
+    return {
+        str(record.get("recipe_id")): list(record.get("allergens") or [])
+        for record in rows
+        if record.get("recipe_id") is not None
+    }
+
+
 def update_recipe_in_neo4j(
     recipe_id: str,
     instructions: list[str] | None = None,
@@ -515,6 +535,11 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     exclude_ids: list[str] = [
         str(rid).strip() for rid in request_data.constraints.exclude_recipe_ids if str(rid).strip()
     ]
+    favorite_ids: list[str] = [
+        str(rid).strip()
+        for rid in getattr(request_data.constraints, "favorite_recipe_ids", [])
+        if str(rid).strip()
+    ]
     diet_tags = _normalize_foodchat_tags(request_data.user_profile.diet)
     nutrition_profile = request_data.constraints.nutrition_profile
     randomize: bool = getattr(request_data, "randomize", True)
@@ -524,6 +549,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     has_diet = bool(diet_tags)
     has_exclusions = bool(combined_exclusions)
     has_inclusions = bool(include_ingredients)
+    has_favorites = bool(favorite_ids)
 
     if has_diet:
         diet_validation = """
@@ -561,6 +587,16 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
         if has_inclusions else "0"
     )
 
+    # Soft ranking boost for favorited recipes. Weight 10 vs 1 per include_ingredient
+    # hit, so a favorite clearly outranks a single ingredient match. Computed after
+    # the diet/allergen/exclusion filters, so a favorite that violates a hard
+    # constraint never appears; exclude_recipe_ids also still removes favorites.
+    favorite_boost = (
+        "CASE WHEN coalesce(toString(r.recipe_id), toString(r.id), '') IN $favorite_recipe_ids"
+        " THEN 10 ELSE 0 END"
+        if has_favorites else "0"
+    )
+
     neo4j_query = f"""
     {diet_validation}
 
@@ -577,9 +613,10 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
 
     {exclusion_filter}
 
-    WITH r, {inclusion_score} AS include_score
+    WITH r, {inclusion_score} AS include_score, {favorite_boost} AS favorite_boost
 
-    ORDER BY CASE WHEN $randomize THEN rand() ELSE (1.0 - include_score) END ASC
+    ORDER BY CASE WHEN $randomize THEN favorite_boost ELSE favorite_boost + include_score END DESC,
+             CASE WHEN $randomize THEN rand() ELSE (1.0 - include_score) END ASC
     LIMIT $fetch_limit
 
     OPTIONAL MATCH (r)-[:HAS_INGREDIENT_ORIGINAL]->(o:Ingredients_original)
@@ -606,6 +643,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
         "diet_tags": diet_tags,
         "combined_exclusions": combined_exclusions,
         "include_ingredients": include_ingredients,
+        "favorite_recipe_ids": favorite_ids,
         "randomize": randomize,
     }
 

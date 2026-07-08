@@ -123,6 +123,7 @@ class RecipeSearchFilters(BaseModel):
     offset: int = Field(default=0, ge=0)
     sort_by: Optional[Literal["title_asc", "title_desc", "time_asc", "time_desc", "random"]] = None
     include_facets: bool = Field(default=False)
+    include_total: bool = Field(default=True)
 
     @field_validator("dish_types", mode="before")
     @classmethod
@@ -349,6 +350,57 @@ class RecipeDetailResponse(BaseModel):
     nutrition_profiling_debug: Optional[Dict[str, Any]] = None
 
 
+class RecipeCardNutrition(BaseModel):
+    """Slim recipe card enriched with per-serving macros.
+
+    Consumed by FoodChat plan enrichment and edit-verification predicates.
+    Macro fields are per serving and come from the nutrition store when a
+    profile exists; they are ``null`` otherwise.
+    """
+
+    recipe_id: str
+    title: Optional[str] = None
+    image_url: Optional[str] = None
+    duration: Optional[float] = None
+    tags: List[str] = Field(default_factory=list)
+    dish_types: List[str] = Field(default_factory=list)
+    allergens: List[str] = Field(default_factory=list)
+    kcal_per_serving: Optional[float] = None
+    protein_g_per_serving: Optional[float] = None
+    carbs_g_per_serving: Optional[float] = None
+    fat_g_per_serving: Optional[float] = None
+    nutri_score_label: Optional[str] = None
+
+
+class RecipeDetailsBatchRequest(BaseModel):
+    """Batch recipe-details lookup payload for FoodChat plan enrichment."""
+
+    recipe_ids: List[str] = Field(
+        ...,
+        min_length=1,
+        max_length=30,
+        description="Recipe ids to resolve (1-30 per call).",
+    )
+    region: Optional[str] = Field(
+        default=None,
+        description="Optional nutrition region selector: US, IE, or HU.",
+    )
+
+    @field_validator("recipe_ids")
+    @classmethod
+    def _validate_recipe_ids(cls, value):  # noqa: N805
+        cleaned = [str(rid).strip() for rid in value]
+        if any(not rid for rid in cleaned):
+            raise ValueError("recipe_ids entries must be non-empty strings")
+        return cleaned
+
+
+class RecipeDetailsBatchResponse(BaseModel):
+    """Batch details response. Unknown recipe ids are simply absent from ``results``."""
+
+    results: Dict[str, RecipeCardNutrition] = Field(default_factory=dict)
+
+
 class FoodChatUserProfile(BaseModel):
     allergies: List[str] = Field(default_factory=list)
     diet: List[str] = Field(default_factory=list)
@@ -370,6 +422,14 @@ class FoodChatConstraints(BaseModel):
     include_ingredients: List[str] = Field(default_factory=list)
     exclude_ingredients: List[str] = Field(default_factory=list)
     exclude_recipe_ids: List[str] = Field(default_factory=list)
+    favorite_recipe_ids: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Recipe IDs the user has favorited. Soft ranking boost only — favorites "
+            "float to the top of their meal slot but are never hard-filtered in; "
+            "diet/allergen/exclusion filters still apply to them."
+        ),
+    )
     nutrition_profile: Optional[NutritionProfile] = None
 
 

@@ -1,5 +1,5 @@
 DOCKER=docker
-IMGTAG=wisefood/recipe-wrangler:latest
+IMGTAG=wisefood/recipe-wrangler:patch
 
 .PHONY: all build push
 

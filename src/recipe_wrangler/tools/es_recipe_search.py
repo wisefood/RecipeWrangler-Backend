@@ -51,6 +51,7 @@ class RecipeSearchConstraints:
     limit: int = 10
     offset: int = 0
     region: str = "eu"  # which region's nutri score the card returns
+    include_facets: bool = False
 
 
 def _norm(items: list[str]) -> list[str]:
@@ -111,7 +112,7 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     offset = max(0, int(c.offset))
     region = _resolve_region(c.region)
 
-    return {
+    body: dict[str, Any] = {
         "from": offset,
         "size": limit,
         "_source": _BASE_SOURCE_FIELDS + [f"nutri_score_{region}", f"nutri_color_{region}"],
@@ -128,6 +129,16 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
             {"id": "asc"},
         ],
     }
+
+    if c.include_facets:
+        # Mirror the Neo4j facet categories the UI consumes ('dish-type' drives
+        # the dish-type filter panel; 'source' is kept for contract parity).
+        body["aggs"] = {
+            "dish_types": {"terms": {"field": "dish_types", "size": 100}},
+            "sources": {"terms": {"field": "source", "size": 50}},
+        }
+
+    return body
 
 
 def _hit_to_card(hit: dict, region: str) -> dict[str, Any]:
@@ -163,9 +174,29 @@ def search_recipes_es(c: RecipeSearchConstraints) -> dict[str, Any]:
 
     hits = payload.get("hits", {})
     region = _resolve_region(c.region)
-    return {
+    out = {
         "results": [_hit_to_card(h, region) for h in hits.get("hits", [])],
         "total": hits.get("total", {}).get("value", 0),
         "elapsed_ms": round(elapsed_ms, 1),
         "es_took_ms": payload.get("took"),
     }
+    if c.include_facets:
+        out["facets"] = _collect_facets(payload.get("aggregations", {}))
+    return out
+
+
+def _collect_facets(aggregations: dict[str, Any]) -> dict[str, dict[str, int]]:
+    """Shape ES aggregation buckets into the Neo4j facet contract:
+    {category: {tag: count}} with lowercased tags and 'dish-type' (hyphen) keys.
+    """
+    facets: dict[str, dict[str, int]] = {}
+    for agg_name, category in (("dish_types", "dish-type"), ("sources", "source")):
+        buckets = aggregations.get(agg_name, {}).get("buckets", [])
+        bucket_map = {
+            str(b.get("key", "")).strip().lower(): int(b.get("doc_count", 0))
+            for b in buckets
+            if str(b.get("key", "")).strip()
+        }
+        if bucket_map:
+            facets[category] = bucket_map
+    return facets

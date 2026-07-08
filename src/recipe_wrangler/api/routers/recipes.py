@@ -1693,6 +1693,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
                     max_duration_minutes=payload.max_duration_minutes,
                     limit=payload.limit,
                     offset=payload.offset,
+                    include_facets=payload.include_facets,
                 )
             )
         except Exception as exc:  # noqa: BLE001
@@ -1700,6 +1701,7 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
         return {
             "results": [_es_card(card) for card in es_out["results"]],
             "total": es_out.get("total", 0),
+            "facets": es_out.get("facets", {}),
         }
 
     try:

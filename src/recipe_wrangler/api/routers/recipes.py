@@ -1697,7 +1697,10 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
             )
         except Exception as exc:  # noqa: BLE001
             raise map_dependency_error("Elasticsearch", exc) from exc
-        return {"results": [_es_card(card) for card in es_out["results"]]}
+        return {
+            "results": [_es_card(card) for card in es_out["results"]],
+            "total": es_out.get("total", 0),
+        }
 
     try:
         results = search_recipes_by_params(payload)

@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     recipe_cache_enabled: bool = Field(False, alias="RECIPE_CACHE_ENABLED")
     redis_url: str = Field("redis://localhost:6379", alias="REDIS_URL")
     redis_recipe_db: int = Field(7, alias="REDIS_RECIPE_DB")
+    redis_recipe_ttl: int = Field(86400, alias="REDIS_RECIPE_TTL")
 
     @field_validator("neo4j_uri")
     def _validate_neo4j_uri(cls, value: str) -> str:  # noqa: N805

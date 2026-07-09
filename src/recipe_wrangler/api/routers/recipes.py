@@ -25,6 +25,7 @@ from recipe_wrangler.api.exceptions import (
     NotFoundError,
 )
 from recipe_wrangler.api.config import get_settings
+from recipe_wrangler.utils.http_pool import get_http_session
 
 from recipe_wrangler.tools.param_search import search_recipes_by_params
 from recipe_wrangler.tools.es_recipe_search import (
@@ -239,7 +240,7 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
     }
     url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
     # Keep startup UX snappy; fail fast to local fallback if ES is slow/unavailable.
-    response = requests.post(url, json=payload, timeout=min(settings.elastic_timeout, 1.5))
+    response = get_http_session().post(url, json=payload, timeout=min(settings.elastic_timeout, 1.5))
     response.raise_for_status()
     body = response.json()
     hits = body.get("hits", {}).get("hits", [])
@@ -299,7 +300,7 @@ def _search_elastic_keyword(query: str, limit: int = 10) -> list[dict[str, Any]]
         },
     }
     url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
-    response = requests.post(url, json=payload, timeout=settings.elastic_timeout)
+    response = get_http_session().post(url, json=payload, timeout=settings.elastic_timeout)
     response.raise_for_status()
     body = response.json()
     hits = body.get("hits", {}).get("hits", [])
@@ -985,7 +986,7 @@ def recipe_autocomplete(
 
     url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
     try:
-        response = requests.post(
+        response = get_http_session().post(
             url,
             json=search_payload,
             timeout=settings.elastic_timeout,
@@ -1934,7 +1935,7 @@ def _index_recipe_to_elastic(
         "ingredients": ingredient_names,
         "tags": tags,
     }
-    requests.put(url, json=doc, timeout=settings.elastic_timeout)
+    get_http_session().put(url, json=doc, timeout=settings.elastic_timeout)
 
 
 @router.post(
@@ -2340,7 +2341,7 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
         try:
             settings = get_settings()
             url = f"{settings.elastic_url}/{settings.elastic_index}/_update/{recipe_id}"
-            requests.post(
+            get_http_session().post(
                 url,
                 json={"doc": {"image_url": payload.image_url}},
                 timeout=settings.elastic_timeout,

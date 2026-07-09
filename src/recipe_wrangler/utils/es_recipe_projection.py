@@ -14,8 +14,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import requests
-
+from recipe_wrangler.utils.http_pool import get_http_session
 from recipe_wrangler.utils.neo4j_utils import run_query
 from recipe_wrangler.utils.nutrition_postgres import fetch_recipe_region_scores
 
@@ -152,7 +151,7 @@ def project_recipe_to_es_v2(
         if doc is None or not doc["id"]:
             logger.warning("recipes_v2 projection: recipe %s not found in Neo4j", recipe_id)
             return False
-        resp = requests.put(
+        resp = get_http_session().put(
             f"{es_url}/{index}/_doc/{doc['id']}",
             json=doc,
             timeout=timeout,

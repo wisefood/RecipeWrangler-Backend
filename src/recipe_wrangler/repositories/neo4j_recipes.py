@@ -647,8 +647,8 @@ def _es_sample_ids(exclude_ids: list[str], pool_size: int) -> list[str]:
     No dish-type filter here — ES tags only carry diet labels, not dish types.
     Neo4j handles dish-type filtering against the sampled pool.
     """
-    import requests as _requests
     from recipe_wrangler.api.config import get_settings
+    from recipe_wrangler.utils.http_pool import get_http_session
     settings = get_settings()
 
     bool_query: dict = {"must": [{"match_all": {}}]}
@@ -665,7 +665,7 @@ def _es_sample_ids(exclude_ids: list[str], pool_size: int) -> list[str]:
 
     payload = {"size": pool_size, "_source": ["id"], "query": query}
     url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
-    resp = _requests.post(url, json=payload, timeout=settings.elastic_timeout)
+    resp = get_http_session().post(url, json=payload, timeout=settings.elastic_timeout)
     resp.raise_for_status()
     hits = resp.json().get("hits", {}).get("hits", [])
     return [str(h.get("_source", {}).get("id") or h.get("_id") or "").strip() for h in hits if h]

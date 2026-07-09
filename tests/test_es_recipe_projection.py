@@ -2,6 +2,7 @@
 keyed and shaped exactly like the offline index_recipes_v2.py builder."""
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from recipe_wrangler.utils import es_recipe_projection as mod
@@ -75,7 +76,8 @@ class ProjectTests(unittest.TestCase):
 
         with patch.object(mod, "run_query", return_value=[_NEO4J_ROW]), \
              patch.object(mod, "fetch_recipe_region_scores", return_value=_SCORES), \
-             patch.object(mod.requests, "put", side_effect=mock_put):
+             patch.object(mod, "get_http_session",
+                          return_value=SimpleNamespace(put=mock_put)):
             ok = mod.project_recipe_to_es_v2(
                 "abc123def4", es_url="http://es:9200", index="recipes_v2",
             )
@@ -92,9 +94,13 @@ class ProjectTests(unittest.TestCase):
         self.assertFalse(ok)
 
     def test_es_failure_is_nonfatal(self):
+        def failing_put(*args, **kwargs):
+            raise ConnectionError("down")
+
         with patch.object(mod, "run_query", return_value=[_NEO4J_ROW]), \
              patch.object(mod, "fetch_recipe_region_scores", return_value=_SCORES), \
-             patch.object(mod.requests, "put", side_effect=ConnectionError("down")):
+             patch.object(mod, "get_http_session",
+                          return_value=SimpleNamespace(put=failing_put)):
             ok = mod.project_recipe_to_es_v2(
                 "abc123def4", es_url="http://es:9200", index="recipes_v2",
             )

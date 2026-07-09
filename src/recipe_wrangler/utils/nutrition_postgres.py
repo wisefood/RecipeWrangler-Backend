@@ -115,14 +115,12 @@ def get_engine() -> Engine:
         )
 
         # Create engine with connection pooling
-        # pool_size=5: Keep 5 connections in the pool
-        # max_overflow=10: Allow up to 10 additional connections when pool is full
         # pool_pre_ping=True: Test connections before using them (handles stale connections)
         _engine = create_engine(
             connection_url,
             poolclass=QueuePool,
-            pool_size=5,
-            max_overflow=10,
+            pool_size=int(_env("NUTRITION_POOL_SIZE", _env("POSTGRES_POOL_SIZE", "5"))),
+            max_overflow=int(_env("NUTRITION_MAX_OVERFLOW", _env("POSTGRES_MAX_OVERFLOW", "10"))),
             pool_pre_ping=True,
             echo=False,  # Set to True to see SQL queries in logs
         )

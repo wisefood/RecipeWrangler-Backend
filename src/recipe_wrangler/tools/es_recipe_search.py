@@ -13,9 +13,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-import requests
-
 from recipe_wrangler.api.config import get_settings
+from recipe_wrangler.utils.http_pool import get_http_session
 from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
 
 # Index built by scripts/elasticsearch/index_recipes_v2.py
@@ -251,7 +250,7 @@ def search_recipes_es(c: RecipeSearchConstraints) -> dict[str, Any]:
     body = build_es_query(c)
 
     start = time.perf_counter()
-    resp = requests.post(url, json=body, timeout=settings.elastic_timeout)
+    resp = get_http_session().post(url, json=body, timeout=settings.elastic_timeout)
     elapsed_ms = (time.perf_counter() - start) * 1000
     if resp.status_code == 400 and "max_result_window" in resp.text:
         raise ResultWindowExceededError(

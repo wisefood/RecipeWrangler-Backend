@@ -13,7 +13,7 @@ import threading
 import time
 from typing import Any
 
-import requests
+from recipe_wrangler.utils.http_pool import get_http_session
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ def _ensure_status_mapping(es_url: str, index: str) -> None:
     """Add the `status` keyword field to an index that predates it (additive,
     no-op if present; ignored if the index already mapped it dynamically)."""
     try:
-        requests.put(
+        get_http_session().put(
             f"{es_url}/{index}/_mapping",
             json={"properties": {"status": {"type": "keyword"}}},
             timeout=10,
@@ -121,7 +121,7 @@ def sync_recipe_status_to_es(
                 }))
                 lines.append(json.dumps({"doc": {"status": status}}))
             try:
-                resp = requests.post(
+                resp = get_http_session().post(
                     f"{es_url}/_bulk",
                     data="\n".join(lines) + "\n",
                     headers={"Content-Type": "application/x-ndjson"},

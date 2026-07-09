@@ -5,6 +5,7 @@ Read sites are string-asserted against the generated Cypher/ES bodies
 """
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from recipe_wrangler.schemas import RecipeSearchFilters
@@ -194,8 +195,8 @@ class EsSyncTests(unittest.TestCase):
         def mock_put(url, json=None, timeout=None):
             return _Resp()
 
-        with patch.object(mod.requests, "post", side_effect=mock_post), \
-             patch.object(mod.requests, "put", side_effect=mock_put):
+        session = SimpleNamespace(post=mock_post, put=mock_put)
+        with patch.object(mod, "get_http_session", return_value=session):
             stats = mod.sync_recipe_status_to_es(
                 ["r1"], STATUS_DISABLED,
                 es_url="http://es:9200", indices=["recipes_v2", "recipes"],
@@ -219,8 +220,8 @@ class EsSyncTests(unittest.TestCase):
             def json(self):
                 return {"items": [{"update": {"status": 404}}]}
 
-        with patch.object(mod.requests, "post", return_value=_Resp()), \
-             patch.object(mod.requests, "put", return_value=_Resp()):
+        session = SimpleNamespace(post=lambda *a, **k: _Resp(), put=lambda *a, **k: _Resp())
+        with patch.object(mod, "get_http_session", return_value=session):
             stats = mod.sync_recipe_status_to_es(
                 ["missing"], STATUS_ACTIVE, es_url="http://es:9200", indices=["recipes_v2"],
             )
@@ -243,8 +244,8 @@ class EsSyncTests(unittest.TestCase):
             posted.append(data or "")
             return _Resp()
 
-        with patch.object(mod.requests, "post", side_effect=mock_post), \
-             patch.object(mod.requests, "put", return_value=_Resp()):
+        session = SimpleNamespace(post=mock_post, put=lambda *a, **k: _Resp())
+        with patch.object(mod, "get_http_session", return_value=session):
             mod.sync_recipe_status_to_es(
                 ["r1"], STATUS_DISABLED, es_url="http://es:9200", indices=["recipes_v2"],
             )
@@ -269,8 +270,8 @@ class EsSyncTests(unittest.TestCase):
             def json(self):
                 return {"items": [conflict]}
 
-        with patch.object(mod.requests, "post", return_value=_Resp()), \
-             patch.object(mod.requests, "put", return_value=_Resp()):
+        session = SimpleNamespace(post=lambda *a, **k: _Resp(), put=lambda *a, **k: _Resp())
+        with patch.object(mod, "get_http_session", return_value=session):
             stats = mod.sync_recipe_status_to_es(
                 ["r1"], STATUS_DISABLED, es_url="http://es:9200", indices=["recipes_v2"],
             )

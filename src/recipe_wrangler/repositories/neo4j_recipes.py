@@ -53,10 +53,12 @@ def set_recipe_status(
     if not ids:
         return []
 
+    # Equality on the raw property (no toString wrapper) so the planner can use
+    # the recipe_id/id indexes — wrapping degrades every batch to label scans.
     query = """
     UNWIND $ids AS rid
     MATCH (r:Recipe)
-    WHERE toString(r.recipe_id) = rid OR toString(r.id) = rid
+    WHERE r.recipe_id = rid OR r.id = rid
     SET r.status = $status,
         r.disabled_at = (CASE WHEN $status = $disabled THEN datetime() ELSE null END),
         r.disabled_reason = (CASE WHEN $status = $disabled THEN $reason ELSE null END)
@@ -75,28 +77,19 @@ def set_recipe_status(
 
 
 def resolve_recipe_ids_by_query(where_clause: str, params: dict[str, Any]) -> list[str]:
-    """Page through all recipe IDs matching a param_search WHERE clause.
+    """Resolve every recipe ID matching a param_search WHERE clause.
 
-    Used by by-query bulk disable/enable — resolves the full ID set in pages
-    so ~1M-recipe operations never materialize one giant result.
+    Single pass on purpose: SKIP/LIMIT paging re-runs the full facet match
+    (and a sort on a computed value) once per page, and the caller holds the
+    complete ID list in memory anyway.
     """
     query = f"""
     MATCH (r:Recipe)
     {where_clause}
     RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id
-    ORDER BY recipe_id
-    SKIP $skip LIMIT $page_size
     """
-    ids: list[str] = []
-    skip = 0
-    page_params = {k: v for k, v in params.items() if k not in ("limit", "offset")}
-    while True:
-        rows = run_query(query, {**page_params, "skip": skip, "page_size": _STATUS_BATCH_SIZE})
-        if not rows:
-            break
-        ids.extend(str(row["recipe_id"]) for row in rows if row.get("recipe_id"))
-        skip += _STATUS_BATCH_SIZE
-    return list(dict.fromkeys(ids))
+    rows = run_query(query, {k: v for k, v in params.items() if k not in ("limit", "offset")})
+    return list(dict.fromkeys(str(row["recipe_id"]) for row in rows if row.get("recipe_id")))
 
 
 def fetch_recipe_scores_by_ids(ids: list[str]) -> dict[str, dict[str, Any]]:

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import time
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -11,7 +13,7 @@ from typing import Any
 from uuid import uuid4
 
 import requests
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, BackgroundTasks, Query
 from starlette.concurrency import run_in_threadpool
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
@@ -29,7 +31,14 @@ from recipe_wrangler.tools.es_recipe_search import (
     ResultWindowExceededError,
     search_recipes_es,
 )
-from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_mget, cache_mset, cache_set
+from recipe_wrangler.utils.recipe_cache import (
+    cache_delete,
+    cache_delete_many,
+    cache_get,
+    cache_mget,
+    cache_mset,
+    cache_set,
+)
 from recipe_wrangler.utils.recipe_status import (
     STATUS_ACTIVE,
     STATUS_DISABLED,
@@ -67,6 +76,8 @@ from recipe_wrangler.repositories.postgres_nutrition import (
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
 from recipe_wrangler.repositories.chroma_matchers import query_usda_nutrition_candidates
+
+logger = logging.getLogger(__name__)
 
 _USDA_MATCH_THRESHOLD = 0.4
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -2380,13 +2391,9 @@ def _apply_recipe_status(
         # Neo4j is the source of truth and a re-run converges ES.
         es_stats = sync_recipe_status_to_es(updated_ids, status, es_url=es_url, indices=indices)
 
-        updated_set = set(updated_ids)
-        for rid in updated_ids:
-            cache_delete(rid)
-        # Requested aliases (r.id lookups) may have their own cache keys.
-        for rid in recipe_ids:
-            if str(rid) not in updated_set:
-                cache_delete(str(rid))
+        # Canonical IDs and requested aliases (r.id lookups) may each have
+        # their own cache keys — purge both in one batched pass.
+        cache_delete_many({*updated_ids, *(str(rid) for rid in recipe_ids)})
 
     return RecipeStatusResponse(
         status=status,  # type: ignore[arg-type]
@@ -2428,16 +2435,37 @@ def recipes_bulk_enable(payload: RecipeBulkStatusRequest) -> RecipeStatusRespons
     return response
 
 
+def _run_status_job(recipe_ids: list[str], status: str, reason: str | None) -> None:
+    """Background body of by-query status flips — the request has already
+    returned 202, so failures can only be surfaced in the logs."""
+    started = time.monotonic()
+    try:
+        response = _apply_recipe_status(recipe_ids, status, reason)
+        logger.info(
+            "Background status job done status=%s requested=%d updated=%d in %.1fs",
+            status, len(recipe_ids), response.updated, time.monotonic() - started,
+        )
+    except Exception:
+        logger.exception(
+            "Background status job failed status=%s requested=%d", status, len(recipe_ids),
+        )
+
+
 @router.post(
     "/disable-by-query",
     response_model=RecipeStatusResponse,
+    status_code=202,
     tags=["recipes"],
-    summary="Bulk disable every recipe matching param_search filters",
+    summary="Bulk disable every recipe matching param_search filters (async)",
 )
-def recipes_disable_by_query(payload: RecipeDisableByQueryRequest) -> RecipeStatusResponse:
-    """Resolve the matching ID set via the param_search WHERE clause (paged),
-    then disable in batches. Returns the affected count; for corpus-scale
-    operations prefer `scripts/disable_recipes.py`.
+def recipes_disable_by_query(
+    payload: RecipeDisableByQueryRequest,
+    background_tasks: BackgroundTasks,
+) -> RecipeStatusResponse:
+    """Resolve the matching ID set via the param_search WHERE clause, then
+    disable in the background. Returns 202 immediately with the matched count
+    (`requested`); `updated` is always 0 here — poll param_search counts to
+    watch progress. Large sets would otherwise outlive the gateway timeout.
     """
     from recipe_wrangler.tools.param_search import _build_where_clause, _has_no_constraints
 
@@ -2461,7 +2489,14 @@ def recipes_disable_by_query(payload: RecipeDisableByQueryRequest) -> RecipeStat
             updated=0,
             message="No recipes matched the query",
         )
-    return _apply_recipe_status(matched_ids, STATUS_DISABLED, payload.reason)
+
+    background_tasks.add_task(_run_status_job, matched_ids, STATUS_DISABLED, payload.reason)
+    return RecipeStatusResponse(
+        status=STATUS_DISABLED,
+        requested=len(matched_ids),
+        updated=0,
+        message=f"Disabling {len(matched_ids)} recipe(s) in the background",
+    )
 
 
 @router.post(

@@ -129,6 +129,30 @@ def cache_mset(
         logger.warning("Redis cache_mset failed (%d entries)", len(entries), exc_info=True)
 
 
+def cache_delete_many(recipe_ids: Iterable[str]) -> None:
+    """Bulk delete base entries and every variant key for the given IDs.
+
+    One keyspace SCAN total — per-ID cache_delete scans the whole keyspace
+    for each recipe, which is prohibitive for bulk status flips.
+    """
+    if not _is_enabled():
+        return
+    ids = {str(rid) for rid in recipe_ids if rid}
+    if not ids:
+        return
+    try:
+        client = _get_client()
+        # Key shape is recipe:{id}[:{variant}] — match on the id segment.
+        doomed = [
+            key for key in client.scan_iter(match="recipe:*", count=1000)
+            if key.split(":", 2)[1] in ids
+        ]
+        for start in range(0, len(doomed), 1000):
+            client.delete(*doomed[start:start + 1000])
+    except Exception:
+        logger.warning("Redis cache_delete_many failed (%d ids)", len(ids), exc_info=True)
+
+
 def cache_delete(recipe_id: str, variant: str | None = None) -> None:
     if not _is_enabled():
         return

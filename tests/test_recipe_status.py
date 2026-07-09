@@ -227,6 +227,76 @@ class EsSyncTests(unittest.TestCase):
         self.assertEqual(stats["recipes_v2"]["not_found"], 1)
         self.assertEqual(stats["recipes_v2"]["errors"], 0)
 
+    def test_bulk_sync_sets_retry_on_conflict_on_every_action(self):
+        from recipe_wrangler.utils import recipe_status as mod
+
+        posted: list[str] = []
+
+        class _Resp:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"items": [{"update": {"status": 200}}]}
+
+        def mock_post(url, data=None, json=None, headers=None, timeout=None):
+            posted.append(data or "")
+            return _Resp()
+
+        with patch.object(mod.requests, "post", side_effect=mock_post), \
+             patch.object(mod.requests, "put", return_value=_Resp()):
+            mod.sync_recipe_status_to_es(
+                ["r1"], STATUS_DISABLED, es_url="http://es:9200", indices=["recipes_v2"],
+            )
+        self.assertIn('"retry_on_conflict"', posted[0])
+
+    def test_bulk_sync_counts_version_conflicts_separately(self):
+        """Racing same-status writers converge — 409s must not count as errors
+        (or log per-doc; two corpus-scale jobs once flooded the pod log buffer)."""
+        from recipe_wrangler.utils import recipe_status as mod
+
+        conflict = {
+            "update": {
+                "_id": "r1", "status": 409,
+                "error": {"type": "version_conflict_engine_exception"},
+            }
+        }
+
+        class _Resp:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"items": [conflict]}
+
+        with patch.object(mod.requests, "post", return_value=_Resp()), \
+             patch.object(mod.requests, "put", return_value=_Resp()):
+            stats = mod.sync_recipe_status_to_es(
+                ["r1"], STATUS_DISABLED, es_url="http://es:9200", indices=["recipes_v2"],
+            )
+        self.assertEqual(stats["recipes_v2"]["conflicts"], 1)
+        self.assertEqual(stats["recipes_v2"]["errors"], 0)
+
+
+class StatusJobSingleFlightTests(unittest.TestCase):
+    def test_second_claim_rejected_while_first_holds_slot(self):
+        from recipe_wrangler.utils.recipe_status import StatusJobGuard
+
+        guard = StatusJobGuard()
+        self.assertIsNone(guard.try_claim(STATUS_DISABLED, 100))
+        running = guard.try_claim(STATUS_DISABLED, 50)
+        self.assertIsNotNone(running)
+        self.assertEqual(running["status"], STATUS_DISABLED)
+        self.assertEqual(running["requested"], 100)  # the FIRST job's info
+
+    def test_release_frees_the_slot(self):
+        from recipe_wrangler.utils.recipe_status import StatusJobGuard
+
+        guard = StatusJobGuard()
+        self.assertIsNone(guard.try_claim(STATUS_DISABLED, 1))
+        guard.release()
+        self.assertIsNone(guard.try_claim(STATUS_ACTIVE, 1))
+
 
 if __name__ == "__main__":
     unittest.main()

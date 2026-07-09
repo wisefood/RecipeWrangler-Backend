@@ -18,6 +18,7 @@ from starlette.concurrency import run_in_threadpool
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
 from recipe_wrangler.api.exceptions import (
+    ConflictError,
     DataError,
     InternalError,
     InvalidError,
@@ -43,6 +44,7 @@ from recipe_wrangler.utils.recipe_status import (
     STATUS_ACTIVE,
     STATUS_DISABLED,
     es_not_disabled_clause,
+    status_job_guard,
     sync_recipe_status_to_es,
 )
 from recipe_wrangler.utils.neo4j_utils import run_query as _run_query
@@ -2435,6 +2437,18 @@ def recipes_bulk_enable(payload: RecipeBulkStatusRequest) -> RecipeStatusRespons
     return response
 
 
+def _claim_status_job(status: str, requested: int) -> None:
+    """Mark a by-query job in flight; raise 409 if one is already running."""
+    running = status_job_guard.try_claim(status, requested)
+    if running is not None:
+        raise ConflictError(
+            f"A bulk status job is already running "
+            f"(status='{running['status']}', {running['requested']} recipes, "
+            f"started {running['running_for_s']:.0f}s ago). "
+            "Retry after it completes."
+        )
+
+
 def _run_status_job(recipe_ids: list[str], status: str, reason: str | None) -> None:
     """Background body of by-query status flips — the request has already
     returned 202, so failures can only be surfaced in the logs."""
@@ -2449,6 +2463,8 @@ def _run_status_job(recipe_ids: list[str], status: str, reason: str | None) -> N
         logger.exception(
             "Background status job failed status=%s requested=%d", status, len(recipe_ids),
         )
+    finally:
+        status_job_guard.release()
 
 
 @router.post(
@@ -2490,6 +2506,7 @@ def recipes_disable_by_query(
             message="No recipes matched the query",
         )
 
+    _claim_status_job(STATUS_DISABLED, len(matched_ids))
     background_tasks.add_task(_run_status_job, matched_ids, STATUS_DISABLED, payload.reason)
     return RecipeStatusResponse(
         status=STATUS_DISABLED,

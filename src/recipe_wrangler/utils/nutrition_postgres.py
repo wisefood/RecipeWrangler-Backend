@@ -412,6 +412,36 @@ def fetch_all_recipe_scores() -> dict[str, dict]:
     return scores
 
 
+def fetch_recipe_region_scores(recipe_id: str) -> dict:
+    """Single-recipe variant of fetch_all_recipe_scores — same shape, one ID.
+
+    Used by the runtime recipes_v2 projection on create/update, where loading
+    the full corpus score map per request is not an option.
+    """
+    cfg = _get_config()
+    query_str = f"""
+        SELECT nutrition_source, nutri_score, total_sustainability_per_serving
+        FROM "{cfg['schema']}"."{cfg['profiles_table']}"
+        WHERE recipe_id = :recipe_id
+          AND nutrition_source IN ('usda', 'irish', 'hungarian', 'eu')
+    """
+    entry: dict = {"sust_score": None}
+    with get_connection() as conn:
+        rows = conn.execute(text(query_str), {"recipe_id": str(recipe_id)})
+        for source, nutri_score, sust in rows:
+            region = _REGION_BY_SOURCE.get(source)
+            if region is None:
+                continue
+            grade = color = None
+            if isinstance(nutri_score, dict):
+                grade = nutri_score.get("nutri_score")
+                color = nutri_score.get("color")
+            entry[region] = {"nutri_score": grade, "nutri_color": color}
+            if entry["sust_score"] is None and sust is not None:
+                entry["sust_score"] = float(sust)
+    return entry
+
+
 def fetch_recipe_profiling_trace_by_id(
     recipe_id: str,
     nutrition_source: Optional[str] = None,

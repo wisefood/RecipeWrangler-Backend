@@ -40,6 +40,7 @@ from recipe_wrangler.utils.recipe_cache import (
     cache_mset,
     cache_set,
 )
+from recipe_wrangler.utils.es_recipe_projection import project_recipe_to_es_v2
 from recipe_wrangler.utils.recipe_status import (
     STATUS_ACTIVE,
     STATUS_DISABLED,
@@ -1902,6 +1903,18 @@ def _generate_user_recipe_id(title: str, ingredients: list[str]) -> str:
     return str(uuid4())
 
 
+def _project_to_recipes_v2(recipe_id: str) -> None:
+    """Refresh this recipe's full recipes_v2 doc from Neo4j+Postgres.
+
+    Best-effort (logged inside): the owners hold the truth and the offline
+    rebuild converges the index if this write is missed.
+    """
+    from recipe_wrangler.tools.es_recipe_search import ES_INDEX
+
+    settings = get_settings()
+    project_recipe_to_es_v2(recipe_id, es_url=settings.elastic_url, index=ES_INDEX)
+
+
 def _index_recipe_to_elastic(
     recipe_id: str,
     title: str,
@@ -2130,6 +2143,11 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
     except Exception:
         pass  # non-fatal
 
+    # Project the full doc into the primary search index — without this the
+    # recipe exists in Neo4j/Postgres but never appears in recipes_v2 until an
+    # offline rebuild. Runs after the Postgres trace write so nutri scores land.
+    _project_to_recipes_v2(recipe_id)
+
     return RecipeCreateResponse(recipe_id=recipe_id)
 
 
@@ -2296,6 +2314,7 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
         raise NotFoundError(detail=f"Recipe {recipe_id} not found")
 
     cache_delete(recipe_id)
+    resolved_cache_id: str | None = None
     try:
         resolved_rows = _run_query(
             """
@@ -2315,7 +2334,8 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
     except Exception:
         pass
 
-    # --- Elasticsearch (image_url only — instructions are not indexed) ---
+    # --- Elasticsearch legacy index (image_url only — its docs carry no other
+    # patchable field the runtime serves) ---
     if payload.image_url is not None:
         try:
             settings = get_settings()
@@ -2327,6 +2347,10 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
             )
         except Exception:
             pass  # non-fatal
+
+    # --- recipes_v2: full-doc reprojection so title/tags/allergens/duration/
+    # expert_recipe edits reach search instead of going stale until a rebuild.
+    _project_to_recipes_v2(resolved_cache_id or recipe_id)
 
     current_tags: list[str] = []
     try:

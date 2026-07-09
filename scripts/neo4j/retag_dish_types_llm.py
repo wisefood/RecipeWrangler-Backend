@@ -85,11 +85,16 @@ Classify the dish into one or more meal slots.
 Allowed values: breakfast, main-dish, side-dish, snacks, desserts, beverages.
 Return a JSON object {"slots": [...]}.
 Rules:
-- breakfast = only genuine breakfast foods (pancakes, eggs, oatmeal, smoothies).
+- breakfast is the NARROWEST slot. Assign it ONLY when the dish is a food
+  people eat specifically at breakfast: pancakes, waffles, eggs/omelettes,
+  oatmeal/porridge, cereal, granola, breakfast smoothies, French toast,
+  breakfast pastries, yogurt bowls. If in doubt, it is NOT breakfast.
 - side-dish = accompaniments that usually aren't eaten alone (plain vegetables, rice, bread, simple salads, sauces, dressings).
-- main-dish = substantial entrees (stews, curries, pasta, roasts, casseroles, hearty bowls, stuffed dishes).
-- Stews/curries/pasta/roasts = main-dish, not breakfast.
-- A dish may have multiple slots when appropriate."""
+- main-dish = substantial entrees (stews, curries, pasta, roasts, casseroles, hearty bowls, stuffed dishes, meat/fish/legume dinners, soups eaten as a meal).
+- Stews, curries, pasta, roasts, casseroles, savory dinners, and anything
+  lunch/dinner-like = main-dish, NEVER breakfast.
+- A dish may have multiple slots when appropriate, but do not add breakfast as
+  an extra slot to a savory main dish just to be safe."""
 
 SLOTS_SCHEMA = {
     "type": "object",
@@ -209,11 +214,14 @@ def classify_recipe(
     model: str,
     recipe: dict,
     retries: int = 3,
-) -> list[str]:
+) -> list[str] | None:
     """Ask the LLM which slots this recipe belongs to.
 
-    Returns a list of canonical slot strings (values from VALID_SLOTS).
-    Falls back to the recipe's current_slots on repeated failure.
+    Returns a list of canonical slot strings (values from VALID_SLOTS), or
+    ``None`` if the recipe could not be classified after all retries. Returning
+    ``None`` (rather than echoing ``current_slots``) means a failed run leaves
+    the existing tags untouched AND is counted as an error — so a wrong legacy
+    tag is never silently re-affirmed as "verified".
     """
     user_msg = (
         f'Title: "{recipe["title"]}"\n'
@@ -278,10 +286,11 @@ def classify_recipe(
             if "rate_limit" in str(exc).lower():
                 time.sleep(2 ** attempt)
 
-    # Fall back to current tags so we don't accidentally clear everything
-    logger.error("All retries failed for %r — keeping current slots %s",
+    # Could not classify — leave existing tags untouched and signal failure so
+    # a wrong legacy tag is neither re-affirmed nor blanked.
+    logger.error("All retries failed for %r — leaving current slots %s untouched",
                  recipe["title"], recipe["current_slots"])
-    return recipe["current_slots"]
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +361,14 @@ def main() -> None:
 
             recipe    = result["recipe"]
             new_slots = result["new_slots"]
+
+            # Classification failed after all retries — leave tags untouched.
+            if new_slots is None:
+                errors += 1
+                logger.warning("[%d/%d] Could not classify %r — left unchanged",
+                               i, len(recipes), recipe["title"])
+                continue
+
             old_slots = sorted(recipe["current_slots"])
             new_sorted = sorted(new_slots)
 

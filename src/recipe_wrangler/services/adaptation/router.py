@@ -1,6 +1,7 @@
 """FastAPI router for the adaptation service.
 
-Mounted by `app.py` (standalone) — does NOT modify the main api/main.py.
+Mounted by the main API (`recipe_wrangler.api.main`) and by `app.py` for
+standalone development runs.
 """
 
 from __future__ import annotations

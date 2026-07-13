@@ -20,6 +20,8 @@ FastAPI (src/recipe_wrangler/api/)
   ├── POST  /api/v1/recipes/profile                       → Groq LLM + Chroma + PostgreSQL
   ├── POST  /api/v1/recipes/create                        → Neo4j + PostgreSQL (profiling pipeline)
   ├── POST  /api/v1/recipes/{recipe_id}/substitute        → Neo4j + Chroma + PostgreSQL
+  ├── POST  /api/v1/recipes/{recipe_id}/adapt/suggestions → Neo4j + Chroma + PostgreSQL (+ optional LLM judge)
+  ├── POST  /api/v1/recipes/{recipe_id}/adapt/simulate    → Neo4j + Chroma + PostgreSQL
   └── PATCH /api/v1/recipes/{recipe_id}                   → Neo4j + Elasticsearch
 
 Services
@@ -430,18 +432,18 @@ curl -X POST http://localhost:8001/api/v1/recipes/dfe70383db/substitute \
 
 ---
 
-## Experimental Adaptation API
+## Adaptation API
 
-Tracked in repo as standalone service:
+Mounted in the main API (port 8001) alongside the other recipe endpoints:
 - `POST /api/v1/recipes/{recipe_id}/adapt/suggestions`
 - `POST /api/v1/recipes/{recipe_id}/adapt/simulate`
 
-Local run:
+Can also still run standalone for isolated development:
 ```bash
 PYTHONPATH=src uvicorn recipe_wrangler.services.adaptation.app:app --reload --port 8101
 ```
 
-Swagger UI:
+Swagger UI (standalone run):
 `http://127.0.0.1:8101/docs`
 
 ### POST /api/v1/recipes/{recipe_id}/adapt/suggestions

@@ -51,6 +51,13 @@ if _data_dir.exists():
 app.include_router(health.router)
 app.include_router(recipes.router, prefix="/api/v1")
 
+# Adaptation endpoints (adapt/suggestions, adapt/simulate). The router carries
+# its own /api/v1/recipes prefix; it also remains runnable standalone via
+# recipe_wrangler.services.adaptation.app for isolated development.
+from recipe_wrangler.services.adaptation.router import router as adaptation_router  # noqa: E402
+
+app.include_router(adaptation_router)
+
 
 @app.on_event("startup")
 async def startup_event():

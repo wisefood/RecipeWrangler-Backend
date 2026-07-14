@@ -425,6 +425,7 @@ class RecipeDetailResponse(BaseModel):
     total_sustainability_per_serving: Optional[float] = None
     sustainability_per_kg: Optional[float] = None
     sustainability_profiling_details: Optional[List[Dict[str, Any]]] = None
+    profiling_status: Optional[str] = None
 
 
 class RecipeCardNutrition(BaseModel):

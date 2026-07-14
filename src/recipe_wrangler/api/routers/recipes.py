@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 import time
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -1160,48 +1161,14 @@ def get_recipe(
         or _healthyfoods_ground_truth_nutrition(recipe)
     )
 
-    # On-the-fly profiling for recipes with no stored trace (e.g. unprofiled recipe1m)
+    # On-the-fly profiling for recipes with no stored trace (e.g. unprofiled
+    # recipe1m). The profiling chain is far too slow to block a GET on, so it
+    # runs in a background thread that persists the trace and invalidates the
+    # response cache; until then the response carries profiling_status=pending.
+    profiling_status = None
     if not stored_trace and not nutrition:
-        try:
-            ingredients = recipe.get("ingredients") or []
-            ingredient_lines = [
-                f"{ing.get('measurement', '')} {ing.get('name', '')}".strip()
-                if isinstance(ing, dict) else str(ing)
-                for ing in ingredients
-            ]
-            ingredient_names, measurements = split_ingredient_lines(ingredient_lines)
-            instructions = recipe.get("instructions") or []
-            serves = float(recipe.get("serves") or 4)
-            live_region = region or "IE"
-            live_result = Recipe_Profiling_Chain_Structured.invoke({
-                "title": recipe.get("title", ""),
-                "ingredient_names": ingredient_names,
-                "measurements": measurements,
-                "serves": serves,
-                "total_time": recipe.get("duration"),
-                "directions": instructions,
-                "region": live_region,
-                "debug": False,
-            })
-            if isinstance(live_result, dict):
-                stored_trace = live_result
-                stored_trace["_computed_on_the_fly"] = True
-                ns = live_result.get("nutrition_source_key") or _nutrition_source_from_region(live_region)
-                suffix = f"_{ns}"
-                from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals
-                totals = live_result.get("profiling_totals") or {}
-                clean_totals = _extract_clean_totals(totals, suffix)
-                clean_per_serving = {k: v / serves for k, v in clean_totals.items()} if clean_totals else None
-                nutrition = {
-                    "total_nutrients": clean_totals,
-                    "total_nutrients_per_serving": clean_per_serving,
-                    "nutri_score": live_result.get("nutri_score"),
-                    "nutrition_source": live_result.get("nutrition_source") or ns,
-                }
-                stored_trace["total_nutrients"] = clean_totals
-                stored_trace["total_nutrients_per_serving"] = clean_per_serving
-        except Exception:
-            pass
+        if _schedule_live_profile_job(resolved_recipe_id, recipe, region or "IE"):
+            profiling_status = "pending"
 
     if not nutrition and isinstance(stored_trace, dict):
         trace_totals = _as_dict(stored_trace.get("total_nutrients"))
@@ -1216,6 +1183,7 @@ def get_recipe(
             }
 
     payload = dict(recipe)
+    payload["profiling_status"] = profiling_status
     if ground_truth_nutrition:
         payload["has_ground_truth_nutrition"] = True
         payload["ground_truth_nutrition_source"] = ground_truth_nutrition.get("nutrition_source")
@@ -1351,7 +1319,9 @@ def get_recipe(
             )
 
     response = RecipeDetailResponse(**payload)
-    if not include_disabled:
+    # A pending-profile response must not be cached: the background job
+    # invalidates on completion, and a cached "pending" would outlive it.
+    if not include_disabled and profiling_status != "pending":
         _cache_recipe_response(recipe_id, resolved_recipe_id, detail_cache_variant, response)
     return response
 
@@ -1412,6 +1382,86 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
     save_recipe_profile_trace(trace_payload)
     cache_delete(recipe_id)
     return True, None
+
+
+# In-flight guard for background live-profiling jobs: one job per
+# (recipe_id, region) at a time, no matter how many GETs race on it.
+_LIVE_PROFILE_JOBS: set[tuple[str, str]] = set()
+_LIVE_PROFILE_JOBS_LOCK = threading.Lock()
+
+
+def _schedule_live_profile_job(recipe_id: str, recipe: dict[str, Any], region: str) -> bool:
+    """Queue background profiling for a recipe with no stored trace.
+
+    Returns True when a job is already running or was just scheduled, False
+    when the recipe has nothing to profile.
+    """
+    if not (recipe.get("ingredients") or []):
+        return False
+    key = (str(recipe_id), (region or "IE").strip().upper())
+    with _LIVE_PROFILE_JOBS_LOCK:
+        if key in _LIVE_PROFILE_JOBS:
+            return True
+        _LIVE_PROFILE_JOBS.add(key)
+    try:
+        threading.Thread(
+            target=_run_live_profile_job,
+            args=(key, dict(recipe)),
+            name=f"live-profile-{recipe_id}",
+            daemon=True,
+        ).start()
+    except Exception:
+        with _LIVE_PROFILE_JOBS_LOCK:
+            _LIVE_PROFILE_JOBS.discard(key)
+        raise
+    return True
+
+
+def _run_live_profile_job(key: tuple[str, str], recipe: dict[str, Any]) -> None:
+    """Profile a recipe, persist the trace, and drop its cached responses.
+
+    Persisting through _persist_profile_trace_best_effort also gives the
+    adaptation service the trace it requires, and its cache_delete makes the
+    next GET pick the stored profile up.
+    """
+    recipe_id, region = key
+    try:
+        ingredients = recipe.get("ingredients") or []
+        ingredient_lines = [
+            f"{ing.get('measurement', '')} {ing.get('name', '')}".strip()
+            if isinstance(ing, dict) else str(ing)
+            for ing in ingredients
+        ]
+        ingredient_names, measurements = split_ingredient_lines(ingredient_lines)
+        live_result = Recipe_Profiling_Chain_Structured.invoke({
+            "title": recipe.get("title", ""),
+            "ingredient_names": ingredient_names,
+            "measurements": measurements,
+            "serves": float(recipe.get("serves") or 4),
+            "total_time": recipe.get("duration"),
+            "directions": recipe.get("instructions") or [],
+            "region": region,
+            "debug": False,
+        })
+        if isinstance(live_result, dict):
+            persisted, warning = _persist_profile_trace_best_effort(
+                {"recipe_id": recipe_id}, live_result
+            )
+            if not persisted:
+                logger.warning(
+                    "Live profiling for %s (%s) completed but was not persisted: %s",
+                    recipe_id, region, warning,
+                )
+        else:
+            logger.warning(
+                "Live profiling for %s (%s) returned unexpected payload type %s",
+                recipe_id, region, type(live_result).__name__,
+            )
+    except Exception:
+        logger.warning("Live profiling failed for %s (%s)", recipe_id, region, exc_info=True)
+    finally:
+        with _LIVE_PROFILE_JOBS_LOCK:
+            _LIVE_PROFILE_JOBS.discard(key)
 
 
 def _es_card(card: dict[str, Any]) -> dict[str, Any]:

@@ -44,6 +44,9 @@ class RecipeSearchConstraints:
     include_ingredients: list[str] = field(default_factory=list)
     exclude_ingredients: list[str] = field(default_factory=list)
     exclude_allergens: list[str] = field(default_factory=list)
+    # Soft preferences (e.g. from the member profile): boost matching recipes
+    # in the ranking without ever filtering non-matching ones out.
+    boost_ingredients: list[str] = field(default_factory=list)
     diet_tags: list[str] = field(default_factory=list)
     sources: list[str] = field(default_factory=list)
     dish_types: list[str] = field(default_factory=list)
@@ -174,11 +177,20 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     for kw in _norm(c.title_keywords):
         must.append({"match": {"title": kw}})
 
+    # Preference boosts — pure scoring, never filtering: a recipe matching a
+    # preferred ingredient ranks higher, one matching none still qualifies.
+    should: list[dict] = []
+    for ing in _norm(c.boost_ingredients):
+        should.append({"match_phrase": {"ingredients": {"query": ing, "boost": 2.0}}})
+
     limit = max(1, min(int(c.limit), 100))
     offset = max(0, int(c.offset))
     region = _resolve_region(c.region)
 
     query: dict[str, Any] = {"bool": {"filter": filter_, "must": must, "must_not": must_not}}
+    if should:
+        query["bool"]["should"] = should
+        query["bool"]["minimum_should_match"] = 0
 
     # Mirror the Neo4j stable sort by default: expert first, curated sources,
     # profiled, then relevance, then title/id for determinism. Explicit
@@ -191,6 +203,16 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
         {"title.kw": "asc"},
         {"id": "asc"},
     ]
+    if should:
+        # Personalization boosts must be able to reorder across source ranks,
+        # otherwise _score (4th key) almost never breaks a tie. Experts stay
+        # pinned first.
+        sort = [
+            {"expert_recipe": "desc"},
+            "_score",
+            {"title.kw": "asc"},
+            {"id": "asc"},
+        ]
     if c.sort_by == "title_asc":
         sort = [{"title.kw": "asc"}, {"id": "asc"}]
     elif c.sort_by == "title_desc":

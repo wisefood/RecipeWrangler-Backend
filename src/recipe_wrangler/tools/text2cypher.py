@@ -169,12 +169,6 @@ class RecipeSearchAppV2:
     structured_output_method: str = "function_calling"
 
     def __post_init__(self):
-        self.enhanced_graph = Neo4jGraph(
-            url=self.neo4j_uri,
-            refresh_schema=True,
-            enhanced_schema=True,
-        )
-
         from langchain_groq import ChatGroq
 
         self.llm = ChatGroq(
@@ -188,17 +182,72 @@ class RecipeSearchAppV2:
         self._llm_constraints_cache_lock = threading.Lock()
         self._llm_constraints_cache_max = 512
         self._build_chains()
-        self.langgraph = self._build_state_graph().compile()
+        # The Neo4j graph (schema refresh) and the compiled langgraph are only
+        # needed by the legacy text2cypher path. Building the graph eagerly
+        # sampled the whole corpus (enhanced_schema) and could block the first
+        # search request for minutes, so both initialize lazily on first use.
+        self._enhanced_graph: Optional[Neo4jGraph] = None
+        self._langgraph = None
+        self._graph_stack_lock = threading.Lock()
+
+    @property
+    def enhanced_graph(self) -> Neo4jGraph:
+        if self._enhanced_graph is None:
+            with self._graph_stack_lock:
+                if self._enhanced_graph is None:
+                    # enhanced_schema=False: the value-sampling pass is what
+                    # made init unbounded on the corpus-scale graph, and the
+                    # Cypher composer only needs property names.
+                    self._enhanced_graph = Neo4jGraph(
+                        url=self.neo4j_uri,
+                        refresh_schema=True,
+                        enhanced_schema=False,
+                    )
+        return self._enhanced_graph
+
+    @property
+    def langgraph(self):
+        if self._langgraph is None:
+            with self._graph_stack_lock:
+                if self._langgraph is None:
+                    self._langgraph = self._build_state_graph().compile()
+        return self._langgraph
+
+    # Shared (cross-pod, restart-surviving) cache TTL for extracted
+    # constraints. Constraints for a given question are stable, so a long TTL
+    # is safe; it exists mainly to let stale entries eventually age out.
+    _REDIS_CONSTRAINTS_TTL_SECONDS = 7 * 24 * 3600
+
+    @staticmethod
+    def _redis_constraints_key(key: tuple[str, bool]) -> str:
+        import hashlib
+        digest = hashlib.sha256(f"{key[1]}|{key[0]}".encode("utf-8")).hexdigest()
+        return f"nlq:constraints:{digest}"
 
     def _llm_constraints_cache_get(self, key: tuple[str, bool]) -> Optional[dict]:
         with self._llm_constraints_cache_lock:
             payload = self._llm_constraints_cache.get(key)
+            if payload is not None:
+                self._llm_constraints_cache.move_to_end(key)
+        if payload is None:
+            # L2: Redis (no-op when caching is disabled/unreachable) — lets a
+            # fresh pod skip the LLM for questions any pod has seen before.
+            try:
+                from recipe_wrangler.utils.recipe_cache import raw_cache_get
+                payload = raw_cache_get(self._redis_constraints_key(key))
+            except Exception:
+                payload = None
             if payload is None:
                 return None
-            self._llm_constraints_cache.move_to_end(key)
+            with self._llm_constraints_cache_lock:
+                self._llm_constraints_cache[key] = payload
+                self._llm_constraints_cache.move_to_end(key)
         # Decode outside the lock; load a fresh dict so callers cannot mutate
         # the cached entry.
-        return json.loads(payload)
+        try:
+            return json.loads(payload)
+        except (TypeError, ValueError):
+            return None
 
     def _llm_constraints_cache_put(self, key: tuple[str, bool], value: dict) -> None:
         try:
@@ -210,6 +259,15 @@ class RecipeSearchAppV2:
             self._llm_constraints_cache.move_to_end(key)
             while len(self._llm_constraints_cache) > self._llm_constraints_cache_max:
                 self._llm_constraints_cache.popitem(last=False)
+        try:
+            from recipe_wrangler.utils.recipe_cache import raw_cache_setex
+            raw_cache_setex(
+                self._redis_constraints_key(key),
+                self._REDIS_CONSTRAINTS_TTL_SECONDS,
+                payload,
+            )
+        except Exception:
+            pass
 
     def invoke(self, question: str, exclude_allergens: Optional[List[str]] = None, limit: int = 50) -> OutputState:
         return self.langgraph.invoke(

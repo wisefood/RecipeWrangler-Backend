@@ -29,7 +29,11 @@ def _get_recipe_search_app_cached() -> RecipeSearchAppV2:
     """Instantiate and cache the recipe search tool."""
 
     settings = get_settings()
-    _assert_neo4j_reachable(str(settings.neo4j_uri), settings.neo4j_connect_timeout)
+    # The ES backend only uses the app for LLM constraint extraction; Neo4j is
+    # touched exclusively by the legacy text2cypher path (lazily). Skipping the
+    # reachability probe keeps NL search alive while Neo4j is down/restarting.
+    if settings.search_backend != "es":
+        _assert_neo4j_reachable(str(settings.neo4j_uri), settings.neo4j_connect_timeout)
     _assert_groq_key()
     return RecipeSearchAppV2(
         neo4j_uri=str(settings.neo4j_uri),

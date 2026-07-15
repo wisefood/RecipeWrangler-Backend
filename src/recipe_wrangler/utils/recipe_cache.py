@@ -54,6 +54,27 @@ def _key(recipe_id: str, variant: str | None = None) -> str:
     return f"{key}:{variant}" if variant else key
 
 
+def raw_cache_get(key: str) -> str | None:
+    """Fetch an arbitrary string value (non-recipe keyspace, e.g. nlq:*)."""
+    if not _is_enabled():
+        return None
+    try:
+        return _get_client().get(key)
+    except Exception:
+        logger.warning("Redis raw_cache_get failed for %s", key, exc_info=True)
+        return None
+
+
+def raw_cache_setex(key: str, ttl_seconds: int, value: str) -> None:
+    """Store an arbitrary string value with a TTL (non-recipe keyspace)."""
+    if not _is_enabled():
+        return
+    try:
+        _get_client().setex(key, ttl_seconds, value)
+    except Exception:
+        logger.warning("Redis raw_cache_setex failed for %s", key, exc_info=True)
+
+
 def cache_get(recipe_id: str, variant: str | None = None) -> dict[str, Any] | None:
     if not _is_enabled():
         return None

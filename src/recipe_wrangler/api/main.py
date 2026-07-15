@@ -70,6 +70,24 @@ async def startup_event():
         import logging
         logging.getLogger(__name__).warning("param_search warmup failed", exc_info=True)
 
+    def _warm_search_app() -> None:
+        """Build the NL search app off the request path so the first user
+        never pays its init (Groq client + prompt chains)."""
+        import logging
+        import time as _time
+        try:
+            from recipe_wrangler.api.dependencies import get_recipe_search_app
+            started = _time.perf_counter()
+            get_recipe_search_app()
+            logging.getLogger(__name__).info(
+                "search app warmed in %.2fs", _time.perf_counter() - started
+            )
+        except Exception:
+            logging.getLogger(__name__).warning("search app warmup failed", exc_info=True)
+
+    import threading
+    threading.Thread(target=_warm_search_app, name="search-app-warmup", daemon=True).start()
+
 
 @app.on_event("shutdown")
 async def shutdown_event():

@@ -1,5 +1,6 @@
 # Purpose: Minimal constraint-first Text-to-Cypher LangGraph pipeline for recipe search.
 
+import logging
 import os
 import sys
 import json
@@ -23,6 +24,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_neo4j import Neo4jGraph
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 EXTRACT_CONSTRAINTS_SYSTEM_PROMPT = (
@@ -483,6 +486,10 @@ class RecipeSearchAppV2:
                 }
             )
         except Exception:
+            logger.warning(
+                "NL search: JSON-mode LLM extraction failed for %r — returning empty "
+                "constraints (heuristics will apply)", question[:80], exc_info=True,
+            )
             return ExtractConstraintsOutput().model_dump()
         return self._parse_constraints_json_text(raw)
 
@@ -497,6 +504,7 @@ class RecipeSearchAppV2:
             cached = self._llm_constraints_cache_get(cache_key)
             if cached is not None:
                 constraints = cached
+                logger.info("NL search: constraints for %r served from cache", question[:80])
                 return self._finalize_extracted_constraints(state, question, constraints)
 
         constraints = ExtractConstraintsOutput().model_dump()
@@ -509,9 +517,14 @@ class RecipeSearchAppV2:
                     }
                 )
                 constraints = extracted.model_dump()
+                logger.info("NL search: constraints for %r extracted via LLM", question[:80])
             except Exception as exc:
                 if self._is_unsupported_response_format_error(exc):
                     self._structured_extraction_enabled = False
+                logger.warning(
+                    "NL search: structured LLM extraction failed for %r (%s); "
+                    "falling back to JSON mode", question[:80], type(exc).__name__,
+                )
                 constraints = self._extract_constraints_with_json_text(question, schema_text)
         else:
             constraints = self._extract_constraints_with_json_text(question, schema_text)
@@ -554,6 +567,10 @@ class RecipeSearchAppV2:
         self, state: InputState, question: str, constraints: dict
     ) -> OverallState:
         if self._looks_empty_constraints(constraints):
+            logger.info(
+                "NL search: extraction empty for %r — applying heuristic fallback",
+                question[:80],
+            )
             heuristics = self._heuristic_extract_constraints(question)
             for key in [
                 "preferred_ingredients",

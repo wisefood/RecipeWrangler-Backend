@@ -30,6 +30,7 @@ from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_re
 
 from recipe_wrangler.tools.param_search import search_recipes_by_params
 from recipe_wrangler.tools.es_recipe_search import (
+    ES_INDEX,
     RecipeSearchConstraints,
     ResultWindowExceededError,
     search_recipes_es,
@@ -968,7 +969,9 @@ def recipe_autocomplete(
 
     settings = get_settings()
     search_payload = {
-        "size": limit,
+        # Over-fetch: some candidates may be dropped by the recipes_v2
+        # disabled-status cross-check below.
+        "size": min(limit * 2, 40),
         "_source": ["id", "title"],
         "query": {
             "bool": {
@@ -999,9 +1002,40 @@ def recipe_autocomplete(
         raise map_dependency_error("Elasticsearch", exc) from exc
 
     hits = payload.get("hits", {}).get("hits", [])
+
+    # The legacy autocomplete index predates status sync for part of the
+    # corpus (recipe1m bulk disables only landed in recipes_v2), so its own
+    # must_not(status=disabled) clause cannot see them. Cross-check the
+    # shortlist against recipes_v2 — one _mget of <=40 ids — so suggestions
+    # never link to a recipe the primary index considers disabled.
+    candidate_ids = [
+        rid for rid in (
+            _as_id((hit.get("_source") or {}).get("id")) or _as_id(hit.get("_id"))
+            for hit in hits
+        ) if rid
+    ]
+    disabled_ids: set[str] = set()
+    if candidate_ids:
+        try:
+            mget_response = get_http_session().post(
+                f"{settings.elastic_url}/{ES_INDEX}/_mget",
+                json={"docs": [{"_id": rid, "_source": ["status"]} for rid in candidate_ids]},
+                timeout=settings.elastic_timeout,
+            )
+            mget_response.raise_for_status()
+            for doc in mget_response.json().get("docs") or []:
+                status_value = str(((doc.get("_source") or {}).get("status")) or "").lower()
+                if doc.get("found") and status_value == STATUS_DISABLED:
+                    disabled_ids.add(str(doc.get("_id")))
+        except requests.RequestException:
+            # Best-effort: a failed cross-check must never break autocomplete.
+            disabled_ids = set()
+
     suggestions: dict[str, str] = {}
     seen: set[str] = set()
     for hit in hits:
+        if len(suggestions) >= limit:
+            break
         source = hit.get("_source", {})
         title = source.get("title")
         if not isinstance(title, str):
@@ -1013,7 +1047,7 @@ def recipe_autocomplete(
         if key in seen:
             continue
         rid = _as_id(source.get("id")) or _as_id(hit.get("_id"))
-        if not rid:
+        if not rid or rid in disabled_ids:
             continue
         seen.add(key)
         suggestions[rid] = normalized

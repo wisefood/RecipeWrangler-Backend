@@ -792,20 +792,20 @@ def _generate_sustainability_suggestions(
 
     current_total_co2e_kg = sum(float(d.get("co2e_kg") or 0.0) for d in details)
     if current_total_co2e_kg <= 0:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"Could not compute a CO2e footprint for recipe '{recipe_id}' — "
-                "none of its ingredients matched the sustainability database."
-            ),
+        return _no_suggestions_response(
+            recipe_id, region, "sustainability",
+            "Could not compute a CO2e footprint — none of the ingredients matched "
+            "the sustainability database.",
+            breakdown,
         )
     current_per_serving_co2e_kg = current_total_co2e_kg / (serves or 1.0)
 
     offender_pool = _rank_sustainability_offenders(details)
     if not offender_pool:
-        raise HTTPException(
-            status_code=422,
-            detail="No CO2e-contributing ingredient has viable substitutes in the graph.",
+        return _no_suggestions_response(
+            recipe_id, region, "sustainability",
+            "No CO2e-contributing ingredient has viable substitutes in the graph.",
+            breakdown,
         )
 
     offender: dict[str, Any] | None = None
@@ -829,12 +829,11 @@ def _generate_sustainability_suggestions(
             break
 
     if not offender or not evaluated:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"No viable lower-CO2e substitute for any ingredient in recipe '{recipe_id}' "
-                f"(min reduction = {int(SUSTAINABILITY_MIN_REDUCTION_PCT * 100)}%)."
-            ),
+        return _no_suggestions_response(
+            recipe_id, region, "sustainability",
+            f"No substitute cuts CO2e by at least "
+            f"{int(SUSTAINABILITY_MIN_REDUCTION_PCT * 100)}% for any ingredient.",
+            breakdown,
         )
 
     # Rank by absolute CO2e reduction per serving — biggest climate impact first,
@@ -952,9 +951,10 @@ def _generate_reduce_quantity_suggestions(
 
     offender_pool = _rank_offender_candidates(details, target, require_substitutes=False)
     if not offender_pool:
-        raise HTTPException(
-            status_code=422,
-            detail=f"No ingredient contributes to {target['label']}.",
+        return _no_suggestions_response(
+            recipe_id, region, "reduce_quantity",
+            f"No ingredient contributes to {target['label']}.",
+            breakdown,
         )
 
     fvl_pct = _fvl_pct_from_breakdown(breakdown)
@@ -1040,12 +1040,11 @@ def _generate_reduce_quantity_suggestions(
             break
 
     if not suggestions:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"No single-ingredient reduction (down to {int(REDUCE_KEEP_FRACTIONS[-1] * 100)}% "
-                f"of original weight) improves the grade for recipe '{recipe_id}'."
-            ),
+        return _no_suggestions_response(
+            recipe_id, region, "reduce_quantity",
+            f"No single-ingredient reduction (down to {int(REDUCE_KEEP_FRACTIONS[-1] * 100)}% "
+            "of original weight) improves the grade.",
+            breakdown,
         )
 
     return {
@@ -1089,6 +1088,25 @@ def _already_optimal_response(
     }
 
 
+def _no_suggestions_response(
+    recipe_id: str, region: str, mode: str, message: str,
+    breakdown: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """A target exists but no viable swap/reduction was found — a legitimate
+    analysis outcome the UI renders as an empty state, not an error."""
+    payload: dict[str, Any] = {
+        "recipe_id": recipe_id,
+        "region": region,
+        "mode": mode,
+        "status": "no_suggestions",
+        "message": message,
+        "suggestions": [],
+    }
+    if isinstance(breakdown, dict):
+        payload["current_nutri_score"] = _grade_letter(breakdown.get("nutri_score"))
+    return payload
+
+
 def generate_suggestions(
     recipe_id: str, region: str, max_swaps: int = 1, use_llm: bool = False,
     mode: str = "nutrition", goal_nutrients: list[str] | None = None,
@@ -1114,9 +1132,10 @@ def generate_suggestions(
 
     offender_pool = _rank_offender_candidates(details, target)
     if not offender_pool:
-        raise HTTPException(
-            status_code=422,
-            detail=f"No ingredient with viable substitutes contributes to {target['label']}.",
+        return _no_suggestions_response(
+            recipe_id, region, "nutrition",
+            f"No ingredient with viable substitutes contributes to {target['label']}.",
+            breakdown,
         )
 
     fvl_pct = _fvl_pct_from_breakdown(breakdown)
@@ -1152,12 +1171,10 @@ def generate_suggestions(
             break
 
     if not offender or not evaluated:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"No viable substitute improves {target['label']} for any ingredient in "
-                f"recipe '{recipe_id}'."
-            ),
+        return _no_suggestions_response(
+            recipe_id, region, "nutrition",
+            f"No viable substitute improves {target['label']} for any ingredient in this recipe.",
+            breakdown,
         )
 
     # FlavorDB tiebreak: among candidates that save equal points / improve

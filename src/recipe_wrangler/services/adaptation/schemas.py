@@ -116,10 +116,12 @@ class SuggestionsResponse(BaseModel):
     mode: Mode = Field(..., description="Which optimisation target produced this response.")
 
     # ---- always-populated context ----
-    status: Literal["ok", "already_optimal"] = Field(
+    status: Literal["ok", "already_optimal", "no_suggestions"] = Field(
         "ok",
-        description="'already_optimal' when the recipe scores below the target threshold on "
-                    "every negative Nutri-Score nutrient — nothing to adapt, suggestions empty.",
+        description="'already_optimal': nothing to adapt (recipe scores below the target "
+                    "threshold everywhere). 'no_suggestions': a target exists but no viable "
+                    "swap/reduction was found. Both are successful outcomes with empty "
+                    "suggestions, not errors.",
     )
     message: Optional[str] = Field(
         None,

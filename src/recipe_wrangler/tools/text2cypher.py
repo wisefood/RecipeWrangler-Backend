@@ -47,13 +47,16 @@ Rules:
 - Put allergen exclusions into allergens.
 - Put dietary intents (vegan, keto, gluten free, etc.) into diet.
 - Speed intents (quick, fast, speedy, weeknight, "in a hurry") mean max_duration_minutes=30
-  unless an explicit time is given; "under X minutes" means max_duration_minutes=X.
+  unless an explicit time is given, AND sort_by="time_asc" so the quickest recipes lead.
+- "under X minutes" means max_duration_minutes=X.
 - Put meal-category nouns (dessert, snack, main dish/course, breakfast, dinner) into
   dish_types, never into title_keywords.
 - Generic nouns (meal, meals, dish, dishes, recipe, recipes, food, ideas) and quality
   words (easy, simple, tasty, healthy) go NOWHERE — do not emit them as constraints.
 - title_keywords is ONLY for words naming a specific dish or preparation
   ("carbonara", "shepherd's pie", "soup", "stir fry") — never adjectives or categories.
+- sort_by is one of time_asc | time_desc | title_asc | title_desc | random; set it only
+  when the question implies an ordering ("quickest" -> time_asc, "surprise me" -> random).
 - Use max_duration_minutes when a time limit is explicitly asked.
 - Use min_servings only when a lower-bound serving size is explicitly asked.
 - If the question is not about recipe retrieval, set unsupported_intent=true and explain why in unsupported_reason.
@@ -76,13 +79,16 @@ Schema:
 
 Rules:
 - Speed intents (quick, fast, speedy, weeknight, "in a hurry") mean max_duration_minutes=30
-  unless an explicit time is given; "under X minutes" means max_duration_minutes=X.
+  unless an explicit time is given, AND sort_by="time_asc" so the quickest recipes lead.
+- "under X minutes" means max_duration_minutes=X.
 - Put meal-category nouns (dessert, snack, main dish/course, breakfast, dinner) into
   dish_types, never into title_keywords.
 - Generic nouns (meal, meals, dish, dishes, recipe, recipes, food, ideas) and quality
   words (easy, simple, tasty, healthy) go NOWHERE - do not emit them as constraints.
 - title_keywords is ONLY for words naming a specific dish or preparation
   ("carbonara", "shepherd's pie", "soup", "stir fry") - never adjectives or categories.
+- sort_by is one of time_asc | time_desc | title_asc | title_desc | random; set it only
+  when the question implies an ordering ("quickest" -> time_asc, "surprise me" -> random).
 
 Question:
 {question}
@@ -174,6 +180,7 @@ class ExtractConstraintsOutput(BaseModel):
     diet: List[str] = Field(default_factory=list)
     dish_types: List[str] = Field(default_factory=list)
     title_keywords: List[str] = Field(default_factory=list)
+    sort_by: Optional[str] = None
     max_duration_minutes: Optional[int] = None
     min_servings: Optional[int] = None
     limit: int = 50
@@ -242,7 +249,7 @@ class RecipeSearchAppV2:
     # Bump whenever the extraction prompt/schema changes semantics — cached
     # extractions outlive deploys, and stale routing (e.g. "quick" as a title
     # keyword) would otherwise survive for the full TTL.
-    _CONSTRAINTS_PROMPT_VERSION = 2
+    _CONSTRAINTS_PROMPT_VERSION = 3
 
     @classmethod
     def _redis_constraints_key(cls, key: tuple[str, bool]) -> str:
@@ -553,6 +560,8 @@ class RecipeSearchAppV2:
         "dinner": "main-dish", "entree": "main-dish",
     }
 
+    _ALLOWED_SORTS = frozenset({"time_asc", "time_desc", "title_asc", "title_desc", "random"})
+
     @classmethod
     def _canonicalize_dish_types(cls, constraints: dict) -> dict:
         dish_types: list[str] = []
@@ -561,6 +570,10 @@ class RecipeSearchAppV2:
             if canonical and canonical not in dish_types:
                 dish_types.append(canonical)
         constraints["dish_types"] = dish_types
+        # Same vocabulary discipline for sort_by: pass through only values the
+        # query builder implements; anything else falls back to default sort.
+        sort_by = str(constraints.get("sort_by") or "").strip().casefold() or None
+        constraints["sort_by"] = sort_by if sort_by in cls._ALLOWED_SORTS else None
         return constraints
 
     def _finalize_extracted_constraints(

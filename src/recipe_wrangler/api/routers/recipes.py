@@ -1808,6 +1808,7 @@ async def recipe_search(
             title_keywords=constraints.get("title_keywords") or [],
             max_duration_minutes=constraints.get("max_duration_minutes"),
             min_servings=constraints.get("min_servings"),
+            sort_by=constraints.get("sort_by"),
             limit=constraints.get("limit") or 10,
             region=payload.region or "eu",
         )
@@ -1829,13 +1830,16 @@ async def recipe_search(
         except Exception as exc:  # noqa: BLE001
             raise map_dependency_error("Elasticsearch", exc) from exc
         logger.info(
-            "recipe_search question=%r extract=%.2fs es=%.2fs results=%d personalized=%s relaxed=%s",
+            "recipe_search question=%r extract=%.2fs es=%.2fs results=%d personalized=%s "
+            "relaxed=%s constraints=%s",
             question[:80],
             extract_seconds,
             time.perf_counter() - es_started,
             len(es_out["results"]),
             bool(payload.diet_tags or payload.preferred_ingredients or exclude_allergens),
             relaxed,
+            json.dumps({k: v for k, v in base_constraints.items()
+                        if v not in (None, [], "") and k not in ("region", "limit")}),
         )
         return {"results": [_es_card(card) for card in es_out["results"]]}
 

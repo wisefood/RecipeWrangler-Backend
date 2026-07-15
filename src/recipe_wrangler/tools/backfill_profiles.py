@@ -102,97 +102,127 @@ def _chain_inputs(recipe: dict, reuse_row: dict | None):
     return names, measurements, None
 
 
-def backfill(regions: tuple[str, ...], limit: int | None, include_recipe1m: bool,
-             sleep_s: float, dry_run: bool) -> int:
+def _process_recipe(recipe_id: str, missing: list[str], reuse_row: dict | None) -> tuple[list[str], int]:
+    """Profile one recipe's missing regions. Returns (done_regions, fail_count)."""
     from recipe_wrangler.tools.fetch_recipe_info import fetch_recipe_info_by_id
     from recipe_wrangler.tools.recipe_profiling_chain import Recipe_Profiling_Chain_Structured
-    # Router import is heavy but guarantees byte-identical persistence with
-    # the live background job (clean totals, cache invalidation, ES scores).
     from recipe_wrangler.api.routers.recipes import _persist_profile_trace_best_effort
+
+    try:
+        recipe = fetch_recipe_info_by_id(recipe_id)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[backfill] {recipe_id}: Neo4j fetch failed ({exc})", flush=True)
+        return [], 1
+    if not recipe:
+        return [], 0
+
+    names, measurements, weights = _chain_inputs(recipe, reuse_row)
+    if not names:
+        print(f"[backfill] {recipe_id}: no usable ingredients — skipping", flush=True)
+        return [], 0
+
+    done_regions: list[str] = []
+    fails = 0
+    for region in missing:
+        if _stop:
+            break
+        try:
+            result = Recipe_Profiling_Chain_Structured.invoke({
+                "title": recipe.get("title", ""),
+                "ingredient_names": names,
+                "measurements": measurements,
+                "serves": float(recipe.get("serves") or 4),
+                "total_time": recipe.get("duration"),
+                "directions": recipe.get("instructions") or [],
+                "region": region,
+                "debug": False,
+                "weights": weights,
+            })
+            if not isinstance(result, dict):
+                raise RuntimeError(f"unexpected chain payload {type(result).__name__}")
+            if weights is None:
+                got = result.get("weights")
+                if isinstance(got, list) and len(got) == len(names):
+                    weights = [float(w or 0.0) for w in got]
+            persisted, warning = _persist_profile_trace_best_effort(
+                {"recipe_id": recipe_id}, result
+            )
+            if not persisted:
+                raise RuntimeError(warning or "persist failed")
+            done_regions.append(region)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[backfill] {recipe_id} ({region}): FAILED — {exc}", flush=True)
+            fails += 1
+    return done_regions, fails
+
+
+def backfill(regions: tuple[str, ...], limit: int | None, include_recipe1m: bool,
+             sleep_s: float, dry_run: bool, workers: int = 1) -> int:
+    from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+
+    # Fail fast on import/config problems before spawning anything.
+    from recipe_wrangler.api.routers.recipes import _persist_profile_trace_best_effort  # noqa: F401
 
     ids = _candidate_recipe_ids(include_recipe1m)
     print(f"[backfill] {len(ids)} candidate recipes; regions={list(regions)} "
-          f"dry_run={dry_run}", flush=True)
+          f"workers={workers} dry_run={dry_run}", flush=True)
 
     processed = skipped = failed = 0
-    for index, recipe_id in enumerate(ids):
-        if _stop or (limit is not None and processed >= limit):
-            break
+    started_at = time.perf_counter()
 
-        try:
-            missing, reuse_row = _missing_regions(recipe_id, regions)
-        except Exception as exc:  # noqa: BLE001
-            print(f"[backfill] {recipe_id}: trace lookup failed ({exc}) — skipping", flush=True)
-            failed += 1
-            continue
-        if not missing:
-            skipped += 1
-            continue
+    def report(recipe_id: str, done_regions: list[str], elapsed: float) -> None:
+        print(f"[backfill] {recipe_id}: {done_regions or 'nothing'} in {elapsed:.1f}s "
+              f"[done={processed} skipped={skipped} failed={failed} "
+              f"elapsed={time.perf_counter() - started_at:.0f}s]", flush=True)
 
-        if dry_run:
-            processed += 1
-            print(f"[backfill] {recipe_id}: missing {missing}"
-                  f"{' (weights reusable)' if reuse_row else ''}", flush=True)
-            continue
-
-        try:
-            recipe = fetch_recipe_info_by_id(recipe_id)
-        except Exception as exc:  # noqa: BLE001
-            print(f"[backfill] {recipe_id}: Neo4j fetch failed ({exc})", flush=True)
-            failed += 1
-            continue
-        if not recipe:
-            skipped += 1
-            continue
-
-        names, measurements, weights = _chain_inputs(recipe, reuse_row)
-        if not names:
-            print(f"[backfill] {recipe_id}: no usable ingredients — skipping", flush=True)
-            skipped += 1
-            continue
-
-        started = time.perf_counter()
-        done_regions = []
-        for region in missing:
-            if _stop:
+    executor = ThreadPoolExecutor(max_workers=max(1, workers))
+    pending: dict = {}
+    try:
+        for recipe_id in ids:
+            if _stop or (limit is not None and processed + len(pending) >= limit):
                 break
             try:
-                result = Recipe_Profiling_Chain_Structured.invoke({
-                    "title": recipe.get("title", ""),
-                    "ingredient_names": names,
-                    "measurements": measurements,
-                    "serves": float(recipe.get("serves") or 4),
-                    "total_time": recipe.get("duration"),
-                    "directions": recipe.get("instructions") or [],
-                    "region": region,
-                    "debug": False,
-                    "weights": weights,
-                })
-                if not isinstance(result, dict):
-                    raise RuntimeError(f"unexpected chain payload {type(result).__name__}")
-                if weights is None:
-                    got = result.get("weights")
-                    if isinstance(got, list) and len(got) == len(names):
-                        weights = [float(w or 0.0) for w in got]
-                persisted, warning = _persist_profile_trace_best_effort(
-                    {"recipe_id": recipe_id}, result
-                )
-                if not persisted:
-                    raise RuntimeError(warning or "persist failed")
-                done_regions.append(region)
+                missing, reuse_row = _missing_regions(recipe_id, regions)
             except Exception as exc:  # noqa: BLE001
-                print(f"[backfill] {recipe_id} ({region}): FAILED — {exc}", flush=True)
+                print(f"[backfill] {recipe_id}: trace lookup failed ({exc})", flush=True)
                 failed += 1
+                continue
+            if not missing:
+                skipped += 1
+                continue
+            if dry_run:
+                processed += 1
+                print(f"[backfill] {recipe_id}: missing {missing}"
+                      f"{' (weights reusable)' if reuse_row else ''}", flush=True)
+                continue
 
-        processed += 1
-        print(f"[backfill] {index + 1}/{len(ids)} {recipe_id}: {done_regions or 'nothing'} "
-              f"in {time.perf_counter() - started:.1f}s "
-              f"[done={processed} skipped={skipped} failed={failed}]", flush=True)
-        if sleep_s:
-            time.sleep(sleep_s)
+            submit_time = time.perf_counter()
+            future = executor.submit(_process_recipe, recipe_id, missing, reuse_row)
+            pending[future] = (recipe_id, submit_time)
 
-    print(f"[backfill] finished: processed={processed} skipped={skipped} failed={failed}",
-          flush=True)
+            # Bounded in-flight set: enumerate lazily, never pile up futures.
+            while len(pending) >= max(1, workers) * 2:
+                finished, _ = wait(list(pending), return_when=FIRST_COMPLETED)
+                for f in finished:
+                    rid, t0 = pending.pop(f)
+                    done_regions, fails = f.result()
+                    processed += 1
+                    failed += fails
+                    report(rid, done_regions, time.perf_counter() - t0)
+            if sleep_s:
+                time.sleep(sleep_s)
+
+        for f in list(pending):
+            rid, t0 = pending[f]
+            done_regions, fails = f.result()
+            processed += 1
+            failed += fails
+            report(rid, done_regions, time.perf_counter() - t0)
+    finally:
+        executor.shutdown(wait=True)
+
+    print(f"[backfill] finished: processed={processed} skipped={skipped} failed={failed} "
+          f"in {time.perf_counter() - started_at:.0f}s", flush=True)
     return 0 if failed == 0 else 1
 
 
@@ -208,7 +238,10 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--include-recipe1m", action="store_true",
                         help="Also backfill the recipe1m corpus (large!)")
     parser.add_argument("--sleep", type=float, default=0.0,
-                        help="Seconds to pause between recipes (rate limiting)")
+                        help="Seconds to pause between submissions (rate limiting)")
+    parser.add_argument("--workers", type=int, default=1,
+                        help="Parallel recipes (each recipe's regions stay sequential "
+                             "so weight reuse holds; 4-6 is a sane ceiling)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Only report which recipes/regions are missing")
     args = parser.parse_args(argv)
@@ -219,7 +252,8 @@ def main(argv: list[str]) -> int:
     )
     if not regions:
         parser.error(f"--regions must name at least one of {REGIONS}")
-    return backfill(regions, args.limit, args.include_recipe1m, args.sleep, args.dry_run)
+    return backfill(regions, args.limit, args.include_recipe1m, args.sleep,
+                    args.dry_run, workers=args.workers)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 # Purpose: Minimal constraint-first Text-to-Cypher LangGraph pipeline for recipe search.
 
 import os
-import re
 import sys
 import json
 import threading
@@ -71,6 +70,16 @@ EXTRACT_CONSTRAINTS_JSON_HUMAN_PROMPT = """Extract recipe constraints and return
 
 Schema:
 {schema}
+
+Rules:
+- Speed intents (quick, fast, speedy, weeknight, "in a hurry") mean max_duration_minutes=30
+  unless an explicit time is given; "under X minutes" means max_duration_minutes=X.
+- Put meal-category nouns (dessert, snack, main dish/course, breakfast, dinner) into
+  dish_types, never into title_keywords.
+- Generic nouns (meal, meals, dish, dishes, recipe, recipes, food, ideas) and quality
+  words (easy, simple, tasty, healthy) go NOWHERE - do not emit them as constraints.
+- title_keywords is ONLY for words naming a specific dish or preparation
+  ("carbonara", "shepherd's pie", "soup", "stir fry") - never adjectives or categories.
 
 Question:
 {question}
@@ -511,20 +520,11 @@ class RecipeSearchAppV2:
 
         return self._finalize_extracted_constraints(state, question, constraints)
 
-    # Deterministic semantic routing applied AFTER extraction (LLM, cached, or
-    # heuristic): intent words must land in the right constraint slot even when
-    # the extractor dumps them into title_keywords.
-    _SPEED_WORDS = frozenset({"quick", "fast", "speedy", "express", "weeknight"})
-    _SPEED_DEFAULT_MINUTES = 30
-    # Words that carry no retrievable meaning: never title-match them.
-    _NON_TITLE_WORDS = frozenset({
-        "meal", "meals", "dish", "dishes", "recipe", "recipes", "food", "foods",
-        "idea", "ideas", "something", "easy", "simple", "tasty", "delicious",
-        "healthy", "nice", "good", "great",
-    }) | _SPEED_WORDS
-    # Category nouns → canonical dish_types the index actually carries. Words
-    # NOT in this map (soup, salad, curry...) stay title keywords — they
-    # genuinely appear in titles, unlike "dessert".
+    # Semantic interpretation (what is a dish type, a speed intent, a title
+    # word) belongs to the LLM via the extraction prompt rules. Code only
+    # canonicalizes dish_types to the vocabulary the index actually carries —
+    # an unmapped value would be a hard filter matching nothing, so unknown
+    # values are dropped rather than passed through.
     _DISH_TYPE_ALIASES = {
         "dessert": "desserts", "desserts": "desserts",
         "sweet": "desserts", "sweets": "desserts",
@@ -535,37 +535,13 @@ class RecipeSearchAppV2:
     }
 
     @classmethod
-    def _route_semantic_constraints(cls, constraints: dict, question: str) -> dict:
-        question_tokens = set(re.findall(r"[a-z][a-z-]*", str(question or "").casefold()))
-
+    def _canonicalize_dish_types(cls, constraints: dict) -> dict:
         dish_types: list[str] = []
         for raw in list(constraints.get("dish_types") or []):
             canonical = cls._DISH_TYPE_ALIASES.get(str(raw or "").strip().casefold())
             if canonical and canonical not in dish_types:
                 dish_types.append(canonical)
-
-        kept_keywords: list[str] = []
-        for raw in list(constraints.get("title_keywords") or []):
-            word = str(raw or "").strip().casefold()
-            if not word or word in cls._NON_TITLE_WORDS:
-                continue
-            canonical = cls._DISH_TYPE_ALIASES.get(word)
-            if canonical:
-                if canonical not in dish_types:
-                    dish_types.append(canonical)
-                continue
-            kept_keywords.append(word)
-        constraints["title_keywords"] = kept_keywords
-
-        # Question-level fallbacks: catch category/speed words the extractor
-        # dropped or misplaced elsewhere.
-        for alias, canonical in cls._DISH_TYPE_ALIASES.items():
-            if " " not in alias and alias in question_tokens and canonical not in dish_types:
-                dish_types.append(canonical)
         constraints["dish_types"] = dish_types
-
-        if constraints.get("max_duration_minutes") is None and question_tokens & cls._SPEED_WORDS:
-            constraints["max_duration_minutes"] = cls._SPEED_DEFAULT_MINUTES
         return constraints
 
     def _finalize_extracted_constraints(
@@ -588,7 +564,7 @@ class RecipeSearchAppV2:
             if constraints.get("min_servings") is None and heuristics.get("min_servings") is not None:
                 constraints["min_servings"] = heuristics["min_servings"]
 
-        constraints = self._route_semantic_constraints(constraints, question)
+        constraints = self._canonicalize_dish_types(constraints)
         constraints["limit"] = self._clamp_limit(constraints.get("limit"), default=50)
         return {
             "query_constraints": constraints,

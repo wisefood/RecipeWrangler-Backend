@@ -1003,18 +1003,20 @@ def recipe_autocomplete(
 
     hits = payload.get("hits", {}).get("hits", [])
 
-    # The legacy autocomplete index predates status sync for part of the
-    # corpus (recipe1m bulk disables only landed in recipes_v2), so its own
-    # must_not(status=disabled) clause cannot see them. Cross-check the
-    # shortlist against recipes_v2 — one _mget of <=40 ids — so suggestions
-    # never link to a recipe the primary index considers disabled.
+    # Cross-check the shortlist against recipes_v2 (one _mget, <=40 ids) and
+    # DROP anything the primary index doesn't vouch for:
+    #  - disabled recipes whose bulk status flip never reached this legacy
+    #    index (recipe1m), and
+    #  - corrupt legacy docs whose stored id is a title or dead short id
+    #    ("Leftover Turkey Casserole", "15cdb65ed2") — suggesting those sent
+    #    every consumer (UI clicks, FoodChat seed anchoring) into 404s.
     candidate_ids = [
         rid for rid in (
             _as_id((hit.get("_source") or {}).get("id")) or _as_id(hit.get("_id"))
             for hit in hits
         ) if rid
     ]
-    disabled_ids: set[str] = set()
+    excluded_ids: set[str] = set()
     if candidate_ids:
         try:
             mget_response = get_http_session().post(
@@ -1025,11 +1027,11 @@ def recipe_autocomplete(
             mget_response.raise_for_status()
             for doc in mget_response.json().get("docs") or []:
                 status_value = str(((doc.get("_source") or {}).get("status")) or "").lower()
-                if doc.get("found") and status_value == STATUS_DISABLED:
-                    disabled_ids.add(str(doc.get("_id")))
+                if not doc.get("found") or status_value == STATUS_DISABLED:
+                    excluded_ids.add(str(doc.get("_id")))
         except requests.RequestException:
             # Best-effort: a failed cross-check must never break autocomplete.
-            disabled_ids = set()
+            excluded_ids = set()
 
     suggestions: dict[str, str] = {}
     seen: set[str] = set()
@@ -1047,7 +1049,7 @@ def recipe_autocomplete(
         if key in seen:
             continue
         rid = _as_id(source.get("id")) or _as_id(hit.get("_id"))
-        if not rid or rid in disabled_ids:
+        if not rid or rid in excluded_ids:
             continue
         seen.add(key)
         suggestions[rid] = normalized

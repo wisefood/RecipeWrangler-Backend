@@ -338,6 +338,7 @@ def Recipe_Profiling_Chain_Structured(
     directions: Optional[List[str]] = None,
     region: str = "IE",
     debug: bool = False,
+    weights: Optional[List[float]] = None,
 ):
     """
     Run weight estimation and nutrition/sustainability profiling on pre-structured
@@ -357,6 +358,9 @@ def Recipe_Profiling_Chain_Structured(
         directions: List of instruction steps (optional, not used for nutrition).
         region: Nutrition source region — "IE" (Irish), "US" (USDA), "HU" (Hungarian).
         debug: Emit debug output from pipeline nodes.
+        weights: Pre-computed per-ingredient weights in grams (one per name).
+            Weights are region-independent, so multi-region reprofiling passes
+            the first region's weights here to skip re-estimation.
     """
     graph = build_pipeline_without_parse()
     normalized_region = (region or "IE").strip().upper()
@@ -369,6 +373,7 @@ def Recipe_Profiling_Chain_Structured(
         title=title,
         ingredient_names=ingredient_names,
         measurements=measurements,
+        weights=list(weights) if weights else [],
         serves=float(serves),
         total_time=float(total_time) if total_time is not None else None,
         directions=directions or [],

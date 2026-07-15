@@ -9,6 +9,7 @@ Reuses existing helpers (no modifications to upstream code):
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 
 from fastapi import HTTPException
@@ -223,8 +224,40 @@ def _recompute_ingredient_details(
     return details
 
 
-def _identify_target_nutrient(breakdown: dict[str, Any]) -> dict[str, Any] | None:
-    """Step 1: pick the highest-scoring negative nutrient (≥ MIN_TARGET_POINTS)."""
+# Member dietary-goal slugs (e.g. FoodScholar writes properties.dietary_goals
+# entries like "reduce_fat") normalized to NUTRIENT_MAP keys.
+_GOAL_NUTRIENT_ALIASES: dict[str, str] = {
+    "energy": "energy", "calories": "energy",
+    "reduce_calories": "energy", "reduce_energy": "energy", "low_calorie": "energy",
+    "sugar": "sugar", "sugars": "sugar", "reduce_sugar": "sugar", "low_sugar": "sugar",
+    "saturated_fats": "saturated_fats", "saturated_fat": "saturated_fats",
+    "fat": "saturated_fats", "reduce_fat": "saturated_fats", "low_fat": "saturated_fats",
+    "sodium": "sodium", "salt": "sodium", "reduce_salt": "sodium", "low_salt": "sodium",
+    "reduce_sodium": "sodium", "low_sodium": "sodium",
+}
+
+
+def _normalize_goal_nutrients(goals: list[str] | None) -> list[str]:
+    """Map goal slugs/nutrient names to NUTRIENT_MAP keys, order-preserving."""
+    normalized: list[str] = []
+    for goal in goals or []:
+        key = _GOAL_NUTRIENT_ALIASES.get(str(goal or "").strip().lower())
+        if key and key not in normalized:
+            normalized.append(key)
+    return normalized
+
+
+def _identify_target_nutrient(
+    breakdown: dict[str, Any],
+    preferred_keys: list[str] | None = None,
+) -> dict[str, Any] | None:
+    """Step 1: pick the highest-scoring negative nutrient (≥ MIN_TARGET_POINTS).
+
+    When the member has dietary goals (preferred_keys), the best-ranked
+    nutrient matching a goal wins — provided it still clears
+    MIN_TARGET_POINTS. Goals bias the choice; they never force a target the
+    recipe doesn't actually score badly on.
+    """
 
     items = (breakdown.get("negative_points") or {}).get("items") or {}
     ranked = sorted(
@@ -239,6 +272,11 @@ def _identify_target_nutrient(breakdown: dict[str, Any]) -> dict[str, Any] | Non
     if not ranked:
         return None
     top_key, top_points, top_value, top_unit = ranked[0]
+    if preferred_keys:
+        for key, points, value, unit in ranked:
+            if key in preferred_keys and points >= MIN_TARGET_POINTS:
+                top_key, top_points, top_value, top_unit = key, points, value, unit
+                break
     if top_points < MIN_TARGET_POINTS:
         return None
     meta = NUTRIENT_MAP[top_key]
@@ -300,8 +338,20 @@ def _rank_offender_candidates(
 
 
 def _fetch_candidate_profile(candidate_name: str, source: str) -> dict[str, Any] | None:
-    """Run the existing per-ingredient nutrition pipeline at 100g for one candidate."""
+    """Run the existing per-ingredient nutrition pipeline at 100g for one candidate.
 
+    Cached: candidate names repeat heavily across recipes and requests (cream,
+    butter, yoghurt, ...), and each lookup costs several Chroma/Postgres/USDA
+    round-trips — the dominant share of a suggestions call's latency.
+    """
+    det = _fetch_candidate_profile_cached(
+        str(candidate_name or "").strip().lower(), str(source or "")
+    )
+    return dict(det) if det is not None else None
+
+
+@lru_cache(maxsize=1024)
+def _fetch_candidate_profile_cached(candidate_name: str, source: str) -> dict[str, Any] | None:
     try:
         result = nutritional_tool_chroma.invoke({
             "title": candidate_name,
@@ -443,6 +493,13 @@ def _evaluate_candidate(
         return None
     cand_per_100g = _candidate_per_100g_map(profile)
     cand_target_per_100g = float(profile.get(target["per100g_key"]) or 0.0)
+    # The nutrition pipeline zero-fills nutrients its FCT match lacks, so an
+    # exact 0.0 on the TARGET nutrient is far more often a data gap than a
+    # real value (e.g. "sour cream: 0.0g saturated fat"). A suggestion built
+    # on a hole in the data overstates its benefit and erodes trust — reject;
+    # near-zero genuine alternatives still rank on top.
+    if cand_target_per_100g <= 0.0:
+        return None
     original_per_100g_val = offender["original_per_100g"]
     if original_per_100g_val <= 0 or cand_target_per_100g >= original_per_100g_val:
         return None
@@ -891,13 +948,7 @@ def _generate_reduce_quantity_suggestions(
 
     target = _identify_target_nutrient(breakdown)
     if not target:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"Recipe '{recipe_id}' already scores below {MIN_TARGET_POINTS} on every "
-                "negative Nutri-Score nutrient — no adaptation needed."
-            ),
-        )
+        return _already_optimal_response(recipe_id, region, "reduce_quantity", breakdown)
 
     offender_pool = _rank_offender_candidates(details, target, require_substitutes=False)
     if not offender_pool:
@@ -1019,9 +1070,28 @@ def _generate_reduce_quantity_suggestions(
 # ---------- public entry points ----------
 
 
+def _already_optimal_response(
+    recipe_id: str, region: str, mode: str, breakdown: dict[str, Any],
+) -> dict[str, Any]:
+    """A recipe with no nutrient scoring >= MIN_TARGET_POINTS needs no
+    adaptation — that is a successful outcome, not an error."""
+    return {
+        "recipe_id": recipe_id,
+        "region": region,
+        "mode": mode,
+        "status": "already_optimal",
+        "message": (
+            f"Recipe already scores below {MIN_TARGET_POINTS} on every negative "
+            "Nutri-Score nutrient — no adaptation needed."
+        ),
+        "current_nutri_score": _grade_letter(breakdown.get("nutri_score")),
+        "suggestions": [],
+    }
+
+
 def generate_suggestions(
     recipe_id: str, region: str, max_swaps: int = 1, use_llm: bool = False,
-    mode: str = "nutrition",
+    mode: str = "nutrition", goal_nutrients: list[str] | None = None,
 ) -> dict[str, Any]:
     mode_l = (mode or "").lower()
     if mode_l == "sustainability":
@@ -1038,15 +1108,9 @@ def generate_suggestions(
     source = _region_to_source(region)
     details = _recompute_ingredient_details(row, source)
 
-    target = _identify_target_nutrient(breakdown)
+    target = _identify_target_nutrient(breakdown, _normalize_goal_nutrients(goal_nutrients))
     if not target:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"Recipe '{recipe_id}' already scores below {MIN_TARGET_POINTS} on every "
-                "negative Nutri-Score nutrient — no adaptation needed."
-            ),
-        )
+        return _already_optimal_response(recipe_id, region, "nutrition", breakdown)
 
     offender_pool = _rank_offender_candidates(details, target)
     if not offender_pool:

@@ -3548,6 +3548,23 @@ def Ingredient_Weight_Node(state: RecipeState) -> RecipeState:
 
     names = state.ingredient_names or []
     measurements = state.measurements or []
+
+    # Weights are region-independent: multi-region reprofiling pre-populates
+    # them from the first region's run so this (LLM/matching-heavy) step runs
+    # once per recipe instead of once per region.
+    if (
+        isinstance(state.weights, list)
+        and state.weights
+        and len(state.weights) == len(names)
+    ):
+        trace = dict(state.pipeline_trace or {})
+        trace.setdefault("weight_calculation", {
+            "weights": list(state.weights),
+            "details": [],
+            "reused_precomputed_weights": True,
+        })
+        state.pipeline_trace = trace
+        return state
     result = ingredient_weight_tool_usda.invoke({
         "ingredient_names": names,
         "measurements": measurements,

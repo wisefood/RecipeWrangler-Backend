@@ -76,6 +76,7 @@ from recipe_wrangler.repositories.postgres_nutrition import (
     get_recipe_nutrition,
     get_recipe_nutrition_batch,
     get_recipe_profile_trace,
+    get_recipe_profile_traces,
     save_recipe_profile_trace,
 )
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
@@ -1119,38 +1120,36 @@ def get_recipe(
 
     preferred_nutrition_source = _nutrition_source_from_region(region)
 
-    nutrition = None
+    # One query fetches every region's trace row (sans the archival trace
+    # column); the preferred-region / any-region / ground-truth selections all
+    # happen in Python. This used to be up to five sequential Postgres reads,
+    # each dragging tens of KB of unused trace JSON.
+    trace_rows: list[dict[str, Any]] = []
     try:
-        nutrition = get_recipe_nutrition(
-            resolved_recipe_id,
-            nutrition_source=preferred_nutrition_source,
-        )
-        if not nutrition:
-            nutrition = get_recipe_nutrition(resolved_recipe_id)
+        trace_rows = get_recipe_profile_traces(resolved_recipe_id)
     except Exception:
-        nutrition = None
+        trace_rows = []
+    rows_by_source: dict[str, dict[str, Any]] = {}
+    for trace_row in trace_rows:
+        source_key = str(trace_row.get("nutrition_source") or "").strip().lower()
+        rows_by_source.setdefault(source_key, trace_row)
 
     stored_trace = None
-    try:
-        stored_trace = get_recipe_profile_trace(
-            resolved_recipe_id,
-            nutrition_source=preferred_nutrition_source,
-        )
-        if not stored_trace:
-            stored_trace = get_recipe_profile_trace(resolved_recipe_id)
-    except Exception:
-        stored_trace = None
+    if preferred_nutrition_source:
+        stored_trace = rows_by_source.get(str(preferred_nutrition_source).strip().lower())
+    if not stored_trace and trace_rows:
+        stored_trace = trace_rows[0]
+
+    # Nutrition is derived from stored_trace further below (same table, same
+    # row selection the dedicated nutrition query used to make).
+    nutrition = None
 
     source_ground_truth_trace = None
     ground_truth_sources = _source_ground_truth_nutrition_sources(recipe.get("source"))
     for ground_truth_source in ground_truth_sources:
-        try:
-            source_ground_truth_trace = get_recipe_profile_trace(
-                resolved_recipe_id,
-                nutrition_source=ground_truth_source,
-            )
-        except Exception:
-            source_ground_truth_trace = None
+        source_ground_truth_trace = rows_by_source.get(
+            str(ground_truth_source or "").strip().lower()
+        )
         if source_ground_truth_trace:
             break
     if source_ground_truth_trace is None and _is_source_ground_truth_trace(stored_trace):
@@ -1384,10 +1383,11 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
     return True, None
 
 
-# In-flight guard for background live-profiling jobs: one job per
-# (recipe_id, region) at a time, no matter how many GETs race on it.
-_LIVE_PROFILE_JOBS: set[tuple[str, str]] = set()
+# In-flight guard for background live-profiling jobs: one job per recipe at a
+# time (the job covers every region), no matter how many GETs race on it.
+_LIVE_PROFILE_JOBS: set[str] = set()
 _LIVE_PROFILE_JOBS_LOCK = threading.Lock()
+_LIVE_PROFILE_REGIONS = ("IE", "US", "HU")
 
 
 def _schedule_live_profile_job(recipe_id: str, recipe: dict[str, Any], region: str) -> bool:
@@ -1398,7 +1398,7 @@ def _schedule_live_profile_job(recipe_id: str, recipe: dict[str, Any], region: s
     """
     if not (recipe.get("ingredients") or []):
         return False
-    key = (str(recipe_id), (region or "IE").strip().upper())
+    key = str(recipe_id)
     with _LIVE_PROFILE_JOBS_LOCK:
         if key in _LIVE_PROFILE_JOBS:
             return True
@@ -1406,7 +1406,7 @@ def _schedule_live_profile_job(recipe_id: str, recipe: dict[str, Any], region: s
     try:
         threading.Thread(
             target=_run_live_profile_job,
-            args=(key, dict(recipe)),
+            args=(key, dict(recipe), (region or "IE").strip().upper()),
             name=f"live-profile-{recipe_id}",
             daemon=True,
         ).start()
@@ -1417,14 +1417,15 @@ def _schedule_live_profile_job(recipe_id: str, recipe: dict[str, Any], region: s
     return True
 
 
-def _run_live_profile_job(key: tuple[str, str], recipe: dict[str, Any]) -> None:
-    """Profile a recipe, persist the trace, and drop its cached responses.
+def _run_live_profile_job(recipe_id: str, recipe: dict[str, Any], first_region: str) -> None:
+    """Profile a recipe for every region and persist each trace.
 
-    Persisting through _persist_profile_trace_best_effort also gives the
-    adaptation service the trace it requires, and its cache_delete makes the
-    next GET pick the stored profile up.
+    The requested region runs first (weight estimation included) so the viewer
+    unblocks soonest; the remaining regions reuse its region-independent
+    weights, paying only the per-region nutrition mapping. Persisting through
+    _persist_profile_trace_best_effort also gives the adaptation service the
+    traces it requires, and its cache_delete makes the next GET pick them up.
     """
-    recipe_id, region = key
     try:
         ingredients = recipe.get("ingredients") or []
         ingredient_lines = [
@@ -1433,35 +1434,56 @@ def _run_live_profile_job(key: tuple[str, str], recipe: dict[str, Any]) -> None:
             for ing in ingredients
         ]
         ingredient_names, measurements = split_ingredient_lines(ingredient_lines)
-        live_result = Recipe_Profiling_Chain_Structured.invoke({
-            "title": recipe.get("title", ""),
-            "ingredient_names": ingredient_names,
-            "measurements": measurements,
-            "serves": float(recipe.get("serves") or 4),
-            "total_time": recipe.get("duration"),
-            "directions": recipe.get("instructions") or [],
-            "region": region,
-            "debug": False,
-        })
-        if isinstance(live_result, dict):
-            persisted, warning = _persist_profile_trace_best_effort(
-                {"recipe_id": recipe_id}, live_result
-            )
-            if not persisted:
-                logger.warning(
-                    "Live profiling for %s (%s) completed but was not persisted: %s",
-                    recipe_id, region, warning,
+        regions = [first_region] + [r for r in _LIVE_PROFILE_REGIONS if r != first_region]
+
+        reusable_weights: list[float] | None = None
+        for region in regions:
+            try:
+                started = time.perf_counter()
+                live_result = Recipe_Profiling_Chain_Structured.invoke({
+                    "title": recipe.get("title", ""),
+                    "ingredient_names": ingredient_names,
+                    "measurements": measurements,
+                    "serves": float(recipe.get("serves") or 4),
+                    "total_time": recipe.get("duration"),
+                    "directions": recipe.get("instructions") or [],
+                    "region": region,
+                    "debug": False,
+                    "weights": reusable_weights,
+                })
+                if not isinstance(live_result, dict):
+                    logger.warning(
+                        "Live profiling for %s (%s) returned unexpected payload type %s",
+                        recipe_id, region, type(live_result).__name__,
+                    )
+                    continue
+
+                if reusable_weights is None:
+                    weights = live_result.get("weights")
+                    if isinstance(weights, list) and len(weights) == len(ingredient_names):
+                        reusable_weights = [float(w or 0.0) for w in weights]
+
+                persisted, warning = _persist_profile_trace_best_effort(
+                    {"recipe_id": recipe_id}, live_result
                 )
-        else:
-            logger.warning(
-                "Live profiling for %s (%s) returned unexpected payload type %s",
-                recipe_id, region, type(live_result).__name__,
-            )
-    except Exception:
-        logger.warning("Live profiling failed for %s (%s)", recipe_id, region, exc_info=True)
+                if persisted:
+                    logger.info(
+                        "Live profiling %s (%s) done in %.1fs (weights %s)",
+                        recipe_id, region, time.perf_counter() - started,
+                        "reused" if region != regions[0] and reusable_weights else "computed",
+                    )
+                else:
+                    logger.warning(
+                        "Live profiling for %s (%s) completed but was not persisted: %s",
+                        recipe_id, region, warning,
+                    )
+            except Exception:
+                logger.warning(
+                    "Live profiling failed for %s (%s)", recipe_id, region, exc_info=True
+                )
     finally:
         with _LIVE_PROFILE_JOBS_LOCK:
-            _LIVE_PROFILE_JOBS.discard(key)
+            _LIVE_PROFILE_JOBS.discard(recipe_id)
 
 
 def _es_card(card: dict[str, Any]) -> dict[str, Any]:
@@ -1720,28 +1742,50 @@ async def recipe_search(
 
         return {"results": random_results or []}
 
-    # Lazily initialize Neo/Groq search stack only for non-empty queries.
-    recipe_search_app = get_recipe_search_app()
+    # Lazily initialize the Groq search stack only for non-empty queries. Both
+    # the (cheap) init and the LLM extraction are blocking calls, so keep them
+    # off the event loop — a slow Groq round-trip must never freeze the pod.
+    recipe_search_app = await run_in_threadpool(get_recipe_search_app)
 
     # Elasticsearch backend: reuse the LLM constraint extractor, then retrieve
     # from the recipes_v2 index instead of composing/executing Cypher.
     if get_settings().search_backend == "es":
+        extract_started = time.perf_counter()
         try:
-            constraints = recipe_search_app.run_extract_constraints(question)["query_constraints"]
-            es_out = search_recipes_es(
+            constraints = (
+                await run_in_threadpool(recipe_search_app.run_extract_constraints, question)
+            )["query_constraints"]
+        except Exception as exc:  # noqa: BLE001
+            raise map_dependency_error("Groq constraint extraction", exc) from exc
+        extract_seconds = time.perf_counter() - extract_started
+
+        es_started = time.perf_counter()
+        try:
+            es_out = await run_in_threadpool(
+                search_recipes_es,
                 RecipeSearchConstraints(
                     include_ingredients=constraints.get("preferred_ingredients") or [],
                     exclude_ingredients=constraints.get("excluded_ingredients") or [],
                     exclude_allergens=list({*(constraints.get("allergens") or []), *exclude_allergens}),
-                    diet_tags=constraints.get("diet") or [],
+                    diet_tags=list({*(constraints.get("diet") or []), *payload.diet_tags}),
+                    boost_ingredients=payload.preferred_ingredients,
                     title_keywords=constraints.get("title_keywords") or [],
                     max_duration_minutes=constraints.get("max_duration_minutes"),
                     min_servings=constraints.get("min_servings"),
                     limit=constraints.get("limit") or 10,
-                )
+                    region=payload.region or "eu",
+                ),
             )
         except Exception as exc:  # noqa: BLE001
             raise map_dependency_error("Elasticsearch", exc) from exc
+        logger.info(
+            "recipe_search question=%r extract=%.2fs es=%.2fs results=%d personalized=%s",
+            question[:80],
+            extract_seconds,
+            time.perf_counter() - es_started,
+            len(es_out["results"]),
+            bool(payload.diet_tags or payload.preferred_ingredients or exclude_allergens),
+        )
         return {"results": [_es_card(card) for card in es_out["results"]]}
 
     try:

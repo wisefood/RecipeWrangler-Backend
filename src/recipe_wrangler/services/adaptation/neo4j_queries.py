@@ -210,20 +210,22 @@ def resolve_graph_name(fct_name: str, fallback_hints: list[str] | None = None) -
 def has_any_substitution_path(name: str) -> bool:
     """True if the ingredient has either MISKG edges or a FoodOn class."""
 
+    # EXISTS-pattern instead of count() over OPTIONAL MATCH: same answer,
+    # no AggregationSkippedNull warning spam, and short-circuits on first hit.
     rows = run_query(
         """
         MATCH (i:Ingredient)
         WHERE toLower(i.name) = toLower($name)
-        OPTIONAL MATCH (i)-[r:HAS_SUBSTITUTION]->()
-        OPTIONAL MATCH (i)-[c:HAS_CLASS]->()
-        RETURN count(r) AS subs, count(c) AS classes
+        RETURN EXISTS { (i)-[:HAS_SUBSTITUTION]->() } AS has_subs,
+               EXISTS { (i)-[:HAS_CLASS]->() } AS has_class
+        LIMIT 1
         """,
         {"name": name},
     )
     if not rows:
         return False
     row = rows[0]
-    return bool((row.get("subs") or 0) > 0 or (row.get("classes") or 0) > 0)
+    return bool(row.get("has_subs") or row.get("has_class"))
 
 
 # Minimum mapped flavor-compound count on BOTH ingredients for a Jaccard overlap

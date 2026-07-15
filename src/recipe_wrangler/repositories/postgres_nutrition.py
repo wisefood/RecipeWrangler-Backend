@@ -12,6 +12,7 @@ from recipe_wrangler.utils.nutrition_postgres import (
     fetch_recipe_nutrition_batch,
     fetch_recipe_nutrition_by_id,
     fetch_recipe_profiling_trace_by_id,
+    fetch_recipe_profiling_traces_by_id,
     upsert_recipe_profiling_trace,
 )
 
@@ -26,6 +27,11 @@ def get_recipe_nutrition(recipe_id: str, nutrition_source: Optional[str] = None)
 
 def get_recipe_profile_trace(recipe_id: str, nutrition_source: Optional[str] = None) -> Optional[dict]:
     return fetch_recipe_profiling_trace_by_id(recipe_id, nutrition_source=nutrition_source)
+
+
+def get_recipe_profile_traces(recipe_id: str) -> list[dict]:
+    """All region trace rows for a recipe in one query (freshest first)."""
+    return fetch_recipe_profiling_traces_by_id(recipe_id)
 
 
 def save_recipe_profile_trace(record: dict) -> None:

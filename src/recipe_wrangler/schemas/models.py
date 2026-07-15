@@ -111,6 +111,18 @@ class RecipeSearchRequest(BaseModel):
         default_factory=list,
         description="Allergen names to exclude (e.g., ['peanut', 'tree_nut'])",
     )
+    diet_tags: List[str] = Field(
+        default_factory=list,
+        description="Hard diet filters (e.g. member dietary groups: ['vegan']); merged with LLM-extracted diet constraints.",
+    )
+    preferred_ingredients: List[str] = Field(
+        default_factory=list,
+        description="Soft preference boosts (e.g. member's liked ingredients) — reorder results, never filter.",
+    )
+    region: Optional[str] = Field(
+        default=None,
+        description="Region whose nutri-score the result cards carry: US, IE, HU, or EU (default).",
+    )
 
 
 class RecipeSearchResponse(BaseModel):

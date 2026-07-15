@@ -34,6 +34,7 @@ def suggestions(
         max_swaps=payload.max_swaps,
         use_llm=payload.use_llm,
         mode=payload.mode,
+        goal_nutrients=payload.goal_nutrients,
     )
     return SuggestionsResponse(**result)
 

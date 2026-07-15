@@ -1,8 +1,10 @@
 # Purpose: Postgres nutrition fetch helpers using SQLAlchemy with docker psql fallback.
 
 import json
+import logging
 import os
 import subprocess
+import threading
 from typing import Optional
 from contextlib import contextmanager
 
@@ -12,6 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from recipe_wrangler.utils.env_loader import load_runtime_env
 
 load_runtime_env()
+
+logger = logging.getLogger(__name__)
 
 
 def _env(name: str, fallback: str) -> str:
@@ -440,18 +444,57 @@ def fetch_recipe_region_scores(recipe_id: str) -> dict:
     return entry
 
 
-def fetch_recipe_profiling_trace_by_id(
-    recipe_id: str,
-    nutrition_source: Optional[str] = None,
-) -> Optional[dict]:
-    """
-    Return recipe profiling trace from Postgres by recipe id.
+# The profiles table DDL (create/alter/index) used to run on EVERY trace
+# write — three extra round-trips plus lock traffic per write. It only needs
+# to run once per process; the probe also remembers whether the
+# (recipe_id, nutrition_source) unique index exists so each write picks
+# ON CONFLICT vs update-then-insert without re-probing.
+_PROFILES_TABLE_READY = False
+_PROFILES_HAS_UNIQUE = False
+_PROFILES_TABLE_LOCK = threading.Lock()
 
-    Returns full row as dict from profiles table, or None if not found.
-    """
-    cfg = _get_config()
-    query_str = f"""
-            SELECT
+
+def _ensure_profiles_table_ready(
+    create_table_sql: str,
+    alter_table_sql: str,
+    ensure_unique_index_sql: str,
+) -> None:
+    global _PROFILES_TABLE_READY, _PROFILES_HAS_UNIQUE
+    if _PROFILES_TABLE_READY:
+        return
+    with _PROFILES_TABLE_LOCK:
+        if _PROFILES_TABLE_READY:
+            return
+        with get_connection() as conn:
+            tx = conn.begin()
+            try:
+                conn.execute(text(create_table_sql))
+                conn.execute(text(alter_table_sql))
+                tx.commit()
+            except Exception:
+                tx.rollback()
+                raise
+            tx = conn.begin()
+            try:
+                conn.execute(text(ensure_unique_index_sql))
+                tx.commit()
+                has_unique = True
+            except SQLAlchemyError:
+                tx.rollback()
+                has_unique = False
+                logger.warning(
+                    "profiles table lacks the (recipe_id, nutrition_source) unique "
+                    "index and it could not be created (duplicate rows?); trace "
+                    "writes will use update-then-insert for this process"
+                )
+        _PROFILES_HAS_UNIQUE = has_unique
+        _PROFILES_TABLE_READY = True
+
+
+# Columns consumed by readers. The archival `trace` column (tens of KB per
+# row, written for offline debugging) is deliberately absent: no runtime
+# consumer reads it, so fetching it only inflates every trace read.
+_TRACE_READ_COLUMNS = """
                 recipe_id,
                 title,
                 source,
@@ -466,10 +509,47 @@ def fetch_recipe_profiling_trace_by_id(
                 total_sustainability_per_serving,
                 sustainability_per_kg,
                 sustainability_profiling_details,
-                trace,
                 pipeline_version,
                 computed_at,
                 updated_at
+"""
+
+
+def fetch_recipe_profiling_traces_by_id(recipe_id: str) -> list[dict]:
+    """Return every region's profiling trace row for a recipe in ONE query.
+
+    Freshest first. Lets callers that need multiple views of the profile
+    (preferred region, any-region fallback, ground-truth sources) do the
+    selection in Python instead of issuing one query per view.
+    """
+    cfg = _get_config()
+    query_str = f"""
+            SELECT {_TRACE_READ_COLUMNS}
+            FROM "{cfg['schema']}"."{cfg['profiles_table']}"
+            WHERE recipe_id = :recipe_id
+            ORDER BY updated_at DESC NULLS LAST
+    """
+    try:
+        with get_connection() as conn:
+            result = conn.execute(text(query_str), {"recipe_id": str(recipe_id)})
+            return [dict(row._mapping) for row in result.fetchall()]
+    except SQLAlchemyError as e:
+        raise RuntimeError(f"Failed to fetch recipe profiling traces: {e}") from e
+
+
+def fetch_recipe_profiling_trace_by_id(
+    recipe_id: str,
+    nutrition_source: Optional[str] = None,
+) -> Optional[dict]:
+    """
+    Return recipe profiling trace from Postgres by recipe id.
+
+    Returns the row as dict from the profiles table (without the archival
+    `trace` column), or None if not found.
+    """
+    cfg = _get_config()
+    query_str = f"""
+            SELECT {_TRACE_READ_COLUMNS}
             FROM "{cfg['schema']}"."{cfg['profiles_table']}"
             WHERE recipe_id = :recipe_id
             {"AND nutrition_source = :nutrition_source" if nutrition_source else ""}
@@ -659,6 +739,37 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
         ADD COLUMN IF NOT EXISTS sustainability_per_kg float8,
         ADD COLUMN IF NOT EXISTS sustainability_profiling_details jsonb
     """
+    # Deployed tables can predate the (recipe_id, nutrition_source) primary
+    # key in create_table_sql; without a matching unique constraint the
+    # ON CONFLICT upsert raises InvalidColumnReference. Self-heal by creating
+    # the unique index (no-op when present), and if that is impossible (e.g.
+    # pre-existing duplicate rows) fall back to update-then-insert.
+    ensure_unique_index_sql = f"""
+        CREATE UNIQUE INDEX IF NOT EXISTS "{cfg['profiles_table']}_recipe_source_key"
+        ON "{cfg['schema']}"."{cfg['profiles_table']}" (recipe_id, nutrition_source)
+    """
+    update_sql = f"""
+        UPDATE "{cfg['schema']}"."{cfg['profiles_table']}" SET
+            title = :title,
+            source = :source,
+            source_id = :source_id,
+            total_nutrients = CAST(:total_nutrients AS jsonb),
+            total_nutrients_per_serving = CAST(:total_nutrients_per_serving AS jsonb),
+            nutri_score = CAST(:nutri_score AS jsonb),
+            nutri_score_breakdown = CAST(:nutri_score_breakdown AS jsonb),
+            nutrition_profiling_details = CAST(:nutrition_profiling_details AS jsonb),
+            nutrition_profiling_debug = CAST(:nutrition_profiling_debug AS jsonb),
+            total_sustainability = :total_sustainability,
+            total_sustainability_per_serving = :total_sustainability_per_serving,
+            sustainability_per_kg = :sustainability_per_kg,
+            sustainability_profiling_details = CAST(:sustainability_profiling_details AS jsonb),
+            trace = CAST(:trace AS jsonb),
+            pipeline_version = :pipeline_version,
+            computed_at = COALESCE(CAST(:computed_at AS timestamptz), now()),
+            updated_at = now()
+        WHERE recipe_id = :recipe_id AND nutrition_source = :nutrition_source
+    """
+    plain_insert_sql = upsert_sql.split("ON CONFLICT", 1)[0]
 
     def _as_json(value: object) -> str:
         return json.dumps(value if value is not None else None, separators=(",", ":"))
@@ -685,12 +796,25 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
     }
 
     try:
+        _ensure_profiles_table_ready(create_table_sql, alter_table_sql, ensure_unique_index_sql)
         with get_connection() as conn:
             tx = conn.begin()
             try:
-                conn.execute(text(create_table_sql))
-                conn.execute(text(alter_table_sql))
-                conn.execute(text(upsert_sql), params)
+                wrote = False
+                if _PROFILES_HAS_UNIQUE:
+                    savepoint = conn.begin_nested()
+                    try:
+                        conn.execute(text(upsert_sql), params)
+                        savepoint.commit()
+                        wrote = True
+                    except SQLAlchemyError:
+                        # Constraint vanished since the probe (e.g. index
+                        # dropped); fall through to update-then-insert.
+                        savepoint.rollback()
+                if not wrote:
+                    updated = conn.execute(text(update_sql), params)
+                    if updated.rowcount == 0:
+                        conn.execute(text(plain_insert_sql), params)
                 tx.commit()
             except Exception:
                 tx.rollback()

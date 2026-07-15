@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,13 @@ class SuggestionsRequest(BaseModel):
         description="If true, run an LLM judge over the deterministic candidate set to drop "
                     "culinary-nonsense swaps and rerank by recipe-aware sense. The judge cannot "
                     "invent substitutes; on any failure the deterministic ranking is returned.",
+    )
+    goal_nutrients: List[str] = Field(
+        default_factory=list,
+        description="Member dietary goals biasing which Nutri-Score nutrient is targeted "
+                    "(nutrition mode only). Accepts goal slugs (reduce_fat, reduce_sugar, "
+                    "reduce_salt, reduce_calories) or nutrient keys (saturated_fats, sugar, "
+                    "sodium, energy). A goal wins only if the recipe actually scores badly on it.",
     )
 
 
@@ -109,9 +116,18 @@ class SuggestionsResponse(BaseModel):
     mode: Mode = Field(..., description="Which optimisation target produced this response.")
 
     # ---- always-populated context ----
-    offending_ingredient: str
+    status: Literal["ok", "already_optimal"] = Field(
+        "ok",
+        description="'already_optimal' when the recipe scores below the target threshold on "
+                    "every negative Nutri-Score nutrient — nothing to adapt, suggestions empty.",
+    )
+    message: Optional[str] = Field(
+        None,
+        description="Human-readable note accompanying non-'ok' statuses.",
+    )
+    offending_ingredient: str = ""
     offending_ingredient_contribution_pct: float = Field(
-        ...,
+        0.0,
         description="Share of the target metric attributable to the offending ingredient. "
                     "Nutrition mode: % of recipe's target-nutrient total. "
                     "Sustainability mode: % of recipe's total CO2e.",

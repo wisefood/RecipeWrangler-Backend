@@ -47,7 +47,11 @@ class RecipeSearchConstraints:
     # Soft preferences (e.g. from the member profile): boost matching recipes
     # in the ranking without ever filtering non-matching ones out.
     boost_ingredients: list[str] = field(default_factory=list)
+    boost_tags: list[str] = field(default_factory=list)
     diet_tags: list[str] = field(default_factory=list)
+    # When True, title keywords are OR-matched (any keyword suffices) instead
+    # of the default AND — used as a zero-result relaxation retry.
+    title_match_any: bool = False
     sources: list[str] = field(default_factory=list)
     dish_types: list[str] = field(default_factory=list)
     title_keywords: list[str] = field(default_factory=list)
@@ -173,15 +177,34 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     if c.min_servings is not None:
         filter_.append({"range": {"serves": {"gte": c.min_servings}}})
 
-    # Title keywords — every keyword must appear in the title (AND).
-    for kw in _norm(c.title_keywords):
-        must.append({"match": {"title": kw}})
+    # Title keywords — fuzzy so plural/singular and small typos still match
+    # ("desserts" vs "dessert"). Default: every keyword must appear (AND);
+    # title_match_any relaxes to any-keyword for the zero-result retry.
+    title_keywords = _norm(c.title_keywords)
+    if title_keywords:
+        if c.title_match_any:
+            must.append({
+                "match": {
+                    "title": {
+                        "query": " ".join(title_keywords),
+                        "operator": "or",
+                        "fuzziness": "AUTO",
+                    }
+                }
+            })
+        else:
+            for kw in title_keywords:
+                must.append({"match": {"title": {"query": kw, "fuzziness": "AUTO"}}})
 
     # Preference boosts — pure scoring, never filtering: a recipe matching a
-    # preferred ingredient ranks higher, one matching none still qualifies.
+    # preferred ingredient or diet tag ranks higher, one matching none still
+    # qualifies. Member diet groups ride here (tag coverage in the index is
+    # too sparse for them to be hard filters without emptying results).
     should: list[dict] = []
     for ing in _norm(c.boost_ingredients):
         should.append({"match_phrase": {"ingredients": {"query": ing, "boost": 2.0}}})
+    for tag in _norm(c.boost_tags):
+        should.append({"term": {"tags": {"value": tag, "boost": 1.5}}})
 
     limit = max(1, min(int(c.limit), 100))
     offset = max(0, int(c.offset))

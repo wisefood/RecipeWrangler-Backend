@@ -1759,32 +1759,48 @@ async def recipe_search(
             raise map_dependency_error("Groq constraint extraction", exc) from exc
         extract_seconds = time.perf_counter() - extract_started
 
+        # Diet asked for IN THE QUESTION ("vegan pasta") is a hard filter; the
+        # member profile's diet groups are soft ranking boosts — index tag
+        # coverage is too sparse for profile-wide hard filters (they emptied
+        # innocuous searches like "quick desserts"). Allergies stay hard.
+        base_constraints = dict(
+            include_ingredients=constraints.get("preferred_ingredients") or [],
+            exclude_ingredients=constraints.get("excluded_ingredients") or [],
+            exclude_allergens=list({*(constraints.get("allergens") or []), *exclude_allergens}),
+            diet_tags=constraints.get("diet") or [],
+            boost_tags=payload.diet_tags,
+            boost_ingredients=payload.preferred_ingredients,
+            title_keywords=constraints.get("title_keywords") or [],
+            max_duration_minutes=constraints.get("max_duration_minutes"),
+            min_servings=constraints.get("min_servings"),
+            limit=constraints.get("limit") or 10,
+            region=payload.region or "eu",
+        )
         es_started = time.perf_counter()
+        relaxed = False
         try:
             es_out = await run_in_threadpool(
-                search_recipes_es,
-                RecipeSearchConstraints(
-                    include_ingredients=constraints.get("preferred_ingredients") or [],
-                    exclude_ingredients=constraints.get("excluded_ingredients") or [],
-                    exclude_allergens=list({*(constraints.get("allergens") or []), *exclude_allergens}),
-                    diet_tags=list({*(constraints.get("diet") or []), *payload.diet_tags}),
-                    boost_ingredients=payload.preferred_ingredients,
-                    title_keywords=constraints.get("title_keywords") or [],
-                    max_duration_minutes=constraints.get("max_duration_minutes"),
-                    min_servings=constraints.get("min_servings"),
-                    limit=constraints.get("limit") or 10,
-                    region=payload.region or "eu",
-                ),
+                search_recipes_es, RecipeSearchConstraints(**base_constraints)
             )
+            # Zero-result relaxation: AND-matched title keywords are brittle
+            # ("quick desserts" requires both words in the title). Retry once
+            # with any-keyword title matching before giving up.
+            if not es_out["results"] and base_constraints["title_keywords"]:
+                relaxed = True
+                es_out = await run_in_threadpool(
+                    search_recipes_es,
+                    RecipeSearchConstraints(**base_constraints, title_match_any=True),
+                )
         except Exception as exc:  # noqa: BLE001
             raise map_dependency_error("Elasticsearch", exc) from exc
         logger.info(
-            "recipe_search question=%r extract=%.2fs es=%.2fs results=%d personalized=%s",
+            "recipe_search question=%r extract=%.2fs es=%.2fs results=%d personalized=%s relaxed=%s",
             question[:80],
             extract_seconds,
             time.perf_counter() - es_started,
             len(es_out["results"]),
             bool(payload.diet_tags or payload.preferred_ingredients or exclude_allergens),
+            relaxed,
         )
         return {"results": [_es_card(card) for card in es_out["results"]]}
 

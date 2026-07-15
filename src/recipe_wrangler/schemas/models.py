@@ -113,7 +113,8 @@ class RecipeSearchRequest(BaseModel):
     )
     diet_tags: List[str] = Field(
         default_factory=list,
-        description="Hard diet filters (e.g. member dietary groups: ['vegan']); merged with LLM-extracted diet constraints.",
+        description="Member dietary groups (e.g. ['vegan']) applied as soft ranking boosts; "
+                    "diet stated in the question itself is extracted by the LLM and filtered hard.",
     )
     preferred_ingredients: List[str] = Field(
         default_factory=list,

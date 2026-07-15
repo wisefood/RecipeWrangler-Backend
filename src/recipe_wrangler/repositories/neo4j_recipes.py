@@ -764,7 +764,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
       AND {NEO4J_NOT_DISABLED}
       AND (size($exclude_ids) = 0 OR NOT coalesce(toString(r.recipe_id), toString(r.id), '') IN $exclude_ids)
 
-    WITH r
+    WITH r, valid_diet_tags
 
     {diet_tag_match}
 

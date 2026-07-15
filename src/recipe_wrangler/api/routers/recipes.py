@@ -1351,6 +1351,15 @@ def get_recipe(
                 payload.get("total_cholesterol_mg_per_serving"), serves
             )
 
+    # The recipe's original Nutri-Score stays authoritative for display: the
+    # live profiling pipeline re-matches free-text ingredients and can drift
+    # toward better grades on messy ingredient lists. Its recomputed score
+    # only fills the gap when the recipe never had one.
+    original_nutri_score = str(recipe.get("nutri_score") or "").strip()
+    if original_nutri_score:
+        payload["nutri_score_label"] = original_nutri_score
+        payload["nutri_score_color"] = _nutri_color_from_score(original_nutri_score)
+
     response = RecipeDetailResponse(**payload)
     # A pending-profile response must not be cached: the background job
     # invalidates on completion, and a cached "pending" would outlive it.

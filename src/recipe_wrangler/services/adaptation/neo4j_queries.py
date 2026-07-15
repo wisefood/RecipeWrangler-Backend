@@ -207,6 +207,23 @@ def resolve_graph_name(fct_name: str, fallback_hints: list[str] | None = None) -
     return rows[0]["name"]
 
 
+def fetch_recipe_default_nutriscore(recipe_id: str) -> str | None:
+    """The recipe node's original Nutri-Score (e.g. 'Nutriscore_D'), if any."""
+    rows = run_query(
+        """
+        MATCH (r:Recipe)
+        WHERE toString(r.recipe_id) = $rid OR toString(r.id) = $rid
+        RETURN r.nutriscore AS nutriscore
+        LIMIT 1
+        """,
+        {"rid": str(recipe_id)},
+    )
+    if not rows:
+        return None
+    value = str(rows[0].get("nutriscore") or "").strip()
+    return value or None
+
+
 def has_any_substitution_path(name: str) -> bool:
     """True if the ingredient has either MISKG edges or a FoodOn class."""
 

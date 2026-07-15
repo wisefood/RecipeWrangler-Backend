@@ -26,12 +26,30 @@ from recipe_wrangler.utils.nutrition_postgres import (
 
 from .llm_judge import rerank_with_llm
 from .neo4j_queries import (
+    fetch_recipe_default_nutriscore,
     find_substitute_candidates,
     flavor_similarity,
     get_ingredient_allergens,
     has_any_substitution_path,
     resolve_graph_name,
 )
+
+
+def _authoritative_grade(recipe_id: str, breakdown: dict[str, Any]) -> str:
+    """The recipe's ORIGINAL Nutri-Score wins over the profiling trace's.
+
+    The live profiling pipeline re-matches free-text ingredients and can
+    drift toward better grades on messy ingredient lists; adaptation must
+    grade the current recipe — and gate improvements — against the default
+    score, falling back to the trace only when no default exists.
+    """
+    try:
+        default_score = fetch_recipe_default_nutriscore(recipe_id)
+    except Exception:
+        default_score = None
+    if default_score:
+        return _grade_letter(default_score)
+    return _grade_letter(breakdown.get("nutri_score"))
 
 
 REGION_TO_SOURCE = {"IE": "irish", "US": "usda", "HU": "hungarian"}
@@ -481,6 +499,7 @@ def _evaluate_candidate(
     source: str,
     original_allergens: set[str],
     serves: float,
+    current_grade: str | None = None,
 ) -> dict[str, Any] | None:
     """Fetch, filter, simulate, score, and rank a single candidate."""
 
@@ -530,7 +549,10 @@ def _evaluate_candidate(
     # overall letter grade. Saving points on the target nutrient isn't enough
     # if the swap drags other nutrients backward and the net grade stays flat
     # or worsens (e.g. butter→brown sugar drops sat fat but adds sugar).
-    current_grade = _grade_letter(current_breakdown.get("nutri_score"))
+    # Gate against the caller-supplied authoritative (default) grade when
+    # given; the trace's own grade is only a fallback.
+    if not current_grade:
+        current_grade = _grade_letter(current_breakdown.get("nutri_score"))
     simulated_grade = _grade_letter(new_breakdown.get("nutri_score"))
     if _grade_rank(simulated_grade) >= _grade_rank(current_grade):
         return None
@@ -788,7 +810,7 @@ def _generate_sustainability_suggestions(
     # Context for the nutri-guard (a CO2e swap must not worsen the grade).
     breakdown = row.get("nutri_score_breakdown") or {}
     fvl_pct = _fvl_pct_from_breakdown(breakdown)
-    current_grade = _grade_letter(breakdown.get("nutri_score"))
+    current_grade = _authoritative_grade(recipe_id, breakdown)
 
     current_total_co2e_kg = sum(float(d.get("co2e_kg") or 0.0) for d in details)
     if current_total_co2e_kg <= 0:
@@ -959,7 +981,7 @@ def _generate_reduce_quantity_suggestions(
 
     fvl_pct = _fvl_pct_from_breakdown(breakdown)
     serves = _serves_from_row(row)
-    current_grade = _grade_letter(breakdown.get("nutri_score"))
+    current_grade = _authoritative_grade(recipe_id, breakdown)
 
     suggestions: list[dict[str, Any]] = []
     top_offender: dict[str, Any] | None = None
@@ -1083,7 +1105,7 @@ def _already_optimal_response(
             f"Recipe already scores below {MIN_TARGET_POINTS} on every negative "
             "Nutri-Score nutrient — no adaptation needed."
         ),
-        "current_nutri_score": _grade_letter(breakdown.get("nutri_score")),
+        "current_nutri_score": _authoritative_grade(recipe_id, breakdown),
         "suggestions": [],
     }
 
@@ -1103,7 +1125,7 @@ def _no_suggestions_response(
         "suggestions": [],
     }
     if isinstance(breakdown, dict):
-        payload["current_nutri_score"] = _grade_letter(breakdown.get("nutri_score"))
+        payload["current_nutri_score"] = _authoritative_grade(recipe_id, breakdown)
     return payload
 
 
@@ -1140,7 +1162,7 @@ def generate_suggestions(
 
     fvl_pct = _fvl_pct_from_breakdown(breakdown)
     serves = _serves_from_row(row)
-    current_grade = _grade_letter(breakdown.get("nutri_score"))
+    current_grade = _authoritative_grade(recipe_id, breakdown)
 
     # Walk down the offender list until we hit one that yields ≥1 viable suggestion.
     offender: dict[str, Any] | None = None
@@ -1162,6 +1184,7 @@ def generate_suggestions(
                 source,
                 original_allergens,
                 serves,
+                current_grade=current_grade,
             )
             if result:
                 results.append(result)

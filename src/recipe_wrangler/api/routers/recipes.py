@@ -1768,6 +1768,7 @@ async def recipe_search(
             exclude_ingredients=constraints.get("excluded_ingredients") or [],
             exclude_allergens=list({*(constraints.get("allergens") or []), *exclude_allergens}),
             diet_tags=constraints.get("diet") or [],
+            dish_types=constraints.get("dish_types") or [],
             boost_tags=payload.diet_tags,
             boost_ingredients=payload.preferred_ingredients,
             title_keywords=constraints.get("title_keywords") or [],

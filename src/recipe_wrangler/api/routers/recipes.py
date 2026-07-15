@@ -26,7 +26,7 @@ from recipe_wrangler.api.exceptions import (
     NotFoundError,
 )
 from recipe_wrangler.api.config import get_settings
-from recipe_wrangler.utils.http_pool import get_http_session
+from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 
 from recipe_wrangler.tools.param_search import search_recipes_by_params
 from recipe_wrangler.tools.es_recipe_search import (
@@ -988,9 +988,9 @@ def recipe_autocomplete(
 
     url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
     try:
-        response = get_http_session().post(
+        response = post_query_with_retry(
             url,
-            json=search_payload,
+            search_payload,
             timeout=settings.elastic_timeout,
         )
         response.raise_for_status()

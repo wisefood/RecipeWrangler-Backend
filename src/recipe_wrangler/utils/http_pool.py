@@ -33,3 +33,24 @@ def get_http_session() -> requests.Session:
                 session.mount("https://", adapter)
                 _session = session
     return _session
+
+
+def post_query_with_retry(
+    url: str,
+    json_body: dict,
+    timeout: float,
+    attempts: int = 2,
+) -> requests.Response:
+    """POST a read-only query, retrying once on a read timeout.
+
+    ONLY for idempotent queries (ES _search / autocomplete): reissuing them is
+    always safe, and single-node Elasticsearch GC pauses cause one-off
+    multi-second stalls that a single retry rides out. Never use for writes.
+    """
+    last_exc: Exception | None = None
+    for _ in range(max(1, attempts)):
+        try:
+            return get_http_session().post(url, json=json_body, timeout=timeout)
+        except requests.exceptions.ReadTimeout as exc:
+            last_exc = exc
+    raise last_exc

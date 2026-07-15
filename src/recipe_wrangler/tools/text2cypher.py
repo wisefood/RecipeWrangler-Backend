@@ -236,11 +236,17 @@ class RecipeSearchAppV2:
     # constraints. Constraints for a given question are stable, so a long TTL
     # is safe; it exists mainly to let stale entries eventually age out.
     _REDIS_CONSTRAINTS_TTL_SECONDS = 7 * 24 * 3600
+    # Bump whenever the extraction prompt/schema changes semantics — cached
+    # extractions outlive deploys, and stale routing (e.g. "quick" as a title
+    # keyword) would otherwise survive for the full TTL.
+    _CONSTRAINTS_PROMPT_VERSION = 2
 
-    @staticmethod
-    def _redis_constraints_key(key: tuple[str, bool]) -> str:
+    @classmethod
+    def _redis_constraints_key(cls, key: tuple[str, bool]) -> str:
         import hashlib
-        digest = hashlib.sha256(f"{key[1]}|{key[0]}".encode("utf-8")).hexdigest()
+        digest = hashlib.sha256(
+            f"v{cls._CONSTRAINTS_PROMPT_VERSION}|{key[1]}|{key[0]}".encode("utf-8")
+        ).hexdigest()
         return f"nlq:constraints:{digest}"
 
     def _llm_constraints_cache_get(self, key: tuple[str, bool]) -> Optional[dict]:

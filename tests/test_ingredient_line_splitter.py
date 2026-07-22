@@ -116,5 +116,25 @@ class IngredientLineSplitterTests(unittest.TestCase):
         self.assertEqual(measurements, ["12 oz", "14 oz"])
 
 
+    def test_superscript_fraction_lines_are_parsed(self):
+        # Superscript-over-subscript fractions used to fail the split entirely,
+        # leaving the raw line in both fields and a 0 g weight downstream.
+        names, measurements = split_ingredient_lines(
+            [
+                "¹/³ cup shredded coconut",
+                "¹/² cup milk",
+            ]
+        )
+
+        self.assertEqual(names, ["shredded coconut", "milk"])
+        self.assertEqual(measurements, ["1/3 cup", "1/2 cup"])
+
+    def test_superscript_normalization_leaves_plain_text_alone(self):
+        names, measurements = split_ingredient_lines(["2 cloves garlic"])
+
+        self.assertEqual(names, ["garlic"])
+        self.assertEqual(measurements, ["2 cloves"])
+
+
 if __name__ == "__main__":
     unittest.main()

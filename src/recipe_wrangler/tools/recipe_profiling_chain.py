@@ -108,6 +108,32 @@ _INGREDIENT_BOUNDARY_RE = re.compile(
 )
 
 
+# Superscripts are not in codepoint order (¹²³ precede ⁰⁴-⁹), hence the
+# non-sequential replacement string.
+_SUPERSCRIPT_FRACTION_DIGITS = str.maketrans(
+    "¹²³⁰⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉",
+    "12304567890123456789",
+)
+_SUPERSCRIPT_FRACTION_RE = re.compile(
+    r"[¹²³⁰⁴-⁹]+\s*[/⁄]\s*"
+    r"[₀-₉¹²³⁰⁴-⁹]+"
+)
+
+
+def _normalize_superscript_fractions(line: str) -> str:
+    """Rewrite superscript/subscript fractions ("¹/³") as plain ASCII ("1/3").
+
+    The vulgar fraction class (½⅓¼…) is handled by the parsing regexes, but the
+    superscript-over-subscript form some sources emit is not, so those lines
+    failed to parse at all and fell back to a zero weight.
+    """
+
+    def _sub(match: re.Match[str]) -> str:
+        return match.group(0).translate(_SUPERSCRIPT_FRACTION_DIGITS).replace("⁄", "/")
+
+    return _SUPERSCRIPT_FRACTION_RE.sub(_sub, line)
+
+
 def _split_ingredient_line(line: str) -> tuple[str, str]:
     """Split an ingredient line into (measurement, ingredient_name).
 
@@ -115,7 +141,7 @@ def _split_ingredient_line(line: str) -> tuple[str, str]:
          "2 tbsp olive oil, chopped" → ("2 tbsp", "olive oil, chopped")
          "salt to taste" → ("", "salt to taste")
     """
-    line = _repair_slashless_fraction_prefix(line.strip())
+    line = _repair_slashless_fraction_prefix(_normalize_superscript_fractions(line.strip()))
     multiplier = _MULTIPLIER_MASS_RE.match(line)
     if multiplier:
         total = float(multiplier.group("count")) * float(multiplier.group("size"))

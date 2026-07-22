@@ -22,6 +22,19 @@ def test_detects_missing_eu_allergen_groups() -> None:
     ]
 
 
+def test_satay_ingredients_trigger_peanut() -> None:
+    # Satay/sate sauce is peanut-based but recipes routinely name the dish
+    # without ever listing "peanut", which let a nut-allergy profile through.
+    assert "peanut" in detect_allergens_from_names(["satay sauce"])
+    assert "peanut" in detect_allergens_from_names(["sate paste"])
+    assert "peanut" in detect_allergens_from_names(["saté sauce"])
+
+
+def test_satay_keywords_do_not_overmatch() -> None:
+    for benign in ["satsuma", "desiccated coconut", "tomato paste"]:
+        assert "peanut" not in detect_allergens_from_names([benign]), benign
+
+
 def test_molluscs_are_not_classified_as_crustaceans() -> None:
     assert detect_allergens_from_names(["scallops", "oysters"]) == ["molluscs"]
     assert detect_allergens_from_names(["shrimp", "crab"]) == [

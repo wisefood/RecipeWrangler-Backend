@@ -400,7 +400,7 @@ def upsert_recipe_to_neo4j(
 _ALLERGEN_KEYWORDS: dict[str, list[str]] = {
     "milk": ["milk", "cheese", "butter", "cream", "yogurt", "whey", "casein", "lactose", "ghee", "curd", "kefir"],
     "egg": ["egg", "egg white", "egg yolk", "omelet", "mayonnaise", "aioli", "meringue", "albumen"],
-    "peanut": ["peanut", "peanut butter", "groundnut", "arachis"],
+    "peanut": ["peanut", "peanut butter", "groundnut", "arachis", "satay", "sate", "saté"],
     "tree_nut": ["almond", "walnut", "pecan", "cashew", "pistachio", "hazelnut", "macadamia", "brazil nut", "pine nut"],
     "wheat": ["wheat", "whole wheat", "durum", "semolina", "spelt", "farro", "flour", "bread", "pasta", "noodle"],
     "soy": ["soy", "soya", "soybean", "tofu", "miso", "tempeh", "edamame"],

@@ -68,6 +68,11 @@ ALLERGENS = {
             "peanut butter",
             "groundnut",
             "arachis",
+            # Satay/saté sauce is peanut-based; recipes often name the dish
+            # without ever listing "peanut" as an ingredient.
+            "satay",
+            "sate",
+            "saté",
         ],
     },
     "tree_nut": {

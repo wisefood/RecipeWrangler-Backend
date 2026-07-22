@@ -181,7 +181,10 @@ def _nutrition_source_from_region(region: str | None) -> str | None:
 def _recipe_response_cache_variant(region: str | None, slim: bool) -> str:
     region_key = str(region or "default").strip().upper() or "DEFAULT"
     region_key = "".join(ch if ch.isalnum() else "_" for ch in region_key)
-    return f"detail:region:{region_key}:slim:{int(slim)}"
+    # v2: detail responses carry `allergens`. Bumping the variant retires
+    # pre-allergen cache entries, which would otherwise keep serving payloads
+    # with no allergens (indistinguishable from "this recipe has none").
+    return f"detail:v2:region:{region_key}:slim:{int(slim)}"
 
 
 def _card_nutrition_cache_variant(region: str | None) -> str:
@@ -1362,6 +1365,23 @@ def get_recipe(
         payload["nutri_score_label"] = original_nutri_score
         payload["nutri_score_color"] = _nutri_color_from_score(original_nutri_score)
 
+    # Allergens ride on the detail response so clients can warn before a user
+    # opens a recipe that conflicts with their profile. Neo4j derives them per
+    # ingredient; a lookup failure is logged rather than raised, since failing
+    # an entire recipe read over it would be worse. Note the field then falls
+    # back to [], which a client cannot distinguish from "genuinely none" —
+    # the warning is the only signal, so alert on it.
+    try:
+        payload["allergens"] = sorted(
+            fetch_recipe_allergens_by_ids([resolved_recipe_id]).get(resolved_recipe_id, [])
+        )
+    except Exception:  # noqa: BLE001 - allergen lookup is best-effort
+        logger.warning(
+            "Allergen lookup failed for recipe %s; omitting from detail response",
+            resolved_recipe_id,
+            exc_info=True,
+        )
+
     response = RecipeDetailResponse(**payload)
     # A pending-profile response must not be cached: the background job
     # invalidates on completion, and a cached "pending" would outlive it.
@@ -1860,6 +1880,27 @@ async def recipe_search(
         )
     except Exception as exc:  # noqa: BLE001 - bubble up as HTTP error
         # Keep the endpoint usable even if the primary graph/LLM path fails.
+        #
+        # Safety: the fallback indices cannot honour allergen exclusions -- the
+        # legacy `recipes` index has no allergens field at all -- so returning
+        # fallback rows to a caller who asked to exclude allergens would hand
+        # them unfiltered results under a generic warning. That is exactly the
+        # failure mode behind the reported "nut allergy set, satay returned"
+        # incident. Fail closed instead: no results beat unsafe results.
+        if exclude_allergens:
+            logger.warning(
+                "Search fallback suppressed: exclude_allergens=%s cannot be honoured "
+                "by the fallback index",
+                sorted(exclude_allergens),
+            )
+            raise InternalError(
+                detail=(
+                    "Recipe search is temporarily unavailable. The fallback search "
+                    "cannot apply allergen exclusions, so no results were returned."
+                ),
+                extra={"title": "SearchUnavailableAllergenFilterUnsupported"},
+            ) from exc
+
         try:
             fallback_results = await run_in_threadpool(
                 _search_elastic_keyword, question, limit=limit
@@ -1876,6 +1917,7 @@ async def recipe_search(
         return {
             "results": fallback_results or [],
             "warning": "Primary search path failed; returned fallback results.",
+            "allergen_filter_applied": False,
             "error": str(exc),
         }
     if not isinstance(result, dict):

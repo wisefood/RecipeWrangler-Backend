@@ -409,6 +409,7 @@ class RecipeDetailResponse(BaseModel):
     status: str = "active"
     disabled_reason: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    allergens: List[str] = Field(default_factory=list)
     ingredients: List[Dict[str, Any]]
     instructions: List[str]
     duration: Optional[float]

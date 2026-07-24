@@ -68,6 +68,10 @@ ALLERGENS = {
             "peanut butter",
             "groundnut",
             "arachis",
+            "satay sauce",
+            "satay paste",
+            "pad thai sauce",
+            "pad thai paste",
         ],
     },
     "tree_nut": {

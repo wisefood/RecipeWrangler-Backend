@@ -53,6 +53,35 @@ class RecipeSearchConstraints:
     region: str = "eu"  # which region's nutri score the card returns
 
 
+# Maps generic/UI allergen labels to canonical ES allergen identifiers.
+# ES stores the labels written by detect_allergens_from_names / tag_allergens.py.
+_ALLERGEN_ALIASES: dict[str, list[str]] = {
+    "nut": ["peanut", "tree_nut"],
+    "nuts": ["peanut", "tree_nut"],
+    "peanuts": ["peanut"],
+    "tree nuts": ["tree_nut"],
+    "tree_nuts": ["tree_nut"],
+    "shellfish": ["crustacean_shellfish", "molluscs"],
+    "crustacean": ["crustacean_shellfish"],
+    "dairy": ["milk"],
+    "lactose": ["milk"],
+    "gluten": ["gluten", "wheat"],
+}
+
+
+def _expand_allergens(labels: list[str]) -> list[str]:
+    """Expand generic allergen labels to canonical ES identifiers, preserving order."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for label in labels:
+        expanded = _ALLERGEN_ALIASES.get(label, [label])
+        for canonical in expanded:
+            if canonical not in seen:
+                seen.add(canonical)
+                out.append(canonical)
+    return out
+
+
 def _norm(items: list[str]) -> list[str]:
     """Lowercase, strip, de-duplicate while preserving order."""
     cleaned = [s.strip().lower() for s in items if str(s).strip()]
@@ -84,7 +113,8 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
         must_not.append({"match_phrase": {"ingredients": ing}})
 
     # Allergens — exclude any recipe carrying one of them.
-    allergens = _norm(c.exclude_allergens)
+    # Expand generic labels (e.g. "nut" → ["peanut", "tree_nut"]) before matching.
+    allergens = _expand_allergens(_norm(c.exclude_allergens))
     if allergens:
         must_not.append({"terms": {"allergens": allergens}})
 

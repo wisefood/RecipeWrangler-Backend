@@ -22,7 +22,11 @@ def test_recipe_search_uses_configured_index():
 
     with (
         patch.object(search, "get_settings", return_value=settings),
-        patch.object(search.requests, "post", return_value=response) as post,
+        patch.object(
+            search,
+            "post_query_with_retry",
+            return_value=response,
+        ) as post,
     ):
         result = search.search_recipes_es(search.RecipeSearchConstraints())
 
@@ -98,7 +102,11 @@ def test_title_search_reranks_fuzzy_candidates_by_complete_title_similarity():
 
     with (
         patch.object(search, "get_settings", return_value=settings),
-        patch.object(search.requests, "post", return_value=response),
+        patch.object(
+            search,
+            "post_query_with_retry",
+            return_value=response,
+        ),
     ):
         result = search.search_recipes_es(
             search.RecipeSearchConstraints(

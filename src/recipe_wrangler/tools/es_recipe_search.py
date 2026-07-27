@@ -18,6 +18,7 @@ from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_re
 from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
 
 _VALID_REGIONS = {"eu", "ie", "hu"}
+ES_INDEX = "recipes_v2"
 
 # Region-agnostic fields returned per hit. The region-specific nutri fields
 # (nutri_score_<r> / nutri_color_<r>) are appended per request.

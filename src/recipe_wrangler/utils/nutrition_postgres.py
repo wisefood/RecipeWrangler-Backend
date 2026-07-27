@@ -336,7 +336,7 @@ def fetch_recipe_nutrition_batch(recipe_ids: list[str]) -> dict[str, dict]:
         raise RuntimeError(f"Failed to fetch recipe nutrition batch: {e}") from e
 
 
-_REGION_BY_SOURCE = {"usda": "us", "irish": "ie", "hungarian": "hu", "eu": "eu"}
+_REGION_BY_SOURCE = {"irish": "ie", "hungarian": "hu", "eu": "eu"}
 
 
 def fetch_ingredient_nutrition_by_eu_id(eu_id: str) -> Optional[dict]:
@@ -384,18 +384,19 @@ def fetch_ingredient_nutrition_by_eu_id(eu_id: str) -> Optional[dict]:
 def fetch_all_recipe_scores() -> dict[str, dict]:
     """Return per-region nutri scores + sustainability for every profiled recipe.
 
-    Shape: {recipe_id: {"us": {nutri_score, nutri_color}, "ie": {...}, "hu": {...},
+    Shape: {recipe_id: {"ie": {nutri_score, nutri_color}, "hu": {...}, "eu": {...},
                         "sust_score": float|None}}
 
-    Nutri score is region-dependent — the same recipe scored against the US,
-    Irish or Hungarian food-composition DB can grade differently. Sustainability
-    is region-independent, so the first non-null value is used. One bulk query.
+    Nutri score is region-dependent — the same recipe scored against the Irish,
+    Hungarian, or EU food-composition DB can grade differently.
+    Sustainability is region-independent, so the first non-null value is used.
+    One bulk query.
     """
     cfg = _get_config()
     query_str = f"""
         SELECT recipe_id, nutrition_source, nutri_score, total_sustainability_per_serving
         FROM "{cfg['schema']}"."{cfg['profiles_table']}"
-        WHERE nutrition_source IN ('usda', 'irish', 'hungarian', 'eu')
+        WHERE nutrition_source IN ('irish', 'hungarian', 'eu')
     """
     scores: dict[str, dict] = {}
     with get_connection() as conn:

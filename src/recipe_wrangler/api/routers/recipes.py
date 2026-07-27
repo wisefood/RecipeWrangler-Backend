@@ -21,7 +21,11 @@ from recipe_wrangler.api.exceptions import (
 )
 from recipe_wrangler.api.config import get_settings
 
-from recipe_wrangler.tools.es_recipe_search import RecipeSearchConstraints, search_recipes_es
+from recipe_wrangler.tools.es_recipe_search import (
+    RecipeSearchConstraints,
+    normalize_recipe_title,
+    search_recipes_es,
+)
 from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_set
 from recipe_wrangler.utils.neo4j_utils import run_query as _run_query
 from recipe_wrangler.tools.fetch_recipe_info import (
@@ -1133,20 +1137,38 @@ async def recipe_search(
         constraints = get_recipe_constraint_extractor().run_extract_constraints(
             question
         )["query_constraints"]
+        search_intent = constraints.get("search_intent") or "constraints"
+        title_only = search_intent == "title"
+        title_query = (
+            constraints.get("title_query")
+            if search_intent in {"title", "title_with_constraints"}
+            else None
+        )
         es_out = search_recipes_es(
             RecipeSearchConstraints(
-                include_ingredients=constraints.get("preferred_ingredients") or [],
-                exclude_ingredients=constraints.get("excluded_ingredients") or [],
+                include_ingredients=(
+                    [] if title_only else constraints.get("preferred_ingredients") or []
+                ),
+                exclude_ingredients=(
+                    [] if title_only else constraints.get("excluded_ingredients") or []
+                ),
                 exclude_allergens=list(
                     {
-                        *(constraints.get("allergens") or []),
+                        *([] if title_only else constraints.get("allergens") or []),
                         *exclude_allergens,
                     }
                 ),
-                diet_tags=constraints.get("diet") or [],
-                title_keywords=constraints.get("title_keywords") or [],
-                max_duration_minutes=constraints.get("max_duration_minutes"),
-                min_servings=constraints.get("min_servings"),
+                diet_tags=[] if title_only else constraints.get("diet") or [],
+                title_keywords=(
+                    [] if title_only else constraints.get("title_keywords") or []
+                ),
+                title_query=title_query,
+                max_duration_minutes=(
+                    None if title_only else constraints.get("max_duration_minutes")
+                ),
+                min_servings=(
+                    None if title_only else constraints.get("min_servings")
+                ),
                 limit=constraints.get("limit") or 10,
             )
         )
@@ -1295,6 +1317,7 @@ def _index_recipe_to_elastic(
     doc = {
         "id": recipe_id,
         "title": title,
+        "title_normalized": normalize_recipe_title(title),
         "source": source,
         "source_id": resolve_collection_source_id(source, source_id),
         "ingredients": ingredient_names,

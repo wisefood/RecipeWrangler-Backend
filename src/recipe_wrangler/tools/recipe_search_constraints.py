@@ -7,9 +7,10 @@ uses it to turn a user question into deterministic search constraints.
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -17,12 +18,13 @@ from pydantic import BaseModel, Field
 
 
 EXTRACT_CONSTRAINTS_SYSTEM_PROMPT = (
-    "You extract structured recipe-search constraints from a user question. "
+    "You classify recipe-search intent and extract structured constraints from "
+    "a user question. "
     "Return only fields from the provided schema. "
     "Do not invent constraints that are not stated or strongly implied."
 )
 
-EXTRACT_CONSTRAINTS_HUMAN_PROMPT = """Extract recipe constraints from the user question.
+EXTRACT_CONSTRAINTS_HUMAN_PROMPT = """Classify the search intent and extract recipe constraints.
 
 Use the schema to align with available recipe-search concepts.
 
@@ -30,6 +32,14 @@ Schema:
 {schema}
 
 Rules:
+- Use search_intent="title" when the question is just the name of a specific
+  dish or recipe, such as "chicken tikka masala".
+- Use search_intent="constraints" for descriptive requests, such as "a recipe
+  with chicken" or "quick vegan dinners".
+- Use search_intent="title_with_constraints" when a named dish also has explicit
+  requirements, such as "chicken tikka masala under 30 minutes".
+- For title or title_with_constraints, put only the named dish in title_query.
+  Otherwise set title_query=null.
 - Put requested ingredients into preferred_ingredients.
 - Put ingredients to avoid into excluded_ingredients.
 - Put allergen exclusions into allergens.
@@ -45,7 +55,8 @@ Question:
 """
 
 EXTRACT_CONSTRAINTS_JSON_SYSTEM_PROMPT = (
-    "You extract structured recipe-search constraints from a user question. "
+    "You classify recipe-search intent and extract structured constraints from "
+    "a user question. "
     "Return one valid JSON object only, no markdown and no extra text."
 )
 
@@ -57,7 +68,13 @@ Schema:
 Question:
 {question}
 
+Classify a bare named dish as "title", a descriptive recipe request as
+"constraints", and a named dish with explicit requirements as
+"title_with_constraints". Put only the named dish in title_query.
+
 Return exactly one JSON object with these keys:
+- search_intent: "title"|"constraints"|"title_with_constraints"
+- title_query: string|null
 - preferred_ingredients: string[]
 - excluded_ingredients: string[]
 - allergens: string[]
@@ -86,6 +103,19 @@ Allowed allergen values:
 
 
 class ExtractConstraintsOutput(BaseModel):
+    search_intent: Literal[
+        "title", "constraints", "title_with_constraints"
+    ] = Field(
+        description=(
+            "Whether the user supplied a named recipe title, descriptive "
+            "constraints, or a named title plus explicit constraints."
+        )
+    )
+    title_query: str | None = Field(
+        description=(
+            "The named dish only for title/title_with_constraints; otherwise null."
+        )
+    )
     preferred_ingredients: list[str] = Field(default_factory=list)
     excluded_ingredients: list[str] = Field(default_factory=list)
     allergens: list[str] = Field(default_factory=list)
@@ -98,22 +128,47 @@ class ExtractConstraintsOutput(BaseModel):
     unsupported_reason: str | None = None
 
 
+def _empty_constraints() -> dict[str, Any]:
+    return ExtractConstraintsOutput(
+        search_intent="constraints",
+        title_query=None,
+    ).model_dump()
+
+
 @dataclass
 class RecipeConstraintExtractor:
     """Extract recipe-search constraints without initializing Neo4j."""
 
     model: str = "llama-3.1-8b-instant"
     temperature: float = 0.0
+    source: str = "groq"
     structured_output_method: str = "function_calling"
 
     def __post_init__(self) -> None:
-        from langchain_groq import ChatGroq
+        source = self.source.strip().lower()
+        if source == "openrouter":
+            from langchain_openai import ChatOpenAI
 
-        self.llm = ChatGroq(
-            model=self.model,
-            temperature=self.temperature,
-            max_retries=2,
-        )
+            self.llm = ChatOpenAI(
+                model=self.model,
+                temperature=self.temperature,
+                max_retries=2,
+                base_url=os.getenv(
+                    "OPENROUTER_BASE_URL",
+                    "https://openrouter.ai/api/v1",
+                ),
+                api_key=os.getenv("OPENROUTER_API_KEY", ""),
+            )
+        elif source == "groq":
+            from langchain_groq import ChatGroq
+
+            self.llm = ChatGroq(
+                model=self.model,
+                temperature=self.temperature,
+                max_retries=2,
+            )
+        else:
+            raise ValueError("source must be 'groq' or 'openrouter'")
         self._structured_extraction_enabled = True
         self._build_chains()
 
@@ -151,6 +206,8 @@ class RecipeConstraintExtractor:
     def _looks_empty_constraints(data: dict[str, Any]) -> bool:
         if data.get("unsupported_intent"):
             return False
+        if data.get("search_intent") != "constraints" and data.get("title_query"):
+            return False
         list_keys = [
             "preferred_ingredients",
             "excluded_ingredients",
@@ -169,7 +226,7 @@ class RecipeConstraintExtractor:
     def _heuristic_extract_constraints(question: str) -> dict[str, Any]:
         query = str(question or "")
         normalized_query = query.casefold()
-        output = ExtractConstraintsOutput().model_dump()
+        output = _empty_constraints()
 
         diet_keywords = [
             "vegan",
@@ -261,7 +318,7 @@ class RecipeConstraintExtractor:
                 return ExtractConstraintsOutput.model_validate(payload).model_dump()
             except Exception:
                 continue
-        return ExtractConstraintsOutput().model_dump()
+        return _empty_constraints()
 
     def _extract_constraints_with_json_text(
         self,
@@ -273,7 +330,7 @@ class RecipeConstraintExtractor:
                 {"question": question, "schema": schema_text}
             )
         except Exception:
-            return ExtractConstraintsOutput().model_dump()
+            return _empty_constraints()
         return self._parse_constraints_json_text(raw)
 
     def extract_state(self, state: Mapping[str, Any]) -> dict[str, Any]:
@@ -281,7 +338,7 @@ class RecipeConstraintExtractor:
 
         schema_text = EXTRACT_CONSTRAINTS_SCHEMA_CONTEXT
         question = str(state.get("question") or "")
-        constraints = ExtractConstraintsOutput().model_dump()
+        constraints = _empty_constraints()
 
         if self._structured_extraction_enabled:
             try:
@@ -330,6 +387,12 @@ class RecipeConstraintExtractor:
             constraints.get("limit"),
             default=50,
         )
+        if constraints.get("search_intent") in {"title", "title_with_constraints"}:
+            title_query = str(constraints.get("title_query") or "").strip()
+            constraints["title_query"] = title_query or question.strip() or None
+        else:
+            constraints["search_intent"] = "constraints"
+            constraints["title_query"] = None
         return {
             "query_constraints": constraints,
             "exclude_allergens": state.get("exclude_allergens"),

@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     )
 
     neo4j_uri: str = Field(..., alias="NEO4J_URI")
-    # Groq model IDs — must be valid IDs from https://console.groq.com/docs/models.
+    search_llm_source: str = Field("groq", alias="SEARCH_LLM_SOURCE")
     search_main_model: str = Field("meta-llama/llama-4-scout-17b-16e-instruct", alias="SEARCH_MAIN_MODEL")
     guardrails_model: str = Field("llama-3.1-8b-instant", alias="GUARDRAILS_MODEL")
     search_temperature: float = Field(0.0, alias="SEARCH_TEMPERATURE")

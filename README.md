@@ -106,16 +106,46 @@ question
   │
   ├── Empty question? → random MyPlate recipes from Elasticsearch
   │
-  └── Constraint extraction (Groq LLM)
-        → {preferred_ingredients, excluded_ingredients, allergens,
-           diet_tags, title_keywords, max_duration, limit}
+  └── Intent + constraint extraction (configured search LLM)
+        → title: exact/phrase/prefix/fuzzy title search
+        → constraints: deterministic parameter search
+        → title_with_constraints: title relevance plus filters
   │
   └── Build an Elasticsearch bool query
         └── Search recipes_v2 and return recipe cards
 ```
 
 **Database:** Elasticsearch only.
-**LLM:** Groq for constraint extraction.
+**LLM:** `SEARCH_LLM_SOURCE` (`openrouter` or `groq`) for intent and constraint extraction.
+
+The same LLM call performs both operations: it classifies the query and returns
+any structured constraints. There is no second routing-agent call. Its output
+contains `search_intent`, an optional `title_query`, and the normal ingredient,
+allergen, diet, duration, and serving constraints.
+
+| Intent | Example | Elasticsearch behavior |
+| --- | --- | --- |
+| `title` | `Chicken Soup` | Search the title only |
+| `constraints` | `recipe with chicken` | Use the deterministic parameter filters |
+| `title_with_constraints` | `Chicken Soup under 30 minutes` | Combine title relevance with filters |
+
+Title retrieval uses several signals in descending confidence:
+
+1. Normalized exact title (`title_normalized`)
+2. Case-insensitive exact keyword
+3. Exact phrase
+4. Phrase prefix, for input such as `Chicken Sou`
+5. All title tokens
+6. Fuzzy tokens, for input such as `Chiken Soup`
+
+Elasticsearch retrieves a wider title candidate pool, then the API reranks it
+by normalized string similarity. This prevents a longer fuzzy result such as
+`Chicken Soup for the Soul` from ranking above the closer `Chicken Soup`.
+General constraint search keeps its existing expert/curated ordering, while
+title and mixed searches rank textual relevance first.
+
+Autocomplete selection should still send the selected recipe ID directly when
+available; that path does not need LLM classification.
 
 ---
 
@@ -570,7 +600,9 @@ cp .env.example .env  # edit with your values
 Required:
 ```
 NEO4J_URI=bolt://localhost:7687
-GROQ_API_KEY=gsk-...
+SEARCH_LLM_SOURCE=openrouter
+SEARCH_MAIN_MODEL=openai/gpt-oss-20b
+OPENROUTER_API_KEY=sk-or-v1-...
 ELASTIC_URL=http://localhost:9200
 ELASTIC_INDEX=recipes_v2
 ELASTIC_VECTOR_INDEX=ingredient_vectors

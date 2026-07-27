@@ -32,6 +32,7 @@ from recipe_wrangler.tools.es_recipe_search import (
     ES_INDEX,
     RecipeSearchConstraints,
     ResultWindowExceededError,
+    normalize_recipe_title,
     search_recipes_es,
 )
 from recipe_wrangler.utils.recipe_cache import (
@@ -1763,22 +1764,44 @@ async def recipe_search(
         raise map_dependency_error("recipe constraint extraction", exc) from exc
     extract_seconds = time.perf_counter() - extract_started
 
+    search_intent = constraints.get("search_intent") or "constraints"
+    title_only = search_intent == "title"
+    title_query = (
+        constraints.get("title_query")
+        if search_intent in {"title", "title_with_constraints"}
+        else None
+    )
+
     # Diet asked for in the question is a hard filter. Member preferences are
     # soft boosts, while allergies remain hard exclusions.
     base_constraints = dict(
-        include_ingredients=constraints.get("preferred_ingredients") or [],
-        exclude_ingredients=constraints.get("excluded_ingredients") or [],
-        exclude_allergens=list(
-            {*(constraints.get("allergens") or []), *exclude_allergens}
+        include_ingredients=(
+            [] if title_only else constraints.get("preferred_ingredients") or []
         ),
-        diet_tags=constraints.get("diet") or [],
-        dish_types=constraints.get("dish_types") or [],
+        exclude_ingredients=(
+            [] if title_only else constraints.get("excluded_ingredients") or []
+        ),
+        exclude_allergens=list(
+            {
+                *([] if title_only else constraints.get("allergens") or []),
+                *exclude_allergens,
+            }
+        ),
+        diet_tags=[] if title_only else constraints.get("diet") or [],
+        dish_types=[] if title_only else constraints.get("dish_types") or [],
         boost_tags=payload.diet_tags,
         boost_ingredients=payload.preferred_ingredients,
-        title_keywords=constraints.get("title_keywords") or [],
-        max_duration_minutes=constraints.get("max_duration_minutes"),
-        min_servings=constraints.get("min_servings"),
-        sort_by=constraints.get("sort_by"),
+        title_keywords=(
+            [] if title_only else constraints.get("title_keywords") or []
+        ),
+        title_query=title_query,
+        max_duration_minutes=(
+            None if title_only else constraints.get("max_duration_minutes")
+        ),
+        min_servings=(
+            None if title_only else constraints.get("min_servings")
+        ),
+        sort_by=None if title_only else constraints.get("sort_by"),
         limit=constraints.get("limit") or 10,
         region=payload.region or "eu",
     )
@@ -1788,7 +1811,11 @@ async def recipe_search(
         es_out = await run_in_threadpool(
             search_recipes_es, RecipeSearchConstraints(**base_constraints)
         )
-        if not es_out["results"] and base_constraints["title_keywords"]:
+        if (
+            not es_out["results"]
+            and not title_query
+            and base_constraints["title_keywords"]
+        ):
             relaxed = True
             es_out = await run_in_threadpool(
                 search_recipes_es,
@@ -1981,6 +2008,7 @@ def _index_recipe_to_elastic(
     doc = {
         "id": recipe_id,
         "title": title,
+        "title_normalized": normalize_recipe_title(title),
         "source": source,
         "source_id": resolve_collection_source_id(source, source_id),
         "ingredients": ingredient_names,

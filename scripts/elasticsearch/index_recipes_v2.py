@@ -31,6 +31,7 @@ load_dotenv(REPO_ROOT / ".env")
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from recipe_wrangler.utils.nutrition_postgres import fetch_all_recipe_scores
+from recipe_wrangler.tools.es_recipe_search import normalize_recipe_title
 
 DEFAULT_ES_URL = os.getenv("ELASTIC_URL", "http://localhost:9200")
 DEFAULT_INDEX = "recipes_v2"
@@ -50,6 +51,7 @@ INDEX_BODY = {
         "properties": {
             "id": {"type": "keyword"},
             "title": {"type": "text", "fields": {"kw": {"type": "keyword"}}},
+            "title_normalized": {"type": "keyword"},
             "url": {"type": "keyword", "index": False},
             "image_url": {"type": "keyword", "index": False},
             "source": {"type": "keyword"},
@@ -159,10 +161,12 @@ def fetch_from_neo4j(sources: list[str] | None, uri: str, username: str, passwor
     recipes: list[dict] = []
     for row in rows:
         source = _clean_str(row["source"])
+        title = _clean_str(row["title"])
         recipes.append(
             {
                 "id": _clean_str(row["id"]),
-                "title": _clean_str(row["title"]),
+                "title": title,
+                "title_normalized": normalize_recipe_title(title),
                 "url": _clean_str(row["url"]),
                 "image_url": _clean_str(row["image_url"]),
                 "source": source,

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import unicodedata
 from pathlib import Path
 from typing import Iterable
 
@@ -20,6 +21,16 @@ DEFAULT_ES_URL = "http://localhost:9200"
 DEFAULT_INDEX = "recipes_v2"
 
 
+def _normalize_title(value: object) -> str:
+    decomposed = unicodedata.normalize("NFKD", str(value or "").strip()).casefold()
+    without_marks = "".join(
+        char for char in decomposed if not unicodedata.combining(char)
+    )
+    return " ".join(
+        "".join(char if char.isalnum() else " " for char in without_marks).split()
+    )
+
+
 def _iter_bulk_lines(recipes: Iterable[dict], index: str) -> Iterable[str]:
     for recipe in recipes:
         rid = str(recipe.get("id") or "").strip()
@@ -27,9 +38,11 @@ def _iter_bulk_lines(recipes: Iterable[dict], index: str) -> Iterable[str]:
             continue
 
         action = {"index": {"_index": index, "_id": rid}}
+        title = recipe.get("title", "")
         source = {
             "id": rid,
-            "title": recipe.get("title", ""),
+            "title": title,
+            "title_normalized": _normalize_title(title),
             "ingredients": recipe.get("ingredients", []),
             "tags": recipe.get("tags", []),
         }

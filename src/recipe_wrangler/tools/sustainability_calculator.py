@@ -1,4 +1,4 @@
-# Purpose: Compute sustainability/carbon footprint totals via Chroma matches.
+# Purpose: Compute sustainability/carbon footprint totals via Elasticsearch matches.
 
 import re
 from functools import lru_cache
@@ -7,7 +7,10 @@ from typing import Dict, List, Optional, Tuple
 from langchain.tools import tool
 
 from recipe_wrangler.schemas import RecipeState
-from recipe_wrangler.utils.query_chromadb import query_sustainability_db
+from recipe_wrangler.repositories.vector_matchers import (
+    query_sustainability_candidates as query_sustainability_db,
+)
+from recipe_wrangler.repositories.vector_matchers import get_vector_collection_page
 from recipe_wrangler.tools.nutrition_match import (
     clean_query as _nm_clean,
     classes_compatible as _nm_compat,
@@ -24,7 +27,7 @@ SOURCE_SUSTAINABILITY = "Sustainable FooDB"
 # Same strategy as the nutrition matcher, scaled down: exact / alias / vector
 # with a food-class hard gate, BM25 rerank and cooking-state demotion, and a
 # confidence label on every result.  Carbon-footprint values in the
-# "Sustainable FooDB" Chroma collection are category-quantised (all beef ≈ the
+# "Sustainable FooDB" Elasticsearch collection are category-quantised (all beef ≈ the
 # same cf_val, etc.), so getting the right *category* is what matters most.
 # --------------------------------------------------------------------------- #
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
@@ -37,23 +40,32 @@ def _norm(s: object) -> str:
 @lru_cache(maxsize=1)
 def _cf_index() -> Dict[str, float]:
     """normalized ingredient name -> cf_val (kg CO2e / kg) for every DB entry."""
-    try:
-        from recipe_wrangler.utils.chroma_client import get_chroma_client
-
-        col = get_chroma_client().get_collection("sustainability_ingredients")
-        res = col.get(include=["documents", "metadatas"])
-    except Exception:
-        return {}
     idx: Dict[str, float] = {}
-    for doc, meta in zip(res.get("documents") or [], res.get("metadatas") or []):
-        meta = meta or {}
-        name = _norm(meta.get("ingredient") or doc)
+    page_size = 5000
+    offset = 0
+    while True:
         try:
-            cf = float(meta.get("cf_val"))
-        except (TypeError, ValueError):
-            continue
-        if name and cf > 0:
-            idx.setdefault(name, cf)
+            rows = get_vector_collection_page(
+                "sustainability_ingredients",
+                limit=page_size,
+                offset=offset,
+            )
+        except Exception:
+            return idx
+        if not rows:
+            break
+        for row in rows:
+            meta = row.get("metadata") or {}
+            name = _norm(meta.get("ingredient") or row.get("document"))
+            try:
+                cf = float(meta.get("cf_val"))
+            except (TypeError, ValueError):
+                continue
+            if name and cf > 0:
+                idx.setdefault(name, cf)
+        if len(rows) < page_size:
+            break
+        offset += len(rows)
     return idx
 
 
@@ -195,7 +207,12 @@ def best_sustainability_match(ing_name: str) -> Tuple[Optional[float], Optional[
                 continue
             if cv <= 0 or not _nm_compat(q_class, _nm_class(cn)):
                 continue
-            cands.append({"name": cn, "cf": cv, "distance": c.get("distance")})
+            cands.append({
+                "name": cn,
+                "cf": cv,
+                "distance": c.get("distance"),
+                "rrf_score": c.get("rrf_score"),
+            })
         if hits:
             break
     if not cands:
@@ -204,17 +221,32 @@ def best_sustainability_match(ing_name: str) -> Tuple[Optional[float], Optional[
     corpus = [_nm_tokens(c["name"]) for c in cands]
     bm = _nm_bm25(list(q_tok), corpus) if q_tok else [0.0] * len(cands)
     n_q = max(1, len(q_tok))
+    max_rrf = max(
+        (float(candidate.get("rrf_score") or 0.0) for candidate in cands),
+        default=0.0,
+    )
     best = None
     for c, ct, b in zip(cands, corpus, bm):
         d = c.get("distance")
         sim = (1.0 - float(d)) if d is not None else 0.0
         overlap = len(q_tok & set(ct))
+        rrf = (
+            float(c.get("rrf_score") or 0.0) / max_rrf
+            if max_rrf > 0.0
+            else 0.0
+        )
         pen = 0.0
         if overlap == 0 and sim < 0.90:
             pen -= 0.5
         if (_NM_MARKERS & set(_TOKEN_RE.findall(c["name"].lower()))) - q_raw:
             pen -= 0.12
-        score = 0.60 * sim + 0.40 * float(b) + 0.15 * min(1.0, overlap / n_q) + pen
+        score = (
+            0.60 * sim
+            + 0.30 * float(b)
+            + 0.10 * rrf
+            + 0.15 * min(1.0, overlap / n_q)
+            + pen
+        )
         if best is None or score > best[0]:
             best = (score, sim, overlap, c)
     score, sim, overlap, c = best
@@ -235,7 +267,7 @@ def _to_float_or_none(value: object) -> Optional[float]:
         return None
 
 @tool
-def sustainability_tool_chroma(
+def sustainability_tool_vector(
     title: str,
     ingredient_names: List[str],
     weights: List[float],
@@ -245,7 +277,7 @@ def sustainability_tool_chroma(
 ) -> Dict:
     """
     Compute recipe carbon footprint (kg CO2e). 
-    Matches ingredients via Chroma.
+    Matches ingredients via Elasticsearch.
     """
     details: List[Dict] = []
     total_sustainability = 0.0
@@ -255,7 +287,7 @@ def sustainability_tool_chroma(
         try:
             serves_value = float(serves)
         except (TypeError, ValueError) as exc:
-            raise ValueError("sustainability_tool_chroma: 'serves' must be numeric.") from exc
+            raise ValueError("sustainability_tool_vector: 'serves' must be numeric.") from exc
         if serves_value <= 0:
             serves_value = None
 
@@ -319,7 +351,7 @@ def sustainability_tool_chroma(
 
 def Sustainability_Node(state: RecipeState) -> RecipeState:
     """
-    Node to compute carbon footprint via Chroma, scale by ingredient weight/serves, 
+    Node to compute carbon footprint via Elasticsearch, scale by ingredient weight/serves,
     and store per-ingredient details plus per-serving/total CO2e in state.
     """
     debug = bool(state.debug)
@@ -348,7 +380,7 @@ def Sustainability_Node(state: RecipeState) -> RecipeState:
     ingredient_names = ingredient_names[:n]
     weights_g = weights_g[:n]
 
-    res = sustainability_tool_chroma.invoke({
+    res = sustainability_tool_vector.invoke({
         "title": state.title,
         "ingredient_names": ingredient_names,
         "weights": weights_g,                       # ✅ correct param name
@@ -364,7 +396,7 @@ def Sustainability_Node(state: RecipeState) -> RecipeState:
     state.sustainability_serves = res.get("serves")
 
     if debug:
-        print(f"\n[Sustainability_Node] Computed (ChromaDB) for recipe '{state.title}'.")
+        print(f"\n[Sustainability_Node] Computed (Elasticsearch) for recipe '{state.title}'.")
         print(f"   total_sustainability = {res['total_sustainability']:.4f} kg CO2e")
         per_serving = res.get("total_sustainability_per_serving")
         if per_serving is not None:

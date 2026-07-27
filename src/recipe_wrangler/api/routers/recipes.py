@@ -47,7 +47,7 @@ from recipe_wrangler.repositories.postgres_nutrition import (
 )
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
-from recipe_wrangler.repositories.chroma_matchers import query_usda_nutrition_candidates
+from recipe_wrangler.repositories.vector_matchers import query_usda_nutrition_candidates
 
 _USDA_MATCH_THRESHOLD = 0.4
 _REPO_ROOT = Path(__file__).resolve().parents[4]

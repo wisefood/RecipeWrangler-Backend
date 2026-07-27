@@ -29,7 +29,7 @@ from recipe_wrangler.utils.nutrition_postgres import (  # noqa: E402
     get_connection,
     upsert_recipe_profiling_trace,
 )
-from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_chroma  # noqa: E402
+from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_vector  # noqa: E402
 from recipe_wrangler.tools.recipe_profiling_tool import (  # noqa: E402
     _build_total_nutrients_for_score,
     _resolve_fvl_usda_id,
@@ -152,7 +152,7 @@ def nutrition_only_record(seed: dict, recipe: dict, region: str) -> dict:
     names = list(recipe["ingredient_names"])
     measurements = list(recipe["measurements"])
     weights = [float(value or 0.0) for value in recipe["weights"]]
-    nutrition = nutritional_tool_chroma.invoke({
+    nutrition = nutritional_tool_vector.invoke({
         "title": recipe["title"],
         "ingredient_names": names,
         "weights": weights,

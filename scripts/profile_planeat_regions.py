@@ -5,7 +5,7 @@ PLANEAT recipes (data/ESSRG/ESSRG_recipes_clean.json) already carry resolved
 CoFID ingredient names and gram weights, so no LLM parsing or weight estimation
 is needed. For each recipe and each region this script:
 
-  1. calls nutritional_tool_chroma (Chroma match -> Postgres per-100g -> scale
+  1. calls nutritional_tool_vector (Elasticsearch match -> Postgres per-100g -> scale
      -> aggregate),
   2. computes a per-100g Nutri-Score,
   3. upserts a profiling trace row into Postgres
@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from recipe_wrangler.api.main import get_settings  # noqa: E402
 from recipe_wrangler.tools.nutritional_calculator import (  # noqa: E402
-    nutritional_tool_chroma,
+    nutritional_tool_vector,
 )
 from recipe_wrangler.utils.nutri_score import (  # noqa: E402
     compute_nutri_score_breakdown_from_values,
@@ -116,7 +116,7 @@ def _process_region(rec: dict, region: str, settings, write: bool) -> str:
     weights = [float(d["weight_g"]) for d in details_with_weight]
     total_weight_g = float(sum(weights))
 
-    result = nutritional_tool_chroma.invoke({
+    result = nutritional_tool_vector.invoke({
         "title": title,
         "ingredient_names": names,
         "weights": weights,

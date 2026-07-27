@@ -59,30 +59,46 @@ python scripts/neo4j/tag_recipes.py
 python scripts/neo4j/tag_allergens.py
 ```
 
-### 3. Chroma — vector collections
+### 3. Elasticsearch — vector collections
+
+Import a validated embedding NDJSON file into a versioned physical index,
+verify its count, and activate the stable alias:
 
 ```bash
-# Build the Irish nutrition ingredient collection
-python scripts/chroma/backfill_irish_chroma_metadata.py
-
-# Build the Hungarian nutrition ingredient collection
-python scripts/chroma/build_nutritional_chromadb_hungarian.py
-
-# Build the USDA ingredient canonical collection
-python scripts/chroma/rebuild_usda_ingredients_canonical_from_labels.py
+python scripts/elasticsearch/import_vector_embeddings.py \
+  --input exports/vector_embeddings.ndjson \
+  --index ingredient_vectors_v1 \
+  --alias ingredient_vectors \
+  --recreate \
+  --activate-alias
 ```
 
-### 4. Elasticsearch — search index
+```dotenv
+ELASTIC_VECTOR_INDEX=ingredient_vectors
+ELASTIC_VECTOR_SEARCH_MODE=exact
+```
+
+`exact` is the migration-safe default for the current small, collection-filtered
+indexes. `knn` enables approximate HNSW search; tune recall with
+`ELASTIC_VECTOR_CANDIDATE_MULTIPLIER`.
+
+### 4. Elasticsearch — recipe search index
 
 ```bash
-# Import recipe titles + metadata into the search index
-python scripts/elasticsearch/import_recipes_to_elastic.py
+# Rebuild the complete enriched recipe index from Neo4j + PostgreSQL
+python scripts/elasticsearch/index_recipes_v2.py --recreate
+
+# Refresh only selected Neo4j sources without dropping the index
+python scripts/elasticsearch/index_recipes_v2.py --sources FoodHero HealthyFoods
 ```
 
 ## Notes
 
 - All scripts read connection details from environment variables (`.env`).
 - Postgres scripts use `NUTRITION_*` env vars; see `.env.example`.
-- Chroma scripts expect a running Chroma server at `CHROMA_HOST:CHROMA_PORT`.
-- The Elasticsearch script expects recipes exported from Neo4j as a JSON file — check the script's `--input` argument.
+- Vector scripts expect Elasticsearch at `ELASTIC_URL`.
+- Vector exports are generated operational assets under `exports/` and are not
+  committed to Git.
+- `index_recipes_v2.py` builds the canonical recipe search index from Neo4j and
+  enriches it with nutrition and sustainability scores from PostgreSQL.
 - If Postgres data is lost (e.g. Docker volume wiped), re-run steps 1 and 2 from the dump your colleague shared, or re-run these scripts.

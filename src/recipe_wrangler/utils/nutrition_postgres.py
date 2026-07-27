@@ -278,6 +278,62 @@ def fetch_recipe_nutrition_by_id(
         raise RuntimeError(f"Failed to fetch recipe nutrition: {e}") from e
 
 
+def fetch_recipe_nutrition_batch(recipe_ids: list[str]) -> dict[str, dict]:
+    """Return one nutrition profile per requested recipe in a single query."""
+    ids = [str(recipe_id) for recipe_id in recipe_ids if recipe_id]
+    if not ids:
+        return {}
+
+    cfg = _get_config()
+    query_str = f"""
+        SELECT row_to_json(t) AS data
+        FROM (
+            SELECT DISTINCT ON (recipe_id)
+                recipe_id,
+                title,
+                total_nutrients,
+                total_nutrients_per_serving,
+                nutri_score,
+                source,
+                nutrition_source
+            FROM "{cfg['schema']}"."{cfg['profiles_table']}"
+            WHERE recipe_id = ANY(:recipe_ids)
+        ) t
+    """
+    try:
+        with get_connection() as conn:
+            result = conn.execute(text(query_str), {"recipe_ids": ids})
+            return {str(row[0]["recipe_id"]): row[0] for row in result}
+    except SQLAlchemyError as exc:
+        if cfg["use_docker"] and cfg["container"]:
+            quoted = ", ".join(
+                "'" + recipe_id.replace("'", "''") + "'" for recipe_id in ids
+            )
+            fallback_query = f"""
+                SELECT json_agg(row_to_json(t))
+                FROM (
+                    SELECT DISTINCT ON (recipe_id)
+                        recipe_id,
+                        title,
+                        total_nutrients,
+                        total_nutrients_per_serving,
+                        nutri_score,
+                        source,
+                        nutrition_source
+                    FROM "{cfg['schema']}"."{cfg['profiles_table']}"
+                    WHERE recipe_id IN ({quoted})
+                ) t
+            """
+            output = _run_psql_fallback(fallback_query, cfg)
+            if not output or output == "null":
+                return {}
+            return {
+                str(record["recipe_id"]): record
+                for record in json.loads(output)
+            }
+        raise RuntimeError(f"Failed to fetch recipe nutrition batch: {exc}") from exc
+
+
 _REGION_BY_SOURCE = {"usda": "us", "irish": "ie", "hungarian": "hu", "eu": "eu"}
 
 

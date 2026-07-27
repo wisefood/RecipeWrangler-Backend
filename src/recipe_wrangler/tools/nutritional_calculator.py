@@ -1,4 +1,4 @@
-# Purpose: Compute nutrition totals from ingredient weights via Chroma matches.
+# Purpose: Compute nutrition totals from ingredient weights via Elasticsearch matches.
 
 import re
 from typing import Dict, List, Optional
@@ -12,7 +12,7 @@ from recipe_wrangler.repositories.postgres_nutrition import (
     get_irish_ingredient_nutrition,
     get_usda_ingredient_nutrition,
 )
-from recipe_wrangler.repositories.chroma_matchers import (
+from recipe_wrangler.repositories.vector_matchers import (
     query_eu_nutrition_candidates,
     query_hungarian_nutrition_candidates,
     query_irish_nutrition_candidates,
@@ -252,14 +252,14 @@ def _best_usda_lexical_match(
 
 
 @tool(
-    "nutritional_tool_chroma",
+    "nutritional_tool_vector",
     description=(
-        "Compute a recipe's nutritional profile (protein, carbs, fat, sugar, saturated fat, sodium, kcal) using ChromaDB matches. "
+        "Compute a recipe's nutritional profile (protein, carbs, fat, sugar, saturated fat, sodium, kcal) using Elasticsearch matches. "
         "Assumes cosine distance (lower is better) and enforces a minimum cosine similarity threshold. "
         "Parameter 'source' selects the composition table (default: 'irish')."
     ),
 )
-def nutritional_tool_chroma(
+def nutritional_tool_vector(
     title: str,
     ingredient_names: List[str],
     weights: List[float],
@@ -284,7 +284,7 @@ def nutritional_tool_chroma(
         try:
             serves_value = float(serves)
         except (TypeError, ValueError) as exc:
-            raise ValueError("nutritional_tool_chroma: 'serves' must be numeric.") from exc
+            raise ValueError("nutritional_tool_vector: 'serves' must be numeric.") from exc
         if serves_value <= 0:
             serves_value = None
 
@@ -340,10 +340,10 @@ def nutritional_tool_chroma(
             })
             continue
 
-        chroma_meta = match.get("metadata") or {}
-        canonical_food_id = chroma_meta.get("canonical_food_id")
-        usda_id = chroma_meta.get("usda_id")
-        eu_id = chroma_meta.get("eu_id")
+        vector_metadata = match.get("metadata") or {}
+        canonical_food_id = vector_metadata.get("canonical_food_id")
+        usda_id = vector_metadata.get("usda_id")
+        eu_id = vector_metadata.get("eu_id")
         nutrient_row = None
         if active_source == "irish":
             if canonical_food_id:
@@ -371,8 +371,8 @@ def nutritional_tool_chroma(
             )
             if usda_match is not None:
                 match = usda_match
-                chroma_meta = match.get("metadata") or {}
-                usda_id = chroma_meta.get("usda_id")
+                vector_metadata = match.get("metadata") or {}
+                usda_id = vector_metadata.get("usda_id")
                 if usda_id:
                     nutrient_row = get_usda_ingredient_nutrition(str(usda_id))
                     if nutrient_row:
@@ -416,7 +416,7 @@ def nutritional_tool_chroma(
         matched_name = (
             meta.get("Food Name")
             or meta.get("food_name")
-            or chroma_meta.get("title")
+            or vector_metadata.get("title")
             or match.get("document")
             or "—"
         )
@@ -585,7 +585,7 @@ def nutritional_tool_chroma(
 
 def Nutrition_Node(state: RecipeState) -> RecipeState:
     """
-    Node to compute nutrition via Chroma, scale by weight/serves, store totals and details in state.
+    Node to compute nutrition via Elasticsearch, scale by weight/serves, store totals and details in state.
     """
     
     debug = bool(state.debug)
@@ -619,7 +619,7 @@ def Nutrition_Node(state: RecipeState) -> RecipeState:
         or "irish"
     )
 
-    res = nutritional_tool_chroma.invoke({
+    res = nutritional_tool_vector.invoke({
         "title": state.title or "Untitled Recipe",
         "ingredient_names": ingredient_names,
         "weights": weights,
@@ -649,7 +649,7 @@ def Nutrition_Node(state: RecipeState) -> RecipeState:
 
     if debug:
         print(
-            f"\n[Nutrition_Node] Computed (ChromaDB) for recipe "
+            f"\n[Nutrition_Node] Computed (Elasticsearch) for recipe "
             f"'{state.title or 'Untitled Recipe'}'."
         )
         serves = res.get("serves")

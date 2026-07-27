@@ -4,7 +4,7 @@ The bulk recompute stored the final Nutri-Score grade/score but left the
 `nutri_score_breakdown` column NULL. The breakdown is deterministic given the
 already-stored `total_nutrients` (recipe totals) plus the per-ingredient weights
 and canonical food ids in `nutrition_profiling_details` — no pipeline, no LLM,
-no Chroma. This script recomputes it and writes the column in place.
+no vector lookup. This script recomputes it and writes the column in place.
 
 Usage:
     PYTHONPATH=src python scripts/postgres/backfill_nutri_score_breakdown.py [--write] \

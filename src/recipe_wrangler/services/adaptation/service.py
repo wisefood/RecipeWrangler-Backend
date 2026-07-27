@@ -2,7 +2,7 @@
 
 Reuses existing helpers (no modifications to upstream code):
   - `fetch_recipe_profiling_trace_by_id` from `utils.nutrition_postgres`
-  - `nutritional_tool_chroma` from `tools.nutritional_calculator`
+  - `nutritional_tool_vector` from `tools.nutritional_calculator`
   - `compute_nutri_score_breakdown_from_values` from `utils.nutri_score`
   - Neo4j helpers in this package's `neo4j_queries`
 """
@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from recipe_wrangler.tools.nutrition_match import food_class
-from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_chroma
+from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_vector
 from recipe_wrangler.tools.sustainability_calculator import best_sustainability_match
 from recipe_wrangler.utils.nutri_score import (
     compute_nutri_score_breakdown_from_values,
@@ -197,7 +197,7 @@ def _recompute_ingredient_details(
             ),
         )
 
-    result = nutritional_tool_chroma.invoke({
+    result = nutritional_tool_vector.invoke({
         "title": row.get("title") or "recipe",
         "ingredient_names": [s["name"] for s in selected],
         "weights": [s["weight_g"] for s in selected],
@@ -209,7 +209,7 @@ def _recompute_ingredient_details(
     if len(details) != len(selected):
         raise HTTPException(
             status_code=422,
-            detail="nutritional_tool_chroma returned a mismatched detail count.",
+            detail="nutritional_tool_vector returned a mismatched detail count.",
         )
 
     # Attach a Neo4j-resolved name to each detail so downstream graph queries
@@ -303,7 +303,7 @@ def _fetch_candidate_profile(candidate_name: str, source: str) -> dict[str, Any]
     """Run the existing per-ingredient nutrition pipeline at 100g for one candidate."""
 
     try:
-        result = nutritional_tool_chroma.invoke({
+        result = nutritional_tool_vector.invoke({
             "title": candidate_name,
             "ingredient_names": [candidate_name],
             "weights": [100.0],
@@ -323,7 +323,7 @@ def _fetch_candidate_profile(candidate_name: str, source: str) -> dict[str, Any]
 
 
 def _candidate_per_100g_map(detail: dict[str, Any]) -> dict[str, float]:
-    """Extract the per-100g values from a nutritional_tool_chroma detail row."""
+    """Extract the per-100g values from a nutritional_tool_vector detail row."""
 
     return {
         per100g_key: float(detail.get(per100g_key) or 0.0)

@@ -15,7 +15,7 @@ Decisions locked with user (see chat):
   6) English food names only
   7) IDs prefixed: ciqual:<code> | cofid:<code> | nevo:<code>
   8) New table, do not touch USDA / Irish / Hungarian
-  9) No Chroma embedding here
+  9) No vector embedding here
 
 Run:
   PYTHONPATH=src python scripts/build_eu_global_dataset.py [--dry-run]

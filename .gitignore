@@ -1,6 +1,4 @@
 /data
-/chroma_db
-*/chroma_db/
 /build
 /qdrant_storage
 /n8n-local
@@ -16,7 +14,6 @@ venv
 
 /neo4j-docker/neo4j.dump
 /postgresql-docker/data/
-/chroma_db
 __pycache__/
 *.pyc
 *.pyo
@@ -67,6 +64,7 @@ CLAUDE.md
 
 # Per-machine memory index (not project state)
 /MEMORY.md
+/PROGRESS.md
 
 # Local agent skills, plans, and scratch instructions
 /.superpowers/

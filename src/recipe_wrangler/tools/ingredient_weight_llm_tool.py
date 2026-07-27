@@ -1,4 +1,4 @@
-# Purpose: Estimate ingredient weight (grams) from parsed quantity/unit via Groq or vLLM.
+# Purpose: Estimate ingredient weight via Groq, OpenRouter, or local vLLM.
 
 from typing import Any
 import os
@@ -81,6 +81,41 @@ def _call_vllm(model_name: str, ingredient: str, parsed_quantity: Any, parsed_un
     return (completion.choices[0].message.content or "").strip()
 
 
+def _call_openrouter(
+    model_name: str,
+    ingredient: str,
+    parsed_quantity: Any,
+    parsed_unit: str,
+) -> str:
+    api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError("OPENROUTER_API_KEY is not set.")
+    client = openai.OpenAI(
+        base_url=os.getenv(
+            "OPENROUTER_BASE_URL",
+            "https://openrouter.ai/api/v1",
+        ),
+        api_key=api_key,
+    )
+    completion = client.chat.completions.create(
+        model=model_name,
+        temperature=0.0,
+        max_tokens=48,
+        messages=[
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": _user_prompt(
+                    ingredient,
+                    parsed_quantity,
+                    parsed_unit,
+                ),
+            },
+        ],
+    )
+    return (completion.choices[0].message.content or "").strip()
+
+
 @tool
 def ingredient_weight_llm_tool(
     ingredient: str,
@@ -91,7 +126,7 @@ def ingredient_weight_llm_tool(
     Estimate ingredient weight in grams from ingredient + parsed quantity + parsed unit.
     Returns only the numeric weight (grams).
 
-    LLM source is selected via WEIGHT_LLM_SOURCE env var: "groq" (default) or "vllm".
+    LLM source is selected via WEIGHT_LLM_SOURCE: groq, openrouter, or vllm.
     vLLM endpoint is configured via VLLM_BASE_URL (default: http://localhost:8003/v1).
     """
     model_name = os.getenv("WEIGHT_LLM", os.getenv("GUARDRAILS_MODEL", "llama-3.1-8b-instant"))
@@ -102,7 +137,18 @@ def ingredient_weight_llm_tool(
 
     if source == "vllm":
         content = _call_vllm(model_name, ingredient, parsed_quantity, parsed_unit)
-    else:
+    elif source == "openrouter":
+        content = _call_openrouter(
+            model_name,
+            ingredient,
+            parsed_quantity,
+            parsed_unit,
+        )
+    elif source == "groq":
         content = _call_groq(model_name, ingredient, parsed_quantity, parsed_unit)
+    else:
+        raise ValueError(
+            "WEIGHT_LLM_SOURCE must be 'groq', 'openrouter', or 'vllm'."
+        )
 
     return _extract_grams(content)

@@ -148,8 +148,8 @@ def main() -> None:
                         default=os.getenv("ELASTIC_URL", "http://localhost:9200"),
                         help="ES base URL (default: env ELASTIC_URL or http://localhost:9200)")
     parser.add_argument("--index",
-                        default=os.getenv("ELASTIC_INDEX", "recipes"),
-                        help="ES index name (default: env ELASTIC_INDEX or 'recipes')")
+                        default=os.getenv("ELASTIC_INDEX", "recipes_v2"),
+                        help="ES index name (default: env ELASTIC_INDEX or 'recipes_v2')")
     args = parser.parse_args()
 
     logger.info("ES: %s  index=%s", args.es_url, args.index)

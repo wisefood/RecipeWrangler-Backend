@@ -28,11 +28,11 @@ from recipe_wrangler.api.exceptions import (
 from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 
-from recipe_wrangler.tools.param_search import search_recipes_by_params
 from recipe_wrangler.tools.es_recipe_search import (
     ES_INDEX,
     RecipeSearchConstraints,
     ResultWindowExceededError,
+    normalize_recipe_title,
     search_recipes_es,
 )
 from recipe_wrangler.utils.recipe_cache import (
@@ -82,7 +82,7 @@ from recipe_wrangler.repositories.postgres_nutrition import (
 )
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
-from recipe_wrangler.repositories.chroma_matchers import query_usda_nutrition_candidates
+from recipe_wrangler.repositories.vector_matchers import query_usda_nutrition_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ async def _invoke_profile_with_timeout(payload: dict[str, Any]) -> dict[str, Any
         timeout=_PROFILE_TIMEOUT_SECONDS,
     )
 
-from ..dependencies import get_recipe_search_app
+from ..dependencies import get_recipe_constraint_extractor
 from recipe_wrangler.schemas import (
     FoodChatRequest,
     FoodChatResponse,
@@ -234,7 +234,7 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
                 "query": {
                     "bool": {
                         "must": [
-                            {"term": {"source.keyword": "myplate"}},
+                            {"term": {"source": "MyPlate"}},
                             {"exists": {"field": "image_url"}},
                         ],
                         "must_not": [es_not_disabled_clause()],
@@ -513,39 +513,6 @@ def _nutri_color_from_score(nutri_score: object) -> str | None:
         return mapping.get(score)
 
     return None
-
-
-def _attach_nutri_colors(results: list[object]) -> list[object]:
-    """Add nutri_score color from Postgres nutrition data when available."""
-
-    cache: dict[str, str | None] = {}
-    enriched: list[object] = []
-
-    for entry in results:
-        if not isinstance(entry, dict):
-            enriched.append(entry)
-            continue
-
-        recipe_id = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        if not recipe_id:
-            enriched.append(entry)
-            continue
-
-        if recipe_id not in cache:
-            color = None
-            try:
-                nutrition = get_recipe_nutrition(recipe_id)
-            except Exception:
-                nutrition = None
-            if nutrition:
-                color = _nutri_color_from_score(nutrition.get("nutri_score"))
-            cache[recipe_id] = color
-
-        combined = dict(entry)
-        combined["nutri_color"] = cache.get(recipe_id)
-        enriched.append(combined)
-
-    return enriched
 
 
 def _coerce_float(value: object) -> float | None:
@@ -1784,12 +1751,12 @@ def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetail
     "/search",
     response_model=None,
     tags=["recipes"],
-    summary="Search recipes via the SEARCH_BACKEND engine (Elasticsearch by default; Neo4j legacy)",
+    summary="Search recipes in Elasticsearch from a natural-language question",
 )
 async def recipe_search(
     payload: RecipeSearchRequest,
 ) -> dict[str, Any]:
-    """Invoke the recipe search LangGraph pipeline and return its output."""
+    """Interpret a recipe question and retrieve matching recipes."""
 
     question = str(payload.question or "").strip()
     exclude_allergens = payload.exclude_allergens if isinstance(payload.exclude_allergens, list) else []
@@ -1807,204 +1774,133 @@ async def recipe_search(
 
         return {"results": random_results or []}
 
-    # Lazily initialize the Groq search stack only for non-empty queries. Both
-    # the (cheap) init and the LLM extraction are blocking calls, so keep them
-    # off the event loop — a slow Groq round-trip must never freeze the pod.
-    recipe_search_app = await run_in_threadpool(get_recipe_search_app)
-
-    # Elasticsearch backend: reuse the LLM constraint extractor, then retrieve
-    # from the recipes_v2 index instead of composing/executing Cypher.
-    if get_settings().search_backend == "es":
-        extract_started = time.perf_counter()
-        try:
-            constraints = (
-                await run_in_threadpool(recipe_search_app.run_extract_constraints, question)
-            )["query_constraints"]
-        except Exception as exc:  # noqa: BLE001
-            raise map_dependency_error("Groq constraint extraction", exc) from exc
-        extract_seconds = time.perf_counter() - extract_started
-
-        # Diet asked for IN THE QUESTION ("vegan pasta") is a hard filter; the
-        # member profile's diet groups are soft ranking boosts — index tag
-        # coverage is too sparse for profile-wide hard filters (they emptied
-        # innocuous searches like "quick desserts"). Allergies stay hard.
-        base_constraints = dict(
-            include_ingredients=constraints.get("preferred_ingredients") or [],
-            exclude_ingredients=constraints.get("excluded_ingredients") or [],
-            exclude_allergens=list({*(constraints.get("allergens") or []), *exclude_allergens}),
-            diet_tags=constraints.get("diet") or [],
-            dish_types=constraints.get("dish_types") or [],
-            boost_tags=payload.diet_tags,
-            boost_ingredients=payload.preferred_ingredients,
-            title_keywords=constraints.get("title_keywords") or [],
-            max_duration_minutes=constraints.get("max_duration_minutes"),
-            min_servings=constraints.get("min_servings"),
-            sort_by=constraints.get("sort_by"),
-            limit=constraints.get("limit") or 10,
-            region=payload.region or "eu",
-        )
-        es_started = time.perf_counter()
-        relaxed = False
-        try:
-            es_out = await run_in_threadpool(
-                search_recipes_es, RecipeSearchConstraints(**base_constraints)
-            )
-            # Zero-result relaxation: AND-matched title keywords are brittle
-            # ("quick desserts" requires both words in the title). Retry once
-            # with any-keyword title matching before giving up.
-            if not es_out["results"] and base_constraints["title_keywords"]:
-                relaxed = True
-                es_out = await run_in_threadpool(
-                    search_recipes_es,
-                    RecipeSearchConstraints(**base_constraints, title_match_any=True),
-                )
-        except Exception as exc:  # noqa: BLE001
-            raise map_dependency_error("Elasticsearch", exc) from exc
-        logger.info(
-            "recipe_search question=%r extract=%.2fs es=%.2fs results=%d personalized=%s "
-            "relaxed=%s constraints=%s",
-            question[:80],
-            extract_seconds,
-            time.perf_counter() - es_started,
-            len(es_out["results"]),
-            bool(payload.diet_tags or payload.preferred_ingredients or exclude_allergens),
-            relaxed,
-            json.dumps({k: v for k, v in base_constraints.items()
-                        if v not in (None, [], "") and k not in ("region", "limit")}),
-        )
-        return {"results": [_es_card(card) for card in es_out["results"]]}
-
+    extractor = await run_in_threadpool(get_recipe_constraint_extractor)
+    extract_started = time.perf_counter()
     try:
-        result = await run_in_threadpool(
-            recipe_search_app.invoke, question, exclude_allergens
+        constraints = (
+            await run_in_threadpool(extractor.run_extract_constraints, question)
+        )["query_constraints"]
+    except Exception as exc:  # noqa: BLE001
+        raise map_dependency_error("recipe constraint extraction", exc) from exc
+    extract_seconds = time.perf_counter() - extract_started
+
+    search_intent = constraints.get("search_intent") or "constraints"
+    title_only = search_intent == "title"
+    title_query = (
+        constraints.get("title_query")
+        if search_intent in {"title", "title_with_constraints"}
+        else None
+    )
+
+    # Diet asked for in the question is a hard filter. Member preferences are
+    # soft boosts, while allergies remain hard exclusions.
+    base_constraints = dict(
+        include_ingredients=(
+            [] if title_only else constraints.get("preferred_ingredients") or []
+        ),
+        exclude_ingredients=(
+            [] if title_only else constraints.get("excluded_ingredients") or []
+        ),
+        exclude_allergens=list(
+            {
+                *([] if title_only else constraints.get("allergens") or []),
+                *exclude_allergens,
+            }
+        ),
+        diet_tags=[] if title_only else constraints.get("diet") or [],
+        dish_types=[] if title_only else constraints.get("dish_types") or [],
+        boost_tags=payload.diet_tags,
+        boost_ingredients=payload.preferred_ingredients,
+        title_keywords=(
+            [] if title_only else constraints.get("title_keywords") or []
+        ),
+        title_query=title_query,
+        max_duration_minutes=(
+            None if title_only else constraints.get("max_duration_minutes")
+        ),
+        min_servings=(
+            None if title_only else constraints.get("min_servings")
+        ),
+        sort_by=None if title_only else constraints.get("sort_by"),
+        limit=constraints.get("limit") or 10,
+        region=payload.region or "eu",
+    )
+    es_started = time.perf_counter()
+    relaxed = False
+    try:
+        es_out = await run_in_threadpool(
+            search_recipes_es, RecipeSearchConstraints(**base_constraints)
         )
-    except Exception as exc:  # noqa: BLE001 - bubble up as HTTP error
-        # Keep the endpoint usable even if the primary graph/LLM path fails.
-        #
-        # Safety: the fallback indices cannot honour allergen exclusions -- the
-        # legacy `recipes` index has no allergens field at all -- so returning
-        # fallback rows to a caller who asked to exclude allergens would hand
-        # them unfiltered results under a generic warning. That is exactly the
-        # failure mode behind the reported "nut allergy set, satay returned"
-        # incident. Fail closed instead: no results beat unsafe results.
-        if exclude_allergens:
-            logger.warning(
-                "Search fallback suppressed: exclude_allergens=%s cannot be honoured "
-                "by the fallback index",
-                sorted(exclude_allergens),
-            )
-            raise InternalError(
-                detail=(
-                    "Recipe search is temporarily unavailable. The fallback search "
-                    "cannot apply allergen exclusions, so no results were returned."
+        if (
+            not es_out["results"]
+            and not title_query
+            and base_constraints["title_keywords"]
+        ):
+            relaxed = True
+            es_out = await run_in_threadpool(
+                search_recipes_es,
+                RecipeSearchConstraints(
+                    **base_constraints,
+                    title_match_any=True,
                 ),
-                extra={"title": "SearchUnavailableAllergenFilterUnsupported"},
-            ) from exc
-
-        try:
-            fallback_results = await run_in_threadpool(
-                _search_elastic_keyword, question, limit=limit
             )
-        except Exception:
-            fallback_results = await run_in_threadpool(
-                _random_myplate_from_elastic, limit=limit
-            )
-
-        if not isinstance(fallback_results, list):
-            fallback_results = []
-
-        fallback_results = _normalize_search_results(fallback_results)
-        return {
-            "results": fallback_results or [],
-            "warning": "Primary search path failed; returned fallback results.",
-            "allergen_filter_applied": False,
-            "error": str(exc),
-        }
-    if not isinstance(result, dict):
-        raise InternalError(
-            detail="Recipe search returned unexpected payload",
-            extra={"title": "SearchPipelineError"},
-        )
-
-    raw_results = result.get("results", [])
-    if isinstance(raw_results, list):
-        raw_results = _normalize_search_results(raw_results)
-
-    return {"results": raw_results}
+    except Exception as exc:  # noqa: BLE001
+        raise map_dependency_error("Elasticsearch", exc) from exc
+    logger.info(
+        "recipe_search question=%r extract=%.2fs es=%.2fs results=%d "
+        "personalized=%s relaxed=%s constraints=%s",
+        question[:80],
+        extract_seconds,
+        time.perf_counter() - es_started,
+        len(es_out["results"]),
+        bool(payload.diet_tags or payload.preferred_ingredients or exclude_allergens),
+        relaxed,
+        json.dumps(
+            {
+                key: value
+                for key, value in base_constraints.items()
+                if value not in (None, [], "") and key not in ("region", "limit")
+            }
+        ),
+    )
+    return {"results": [_es_card(card) for card in es_out["results"]]}
 
 
 @router.post(
     "/param_search",
     response_model=None,
     tags=["recipes"],
-    summary="Deterministic parameter-based recipe search via SEARCH_BACKEND (Elasticsearch by default; Neo4j legacy)",
+    summary="Deterministic parameter-based Elasticsearch recipe search",
 )
 def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
     """Run deterministic parameter-based recipe search and return results."""
 
-    if get_settings().search_backend == "es":
-        try:
-            es_out = search_recipes_es(
-                RecipeSearchConstraints(
-                    include_ingredients=payload.include_ingredients,
-                    exclude_ingredients=payload.exclude_ingredients,
-                    exclude_allergens=payload.exclude_allergens,
-                    diet_tags=payload.diet_tags,
-                    sources=payload.sources,
-                    dish_types=payload.dish_types,
-                    max_duration_minutes=payload.max_duration_minutes,
-                    limit=payload.limit,
-                    offset=payload.offset,
-                    include_facets=payload.include_facets,
-                    sort_by=payload.sort_by,
-                    include_disabled=payload.include_disabled,
-                )
-            )
-        except ResultWindowExceededError as exc:
-            raise InvalidError(str(exc)) from exc
-        except Exception as exc:  # noqa: BLE001
-            raise map_dependency_error("Elasticsearch", exc) from exc
-        return {
-            "results": [_es_card(card) for card in es_out["results"]],
-            "total": es_out.get("total", 0),
-            "facets": es_out.get("facets", {}),
-        }
-
     try:
-        results = search_recipes_by_params(payload)
+        es_out = search_recipes_es(
+            RecipeSearchConstraints(
+                include_ingredients=payload.include_ingredients,
+                exclude_ingredients=payload.exclude_ingredients,
+                exclude_allergens=payload.exclude_allergens,
+                diet_tags=payload.diet_tags,
+                sources=payload.sources,
+                dish_types=payload.dish_types,
+                max_duration_minutes=payload.max_duration_minutes,
+                limit=payload.limit,
+                offset=payload.offset,
+                include_facets=payload.include_facets,
+                sort_by=payload.sort_by,
+                include_disabled=payload.include_disabled,
+            )
+        )
+    except ResultWindowExceededError as exc:
+        raise InvalidError(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
-        raise map_dependency_error("Neo4j", exc) from exc
-
-    # search_recipes_by_params returns {results, total, facets} since the
-    # facets/total rework; tolerate the legacy bare-list shape too.
-    extra: dict = {}
-    if isinstance(results, dict):
-        extra = {k: v for k, v in results.items() if k in ("total", "facets")}
-        results = results.get("results", [])
-
-    cards = []
-    for row in results:
-        if not isinstance(row, dict):
-            cards.append(row)
-            continue
-        nutri_score = row.get("nutri_score")
-        cards.append({
-            "recipe_id": row.get("recipe_id"),
-            "title": row.get("title"),
-            "url": row.get("url"),
-            "source": row.get("source"),
-            "source_id": row.get("source_id"),
-            "image_url": row.get("image_url"),
-            "duration": row.get("duration"),
-            "serves": row.get("serves"),
-            "cost_category": row.get("cost_category"),
-            "nutri_score": nutri_score,
-            "nutri_score_color": _nutri_color_from_score(nutri_score),
-            "sust_score": row.get("sust_score"),
-            "expert_recipe": row.get("expert_recipe", False),
-            "status": row.get("status") or "active",
-        })
-    return {"results": cards, **extra}
+        raise map_dependency_error("Elasticsearch", exc) from exc
+    return {
+        "results": [_es_card(card) for card in es_out["results"]],
+        "total": es_out.get("total", 0),
+        "facets": es_out.get("facets", {}),
+    }
 
 
 @router.post(
@@ -2132,6 +2028,7 @@ def _index_recipe_to_elastic(
     doc = {
         "id": recipe_id,
         "title": title,
+        "title_normalized": normalize_recipe_title(title),
         "source": source,
         "source_id": resolve_collection_source_id(source, source_id),
         "ingredients": ingredient_names,

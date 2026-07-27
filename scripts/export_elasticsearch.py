@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Export Elasticsearch 'recipes' index to NDJSON using scroll API.
+Export Elasticsearch `recipes_v2` index to NDJSON using scroll API.
 Streams all documents to avoid memory issues with large indices.
 """
 
@@ -12,11 +12,11 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError
 
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:9200")
-INDEX_NAME = "recipes"
+INDEX_NAME = "recipes_v2"
 SCROLL_TIMEOUT = "2m"
 BATCH_SIZE = 1000
 EXPORT_DIR = "/home/karvanitis/RecipeWrangler-Backend/data/exports/db_dumps_20260423_141753"
-OUTPUT_FILE = os.path.join(EXPORT_DIR, "elasticsearch_recipes_export.ndjson")
+OUTPUT_FILE = os.path.join(EXPORT_DIR, "elasticsearch_recipes_v2_export.ndjson")
 
 def es_request(path, method="GET", body=None):
     url = f"{ES_HOST}{path}"

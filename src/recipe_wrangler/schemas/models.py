@@ -39,6 +39,7 @@ class RecipeState(BaseModel):
 
     # DEPRECATED (kept optional for upstream nodes)
     ingredient_names: List[str] = Field(default_factory=list)
+    ingredient_match_names: List[str] = Field(default_factory=list)
     measurements: List[str] = Field(default_factory=list)
     weights: Union[List[float], Dict[str, Any]] = Field(default_factory=list)
 

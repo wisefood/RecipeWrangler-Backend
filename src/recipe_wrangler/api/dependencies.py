@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import os
-import socket
 from functools import lru_cache
 
-from recipe_wrangler.tools.text2cypher import RecipeSearchAppV2
 from recipe_wrangler.api.error_mapping import map_dependency_error
+from recipe_wrangler.tools.recipe_search_constraints import RecipeConstraintExtractor
 from recipe_wrangler.utils.env_loader import load_runtime_env
 
 from .config import get_settings
@@ -15,52 +14,39 @@ from .config import get_settings
 load_runtime_env()
 
 
-def get_recipe_search_app() -> RecipeSearchAppV2:
-    """FastAPI dependency entry-point for the recipe search tool."""
+def get_recipe_constraint_extractor() -> RecipeConstraintExtractor:
+    """Return the Neo4j-independent extractor used by Elasticsearch search."""
 
     try:
-        return _get_recipe_search_app_cached()
+        return _get_recipe_constraint_extractor_cached()
     except RuntimeError as exc:
-        raise map_dependency_error("Neo4j/Groq search app", exc) from exc
+        raise map_dependency_error("recipe constraint extractor", exc) from exc
 
 
 @lru_cache(maxsize=1)
-def _get_recipe_search_app_cached() -> RecipeSearchAppV2:
-    """Instantiate and cache the recipe search tool."""
-
+def _get_recipe_constraint_extractor_cached() -> RecipeConstraintExtractor:
     settings = get_settings()
-    # The ES backend only uses the app for LLM constraint extraction; Neo4j is
-    # touched exclusively by the legacy text2cypher path (lazily). Skipping the
-    # reachability probe keeps NL search alive while Neo4j is down/restarting.
-    if settings.search_backend != "es":
-        _assert_neo4j_reachable(str(settings.neo4j_uri), settings.neo4j_connect_timeout)
-    _assert_groq_key()
-    return RecipeSearchAppV2(
-        neo4j_uri=str(settings.neo4j_uri),
+    _assert_search_key(settings.search_llm_source)
+    return RecipeConstraintExtractor(
         model=settings.search_main_model,
         temperature=settings.search_temperature,
+        source=settings.search_llm_source,
     )
 
 
-def _assert_neo4j_reachable(neo4j_uri: str, timeout: float) -> None:
-    """Fail fast if the Neo4j bolt endpoint cannot be reached."""
-
-    if not neo4j_uri.startswith("bolt://"):
-        raise RuntimeError("NEO4J_URI must start with bolt://")
-
-    host_port = neo4j_uri[len("bolt://") :]
-    host, _, port_str = host_port.partition(":")
-    port = int(port_str) if port_str else 7687
-
-    try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return
-    except OSError as exc:  # bubble up as runtime error so FastAPI can convert
-        raise RuntimeError(f"Unable to reach Neo4j at {host}:{port}: {exc}") from exc
-
-
-def _assert_groq_key() -> None:
-    """Fail fast if the GROQ_API_KEY env var is missing."""
-
-    if not os.getenv("GROQ_API_KEY"):
-        raise RuntimeError("GROQ_API_KEY is not set; add it to your environment or .env.")
+def _assert_search_key(source: str) -> None:
+    """Fail fast when the configured search provider has no API key."""
+    normalized = str(source or "").strip().lower()
+    if normalized == "openrouter":
+        if not os.getenv("OPENROUTER_API_KEY"):
+            raise RuntimeError(
+                "OPENROUTER_API_KEY is not set; add it to your environment or .env."
+            )
+        return
+    if normalized == "groq":
+        if not os.getenv("GROQ_API_KEY"):
+            raise RuntimeError(
+                "GROQ_API_KEY is not set; add it to your environment or .env."
+            )
+        return
+    raise RuntimeError("SEARCH_LLM_SOURCE must be 'groq' or 'openrouter'.")

@@ -9,7 +9,7 @@ NEO4J_URI = "bolt://localhost:7687"
 NEO4J_USER = "neo4j"
 NEO4J_PASS = "password123"
 ELASTIC_URL = "http://localhost:9200"
-ELASTIC_INDEX = "recipes"
+ELASTIC_INDEX = "recipes_v2"
 POSTGRES_URL = "postgresql://rag:rag@localhost:5432/rag"
 
 BATCH_SIZE = 500

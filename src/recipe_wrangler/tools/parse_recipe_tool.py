@@ -138,6 +138,63 @@ def _recover_measurements_from_source(
     return recovered
 
 
+def _parser_llm(model_name: str):
+    """Build the configured parser model and structured-output method."""
+    source = os.getenv("WEIGHT_LLM_SOURCE", "groq").strip().lower()
+    if source == "vllm":
+        llm = ChatOpenAI(
+            model=model_name,
+            temperature=0.0,
+            max_retries=2,
+            base_url=os.getenv("VLLM_BASE_URL", "http://localhost:8007/v1"),
+            api_key=os.getenv("VLLM_API_KEY", "none"),
+        )
+        return llm, "function_calling"
+    if source == "openrouter":
+        api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY is not set.")
+        llm = ChatOpenAI(
+            model=model_name,
+            temperature=0.0,
+            max_retries=2,
+            base_url=os.getenv(
+                "OPENROUTER_BASE_URL",
+                "https://openrouter.ai/api/v1",
+            ),
+            api_key=api_key,
+        )
+        return llm, "function_calling"
+    if source == "groq":
+        llm = ChatGroq(model=model_name, temperature=0.0, max_retries=2)
+        method = (
+            os.getenv("PARSE_LLM_STRUCTURED_METHOD", "json_schema").strip()
+            or "json_schema"
+        )
+        return llm, method
+    raise ValueError(
+        "WEIGHT_LLM_SOURCE must be 'groq', 'openrouter', or 'vllm'."
+    )
+
+
+def _aligned_match_names(
+    ingredient_names: List[str],
+    ingredient_match_names: object,
+) -> List[str]:
+    """Return a non-empty matching phrase aligned to every display name."""
+    if not isinstance(ingredient_match_names, list):
+        return list(ingredient_names)
+    if len(ingredient_match_names) != len(ingredient_names):
+        return list(ingredient_names)
+    return [
+        str(match_name or "").strip() or ingredient_name
+        for ingredient_name, match_name in zip(
+            ingredient_names,
+            ingredient_match_names,
+        )
+    ]
+
+
 @tool
 def parse_recipe_tool(recipe: str) -> dict:
     """Parses a raw recipe text into structured fields."""
@@ -149,30 +206,34 @@ def parse_recipe_tool(recipe: str) -> dict:
     class ParsedRecipe(BaseModel):
         title: str = Field(min_length=1)
         ingredient_names: List[str] = Field(min_length=1)
+        ingredient_match_names: List[str] = Field(min_length=1)
         measurements: List[str] = Field(min_length=1)
         directions: List[str] = Field(min_length=1)
         total_time: float = Field(ge=0)
         serves: int = Field(ge=0)
 
-    llm_source = os.getenv("WEIGHT_LLM_SOURCE", "groq").strip().lower()
-    if llm_source == "vllm":
-        base_url = os.getenv("VLLM_BASE_URL", "http://localhost:8007/v1")
-        api_key = os.getenv("VLLM_API_KEY", "none")
-        llm = ChatOpenAI(model=model_name, temperature=0.0, max_retries=2, base_url=base_url, api_key=api_key)
-        structured_method = "function_calling"
-    else:
-        llm = ChatGroq(model=model_name, temperature=0.0, max_retries=2)
-        structured_method = os.getenv("PARSE_LLM_STRUCTURED_METHOD", "json_schema").strip() or "json_schema"
+    llm, structured_method = _parser_llm(model_name)
 
     prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
-                "Parse this recipe into two index-aligned lists: 'ingredient_names' and 'measurements'.\n\n"
+                "Parse this recipe into three index-aligned lists: 'ingredient_names', "
+                "'ingredient_match_names', and 'measurements'.\n\n"
                 "RULES FOR INGREDIENT NAMES:\n"
                 "- Extract ONLY the core noun. Remove all descriptors, adjectives, and processing instructions "
                 "(e.g., remove 'unsweetened', 'non-fat', 'all-purpose', 'canola', 'large', 'sifted').\n"
                 "- Example: '1 cup applesauce, unsweetened' -> 'applesauce'.\n"
+                "\nRULES FOR INGREDIENT MATCH NAMES:\n"
+                "- Preserve the complete food identity needed to select the correct nutrition record, including "
+                "variety, colour, cooking state, preservation state, fat/sugar/salt level, cut, and species.\n"
+                "- Remove only quantities, units, and preparation instructions that do not change food identity, "
+                "such as 'finely chopped', 'diced', or 'for garnish'.\n"
+                "- Examples: '200 g cooked green lentils' -> 'cooked green lentils'; "
+                "'1 red bell pepper, diced' -> 'red bell pepper'; "
+                "'100 g cherry tomatoes, halved' -> 'cherry tomatoes'.\n"
+                "- Every ingredient_match_names entry must describe the same ingredient at the same index in "
+                "ingredient_names and measurements.\n"
                 "- Do not include recipe section headings, component names, or preparation group titles as "
                 "ingredients when they are followed by the actual ingredients for that component. For example, "
                 "exclude headings like 'For the sauce', 'Dressing', 'Salad', or 'Falafels' if the following "
@@ -223,6 +284,10 @@ def Recipe_Parser_Node(state: RecipeState) -> RecipeState:
 
     state.title = result["title"]
     state.ingredient_names = result["ingredient_names"]
+    state.ingredient_match_names = _aligned_match_names(
+        state.ingredient_names,
+        result.get("ingredient_match_names"),
+    )
     state.measurements = _realign_measurements(
         state.ingredient_names or [],
         result["measurements"] or [],

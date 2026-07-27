@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from sqlalchemy import text
 from recipe_wrangler.utils.nutrition_postgres import get_engine, _get_config
-from recipe_wrangler.tools.sustainability_calculator import sustainability_tool_chroma
+from recipe_wrangler.tools.sustainability_calculator import sustainability_tool_vector
 
 
 def main():
@@ -70,7 +70,7 @@ def main():
             ep = ps.get("energy_kcal") or ps.get("Energy")
             serves = float(et) / float(ep) if et and ep and float(ep) > 0 else 1.0
 
-            res = sustainability_tool_chroma.invoke({
+            res = sustainability_tool_vector.invoke({
                 "title": row["title"], "ingredient_names": names,
                 "weights": weights, "serves": serves, "min_similarity": 0.5,
             })

@@ -174,7 +174,7 @@ def export_elasticsearch(bundle_dir: Path) -> dict[str, Any]:
     target.mkdir(parents=True, exist_ok=True)
 
     base_url = os.getenv("ELASTIC_URL", "http://localhost:9200")
-    index = os.getenv("ELASTIC_INDEX", "recipes")
+    index = os.getenv("ELASTIC_INDEX", "recipes_v2")
 
     mapping_path = target / f"elasticsearch_{index}_mapping_{bundle_dir.name}.json"
     settings_path = target / f"elasticsearch_{index}_settings_{bundle_dir.name}.json"

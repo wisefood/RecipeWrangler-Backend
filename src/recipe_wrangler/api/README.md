@@ -1,6 +1,6 @@
 # RecipeWrangler API
 
-FastAPI entrypoint: `recipe_wrangler.api.main:app`. Runs on port 8001 by default to avoid clashing with Chroma (8000).
+FastAPI entrypoint: `recipe_wrangler.api.main:app`. Runs on port 8001 by default.
 
 ## Start the API
 ```bash
@@ -14,13 +14,14 @@ Swagger UI: http://127.0.0.1:8001/docs
 
 Environment:
 - `NEO4J_URI` (and `NEO4J_USERNAME`/`NEO4J_PASSWORD` if auth)
-- `GROQ_API_KEY` for LLM-backed tools
-- `CHROMA_HOST`/`CHROMA_PORT` if different from defaults (localhost:8000)
+- `SEARCH_LLM_SOURCE`, `SEARCH_MAIN_MODEL`, and the selected provider API key
+  for natural-language recipe-search routing
+- `ELASTIC_URL` and `ELASTIC_VECTOR_INDEX` for vector search
 
 ## Endpoints
 - `GET /health` — readiness probe
 - `GET /api/v1/recipes/{recipe_id}` — fetch recipe metadata by recipe_id
-- `POST /api/v1/recipes/search` — LangGraph search over the recipe graph; returns results + cypher_statement + steps
+- `POST /api/v1/recipes/search` — intent-aware Elasticsearch recipe search
 - `POST /api/v1/recipes/profile` — run the parsing + profiling chain on raw recipe text (may be GPU-heavy)
 - `POST /api/v1/recipes/{recipe_id}/substitute` — swap one ingredient using Neo4j substitution graph; returns either recalculated profile or fallback modified ingredient payload
 

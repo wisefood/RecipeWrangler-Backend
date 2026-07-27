@@ -13,7 +13,7 @@ from langchain.tools import tool
 
 from recipe_wrangler.tools.ingredient_weight_llm_tool import ingredient_weight_llm_tool
 from recipe_wrangler.schemas import RecipeState
-from recipe_wrangler.utils.chroma_client import get_chroma_client
+from recipe_wrangler.repositories.vector_matchers import VectorCollection
 from recipe_wrangler.utils.get_embeddings import get_embeddings
 from recipe_wrangler.utils.usda_nutrients_v1 import canonical_name_to_usda, usda_id_to_link
 from recipe_wrangler.utils.weigh_calculation_usda_ import (
@@ -664,17 +664,7 @@ FOODON_MATCH_MAX_DEPTH = int(os.getenv("FOODON_MATCH_MAX_DEPTH", "3"))
 
 @lru_cache(maxsize=1)
 def _get_usda_links_collections() -> list:
-    collections = []
-    try:
-        client = get_chroma_client()
-    except Exception:
-        return collections
-    for name in USDA_LINKS_EMBED_COLLECTIONS:
-        try:
-            collections.append(client.get_collection(name=name))
-        except Exception:
-            continue
-    return collections
+    return [VectorCollection(name) for name in USDA_LINKS_EMBED_COLLECTIONS]
 
 
 def _distance_to_similarity(distance: Optional[float]) -> Optional[float]:
@@ -784,7 +774,7 @@ def _bm25_scores(query_tokens: list[str], corpus_tokens: list[list[str]]) -> lis
     return [score / max_score for score in scores]
 
 
-def _candidate_from_chroma_hit(
+def _candidate_from_vector_hit(
     collection: Any,
     doc: Any,
     meta: Optional[dict],
@@ -835,7 +825,7 @@ def _usda_links_lexical_index() -> list[dict]:
             if not docs:
                 break
             for doc, meta in zip(docs, metas):
-                candidate = _candidate_from_chroma_hit(
+                candidate = _candidate_from_vector_hit(
                     collection=collection,
                     doc=doc,
                     meta=meta,
@@ -1031,7 +1021,7 @@ def _embedding_usda_link(name: str, unit: Optional[str] = None) -> Optional[dict
             ):
                 continue
 
-            candidate = _candidate_from_chroma_hit(
+            candidate = _candidate_from_vector_hit(
                 collection=collection,
                 doc=doc,
                 meta=meta,

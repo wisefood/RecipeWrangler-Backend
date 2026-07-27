@@ -5,9 +5,9 @@
 from typing import Any, Dict
 
 from recipe_wrangler.schemas import RecipeState
-from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_chroma
+from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_vector
 from recipe_wrangler.tools.sustainability_calculator import (
-    sustainability_tool_chroma,
+    sustainability_tool_vector,
 )
 from recipe_wrangler.utils.nutri_score import (
     compute_nutri_score,
@@ -110,14 +110,30 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
               information merged per ingredient and recipe totals.
     """
 
+    display_names = list(payload.get("ingredient_names") or [])
+    raw_match_names = payload.get("ingredient_match_names")
+    match_names = (
+        [
+            str(match_name or "").strip() or display_name
+            for display_name, match_name in zip(display_names, raw_match_names)
+        ]
+        if isinstance(raw_match_names, list)
+        and len(raw_match_names) == len(display_names)
+        else display_names
+    )
+
     nutrition_payload = dict(payload)
+    nutrition_payload.pop("ingredient_match_names", None)
+    nutrition_payload["ingredient_names"] = match_names
     sustainability_payload = dict(payload)
+    sustainability_payload.pop("ingredient_match_names", None)
+    sustainability_payload["ingredient_names"] = match_names
     sustainability_payload.pop("source", None)
 
     nutrition_payload["source"] = _resolve_nutrition_source(nutrition_payload)
-    nutrition_result = nutritional_tool_chroma.invoke(nutrition_payload)
+    nutrition_result = nutritional_tool_vector.invoke(nutrition_payload)
     nutrition_source_key = nutrition_result.get("source_key", "unknown")
-    sustainability_result = sustainability_tool_chroma.invoke(sustainability_payload)
+    sustainability_result = sustainability_tool_vector.invoke(sustainability_payload)
 
     merged: Dict[str, Any] = {
         "title": payload.get("title", ""),
@@ -131,7 +147,14 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
     merged["nutrition_source"] = nutrition_result.get("source")
 
     nutrition_details = nutrition_result.get("details", [])
-    sustainability_details = sustainability_result.get("details", [])
+    sustainability_details = [
+        dict(detail)
+        for detail in sustainability_result.get("details", [])
+    ]
+    for index, detail in enumerate(sustainability_details):
+        if index < len(display_names):
+            detail["ingredient"] = display_names[index]
+    merged["sustainability_details"] = sustainability_details
 
     for i, ingredient in enumerate(payload["ingredient_names"]):
         ingredient_entry = {"ingredient": ingredient}
@@ -148,6 +171,7 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
                 else:
                     ingredient_entry[f"sustainability_{k}"] = v
 
+        ingredient_entry["ingredient"] = ingredient
         merged["ingredients"].append(ingredient_entry)
 
     totals = {}
@@ -166,7 +190,7 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 from typing import Any, Dict, List, cast
-from recipe_wrangler.repositories.chroma_matchers import query_usda_nutrition_candidates
+from recipe_wrangler.repositories.vector_matchers import query_usda_nutrition_candidates
 
 _USDA_MATCH_THRESHOLD = 0.4
 _CLEAN_TOTAL_KEYS = [
@@ -298,6 +322,11 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     totals, and source info back into the flow state.
     """
     names: List[str] = state.ingredient_names or []
+    match_names: List[str] = (
+        state.ingredient_match_names
+        if len(state.ingredient_match_names or []) == len(names)
+        else names
+    )
     measurements: List[str] = state.measurements or []
     raw_weights = state.weights or []
     if isinstance(raw_weights, dict):
@@ -334,6 +363,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     payload: Dict[str, Any] = {
         "title": state.title or "Untitled Recipe",
         "ingredient_names": names,
+        "ingredient_match_names": match_names,
         "measurements": measurements,
         "weights": weights,
         "serving_size_g": state.serving_size_g

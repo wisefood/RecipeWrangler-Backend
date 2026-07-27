@@ -2,7 +2,7 @@
 """Run regional nutrition profiling for Slovenian recipes.
 
 For each recipe x region (irish, hungarian, eu) this script:
-  1. calls nutritional_tool_chroma (Chroma match -> Postgres per-100g -> scale -> aggregate),
+  1. calls nutritional_tool_vector (Elasticsearch match -> Postgres per-100g -> scale -> aggregate),
   2. computes a per-100g Nutri-Score,
   3. upserts a profiling trace row into Postgres
      (source="Curated Slovenian Recipes", nutrition_source=region,
@@ -38,7 +38,7 @@ load_runtime_env()
 import openpyxl
 
 from recipe_wrangler.api.main import get_settings  # noqa: E402
-from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_chroma  # noqa: E402
+from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_vector  # noqa: E402
 from recipe_wrangler.utils.nutri_score import (  # noqa: E402
     compute_nutri_score_breakdown_from_values,
 )
@@ -120,7 +120,7 @@ def _save_checkpoint(done: set[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Nutri-Score per 100g (from Chroma totals + total weight)
+# Nutri-Score per 100g (from Elasticsearch totals + total weight)
 # ---------------------------------------------------------------------------
 
 def _compute_nutri_score_per100g(totals: dict, total_weight_g: float) -> dict | None:
@@ -176,7 +176,7 @@ def _process_region(rec: dict, region: str, settings, write: bool) -> str:
     serves = round(total_weight_g / rec["recamount"]) if rec["recamount"] > 0 else 1
     serves = max(int(serves), 1)
 
-    result = nutritional_tool_chroma.invoke(
+    result = nutritional_tool_vector.invoke(
         {
             "title": title,
             "ingredient_names": names,

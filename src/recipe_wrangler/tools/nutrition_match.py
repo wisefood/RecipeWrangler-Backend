@@ -1,8 +1,8 @@
 """Resolve a recipe ingredient to a composition-table record.
 
-Wraps the Chroma vector lookup with: a curated recipe1m->USDA link shortcut,
+Wraps the Elasticsearch vector lookup with: a curated recipe1m->USDA link shortcut,
 query cleaning, a BM25 + similarity rerank that *gates* on lexical overlap, and
-a conservative food-class compatibility guard. Returns a Chroma-candidate-shaped
+a conservative food-class compatibility guard. Returns a Elasticsearch-candidate-shaped
 dict plus a confidence label ("curated" | "strong" | "weak" | "none") so callers
 can flag weak matches instead of silently trusting or zeroing them.
 """
@@ -27,7 +27,7 @@ NUTRITION_FALLBACK_SOURCE = os.getenv("NUTRITION_FALLBACK_SOURCE", "usda").strip
 if NUTRITION_FALLBACK_SOURCE not in {"usda", "eu"}:
     NUTRITION_FALLBACK_SOURCE = "usda"
 
-from recipe_wrangler.repositories.chroma_matchers import (  # noqa: E402
+from recipe_wrangler.repositories.vector_matchers import (  # noqa: E402
     query_eu_nutrition_candidates,
     query_hungarian_nutrition_candidates,
     query_irish_nutrition_candidates,
@@ -39,14 +39,11 @@ from recipe_wrangler.repositories.chroma_matchers import (  # noqa: E402
 # --------------------------------------------------------------------------- #
 _PAREN_RE = re.compile(r"\([^)]*\)")
 _QUALIFIER_RE = re.compile(
-    r"\b(?:fresh|ripe|chopped|minced|diced|sliced|grated|shredded|"
-    r"crushed|ground|pure?ed|mashed|peeled|trimmed|drained|rinsed|melted|"
-    r"softened|thawed|frozen|optional|divided|finely|roughly|coarsely|thinly|"
-    r"freshly|large|small|medium|jumbo|baby|organic|low[- ]?fat|nonfat|"
-    r"non[- ]?fat|reduced[- ]?fat|fat[- ]?free|skim|skimmed|whole|unsweetened|"
-    r"sweetened|salted|unsalted|extra[- ]?virgin|virgin|hot|mild|"
-    r"toasted|roasted|smoked|dry|dried|prepared|homemade|store[- ]?bought|"
-    r"good[- ]?quality|best[- ]?quality|boneless|skinless|lean|trimmed|"
+    r"\b(?:ripe|chopped|minced|diced|sliced|grated|shredded|"
+    r"peeled|trimmed|drained|rinsed|melted|"
+    r"softened|thawed|optional|divided|finely|roughly|coarsely|thinly|"
+    r"freshly|large|small|medium|jumbo|organic|prepared|homemade|"
+    r"store[- ]?bought|good[- ]?quality|best[- ]?quality|"
     r"to taste|to serve|to garnish|to drizzle|to finish|to brush|to grease|"
     r"for serving|for garnish|for dusting|for sprinkling|for frying|for greasing|"
     r"plus more|plus extra|or more|as needed|of your choice|approximately|about|"
@@ -311,7 +308,7 @@ _FORM_WORDS_RE = re.compile(
 def _foodon_name_variants(name: str) -> tuple[str, ...]:
     raw = str(name or "").strip().lower()
     cleaned = clean_query(raw)
-    core = re.sub(r"\s+", " ", _FORM_WORDS_RE.sub(" ", cleaned)).strip()
+    core = re.sub(r"\s+", " ", _FORM_WORDS_RE.sub(" ", cleaned)).strip(" -'/")
 
     def _syn(s: str) -> str:
         return " ".join(_SYNONYMS.get(_singular(w), _singular(w)) for w in s.split())
@@ -357,7 +354,7 @@ def _foodon_compatible(query_name: str, candidate_name: str) -> Optional[bool]:
 
 # --------------------------------------------------------------------------- #
 # recipe1m -> USDA links (NB: this table is itself an *embedding* match
-# (`embedding_similarity_source: "chroma_embeddings"`), median similarity ~0.77
+# (`embedding_similarity_source: "elasticsearch_embeddings"`), median similarity ~0.77
 # — NOT human-verified. So it is treated as one more candidate scored on its own
 # similarity, with a small prior bonus, never as an outright override.)
 # --------------------------------------------------------------------------- #
@@ -578,11 +575,21 @@ def best_nutrition_match(name: str, source: str = "irish", min_similarity: float
     q_raw_words = set(_TOKEN_RE.findall(str(name or "").lower()))
     n_q = max(1, len(q_tokens))
 
+    max_rrf = max(
+        (float(candidate.get("rrf_score") or 0.0) for candidate in cands),
+        default=0.0,
+    )
+
     def _base_score(c, cname, ctoks, bms):
         d = c.get("distance")
         sim = (1.0 - float(d)) if d is not None else 0.0
         ctok_set = set(ctoks)
         overlap = len(q_set & ctok_set)
+        rrf = (
+            float(c.get("rrf_score") or 0.0) / max_rrf
+            if max_rrf > 0.0
+            else 0.0
+        )
         pen = 0.0
         if overlap == 0 and sim < _HIGH_SIM_NO_OVERLAP:
             pen -= 0.5
@@ -595,7 +602,15 @@ def best_nutrition_match(name: str, source: str = "irish", min_similarity: float
             pen -= 0.12  # cooking-state / processed / branded marker the query didn't ask for
         elif "raw" in c_raw_words and not (_COOKING_STATES & q_raw_words):
             pen += 0.06  # state-less query -> nudge toward the raw/uncooked record
-        return 0.60 * sim + 0.40 * float(bms) + 0.15 * min(1.0, overlap / n_q) + pen, sim, overlap
+        return (
+            0.60 * sim
+            + 0.30 * float(bms)
+            + 0.10 * rrf
+            + 0.15 * min(1.0, overlap / n_q)
+            + pen,
+            sim,
+            overlap,
+        )
 
     pass1 = sorted(
         (( *_base_score(c, cn, ct, bms), c, cn) for c, cn, ct, bms in zip(cands, names, corpus, bm)),

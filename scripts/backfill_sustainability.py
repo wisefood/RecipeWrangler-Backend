@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from sqlalchemy import text
 from recipe_wrangler.utils.nutrition_postgres import get_connection, _get_config
-from recipe_wrangler.tools.sustainability_calculator import sustainability_tool_chroma
+from recipe_wrangler.tools.sustainability_calculator import sustainability_tool_vector
 
 def backfill_sustainability():
     cfg = _get_config()
@@ -71,7 +71,7 @@ def backfill_sustainability():
 
                 # 4. Call sustainability tool
                 try:
-                    res = sustainability_tool_chroma.invoke({
+                    res = sustainability_tool_vector.invoke({
                         "title": title,
                         "ingredient_names": names,
                         "weights": weights,

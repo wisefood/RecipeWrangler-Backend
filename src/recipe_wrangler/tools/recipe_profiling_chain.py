@@ -350,7 +350,9 @@ def Recipe_Profiling_Chain(
     final_state.allergens = normalized_allergens
 
     # Drop raw text from the returned dict
-    filtered_state = final_state.model_dump(exclude={"raw_recipe", "trusted_serves"})
+    filtered_state = final_state.model_dump(
+        exclude={"raw_recipe", "trusted_serves", "ingredient_match_names"}
+    )
     return filtered_state
 
 
@@ -398,6 +400,7 @@ def Recipe_Profiling_Chain_Structured(
     initial_state = RecipeState(
         title=title,
         ingredient_names=ingredient_names,
+        ingredient_match_names=ingredient_names,
         measurements=measurements,
         weights=list(weights) if weights else [],
         serves=float(serves),

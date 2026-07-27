@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Audit the recipe-ingredient -> composition-table (Chroma) matches.
+"""Audit the recipe-ingredient -> composition-table (Elasticsearch) matches.
 
-Samples Ingredient names from Neo4j, runs them through the same Chroma lookup
+Samples Ingredient names from Neo4j, runs them through the same Elasticsearch lookup
 the profiling pipeline uses (Irish + USDA candidate collections), records the
 chosen match and similarity, and flags ones that look wrong. Read-only.
 
@@ -25,7 +25,7 @@ from recipe_wrangler.utils.env_loader import load_runtime_env  # noqa: E402
 load_runtime_env()
 
 from recipe_wrangler.utils.neo4j_utils import driver  # noqa: E402
-from recipe_wrangler.repositories.chroma_matchers import (  # noqa: E402
+from recipe_wrangler.repositories.vector_matchers import (  # noqa: E402
     query_irish_nutrition_candidates,
     query_usda_nutrition_candidates,
 )

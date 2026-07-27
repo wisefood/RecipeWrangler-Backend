@@ -1,26 +1,24 @@
-"""Deterministic Elasticsearch recipe search.
+"""Deterministic Elasticsearch recipe retrieval.
 
-Drop-in alternative to the Neo4j param/text2cypher search: takes the same
-constraint set, builds an ES `bool` query, and returns recipe cards in the
-same shape as `param_search.search_recipes_by_params`.
-
-No LLM calls. Not wired into the API — exercised via `scripts/test_es_search.py`.
+Takes structured search constraints, builds an Elasticsearch ``bool`` query,
+and returns recipe cards. Natural-language constraint extraction is handled
+separately by the API's Neo4j-independent recipe constraint extractor.
 """
 
 from __future__ import annotations
 
 import time
+import unicodedata
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 from typing import Any
 
 from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
 
-# Index built by scripts/elasticsearch/index_recipes_v2.py
-ES_INDEX = "recipes_v2"
-
 _VALID_REGIONS = {"eu", "ie", "hu"}
+ES_INDEX = "recipes_v2"
 
 # Region-agnostic fields returned per hit. The region-specific nutri fields
 # (nutri_score_<r> / nutri_color_<r>) are appended per request.
@@ -39,7 +37,7 @@ def _resolve_region(value: str) -> str:
 
 @dataclass
 class RecipeSearchConstraints:
-    """Same constraint set the Neo4j search consumes, decoupled from Pydantic."""
+    """Structured constraints consumed by Elasticsearch recipe search."""
 
     include_ingredients: list[str] = field(default_factory=list)
     exclude_ingredients: list[str] = field(default_factory=list)
@@ -55,6 +53,7 @@ class RecipeSearchConstraints:
     sources: list[str] = field(default_factory=list)
     dish_types: list[str] = field(default_factory=list)
     title_keywords: list[str] = field(default_factory=list)
+    title_query: str | None = None
     max_duration_minutes: int | None = None
     min_servings: int | None = None
     limit: int = 10
@@ -116,16 +115,77 @@ def _norm(items: list[str]) -> list[str]:
     return list(dict.fromkeys(cleaned))
 
 
+def normalize_recipe_title(value: object) -> str:
+    """Normalize a title for exact matching without losing non-Latin letters."""
+    decomposed = unicodedata.normalize("NFKD", str(value or "").strip()).casefold()
+    without_marks = "".join(
+        char for char in decomposed if not unicodedata.combining(char)
+    )
+    words = "".join(char if char.isalnum() else " " for char in without_marks)
+    return " ".join(words.split())
+
+
+def _title_should_queries(title_query: str) -> list[dict[str, Any]]:
+    """Build descending-confidence title clauses for a submitted search."""
+    normalized = normalize_recipe_title(title_query)
+    clauses: list[dict[str, Any]] = []
+    if normalized:
+        clauses.append(
+            {"term": {"title_normalized": {"value": normalized, "boost": 100}}}
+        )
+    clauses.extend(
+        [
+            {
+                "term": {
+                    "title.kw": {
+                        "value": title_query,
+                        "case_insensitive": True,
+                        "boost": 80,
+                    }
+                }
+            },
+            {"match_phrase": {"title": {"query": title_query, "boost": 20}}},
+            {
+                "match_phrase_prefix": {
+                    "title": {"query": title_query, "boost": 10}
+                }
+            },
+            {
+                "match": {
+                    "title": {
+                        "query": title_query,
+                        "operator": "and",
+                        "boost": 5,
+                    }
+                }
+            },
+            {
+                "match": {
+                    "title": {
+                        "query": title_query,
+                        "operator": "and",
+                        "fuzziness": "AUTO",
+                        "prefix_length": 0,
+                        "max_expansions": 50,
+                        "boost": 1,
+                    }
+                }
+            },
+        ]
+    )
+    return clauses
+
+
 def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     """Translate constraints into an Elasticsearch search body.
 
     Hard constraints go in `filter` context (no scoring, cached bitsets).
-    Title keywords go in `must` as an AND filter, mirroring text2cypher's
-    ALL(word IN ... WHERE toLower(title) CONTAINS word).
+    Title keywords go in ``must`` as AND constraints.
     """
     filter_: list[dict] = []
     must: list[dict] = []
     must_not: list[dict] = []
+    should: list[dict] = []
 
     # Only profiled recipes — those carrying a stored EU (global) nutrition
     # profile. EU is the global composition pool, so an EU nutri score is the
@@ -206,6 +266,10 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     for tag in _norm(c.boost_tags):
         should.append({"term": {"tags": {"value": tag, "boost": 1.5}}})
 
+    title_query = str(c.title_query or "").strip()
+    if title_query:
+        should.extend(_title_should_queries(title_query))
+
     limit = max(1, min(int(c.limit), 100))
     offset = max(0, int(c.offset))
     region = _resolve_region(c.region)
@@ -213,20 +277,18 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     query: dict[str, Any] = {"bool": {"filter": filter_, "must": must, "must_not": must_not}}
     if should:
         query["bool"]["should"] = should
-        query["bool"]["minimum_should_match"] = 0
+        query["bool"]["minimum_should_match"] = 1 if title_query else 0
 
-    # Mirror the Neo4j stable sort by default: expert first, curated sources,
-    # profiled, then relevance, then title/id for determinism. Explicit
-    # sort_by values override it; 'random' uses a random_score replacement.
-    sort: list[Any] = [
-        {"expert_recipe": "desc"},
-        {"source_rank": "asc"},
-        {"has_profile": "desc"},
-        "_score",
-        {"title.kw": "asc"},
-        {"id": "asc"},
-    ]
-    if should:
+    if title_query:
+        sort: list[Any] = [
+            "_score",
+            {"expert_recipe": "desc"},
+            {"source_rank": "asc"},
+            {"has_profile": "desc"},
+            {"title.kw": "asc"},
+            {"id": "asc"},
+        ]
+    elif should:
         # Personalization boosts must be able to reorder across source ranks,
         # otherwise _score (4th key) almost never breaks a tie. Experts stay
         # pinned first.
@@ -236,6 +298,16 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
             {"title.kw": "asc"},
             {"id": "asc"},
         ]
+    else:
+        sort = [
+            {"expert_recipe": "desc"},
+            {"source_rank": "asc"},
+            {"has_profile": "desc"},
+            "_score",
+            {"title.kw": "asc"},
+            {"id": "asc"},
+        ]
+
     if c.sort_by == "title_asc":
         sort = [{"title.kw": "asc"}, {"id": "asc"}]
     elif c.sort_by == "title_desc":
@@ -288,11 +360,38 @@ def _hit_to_card(hit: dict, region: str) -> dict[str, Any]:
     }
 
 
+def _rerank_title_hits(
+    hits: list[dict[str, Any]],
+    title_query: str,
+) -> list[dict[str, Any]]:
+    """Prefer the closest complete title after Elasticsearch candidate recall."""
+    query = normalize_recipe_title(title_query)
+    if not query:
+        return hits
+
+    def rank(hit: dict[str, Any]) -> tuple[bool, bool, float, float]:
+        title = normalize_recipe_title((hit.get("_source") or {}).get("title"))
+        exact = title == query
+        prefix = title.startswith(query) or query.startswith(title)
+        similarity = SequenceMatcher(None, query, title).ratio()
+        return exact, prefix, similarity, float(hit.get("_score") or 0.0)
+
+    return sorted(hits, key=rank, reverse=True)
+
+
 def search_recipes_es(c: RecipeSearchConstraints) -> dict[str, Any]:
     """Execute an ES recipe search. Returns results, total hits, and latency."""
     settings = get_settings()
-    url = f"{settings.elastic_url}/{ES_INDEX}/_search"
+    url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
     body = build_es_query(c)
+    result_limit = max(1, min(int(c.limit), 100))
+    result_offset = max(0, int(c.offset))
+    title_query = str(c.title_query or "").strip()
+    if title_query:
+        # Retrieve a wider lexical pool, then use normalized string similarity
+        # to prevent longer fuzzy matches from outranking the intended title.
+        body["from"] = 0
+        body["size"] = min(100, max(50, result_offset + result_limit))
 
     start = time.perf_counter()
     resp = post_query_with_retry(url, body, timeout=settings.elastic_timeout)
@@ -306,9 +405,13 @@ def search_recipes_es(c: RecipeSearchConstraints) -> dict[str, Any]:
     payload = resp.json()
 
     hits = payload.get("hits", {})
+    result_hits = hits.get("hits", [])
+    if title_query:
+        result_hits = _rerank_title_hits(result_hits, title_query)
+        result_hits = result_hits[result_offset : result_offset + result_limit]
     region = _resolve_region(c.region)
     out = {
-        "results": [_hit_to_card(h, region) for h in hits.get("hits", [])],
+        "results": [_hit_to_card(h, region) for h in result_hits],
         "total": hits.get("total", {}).get("value", 0),
         "elapsed_ms": round(elapsed_ms, 1),
         "es_took_ms": payload.get("took"),

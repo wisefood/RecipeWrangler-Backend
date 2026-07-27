@@ -40,7 +40,6 @@ docker-compose*.yml
 # Data and databases
 *.db
 *.sqlite
-chromadb-docker/
 neo4j-docker/
 
 # Environment files (should be provided at runtime)

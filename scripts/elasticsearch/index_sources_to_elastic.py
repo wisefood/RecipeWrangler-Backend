@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import unicodedata
 from pathlib import Path
 from typing import Iterable
 
@@ -26,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(REPO_ROOT / ".env")
 
 DEFAULT_ES_URL = os.getenv("ELASTIC_URL", "http://localhost:9200")
-DEFAULT_INDEX = os.getenv("ELASTIC_INDEX", "recipes")
+DEFAULT_INDEX = os.getenv("ELASTIC_INDEX", "recipes_v2")
 DEFAULT_NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 DEFAULT_NEO4J_USERNAME = os.getenv("NEO4J_USERNAME") or os.getenv("NEO4J_USER") or "neo4j"
 DEFAULT_NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
@@ -68,6 +69,16 @@ def _clean_list(values: object) -> list[str]:
     return out
 
 
+def _normalize_title(value: object) -> str:
+    decomposed = unicodedata.normalize("NFKD", str(value or "").strip()).casefold()
+    without_marks = "".join(
+        char for char in decomposed if not unicodedata.combining(char)
+    )
+    return " ".join(
+        "".join(char if char.isalnum() else " " for char in without_marks).split()
+    )
+
+
 def _iter_bulk_lines(recipes: Iterable[dict], index: str) -> Iterable[str]:
     for recipe in recipes:
         rid = recipe.get("id", "").strip()
@@ -78,6 +89,7 @@ def _iter_bulk_lines(recipes: Iterable[dict], index: str) -> Iterable[str]:
             {
                 "id": rid,
                 "title": recipe["title"],
+                "title_normalized": _normalize_title(recipe["title"]),
                 "image_url": recipe["image_url"],
                 "source": recipe["source"],
                 "source_id": recipe["source_id"],

@@ -15,19 +15,18 @@ FastAPI (src/recipe_wrangler/api/)
   ├── GET   /health
   ├── GET   /api/v1/recipes/autocomplete                  → Elasticsearch
   ├── GET   /api/v1/recipes/{recipe_id}                   → Neo4j + PostgreSQL
-  ├── POST  /api/v1/recipes/search                        → Neo4j + Groq LLM + Elasticsearch (fallback)
-  ├── POST  /api/v1/recipes/param_search                  → Neo4j
-  ├── POST  /api/v1/recipes/profile                       → Groq LLM + Chroma + PostgreSQL
+  ├── POST  /api/v1/recipes/search                        → Groq LLM + Elasticsearch
+  ├── POST  /api/v1/recipes/param_search                  → Elasticsearch
+  ├── POST  /api/v1/recipes/profile                       → Groq LLM + Elasticsearch + PostgreSQL
   ├── POST  /api/v1/recipes/create                        → Neo4j + PostgreSQL (profiling pipeline)
-  ├── POST  /api/v1/recipes/{recipe_id}/substitute        → Neo4j + Chroma + PostgreSQL
-  ├── POST  /api/v1/recipes/{recipe_id}/adapt/suggestions → Neo4j + Chroma + PostgreSQL (+ optional LLM judge)
-  ├── POST  /api/v1/recipes/{recipe_id}/adapt/simulate    → Neo4j + Chroma + PostgreSQL
+  ├── POST  /api/v1/recipes/{recipe_id}/substitute        → Neo4j + Elasticsearch + PostgreSQL
+  ├── POST  /api/v1/recipes/{recipe_id}/adapt/suggestions → Neo4j + Elasticsearch + PostgreSQL (+ optional LLM judge)
+  ├── POST  /api/v1/recipes/{recipe_id}/adapt/simulate    → Neo4j + Elasticsearch + PostgreSQL
   └── PATCH /api/v1/recipes/{recipe_id}                   → Neo4j + Elasticsearch
 
 Services
   ├── Neo4j         – Recipe knowledge graph (recipes, ingredients, allergens, diet tags)
-  ├── Elasticsearch – Recipe title search index
-  ├── Chroma        – Vector store for nutrition and sustainability matching
+  ├── Elasticsearch – Recipe search and ingredient-vector indexes
   ├── PostgreSQL    – Structured nutrition data (USDA + Irish) and profiling traces
   └── Groq LLM      – Recipe parsing, natural language → Cypher, weight estimation
 ```
@@ -93,7 +92,7 @@ Those fields expose original/source per-serving nutrition separately from comput
 
 ### POST /api/v1/recipes/search
 
-**Purpose:** Natural language recipe search. Translates a question into a graph query.
+**Purpose:** Natural-language recipe search backed by Elasticsearch.
 
 **Input:**
 ```json
@@ -109,23 +108,46 @@ question
   │
   ├── Empty question? → random MyPlate recipes from Elasticsearch
   │
-  └── LangGraph pipeline (text2cypher_v2):
-        1. Extract_Constraints (Groq LLM)
-           → {preferred_ingredients, excluded_ingredients, allergens,
-              diet_tags, title_keywords, max_duration, limit}
-        2. Map_Constraints_to_Cypher
-           → parameterised Cypher (no freeform generation)
-        3. Execute on Neo4j
-        4. Fallback: param_search → Elasticsearch random (if pipeline fails)
+  └── Intent + constraint extraction (configured search LLM)
+        → title: exact/phrase/prefix/fuzzy title search
+        → constraints: deterministic parameter search
+        → title_with_constraints: title relevance plus filters
   │
-  └── Normalise results
-        ├── Attach Nutri-Score colours (PostgreSQL)
-        ├── Attach recipe scores
-        └── Return recipe cards
+  └── Build an Elasticsearch bool query
+        └── Search recipes_v2 and return recipe cards
 ```
 
-**Databases:** Neo4j (primary), Elasticsearch (fallback).
-**LLM:** Groq (constraint extraction only – Cypher is template-based, not free-form).
+**Database:** Elasticsearch only.
+**LLM:** `SEARCH_LLM_SOURCE` (`openrouter` or `groq`) for intent and constraint extraction.
+
+The same LLM call performs both operations: it classifies the query and returns
+any structured constraints. There is no second routing-agent call. Its output
+contains `search_intent`, an optional `title_query`, and the normal ingredient,
+allergen, diet, duration, and serving constraints.
+
+| Intent | Example | Elasticsearch behavior |
+| --- | --- | --- |
+| `title` | `Chicken Soup` | Search the title only |
+| `constraints` | `recipe with chicken` | Use the deterministic parameter filters |
+| `title_with_constraints` | `Chicken Soup under 30 minutes` | Combine title relevance with filters |
+
+Title retrieval uses several signals in descending confidence:
+
+1. Normalized exact title (`title_normalized`)
+2. Case-insensitive exact keyword
+3. Exact phrase
+4. Phrase prefix, for input such as `Chicken Sou`
+5. All title tokens
+6. Fuzzy tokens, for input such as `Chiken Soup`
+
+Elasticsearch retrieves a wider title candidate pool, then the API reranks it
+by normalized string similarity. This prevents a longer fuzzy result such as
+`Chicken Soup for the Soul` from ranking above the closer `Chicken Soup`.
+General constraint search keeps its existing expert/curated ordering, while
+title and mixed searches rank textual relevance first.
+
+Autocomplete selection should still send the selected recipe ID directly when
+available; that path does not need LLM classification.
 
 ---
 
@@ -150,20 +172,17 @@ question
 **Flow:**
 ```
 filters
-  └── Build parameterised Cypher
-        ├── ALL(ingredient IN include_ingredients WHERE EXISTS in graph)
-        ├── NOT EXISTS excluded_ingredients
-        ├── NOT EXISTS allergens via HAS_ALLERGEN
-        ├── EXISTS diet_tags via HAS_TAG
-        ├── EXISTS dish_types via HAS_TAG to Tag category=dish-type
-        └── duration <= max_duration_minutes
-  └── Execute on Neo4j → enriched recipe cards
-        └── Attach image_url, duration, serves, nutri_score from PostgreSQL
+  └── Build an Elasticsearch bool query
+        ├── Require included ingredients
+        ├── Reject excluded ingredients and allergens
+        ├── Filter diet tags and dish types
+        └── Apply duration and pagination constraints
+  └── Search recipes_v2 and return recipe cards
 ```
 
 Results are ordered deterministically for pagination: expert recipes first, then preferred catalog sources (`FoodHero` and `HealthyFoods`), then `has_profile=true` recipes, then recipes with duration and serving metadata, then stable recipe identity fields. Empty filter payloads return a stable profiled-recipe catalog page using `limit` and `offset`.
 
-**Databases:** Neo4j, PostgreSQL.
+**Database:** Elasticsearch only.
 
 ---
 
@@ -193,19 +212,19 @@ raw_recipe
         │      → grams per ingredient
         │      Fallback chain (in order):
         │        a) USDA canonical name match
-        │        b) Hybrid USDA match (Chroma vector + BM25 lexical + FoodOn gate) → Postgres lookup
+        │        b) Hybrid USDA match (Elasticsearch vector + BM25 lexical + FoodOn gate) → Postgres lookup
         │        c) Recipe1M LLM weight CSV
         │        d) FDA/LLM unit-grams CSV
         │        e) Live Groq/vLLM-compatible LLM (last resort)
         │        f) Herb/spice default (0.3g per pinch)
         │
-        ├── 3. Nutrition (Chroma + PostgreSQL)
-        │      → Query Chroma for best ingredient match
+        ├── 3. Nutrition (Elasticsearch + PostgreSQL)
+        │      → Query Elasticsearch for best ingredient match
         │      → Fetch per-100g values from Postgres
         │      → Scale by weight, sum totals + per-serving
         │      → Source: Irish table (region=IE), USDA (region=US), or Hungarian table (region=HU)
         │
-        ├── 4. Sustainability (Chroma)
+        ├── 4. Sustainability (Elasticsearch)
         │      → Match ingredient to carbon footprint DB
         │      → kg CO2e per ingredient → total + per-serving
         │
@@ -215,7 +234,7 @@ raw_recipe
                → Optional: persist trace to PostgreSQL
 ```
 
-**Databases:** Chroma (nutrition + sustainability matching), PostgreSQL (nutrient data + trace storage).
+**Databases:** Elasticsearch (nutrition + sustainability matching), PostgreSQL (nutrient data + trace storage).
 **LLM:** Groq for parsing + weight fallback by default; currently switched to local vLLM (`ingredient-tagger`, Llama 3.1 8B on :8008) for the bulk Recipe1M retag — switch back to Groq afterwards (`WEIGHT_LLM_SOURCE`).
 
 ---
@@ -242,11 +261,11 @@ The verified offline reference is rebuilt by the pipeline in `docs/weight_refere
 
 ### 2. Nutrition / composition-table match — `tools/nutrition_match.best_nutrition_match`
 
-Used by `nutritional_calculator.nutritional_tool_chroma`. Per ingredient, in order:
+Used by `nutritional_calculator.nutritional_tool_vector`. Per ingredient, in order:
 
 0. **Hand-curated alias table** (`ingredient_nutrition_aliases`, ~190 ingredients / ~680 alias rows; `scripts/build_nutrition_aliases.py`) — checked first on the *raw* name then the cleaned name. Pins the high-frequency raw proteins / produce / staples to the canonical raw/plain USDA records: `chicken breast → Chicken, …, breast, skinless, boneless, meat only, raw`, `ground beef → Beef, ground, 85% lean / 15% fat, raw`, `red onion → Onions, raw`, `unsalted butter → Butter, without salt`, `low-fat yoghurt → Yogurt, plain, low fat`, `dark chocolate → Chocolate, dark, 60-69% cacao`, `red wine → Alcoholic beverage, wine, table, red`, etc. — including the low-fat/nonfat/light dairy variants, the chocolate/cocoa family and common alcohols. Hand-verified → `confidence="alias"`, wins outright. *(Raw-name-first matters: `clean_query` strips qualifiers like "unsalted"/"low-fat", so without it "unsalted butter" → "butter" → the salted-butter alias would win.)*
 1. **Clean the query** — strip parentheticals, prep clauses (`finely chopped`, `to brush`, `for dusting`), qualifier words, leading quantities; normalise UK/US spellings (`yoghurt`→`yogurt`, `rocket`→`arugula`, `courgette`→`zucchini`) and singular/plural — *before* the embedding. (`raw`/`cooked`/`canned`/`light`/`dark` are kept — they're part of the food identity.)
-2. **Gather candidates** from the Irish + USDA Chroma pools, **plus the `recipe1m-usda-links-canonical` link as one more candidate** scored on its own `embedding_similarity` — that table is itself a machine embedding-match (median sim ~0.77, *not* human-verified — it maps `all-purpose flour → "Potato flour"`, `garlic cloves → "garlic pear"`), so it competes with a small prior bonus, it never overrides; a branded/cooked label gets no bonus at all.
+2. **Gather candidates** from the Irish + USDA Elasticsearch pools, **plus the `recipe1m-usda-links-canonical` link as one more candidate** scored on its own `embedding_similarity` — that table is itself a machine embedding-match (median sim ~0.77, *not* human-verified — it maps `all-purpose flour → "Potato flour"`, `garlic cloves → "garlic pear"`), so it competes with a small prior bonus, it never overrides; a branded/cooked label gets no bonus at all.
 3. **Rerank** by `0.6·similarity + 0.4·BM25 + 0.15·token-overlap` — a zero-token-overlap "attractor" candidate (e.g. the `Italian Arborio risotto` record) is heavily demoted unless cosine ≥ 0.90; a `recipe1m → USDA` candidate that survives the guards gets a small prior; a candidate carrying a cooking-state / branded / dried marker the recipe didn't ask for is demoted (so `chicken breast` beats "Oscar Mayer … honey glazed" / "casseroled, meat and skin", `buttermilk` beats "… dried"), and a state-less query gets a small nudge toward the `…, raw` record.
 4. **Food-class guard (hard gate)** — coarse classes (animal protein / dairy / plant-milk / egg / grain / legume / nut-seed / leafy-green / vegetable / fruit / spice-herb / oil-fat / sweetener / alcohol / …) with a conservative hard-incompatible set: rejects dairy↔plant-milk (`low-fat yoghurt ↛ Tofu yogurt`), animal↔non-animal (`chuck ↛ Cheese, colby`), alcohol↔grain (`chianti wine ↛ Arborio rice`), egg↔vegetable (`egg ↛ eggplant`), spice↔leafy-green (`arugula ↛ fenugreek`), vegetable↔grain (`red onion ↛ red rice`), spice↔grain (`ground cinnamon ↛ cinnamon bread`), …
 5. **FoodOn ontology nudge (soft)** — on the top-3 only (a Neo4j round-trip per candidate, too costly for all), reuses the weight tool's `_foodon_class_ids_for_ingredient` / `_foodon_classes_have_common_ancestor` with form-word/synonym normalisation; only `±penalty` into the score, never a hard reject, because the local FoodOn graph is sparse and `is False` is often a false signal.
@@ -257,7 +276,7 @@ Used by `nutritional_calculator.nutritional_tool_chroma`. Per ingredient, in ord
 - **`serves` sanitised** — a parsed/source `serves` in `[1, 50]` is kept (so "makes 24 cookies" survives); otherwise estimated from total recipe weight (~450 g/serving, clamped to `[1, 16]`); a wildly-large total weight is *not* trusted for the estimate (falls back to 4 — the weight cap below trims it). Recorded in `serves_source` ∈ `{given, estimated}`.
 - **Weight sanity cap** — if total weight > 2.5 kg/serving, the dominant ingredient is trimmed (the `"313 cups flour" → 39 kg` parse-artefact class) toward ~700 g/serving, or the whole recipe is scaled down to the ceiling. `weights_capped` flag recorded; the sanitised totals are what feed nutrition + Nutri-Score.
 - **Nutrition coverage** — `nutrition_coverage` = fraction of recipe weight that got a real nutrition match; `nutrition_low_coverage` flagged below ~0.8. Recipes with zeroed-out ingredients are now visible, not silently low.
-- **Sustainability match** (`sustainability_calculator.best_sustainability_match`) — the same strategy, scaled down: clean the query → exact lookup in the cf-value index (`sustainability_ingredients` Chroma collection, ~7.4k entries) on the cleaned + singularised name → a small `recipe-name → DB-entry` alias map (`ground beef → beef`, `unsalted butter → butter`, `chicken breast → chicken`, `red onion → onion`, `cherry tomatoes → tomato`, `all-purpose flour → flour`, …, all targets verified to exist) → else the vector path with a **food-class hard gate**, a BM25 + token-overlap rerank and the same cooking-state/processed-marker demotion. Confidence label `sustainability_match_confidence` ∈ `{exact, alias, strong, weak, none}` on every ingredient. An incompatible / no match → no cf_val → that ingredient contributes 0 CO₂e (rather than an unrelated figure). `sustainability_coverage` (fraction of recipe weight with a CF match) + `sustainability_low_coverage` are recorded alongside `nutrition_coverage`. *(NB: the DB's cf_val numbers are category-quantised — all beef ≈ the same value etc. — and a few are off in absolute terms; getting the right category is what matters.)*
+- **Sustainability match** (`sustainability_calculator.best_sustainability_match`) — the same strategy, scaled down: clean the query → exact lookup in the cf-value index (`sustainability_ingredients` Elasticsearch collection, ~7.4k entries) on the cleaned + singularised name → a small `recipe-name → DB-entry` alias map (`ground beef → beef`, `unsalted butter → butter`, `chicken breast → chicken`, `red onion → onion`, `cherry tomatoes → tomato`, `all-purpose flour → flour`, …, all targets verified to exist) → else the vector path with a **food-class hard gate**, a BM25 + token-overlap rerank and the same cooking-state/processed-marker demotion. Confidence label `sustainability_match_confidence` ∈ `{exact, alias, strong, weak, none}` on every ingredient. An incompatible / no match → no cf_val → that ingredient contributes 0 CO₂e (rather than an unrelated figure). `sustainability_coverage` (fraction of recipe weight with a CF match) + `sustainability_low_coverage` are recorded alongside `nutrition_coverage`. *(NB: the DB's cf_val numbers are category-quantised — all beef ≈ the same value etc. — and a few are off in absolute terms; getting the right category is what matters.)*
 - All of the above + `match_confidence` land in `state.profiling_quality`, `full_profile.profiling_quality`, and `pipeline_trace.profiling.quality`. `scripts/validate_profiling.py` is the post-retag check (per-serving-kcal distribution, the `serves_source` / `weights_capped` / `coverage` / `match_confidence` mix, and divergence vs source-provided "ground truth" nutrition where present).
 
 ### Where the LLM is (and isn't) used
@@ -299,7 +318,7 @@ Profiling-pipeline accuracy guards (`recipe_profiling_tool.Recipe_Profiling_Node
 - **Per-recipe weight sanity cap** (`_cap_recipe_weights`) — if total weight > 2.5 kg/serving, trim the dominant ingredient (the `"313 cups flour" → 39 kg` parse-artefact class) down toward ~700 g/serving, or scale the whole recipe down to the ceiling if no single ingredient dominates. `weights_capped` flag recorded; the (sanitised) totals are what feed nutrition + Nutri-Score. *(e.g. a broken "313 cups flour" recipe: 39.3 kg → 2.8 kg, kcal/serving 8,939 → 2,500, flagged.)*
 - **Coverage metrics** — `nutrition_coverage` = fraction of recipe weight that got a real nutrition match (`nutrition_low_coverage` flagged below ~0.8), and likewise `sustainability_coverage` / `sustainability_low_coverage`. Recipes with zeroed-out ingredients are now *visible*, not silently low.
 - All of the above + `match_confidence` (nutrition) and `sustainability_match_confidence` land in `state.profiling_quality`, `full_profile.profiling_quality`, and `pipeline_trace.profiling.quality`, plus declared top-level `RecipeState` fields.
-- **Sustainability ingredient match reworked** (`sustainability_calculator.best_sustainability_match` → `(cf_val, matched_name, confidence∈{exact,alias,override,strong,weak,none})`) — same strategy as the nutrition matcher: clean query → exact lookup in the cf-value index (the `sustainability_ingredients` Chroma collection's `name → cf_val`, ~7.4k entries) on the cleaned + singularised name → a `recipe-name → DB-entry` alias map (`ground beef → beef`, `unsalted butter → butter`, `chicken breast → chicken`, `red onion → onion`, `cherry tomatoes → tomato`, `all-purpose flour → flour`, …, ~60 verified targets) → else the vector path with a **food-class hard gate** + BM25/token-overlap rerank + cooking-state/processed-marker demotion. `_SUST_CF_OVERRIDE` hand-corrects obvious DB errors — the DB tags `beef stock` with the *solid* beef CF (≈19.5 kg CO₂e/kg) → override 2.0; `chicken broth` → 1.5; `vegetable stock` → 0.4; `salt` → 0.02. Incompatible / no match → `cf_val=None` → 0 CO₂e for that ingredient (not an unrelated figure). The `beef stock` override alone halved the beef-stew sample's footprint: 36.8 → 20.0 kg CO₂e (6.14 → 3.33 /serving). Replaces the old naive `query_sustainability_db(name)[0]`.
+- **Sustainability ingredient match reworked** (`sustainability_calculator.best_sustainability_match` → `(cf_val, matched_name, confidence∈{exact,alias,override,strong,weak,none})`) — same strategy as the nutrition matcher: clean query → exact lookup in the cf-value index (the `sustainability_ingredients` Elasticsearch collection's `name → cf_val`, ~7.4k entries) on the cleaned + singularised name → a `recipe-name → DB-entry` alias map (`ground beef → beef`, `unsalted butter → butter`, `chicken breast → chicken`, `red onion → onion`, `cherry tomatoes → tomato`, `all-purpose flour → flour`, …, ~60 verified targets) → else the vector path with a **food-class hard gate** + BM25/token-overlap rerank + cooking-state/processed-marker demotion. `_SUST_CF_OVERRIDE` hand-corrects obvious DB errors — the DB tags `beef stock` with the *solid* beef CF (≈19.5 kg CO₂e/kg) → override 2.0; `chicken broth` → 1.5; `vegetable stock` → 0.4; `salt` → 0.02. Incompatible / no match → `cf_val=None` → 0 CO₂e for that ingredient (not an unrelated figure). The `beef stock` override alone halved the beef-stew sample's footprint: 36.8 → 20.0 kg CO₂e (6.14 → 3.33 /serving). Replaces the old naive `query_sustainability_db(name)[0]`.
 - **`scripts/validate_profiling.py`** — post-retag sanity check: reads a JSONL of profiled-recipe dicts and reports the per-serving-kcal distribution (flags the `<50` / `>1200` tails), the `serves_source` / `weights_capped` / `nutrition_coverage` / `match_confidence` mix, and — where a recipe carries source-provided ("ground truth") nutrition — the divergence vs the recomputed values (flags >25 %).
 
 Neo4j graph cleanup:
@@ -308,7 +327,7 @@ Neo4j graph cleanup:
 
 Nutrition matcher (recipe ingredient -> composition-table record):
 
-- New `tools/nutrition_match.py` (`best_nutrition_match`) replaces the naive top-1 Chroma vector pick used by `nutritional_calculator.nutritional_tool_chroma`. It: (0) checks a **hand-curated alias table** first — checked on the *raw* name then the cleaned name (`scripts/build_nutrition_aliases.py` → `data/processed/fallbacks/ingredient_nutrition_aliases.csv` → `pipeline_static_data.ingredient_nutrition_aliases`, ~680 alias rows / ~190 ingredients) — `chicken breast` → `Chicken, …, breast, skinless, boneless, meat only, raw`, `ground beef` → `Beef, ground, 85% lean / 15% fat, raw`, `red onion` → `Onions, raw`, `buttermilk` → `Milk, buttermilk, fluid`, `unsalted butter` → `Butter, without salt`, `low-fat yoghurt` → `Yogurt, plain, low fat`, `dark chocolate` → `Chocolate, dark, 60-69% cacao`, `red wine` → `Alcoholic beverage, wine, table, red`, etc. — including the low-fat/nonfat/light dairy variants, the chocolate/cocoa family, and common alcohols. `confidence="alias"`, hand-verified, wins outright. (Raw-name-first matters because `clean_query` strips qualifiers like "unsalted"/"low-fat"; and `clean_query` no longer strips `light`/`dark` so `dark chocolate`/`dark soy sauce` keep that token.) (1) **cleans the query** — strips parentheticals, prep clauses, qualifier words, leading quantities, normalises UK/US spellings + singular/plural, before the embedding; (2) gathers candidates from the Irish + USDA Chroma pools **plus the `recipe1m-usda-links-canonical` entry as one more candidate** scored on its own `embedding_similarity` (this table is itself a machine embedding-match, median sim ~0.77 — *not* human-verified — so it competes with a small prior bonus, it never overrides; e.g. its `all-purpose flour → Potato flour` and `garlic cloves → garlic pear` entries are correctly beaten by the vector candidates); (3) **reranks** by similarity + BM25 + token overlap, with a zero-overlap "attractor" candidate (e.g. the `Italian Arborio risotto` record) heavily demoted unless cosine ≥ 0.90; (4) applies a **food-class compatibility guard** (hard gate) — coarse classes (animal protein / dairy / plant-milk / egg / grain / legume / nut-seed / leafy-green / vegetable / fruit / spice-herb / oil-fat / sweetener / alcohol / …) with a conservative hard-incompatible set that rejects dairy↔plant-milk (`low-fat yoghurt`↛`Tofu yogurt`), animal↔non-animal (`chuck`↛`Cheese, colby`), alcohol↔grain (`chianti wine`↛`Arborio rice`), egg↔vegetable (`egg`↛`eggplant`), spice↔leafy-green (`arugula`↛`fenugreek`), vegetable↔grain (`red onion`↛`red rice`), … — **plus a soft FoodOn ontology nudge** on the top-3 candidates (reuses the weight tool's Neo4j-backed `_foodon_class_ids_for_ingredient` / `_foodon_classes_have_common_ancestor`, with form-word/synonym normalisation; only `±penalty` into the score, never a hard reject — the local FoodOn graph is sparse — and only on the top-3 to keep the Neo4j round-trips bounded); (5) a **threshold split** — results carry `match_confidence` (`alias`|`curated`|`strong`|`weak`|`none`) and `match_reason` (incl. `:foodon_incompat`) on every detail row, so weak/no-match ingredients are visible in the trace instead of silently zeroed or silently accepted. Tuning: `_STRONG_SCORE` / `_WEAK_SCORE` / `_CURATED_BONUS` / `_HARD_INCOMPATIBLE` in `nutrition_match.py`. `nutrition_match.py` calls `load_runtime_env()` at import (the curated-link / FoodOn lookups need `NUTRITION_*` env vars).
+- New `tools/nutrition_match.py` (`best_nutrition_match`) replaces the naive top-1 Elasticsearch vector pick used by `nutritional_calculator.nutritional_tool_vector`. It: (0) checks a **hand-curated alias table** first — checked on the *raw* name then the cleaned name (`scripts/build_nutrition_aliases.py` → `data/processed/fallbacks/ingredient_nutrition_aliases.csv` → `pipeline_static_data.ingredient_nutrition_aliases`, ~680 alias rows / ~190 ingredients) — `chicken breast` → `Chicken, …, breast, skinless, boneless, meat only, raw`, `ground beef` → `Beef, ground, 85% lean / 15% fat, raw`, `red onion` → `Onions, raw`, `buttermilk` → `Milk, buttermilk, fluid`, `unsalted butter` → `Butter, without salt`, `low-fat yoghurt` → `Yogurt, plain, low fat`, `dark chocolate` → `Chocolate, dark, 60-69% cacao`, `red wine` → `Alcoholic beverage, wine, table, red`, etc. — including the low-fat/nonfat/light dairy variants, the chocolate/cocoa family, and common alcohols. `confidence="alias"`, hand-verified, wins outright. (Raw-name-first matters because `clean_query` strips qualifiers like "unsalted"/"low-fat"; and `clean_query` no longer strips `light`/`dark` so `dark chocolate`/`dark soy sauce` keep that token.) (1) **cleans the query** — strips parentheticals, prep clauses, qualifier words, leading quantities, normalises UK/US spellings + singular/plural, before the embedding; (2) gathers candidates from the Irish + USDA Elasticsearch pools **plus the `recipe1m-usda-links-canonical` entry as one more candidate** scored on its own `embedding_similarity` (this table is itself a machine embedding-match, median sim ~0.77 — *not* human-verified — so it competes with a small prior bonus, it never overrides; e.g. its `all-purpose flour → Potato flour` and `garlic cloves → garlic pear` entries are correctly beaten by the vector candidates); (3) **reranks** by similarity + BM25 + token overlap, with a zero-overlap "attractor" candidate (e.g. the `Italian Arborio risotto` record) heavily demoted unless cosine ≥ 0.90; (4) applies a **food-class compatibility guard** (hard gate) — coarse classes (animal protein / dairy / plant-milk / egg / grain / legume / nut-seed / leafy-green / vegetable / fruit / spice-herb / oil-fat / sweetener / alcohol / …) with a conservative hard-incompatible set that rejects dairy↔plant-milk (`low-fat yoghurt`↛`Tofu yogurt`), animal↔non-animal (`chuck`↛`Cheese, colby`), alcohol↔grain (`chianti wine`↛`Arborio rice`), egg↔vegetable (`egg`↛`eggplant`), spice↔leafy-green (`arugula`↛`fenugreek`), vegetable↔grain (`red onion`↛`red rice`), … — **plus a soft FoodOn ontology nudge** on the top-3 candidates (reuses the weight tool's Neo4j-backed `_foodon_class_ids_for_ingredient` / `_foodon_classes_have_common_ancestor`, with form-word/synonym normalisation; only `±penalty` into the score, never a hard reject — the local FoodOn graph is sparse — and only on the top-3 to keep the Neo4j round-trips bounded); (5) a **threshold split** — results carry `match_confidence` (`alias`|`curated`|`strong`|`weak`|`none`) and `match_reason` (incl. `:foodon_incompat`) on every detail row, so weak/no-match ingredients are visible in the trace instead of silently zeroed or silently accepted. Tuning: `_STRONG_SCORE` / `_WEAK_SCORE` / `_CURATED_BONUS` / `_HARD_INCOMPATIBLE` in `nutrition_match.py`. `nutrition_match.py` calls `load_runtime_env()` at import (the curated-link / FoodOn lookups need `NUTRITION_*` env vars).
 - Match-quality audit (`scripts/audit_nutrition_matches.py --matcher new|old`, 400 sampled Neo4j ingredients, seed 13): loose-flag rate ~42–43% — but that number is the audit's *deliberately loose* heuristic and ~half of its flags are its own false positives (plurals/spellings/low-but-fine similarities); filtering those, the realistic read is **~88–92% correct (incl. `alias`/`curated`/`strong`), ~3–4% honest `none`/`weak` (visible in the trace, not silently wrong), ~5–8% genuinely-wrong-but-accepted** (close-but-imperfect: `green capsicum → Peppers, sweet, red, raw`, `cherry chips → Cherries, sweet, raw`, …) — vs the pre-rework ~10–20% *silent*-wrong, with the catastrophic cross-category cases (yoghurt↔tofu, beef↔cheese, wine↔rice, arugula↔fenugreek, all-purpose-flour↔potato-flour) and the cooked/deli-protein class (chicken breast↔deli-roll) eliminated. Sample-recipe spot-check (`Recipe_Profiling_Chain_Structured`, 3 recipes / 24 ingredients): all 24 correct — `chicken breast → Chicken, …, breast, skinless, boneless, meat only, raw`, `buttermilk → Milk, buttermilk, fluid, cultured, lowfat`, `red onion → Onions, raw`, `all-purpose flour → Wheat flour, white, all-purpose, enriched`, garlic/broccoli/carrots/ginger/eggs/sesame-oil/olive-oil/feta/arugula/cherry-tomatoes/soy-sauce/white-rice/… all to their raw/plain records. The chicken-breast fix alone moved the stir-fry sample from ~2,167 mg sodium/serving (Nutri-Score C) to ~579 mg (Nutri-Score A). Residual long tail (bge-small): specialty sauces collapsing to `Sauce, barbecue`, mushroom varieties, "english cucumber"↔"english walnut", within-meat (`chicken mince`↔`lamb mince`) — extend the alias table (`scripts/build_nutrition_aliases.py`) for the worst recurring offenders, or switch to `bge-base` / a cross-encoder rerank; diminishing returns.
 
 Audit (1,000-recipe sample, seed 13): flagged rows 1,586 -> 1,210; `error:missing_unit` 540 -> 336; the LLM-portion verifier caught 31 bad outputs and turned them into errors. Catastrophic deterministic outliers (`> 3 kg` ingredient on inputs like `"313 cups flour"`) are unchanged and would need a per-recipe sanity cap (not done).
@@ -320,7 +339,7 @@ Validation run:
 
 ### 2026-05-07 accuracy pass
 
-- Added hybrid USDA ingredient linking: Chroma vector candidates plus BM25 lexical candidates are deduplicated, reranked, and exposed as `match_source="hybrid"`.
+- Added hybrid USDA ingredient linking: Elasticsearch vector candidates plus BM25 lexical candidates are deduplicated, reranked, and exposed as `match_source="hybrid"`.
 - Added FoodOn compatibility checks for hybrid matches. When both the raw ingredient and candidate have FoodOn classes, incompatible taxonomy branches are rejected; missing FoodOn data falls back neutrally to lexical/vector scoring.
 - Added deterministic guards for known bad category matches, large bare-number quantities, ambiguous USDA portion descriptions, packaged/count units, and common unit references.
 - Added conservative LLM-derived unit-weight filtering and merged accepted rows into `data/processed/recipe1m/food_weights_updated.csv`.
@@ -410,12 +429,12 @@ recipe_id + ingredient
   ├── Swap ingredient name in recipe (keep original measurement)
   │
   └── Re-profile with Recipe_Profiling_Chain_Structured (no LLM parse)
-        → Chroma + PostgreSQL nutrition lookup
+        → Elasticsearch + PostgreSQL nutrition lookup
         → Nutri-Score recomputed
         → Return original_ingredient, substitute, candidates, modified nutrition profile
 ```
 
-**Databases:** Neo4j (recipe + substitution graph), Chroma (nutrition matching), PostgreSQL (nutrient data).
+**Databases:** Neo4j (recipe + substitution graph), Elasticsearch (nutrition matching), PostgreSQL (nutrient data).
 
 **Returns:** `original_ingredient`, `substitute` (best pick), `substitution_source` (`graph_direct` or `foodon_taxonomy`), `candidates` (all found), `modified_recipe_profile`.
 
@@ -549,7 +568,7 @@ curl -X PATCH http://localhost:8001/api/v1/recipes/3758007968 \
 |---|---|---|
 | **Neo4j** | Recipe graph: recipes, ingredients, allergens, diet tags | `neo4j-docker/docker-compose.yml` |
 | **Elasticsearch** | Recipe title autocomplete and fallback search | `elasticsearch-docker/docker-compose.yml` |
-| **Chroma** | Vector similarity for nutrition & sustainability matching | `chromadb-docker/docker-compose.yml` |
+| **Elasticsearch** | Vector similarity for nutrition & sustainability matching | `elasticsearch-docker/docker-compose.yml` |
 | **PostgreSQL** | Nutrition data (USDA + Irish) and profiling traces | `postgresql-docker/docker-compose.yml` |
 
 ---
@@ -561,7 +580,7 @@ curl -X PATCH http://localhost:8001/api/v1/recipes/3758007968 \
 ```bash
 docker compose -f neo4j-docker/docker-compose.yml up -d
 docker compose -f postgresql-docker/docker-compose.yml up -d
-docker compose -f chromadb-docker/docker-compose.yml up -d
+docker compose -f elasticsearch-docker/docker-compose.yml up -d
 docker compose -f elasticsearch-docker/docker-compose.yml up -d
 ```
 
@@ -583,11 +602,13 @@ cp .env.example .env  # edit with your values
 Required:
 ```
 NEO4J_URI=bolt://localhost:7687
-GROQ_API_KEY=gsk-...
+SEARCH_LLM_SOURCE=openrouter
+SEARCH_MAIN_MODEL=openai/gpt-oss-20b
+OPENROUTER_API_KEY=sk-or-v1-...
 ELASTIC_URL=http://localhost:9200
-ELASTIC_INDEX=recipes
-CHROMA_HOST=localhost
-CHROMA_PORT=8000
+ELASTIC_INDEX=recipes_v2
+ELASTIC_VECTOR_INDEX=ingredient_vectors
+ELASTIC_VECTOR_SEARCH_MODE=exact
 NUTRITION_HOST=localhost
 NUTRITION_PORT=5432
 NUTRITION_DB=...
@@ -617,7 +638,7 @@ Swagger UI: http://localhost:8001/docs
 src/recipe_wrangler/
 ├── api/               # FastAPI app, routers, config, dependencies
 ├── tools/             # LangGraph pipelines and tool implementations
-├── repositories/      # Data access layer (Neo4j, Postgres, Chroma)
+├── repositories/      # Data access layer (Neo4j, Postgres, Elasticsearch)
 ├── utils/             # DB clients, embedding helpers, scoring utilities
 └── schemas/           # Pydantic models
 
@@ -672,20 +693,17 @@ The codebase has grown organically and has several areas worth tidying before sh
 
 ### High priority
 
-**1. Delete `tools/text2cypher.py` (v1)**
-`text2cypher_v2.py` is in production. v1 uses a different LLM provider and a different architecture. It is not called anywhere in the active API. Remove it to avoid confusion.
-
-**2. Delete `utils/nutrition_postgres.py` (v1)**
+**1. Delete `utils/nutrition_postgres.py` (v1)**
 This version uses `subprocess` to call `psql` directly. `nutrition_postgres_v2.py` uses SQLAlchemy and is what the API actually uses. Remove v1.
 
-**3. Rename files to drop version suffixes**
-Once v1 files are removed, rename `text2cypher_v2.py` → `text2cypher.py` and `nutrition_postgres_v2.py` → `nutrition_postgres.py` and update all imports accordingly.
+**2. Rename files to drop version suffixes**
+Once v1 files are removed, rename `nutrition_postgres_v2.py` → `nutrition_postgres.py` and update all imports accordingly.
 
-**4. Add `.env.example`**
+**3. Add `.env.example`**
 There is no `.env.example` in the repo. Add one with all required and optional keys (values blanked out). This is essential for onboarding.
 
-**5. Verify `.gitignore` covers data files**
-Confirm `chroma_db/`, `*.dump`, `*.sqlite`, `data/`, `qdrant_storage/`, `*.pkl`, `*.csv` (in data dirs) are all ignored. A `nutrients_postgres_2026-02-16.dump` and `tmp_recipe_images.sqlite` are currently untracked — do not commit these.
+**4. Verify `.gitignore` covers data files**
+Confirm `elasticsearch_db/`, `*.dump`, `*.sqlite`, `data/`, `qdrant_storage/`, `*.pkl`, `*.csv` (in data dirs) are all ignored. A `nutrients_postgres_2026-02-16.dump` and `tmp_recipe_images.sqlite` are currently untracked — do not commit these.
 
 ### Medium priority
 

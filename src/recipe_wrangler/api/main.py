@@ -61,14 +61,7 @@ app.include_router(adaptation_router)
 
 @app.on_event("startup")
 async def startup_event():
-    """Prime connection pools and query plan caches to avoid first-request latency."""
-    try:
-        from recipe_wrangler.tools.param_search import warmup as param_search_warmup
-        param_search_warmup()
-    except Exception:
-        # Warmup is best-effort; never block startup on a transient dep.
-        import logging
-        logging.getLogger(__name__).warning("param_search warmup failed", exc_info=True)
+    """Application startup hook."""
 
     def _warm_search_app() -> None:
         """Build the NL search app off the request path so the first user

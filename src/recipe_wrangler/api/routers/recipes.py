@@ -21,7 +21,6 @@ from recipe_wrangler.api.exceptions import (
 )
 from recipe_wrangler.api.config import get_settings
 
-from recipe_wrangler.tools.param_search import search_recipes_by_params
 from recipe_wrangler.tools.es_recipe_search import RecipeSearchConstraints, search_recipes_es
 from recipe_wrangler.utils.recipe_cache import cache_delete, cache_get, cache_set
 from recipe_wrangler.utils.neo4j_utils import run_query as _run_query
@@ -32,8 +31,6 @@ from recipe_wrangler.tools.fetch_recipe_info import (
 from recipe_wrangler.repositories.neo4j_recipes import (
     count_recipes,
     detect_allergens_from_names,
-    fetch_recipe_image_urls_by_ids,
-    fetch_recipe_scores_by_ids,
     find_ingredient_substitutes,
     infer_diet_tags,
     resolve_collection_source_id,
@@ -69,7 +66,7 @@ async def _invoke_profile_with_timeout(payload: dict[str, Any]) -> dict[str, Any
         timeout=_PROFILE_TIMEOUT_SECONDS,
     )
 
-from ..dependencies import get_recipe_search_app
+from ..dependencies import get_recipe_constraint_extractor
 from recipe_wrangler.schemas import (
     RecipeCardResponse,
     RecipeCreateRequest,
@@ -179,7 +176,7 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
                 "query": {
                     "bool": {
                         "must": [
-                            {"term": {"source.keyword": "myplate"}},
+                            {"term": {"source": "MyPlate"}},
                             {"exists": {"field": "image_url"}},
                         ]
                     }
@@ -221,169 +218,6 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
     return results
 
 
-def _normalize_search_results(raw_results: list[object]) -> list[object]:
-    """Attach metadata and keep only public keys for search responses."""
-
-    raw_results = _attach_nutri_colors(raw_results)
-    raw_results = _attach_recipe_scores(raw_results)
-    raw_results = _attach_image_urls(raw_results)
-    allowed_keys = {
-        "recipe_id",
-        "title",
-        "url",
-        "source",
-        "duration",
-        "serves",
-        "nutri_score",
-        "sust_score",
-        "image_url",
-    }
-
-    filtered_results: list[object] = []
-    for entry in raw_results:
-        if isinstance(entry, dict):
-            # Some pipelines return `id` instead of `recipe_id`.
-            # Keep response shape stable for UI routing/card links.
-            rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-            if rid and _as_id(entry.get("recipe_id")) is None:
-                entry = {**entry, "recipe_id": rid}
-            filtered_results.append(
-                {key: entry.get(key) for key in allowed_keys if key in entry}
-            )
-        else:
-            filtered_results.append(entry)
-    return filtered_results
-
-
-def _extract_title(candidate: dict[str, object]) -> str | None:
-    """Best-effort extraction of a recipe title from a LangGraph result row."""
-
-    title = candidate.get("title")
-    if isinstance(title, str) and title.strip():
-        return title.strip()
-
-    for key, value in candidate.items():
-        if isinstance(value, str) and "title" in key.lower():
-            return value
-        if isinstance(value, dict):
-            nested_title = value.get("title")
-            if isinstance(nested_title, str) and nested_title.strip():
-                return nested_title.strip()
-
-    return None
-
-
-def _attach_recipe_metadata(results: list[object]) -> list[object]:
-    """Augment each result row with full recipe metadata when possible."""
-
-    cache: dict[str, dict] = {}
-    enriched: list[object] = []
-
-    for entry in results:
-        if not isinstance(entry, dict):
-            enriched.append(entry)
-            continue
-
-        recipe_id = _as_id(entry.get("id"))
-        title = _extract_title(entry)
-        cache_key = recipe_id or title
-
-        if not cache_key:
-            enriched.append(entry)
-            continue
-
-        if cache_key not in cache:
-            metadata: dict[str, Any] = {}
-            try:
-                if recipe_id:
-                    metadata = fetch_recipe_info_by_id(recipe_id) or {}
-                if not metadata and title:
-                    metadata = fetch_recipe_info(title) or {}
-            except Exception:
-                metadata = {}
-
-            cache[cache_key] = metadata
-
-        metadata = cache.get(cache_key) or {}
-        if metadata:
-            combined = dict(entry)
-            combined["recipe_info"] = metadata
-            enriched.append(combined)
-        else:
-            enriched.append(entry)
-
-    return enriched
-
-
-def _attach_recipe_scores(results: list[object]) -> list[object]:
-    """Attach nutri_score and sust_score (per serving) from Neo4j when possible."""
-
-    if not results:
-        return results
-
-    ids: list[str] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            continue
-        candidate = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        if candidate:
-            ids.append(candidate)
-
-    if not ids:
-        return results
-
-    score_map = fetch_recipe_scores_by_ids(ids)
-
-    enriched: list[object] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            enriched.append(entry)
-            continue
-        rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        combined = dict(entry)
-        if rid and rid in score_map:
-            record = score_map[rid]
-            for key in ("nutri_score", "sust_score", "duration", "serves", "source", "title"):
-                if combined.get(key) in (None, "") and record.get(key) is not None:
-                    combined[key] = record.get(key)
-        enriched.append(combined)
-
-    return enriched
-
-
-def _attach_image_urls(results: list[object]) -> list[object]:
-    """Attach image_url for recipe rows by recipe_id/id when possible."""
-
-    if not results:
-        return results
-
-    ids: list[str] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            continue
-        candidate = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        if candidate:
-            ids.append(candidate)
-
-    if not ids:
-        return results
-
-    image_map = fetch_recipe_image_urls_by_ids(ids)
-
-    enriched: list[object] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            enriched.append(entry)
-            continue
-        rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        combined = dict(entry)
-        if rid and "image_url" not in combined:
-            combined["image_url"] = image_map.get(rid)
-        enriched.append(combined)
-
-    return enriched
-
-
 def _nutri_color_from_score(nutri_score: object) -> str | None:
     if isinstance(nutri_score, dict):
         color = nutri_score.get("color")
@@ -401,39 +235,6 @@ def _nutri_color_from_score(nutri_score: object) -> str | None:
         return mapping.get(score)
 
     return None
-
-
-def _attach_nutri_colors(results: list[object]) -> list[object]:
-    """Add nutri_score color from Postgres nutrition data when available."""
-
-    cache: dict[str, str | None] = {}
-    enriched: list[object] = []
-
-    for entry in results:
-        if not isinstance(entry, dict):
-            enriched.append(entry)
-            continue
-
-        recipe_id = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        if not recipe_id:
-            enriched.append(entry)
-            continue
-
-        if recipe_id not in cache:
-            color = None
-            try:
-                nutrition = get_recipe_nutrition(recipe_id)
-            except Exception:
-                nutrition = None
-            if nutrition:
-                color = _nutri_color_from_score(nutrition.get("nutri_score"))
-            cache[recipe_id] = color
-
-        combined = dict(entry)
-        combined["nutri_color"] = cache.get(recipe_id)
-        enriched.append(combined)
-
-    return enriched
 
 
 def _coerce_float(value: object) -> float | None:
@@ -862,13 +663,7 @@ def recipe_autocomplete(
     search_payload = {
         "size": limit,
         "_source": ["id", "title"],
-        "query": {
-            "multi_match": {
-                "query": query,
-                "type": "bool_prefix",
-                "fields": ["title", "title._2gram", "title._3gram"],
-            }
-        },
+        "query": {"match_phrase_prefix": {"title": query}},
     }
 
     url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
@@ -1314,12 +1109,12 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
     "/search",
     response_model=None,
     tags=["recipes"],
-    summary="Search recipes via the SEARCH_BACKEND engine (Elasticsearch by default; Neo4j legacy)",
+    summary="Search recipes in Elasticsearch from a natural-language question",
 )
 async def recipe_search(
     payload: RecipeSearchRequest,
 ) -> dict[str, Any]:
-    """Invoke the recipe search LangGraph pipeline and return its output."""
+    """Interpret a recipe question and retrieve matching recipes."""
 
     question = str(payload.question or "").strip()
     exclude_allergens = payload.exclude_allergens if isinstance(payload.exclude_allergens, list) else []
@@ -1334,120 +1129,57 @@ async def recipe_search(
 
         return {"results": random_results or []}
 
-    # Lazily initialize Neo/Groq search stack only for non-empty queries.
-    recipe_search_app = get_recipe_search_app()
-
-    # Elasticsearch backend: reuse the LLM constraint extractor, then retrieve
-    # from the recipes_v2 index instead of composing/executing Cypher.
-    if get_settings().search_backend == "es":
-        try:
-            constraints = recipe_search_app.run_extract_constraints(question)["query_constraints"]
-            es_out = search_recipes_es(
-                RecipeSearchConstraints(
-                    include_ingredients=constraints.get("preferred_ingredients") or [],
-                    exclude_ingredients=constraints.get("excluded_ingredients") or [],
-                    exclude_allergens=list({*(constraints.get("allergens") or []), *exclude_allergens}),
-                    diet_tags=constraints.get("diet") or [],
-                    title_keywords=constraints.get("title_keywords") or [],
-                    max_duration_minutes=constraints.get("max_duration_minutes"),
-                    min_servings=constraints.get("min_servings"),
-                    limit=constraints.get("limit") or 10,
-                )
-            )
-        except Exception as exc:  # noqa: BLE001
-            raise map_dependency_error("Elasticsearch", exc) from exc
-        return {"results": [_es_card(card) for card in es_out["results"]]}
-
     try:
-        result = recipe_search_app.invoke(question, exclude_allergens)
-    except Exception as exc:  # noqa: BLE001 - bubble up as HTTP error
-        # Keep the endpoint usable even if the primary graph/LLM path fails.
-        try:
-            fallback_results = search_recipes_by_params(
-                RecipeSearchFilters(
-                    exclude_allergens=exclude_allergens,
-                    limit=10,
-                )
+        constraints = get_recipe_constraint_extractor().run_extract_constraints(
+            question
+        )["query_constraints"]
+        es_out = search_recipes_es(
+            RecipeSearchConstraints(
+                include_ingredients=constraints.get("preferred_ingredients") or [],
+                exclude_ingredients=constraints.get("excluded_ingredients") or [],
+                exclude_allergens=list(
+                    {
+                        *(constraints.get("allergens") or []),
+                        *exclude_allergens,
+                    }
+                ),
+                diet_tags=constraints.get("diet") or [],
+                title_keywords=constraints.get("title_keywords") or [],
+                max_duration_minutes=constraints.get("max_duration_minutes"),
+                min_servings=constraints.get("min_servings"),
+                limit=constraints.get("limit") or 10,
             )
-        except Exception:
-            fallback_results = _random_myplate_from_elastic(limit=10)
-
-        if not isinstance(fallback_results, list):
-            fallback_results = []
-
-        fallback_results = _normalize_search_results(fallback_results)
-        return {
-            "results": fallback_results or [],
-            "warning": "Primary search path failed; returned fallback results.",
-            "error": str(exc),
-        }
-    if not isinstance(result, dict):
-        raise InternalError(
-            detail="Recipe search returned unexpected payload",
-            extra={"title": "SearchPipelineError"},
         )
-
-    raw_results = result.get("results", [])
-    if isinstance(raw_results, list):
-        raw_results = _normalize_search_results(raw_results)
-
-    return {"results": raw_results}
+    except Exception as exc:  # noqa: BLE001
+        raise map_dependency_error("Elasticsearch", exc) from exc
+    return {"results": [_es_card(card) for card in es_out["results"]]}
 
 
 @router.post(
     "/param_search",
     response_model=None,
     tags=["recipes"],
-    summary="Deterministic parameter-based recipe search via SEARCH_BACKEND (Elasticsearch by default; Neo4j legacy)",
+    summary="Deterministic parameter-based Elasticsearch recipe search",
 )
 def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
     """Run deterministic parameter-based recipe search and return results."""
 
-    if get_settings().search_backend == "es":
-        try:
-            es_out = search_recipes_es(
-                RecipeSearchConstraints(
-                    include_ingredients=payload.include_ingredients,
-                    exclude_ingredients=payload.exclude_ingredients,
-                    exclude_allergens=payload.exclude_allergens,
-                    diet_tags=payload.diet_tags,
-                    dish_types=payload.dish_types,
-                    max_duration_minutes=payload.max_duration_minutes,
-                    limit=payload.limit,
-                    offset=payload.offset,
-                )
-            )
-        except Exception as exc:  # noqa: BLE001
-            raise map_dependency_error("Elasticsearch", exc) from exc
-        return {"results": [_es_card(card) for card in es_out["results"]]}
-
     try:
-        results = search_recipes_by_params(payload)
+        es_out = search_recipes_es(
+            RecipeSearchConstraints(
+                include_ingredients=payload.include_ingredients,
+                exclude_ingredients=payload.exclude_ingredients,
+                exclude_allergens=payload.exclude_allergens,
+                diet_tags=payload.diet_tags,
+                dish_types=payload.dish_types,
+                max_duration_minutes=payload.max_duration_minutes,
+                limit=payload.limit,
+                offset=payload.offset,
+            )
+        )
     except Exception as exc:  # noqa: BLE001
-        raise map_dependency_error("Neo4j", exc) from exc
-
-    cards = []
-    for row in results:
-        if not isinstance(row, dict):
-            cards.append(row)
-            continue
-        nutri_score = row.get("nutri_score")
-        cards.append({
-            "recipe_id": row.get("recipe_id"),
-            "title": row.get("title"),
-            "url": row.get("url"),
-            "source": row.get("source"),
-            "source_id": row.get("source_id"),
-            "image_url": row.get("image_url"),
-            "duration": row.get("duration"),
-            "serves": row.get("serves"),
-            "cost_category": row.get("cost_category"),
-            "nutri_score": nutri_score,
-            "nutri_score_color": _nutri_color_from_score(nutri_score),
-            "sust_score": row.get("sust_score"),
-            "expert_recipe": row.get("expert_recipe", False),
-        })
-    return {"results": cards}
+        raise map_dependency_error("Elasticsearch", exc) from exc
+    return {"results": [_es_card(card) for card in es_out["results"]]}
 
 
 @router.post(

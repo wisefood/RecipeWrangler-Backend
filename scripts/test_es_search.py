@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""Manual test harness for the Elasticsearch recipe search tool.
+"""Manual test harness for Elasticsearch recipe search.
 
 Two input modes:
-  --question "..."   run the existing LLM constraint extractor, then search
+  --question "..."   run the LLM constraint extractor, then search
   explicit flags     deterministic, no LLM (--include, --diet, --max-duration, ...)
 
-The LLM (if used) runs once; the extracted constraints then drive BOTH the ES
-search and the Neo4j param_search, so --compare isolates pure retrieval speed.
-Each backend is run 3x: the first call is cold, later calls are warm.
+Elasticsearch is run 3x: the first call is cold, later calls are warm.
 
 Usage:
-    PYTHONPATH=src python scripts/test_es_search.py --include chicken --max-duration 30 --compare
-    PYTHONPATH=src python scripts/test_es_search.py --question "quick vegan dinner without nuts" --compare
+    PYTHONPATH=src python scripts/test_es_search.py --include chicken --max-duration 30
+    PYTHONPATH=src python scripts/test_es_search.py --question "quick vegan dinner without nuts"
     PYTHONPATH=src python scripts/test_es_search.py --dump-query --include rice tomato
 """
 
@@ -52,16 +50,16 @@ def _fmt_timing(label: str, times_ms: list[float], extra: str = "") -> str:
 
 
 def _constraints_from_question(question: str) -> RecipeSearchConstraints:
-    """Run the existing LLM extractor and map its output to ES constraints."""
+    """Run the LLM extractor and map its output to ES constraints."""
     from recipe_wrangler.api.config import get_settings
-    from recipe_wrangler.tools.text2cypher import RecipeSearchAppV2
+    from recipe_wrangler.tools.recipe_search_constraints import RecipeConstraintExtractor
 
     settings = get_settings()
     print(f"Extracting constraints via LLM ({settings.search_main_model})...")
-    app = RecipeSearchAppV2(neo4j_uri=settings.neo4j_uri, model=settings.search_main_model)
+    extractor = RecipeConstraintExtractor(model=settings.search_main_model)
 
     start = time.perf_counter()
-    qc = app.run_extract_constraints(question)["query_constraints"]
+    qc = extractor.run_extract_constraints(question)["query_constraints"]
     print(f"  LLM extraction took {(time.perf_counter() - start) * 1000:.0f}ms")
     print(f"  extracted: {json.dumps(qc, ensure_ascii=False)}")
 
@@ -91,32 +89,6 @@ def _run_es(c: RecipeSearchConstraints) -> None:
     _print_results(last["results"])
 
 
-def _run_compare(c: RecipeSearchConstraints) -> None:
-    from recipe_wrangler.schemas import RecipeSearchFilters
-    from recipe_wrangler.tools.param_search import search_recipes_by_params
-
-    filters = RecipeSearchFilters(
-        include_ingredients=c.include_ingredients,
-        exclude_ingredients=c.exclude_ingredients,
-        exclude_allergens=c.exclude_allergens,
-        diet_tags=c.diet_tags,
-        dish_types=c.dish_types,
-        max_duration_minutes=c.max_duration_minutes,
-        limit=c.limit,
-        offset=c.offset,
-    )
-    times, rows = [], []
-    for _ in range(_RUNS):
-        start = time.perf_counter()
-        rows = search_recipes_by_params(filters)
-        times.append((time.perf_counter() - start) * 1000)
-
-    print("\n=== Neo4j param_search ===\n" + _fmt_timing("  round-trip", times, f"  ({len(rows)} rows)"))
-    _print_results(rows)
-    if c.min_servings is not None or c.title_keywords:
-        print("  note: Neo4j param_search ignores min_servings / title_keywords")
-
-
 def main() -> None:
     p = argparse.ArgumentParser(description="Test the Elasticsearch recipe search.")
     p.add_argument("--question", default=None, help="natural-language query (runs LLM extractor)")
@@ -132,7 +104,6 @@ def main() -> None:
     p.add_argument("--offset", type=int, default=0)
     p.add_argument("--region", default="us", help="nutri-score region: us / ie / hu")
     p.add_argument("--dump-query", action="store_true", help="print the ES query body and exit")
-    p.add_argument("--compare", action="store_true", help="also run Neo4j param_search")
     args = p.parse_args()
 
     if args.question:
@@ -158,8 +129,6 @@ def main() -> None:
         return
 
     _run_es(c)
-    if args.compare:
-        _run_compare(c)
 
 
 if __name__ == "__main__":

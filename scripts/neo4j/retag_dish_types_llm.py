@@ -191,13 +191,13 @@ def write_dish_type_tags(recipe_id: str, new_slots: list[str]) -> None:
 # ---------------------------------------------------------------------------
 
 def sync_es(recipe_id: str, new_slots: list[str]) -> None:
-    """Update the dish_type field in ES for *recipe_id*."""
+    """Update the dish_types field in ES for *recipe_id*."""
     try:
         import requests as _req
         from recipe_wrangler.api.config import get_settings
         settings = get_settings()
         url = f"{settings.elastic_url}/{settings.elastic_index}/_update/{recipe_id}"
-        payload = {"doc": {"dish_type": new_slots}}
+        payload = {"doc": {"dish_types": new_slots}}
         resp = _req.post(url, json=payload, timeout=10)
         if resp.status_code not in (200, 201):
             logger.warning("ES update failed for %s: %s", recipe_id, resp.text[:200])

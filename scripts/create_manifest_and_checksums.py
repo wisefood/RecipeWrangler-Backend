@@ -130,7 +130,7 @@ def main():
                 "note": "APOC JSON export used to avoid service disruption"
             },
             "elasticsearch": {
-                "index": "recipes",
+                "index": "recipes_v2",
                 "export_method": "scroll_api_ndjson"
             }
         },

@@ -1208,20 +1208,6 @@ wheels = [
 ]
 
 [[package]]
-name = "langchain-neo4j"
-version = "0.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "langchain" },
-    { name = "langchain-core" },
-    { name = "neo4j" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/07/f0/c889533b89756ebd5660cbcf2cad1299fd3bbbada956530c0f8fc38e578f/langchain_neo4j-0.3.0.tar.gz", hash = "sha256:747542704f39c800bcd5c6b518b5d2b7fe5538b8b914b7772c29a8062617472e", size = 35092, upload-time = "2025-01-20T10:45:05.009Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/f2/ea799235787a1405fa3574b9afc95aa2644c4acc59d86daff5329a112681/langchain_neo4j-0.3.0-py3-none-any.whl", hash = "sha256:6069eb748fe959d7c97add82ca3de8c0b9018dfdaa05f823aa970606f8e5cdb7", size = 38829, upload-time = "2025-01-20T10:45:02.713Z" },
-]
-
-[[package]]
 name = "langchain-ollama"
 version = "0.3.10"
 source = { registry = "https://pypi.org/simple" }
@@ -2571,7 +2557,6 @@ dependencies = [
     { name = "langchain" },
     { name = "langchain-groq" },
     { name = "langchain-huggingface" },
-    { name = "langchain-neo4j" },
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "neo4j" },
@@ -2621,7 +2606,6 @@ requires-dist = [
     { name = "langchain", specifier = ">=0.3.0,<0.4.0" },
     { name = "langchain-groq", specifier = "==0.3.8" },
     { name = "langchain-huggingface", specifier = ">=0.3.0,<0.4.0" },
-    { name = "langchain-neo4j", specifier = ">=0.1.0,<0.4.0" },
     { name = "langchain-ollama", marker = "extra == 'experimental'", specifier = ">=0.1.0,<0.4.0" },
     { name = "langchain-openai", specifier = ">=0.3.35" },
     { name = "langgraph", specifier = ">=1.0.0" },

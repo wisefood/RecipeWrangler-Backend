@@ -26,7 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(REPO_ROOT / ".env")
 
 DEFAULT_ES_URL = os.getenv("ELASTIC_URL", "http://localhost:9200")
-DEFAULT_INDEX = os.getenv("ELASTIC_INDEX", "recipes")
+DEFAULT_INDEX = os.getenv("ELASTIC_INDEX", "recipes_v2")
 DEFAULT_NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 DEFAULT_NEO4J_USERNAME = os.getenv("NEO4J_USERNAME") or os.getenv("NEO4J_USER") or "neo4j"
 DEFAULT_NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")

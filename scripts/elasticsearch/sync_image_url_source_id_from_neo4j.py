@@ -124,7 +124,7 @@ def main() -> None:
     parser.add_argument("--es-url",
                         default=os.getenv("ELASTIC_URL", "http://localhost:9200"))
     parser.add_argument("--index",
-                        default=os.getenv("ELASTIC_INDEX", "recipes"))
+                        default=os.getenv("ELASTIC_INDEX", "recipes_v2"))
     parser.add_argument("--fields",
                         default="image_url,source_id",
                         help="Comma-separated list of fields to sync "

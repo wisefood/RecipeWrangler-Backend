@@ -1,10 +1,8 @@
-"""Deterministic Elasticsearch recipe search.
+"""Deterministic Elasticsearch recipe retrieval.
 
-Drop-in alternative to the Neo4j param/text2cypher search: takes the same
-constraint set, builds an ES `bool` query, and returns recipe cards in the
-same shape as `param_search.search_recipes_by_params`.
-
-No LLM calls. Not wired into the API — exercised via `scripts/test_es_search.py`.
+Takes structured search constraints, builds an Elasticsearch ``bool`` query,
+and returns recipe cards. Natural-language constraint extraction is handled
+separately by the API's Neo4j-independent recipe constraint extractor.
 """
 
 from __future__ import annotations
@@ -16,9 +14,6 @@ from typing import Any
 from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
-
-# Index built by scripts/elasticsearch/index_recipes_v2.py
-ES_INDEX = "recipes_v2"
 
 _VALID_REGIONS = {"eu", "ie", "hu"}
 
@@ -39,7 +34,7 @@ def _resolve_region(value: str) -> str:
 
 @dataclass
 class RecipeSearchConstraints:
-    """Same constraint set the Neo4j search consumes, decoupled from Pydantic."""
+    """Structured constraints consumed by Elasticsearch recipe search."""
 
     include_ingredients: list[str] = field(default_factory=list)
     exclude_ingredients: list[str] = field(default_factory=list)
@@ -120,8 +115,7 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     """Translate constraints into an Elasticsearch search body.
 
     Hard constraints go in `filter` context (no scoring, cached bitsets).
-    Title keywords go in `must` as an AND filter, mirroring text2cypher's
-    ALL(word IN ... WHERE toLower(title) CONTAINS word).
+    Title keywords go in ``must`` as AND constraints.
     """
     filter_: list[dict] = []
     must: list[dict] = []
@@ -291,7 +285,7 @@ def _hit_to_card(hit: dict, region: str) -> dict[str, Any]:
 def search_recipes_es(c: RecipeSearchConstraints) -> dict[str, Any]:
     """Execute an ES recipe search. Returns results, total hits, and latency."""
     settings = get_settings()
-    url = f"{settings.elastic_url}/{ES_INDEX}/_search"
+    url = f"{settings.elastic_url}/{settings.elastic_index}/_search"
     body = build_es_query(c)
 
     start = time.perf_counter()

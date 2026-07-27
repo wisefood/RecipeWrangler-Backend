@@ -1,39 +1,8 @@
 #!/usr/bin/env python3
-"""Bulk import recipe documents into Elasticsearch without client-version headers.
+"""Bulk import thin recipe documents into the existing `recipes_v2` index.
 
-This avoids elasticsearch-py v9 compatibility headers against ES 8.x.
-
-first in dev tools:
-PUT /recipes
-{
-  "mappings": {
-    "properties": {
-      "id": { "type": "keyword" },
-      "title": { 
-        "type": "search_as_you_type" 
-      },
-      "ingredients": { "type": "text" },
-      "tags": { "type": "keyword" }
-    }
-  }
-}
-
-then test :
-
-GET /recipes/_search
-{
-  "query": {
-    "multi_match": {
-      "query": "mac and ch",
-      "type": "bool_prefix",
-      "fields": [
-        "title",
-        "title._2gram",
-        "title._3gram"
-      ]
-    }
-  }
-}
+For a complete rebuild with the canonical enriched mapping, use
+`scripts/elasticsearch/index_recipes_v2.py`.
 """
 
 from __future__ import annotations
@@ -48,7 +17,7 @@ import requests
 
 DEFAULT_INPUT = Path("data/processed/elasticsearch/recipes_for_elasticsearch.json")
 DEFAULT_ES_URL = "http://localhost:9200"
-DEFAULT_INDEX = "recipes"
+DEFAULT_INDEX = "recipes_v2"
 
 
 def _iter_bulk_lines(recipes: Iterable[dict], index: str) -> Iterable[str]:

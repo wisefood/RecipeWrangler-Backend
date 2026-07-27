@@ -21,17 +21,12 @@ class Settings(BaseSettings):
     )
 
     neo4j_uri: str = Field(..., alias="NEO4J_URI")
-    # Groq model IDs — must be valid IDs from https://console.groq.com/docs/models
-    # Override via SEARCH_MAIN_MODEL / GUARDRAILS_MODEL env vars.
+    # Groq model IDs — must be valid IDs from https://console.groq.com/docs/models.
     search_main_model: str = Field("meta-llama/llama-4-scout-17b-16e-instruct", alias="SEARCH_MAIN_MODEL")
     guardrails_model: str = Field("llama-3.1-8b-instant", alias="GUARDRAILS_MODEL")
     search_temperature: float = Field(0.0, alias="SEARCH_TEMPERATURE")
-    strict_value_mapping: bool = Field(True, alias="STRICT_VALUE_MAPPING")
-    # Recipe retrieval backend: "es" (Elasticsearch recipes_v2, default) or "neo4j" (legacy graph/Cypher).
-    search_backend: str = Field("es", alias="SEARCH_BACKEND")
-    neo4j_connect_timeout: float = Field(5.0, alias="NEO4J_CONNECT_TIMEOUT")
     elastic_url: str = Field("http://localhost:9200", alias="ELASTIC_URL")
-    elastic_index: str = Field("recipes", alias="ELASTIC_INDEX")
+    elastic_index: str = Field("recipes_v2", alias="ELASTIC_INDEX")
     elastic_timeout: float = Field(3.0, alias="ELASTIC_TIMEOUT")
     cors_allow_origins: List[str] = Field(default_factory=lambda: ["*"], alias="CORS_ALLOW_ORIGINS")
     api_port: int = Field(8001, alias="PORT")
@@ -51,13 +46,6 @@ class Settings(BaseSettings):
     def _strip_models(cls, value: Optional[str]):  # noqa: N805
         if isinstance(value, str):
             value = value.strip()
-        return value
-
-    @field_validator("search_backend", mode="before")
-    def _normalize_search_backend(cls, value):  # noqa: N805
-        value = str(value or "es").strip().lower()
-        if value not in {"neo4j", "es"}:
-            raise ValueError("SEARCH_BACKEND must be 'neo4j' or 'es'")
         return value
 
     @field_validator("elastic_url")

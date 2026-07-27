@@ -1,6 +1,6 @@
 # RecipeWrangler API
 
-FastAPI entrypoint: `recipe_wrangler.api.main:app`. Runs on port 8001 by default to avoid clashing with Chroma (8000).
+FastAPI entrypoint: `recipe_wrangler.api.main:app`. Runs on port 8001 by default.
 
 ## Start the API
 ```bash
@@ -15,7 +15,7 @@ Swagger UI: http://127.0.0.1:8001/docs
 Environment:
 - `NEO4J_URI` (and `NEO4J_USERNAME`/`NEO4J_PASSWORD` if auth)
 - `GROQ_API_KEY` for LLM-backed tools
-- `CHROMA_HOST`/`CHROMA_PORT` if different from defaults (localhost:8000)
+- `ELASTIC_URL` and `ELASTIC_VECTOR_INDEX` for vector search
 
 ## Endpoints
 - `GET /health` — readiness probe

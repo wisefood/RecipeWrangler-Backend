@@ -10,10 +10,13 @@ load_runtime_env()
 
 # Allow overriding model/device/batch via env to avoid GPU OOM.
 DEFAULT_MODEL_NAME = os.getenv("EMBED_MODEL_NAME", "BAAI/bge-small-en-v1.5")
+DEFAULT_MODEL_REVISION = os.getenv("EMBED_MODEL_REVISION", "").strip() or None
 DEFAULT_DEVICE = os.getenv("EMBED_DEVICE", "cpu")
 DEFAULT_BATCH_SIZE = int(os.getenv("EMBED_BATCH_SIZE", "8"))
 
 MODEL_KWARGS = {"device": DEFAULT_DEVICE}
+if DEFAULT_MODEL_REVISION:
+    MODEL_KWARGS["revision"] = DEFAULT_MODEL_REVISION
 ENCODE_KWARGS = {"batch_size": DEFAULT_BATCH_SIZE}
 WARM_ON_IMPORT = os.getenv("EMBED_WARM_ON_IMPORT", "").strip().lower() in {
     "1",

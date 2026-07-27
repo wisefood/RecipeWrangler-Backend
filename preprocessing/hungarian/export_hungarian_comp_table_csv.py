@@ -198,7 +198,7 @@ def export_csv(input_path: Path, output_path: Path) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Normalize Hungarian composition table XLSX into CSV for Postgres/Chroma ingestion."
+        description="Normalize Hungarian composition table XLSX into CSV for ingestion."
     )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)

@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from recipe_wrangler.tools import recipe_profiling_tool as rpt
 from recipe_wrangler.tools import sustainability_calculator as sc
@@ -47,6 +47,64 @@ class WeightCapTests(unittest.TestCase):
         self.assertAlmostEqual(w[0] / w[1], 5000 / 4000, places=4)
 
 
+class MatchQueryPropagationTests(unittest.TestCase):
+    def test_matching_uses_full_names_but_output_keeps_display_names(self):
+        nutrition = {
+            "source_key": "eu",
+            "source": "EU Composite",
+            "details": [
+                {
+                    "ingredient": "cooked green lentils",
+                    "matched_nutritional_ingredient": "Lentil, green, cooked",
+                }
+            ],
+        }
+        sustainability = {
+            "details": [
+                {
+                    "ingredient": "cooked green lentils",
+                    "matched_sustainability_ingredient": "lentils",
+                    "cf_val": 1.0,
+                }
+            ],
+            "serves": 2,
+        }
+
+        nutrition_tool = Mock()
+        nutrition_tool.invoke.return_value = nutrition
+        sustainability_tool = Mock()
+        sustainability_tool.invoke.return_value = sustainability
+        with patch.object(
+            rpt,
+            "nutritional_tool_vector",
+            nutrition_tool,
+        ), patch.object(
+            rpt,
+            "sustainability_tool_vector",
+            sustainability_tool,
+        ):
+            result = rpt.Recipe_Profiling_Tool(
+                {
+                    "title": "Test",
+                    "ingredient_names": ["lentils"],
+                    "ingredient_match_names": ["cooked green lentils"],
+                    "measurements": ["200 g"],
+                    "weights": [200.0],
+                    "serves": 2,
+                    "region": "EU",
+                }
+            )
+
+        assert nutrition_tool.invoke.call_args.args[0]["ingredient_names"] == [
+            "cooked green lentils"
+        ]
+        assert sustainability_tool.invoke.call_args.args[0]["ingredient_names"] == [
+            "cooked green lentils"
+        ]
+        assert result["ingredients"][0]["ingredient"] == "lentils"
+        assert result["sustainability_details"][0]["ingredient"] == "lentils"
+
+
 def _scand(ingredient_name, distance, cf=1.0):
     return {"document": ingredient_name, "metadata": {"ingredient": ingredient_name, "cf_val": cf}, "distance": distance}
 
@@ -54,9 +112,9 @@ def _scand(ingredient_name, distance, cf=1.0):
 class SustainabilityMatchTests(unittest.TestCase):
     def test_exact_cf_index_lookup_wins(self):
         with patch.object(sc, "_cf_index", return_value={"beef": 19.5, "chicken": 6.0}):
-            cf, name, conf = sc.best_sustainability_match("ground beef")  # "ground" stripped -> "beef"
+            cf, name, conf = sc.best_sustainability_match("ground beef")
         self.assertEqual(cf, 19.5)
-        self.assertEqual(conf, "exact")
+        self.assertEqual(conf, "alias")
 
     def test_alias_to_db_entry(self):
         with patch.object(sc, "_cf_index", return_value={"flour": 1.4}):

@@ -40,9 +40,9 @@ from recipe_wrangler.utils.nutrition_postgres import get_connection, _get_config
 from recipe_wrangler.utils.neo4j_utils import run_query
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
-from recipe_wrangler.repositories.chroma_matchers import query_usda_nutrition_candidates
+from recipe_wrangler.repositories.vector_matchers import query_usda_nutrition_candidates
 
-_USDA_MATCH_THRESHOLD = 0.4  # max Chroma distance for a valid USDA food-group match
+_USDA_MATCH_THRESHOLD = 0.4  # max cosine distance for a valid USDA food-group match
 
 
 EXPECTED_KEYS = [
@@ -247,7 +247,7 @@ def _resolve_usda_id(canonical_food_id: str | None, ingredient_name: str | None)
 
     For USDA-profiled ingredients the canonical_food_id is already an NDB number
     (first two chars are digits, e.g. "11282").  For regional profiles (IE*/HU*)
-    we fall back to a Chroma similarity search on the USDA collection.
+    we fall back to an Elasticsearch vector search on the USDA collection.
     """
     if canonical_food_id:
         s = str(canonical_food_id)

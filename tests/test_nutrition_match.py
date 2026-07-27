@@ -11,11 +11,11 @@ def _cand(name: str, distance: float) -> dict:
 class CleanQueryTests(unittest.TestCase):
     def test_strips_prep_qualifiers_and_leading_quantity(self):
         cases = {
-            "Boneless, skinless chicken breast (about 1 lb), finely chopped": "chicken breast",
+            "Boneless, skinless chicken breast (about 1 lb), finely chopped": "boneless skinless chicken breast",
             "garlic, finely chopped": "garlic",
             "2 1/2 cups all-purpose flour": "all-purpose flour",
-            "low-fat yoghurt": "yoghurt",
-            "1 (28 oz) can crushed tomatoes": "tomatoes",
+            "low-fat yoghurt": "low-fat yoghurt",
+            "1 (28 oz) can crushed tomatoes": "crushed tomatoes",
         }
         for raw, want in cases.items():
             with self.subTest(raw=raw):
@@ -24,6 +24,17 @@ class CleanQueryTests(unittest.TestCase):
     def test_plain_name_passes_through(self):
         for name in ("arugula", "chuck", "snow crab legs", "olive oil"):
             self.assertIn(name.split()[0], nm.clean_query(name))
+
+    def test_preserves_nutrition_defining_qualifiers(self):
+        for name in (
+            "cooked green lentils",
+            "red bell pepper",
+            "cherry tomatoes",
+            "unsweetened applesauce",
+            "skinless chicken breast",
+            "dried chickpeas",
+        ):
+            self.assertEqual(nm.clean_query(name), name)
 
 
 class FoodClassTests(unittest.TestCase):
@@ -102,8 +113,10 @@ class BestNutritionMatchTests(unittest.TestCase):
         )
 
     def test_alias_table_wins_outright(self):
-        idx = {"chicken breast": {"usda_id": "05062",
-                                  "label": "Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw"}}
+        idx = {"boneless skinless chicken breast": {
+            "usda_id": "05062",
+            "label": "Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw",
+        }}
         with patch.object(nm, "_alias_index", return_value=idx):
             r = nm.best_nutrition_match("boneless skinless chicken breast", "us")
         self.assertEqual(r["confidence"], "alias")
@@ -111,10 +124,15 @@ class BestNutritionMatchTests(unittest.TestCase):
         self.assertEqual(r["match"]["metadata"]["usda_id"], "05062")
 
     def test_curated_link_competes_and_wins_when_strong(self):
-        idx = {"chicken breast": {"usda_id": "05064", "sim": 0.95,
-                                  "label": "Chicken, broilers or fryers, breast, meat only, raw"}}
+        idx = {"boneless skinless chicken breast": {
+            "usda_id": "05064",
+            "sim": 0.95,
+            "label": "Chicken, broilers or fryers, breast, meat only, raw",
+        }}
         with patch.object(nm, "_curated_link_index", return_value=idx), \
-             patch.object(nm, "_alias_index", return_value={}):
+             patch.object(nm, "_alias_index", return_value={}), \
+             patch.object(nm, "query_irish_nutrition_candidates", return_value=[]), \
+             patch.object(nm, "query_usda_nutrition_candidates", return_value=[]):
             r = nm.best_nutrition_match("Boneless, skinless chicken breast", "irish")
         self.assertEqual(r["confidence"], "curated")
         self.assertEqual(r["source_key"], "usda")

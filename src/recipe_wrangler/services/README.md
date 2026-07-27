@@ -91,7 +91,7 @@ Pipeline lives in `service.py` and follows the 5-step plan:
 
 4. **Filter + simulate** (`_evaluate_candidate`): for each candidate, in order —
    - **Food-class guard** (`_food_class_compatible`): reject up front if the candidate's `food_class` is incompatible with the original's. Same class passes; a small `_CLASS_COMPATIBILITY` map also allows `dairy ↔ oil_fat` (butter↔margarine↔oil). Lenient when either side can't be classified. This is the deterministic wall against cross-category nonsense (sugar→oil, butter→chocolate chips) — fires always, no LLM.
-   - Run `nutritional_tool_chroma` at 100g for the candidate's per-100g profile. Discard if no FCT match or `target_per_100g ≥ original_per_100g`.
+   - Run `nutritional_tool_vector` at 100g for the candidate's per-100g profile. Discard if no FCT match or `target_per_100g ≥ original_per_100g`.
    - Simulate the swap (re-sum whole-recipe per-100g), re-score with `compute_nutri_score_breakdown_from_values`, and drop unless the target's negative points decrease **and** the overall letter grade strictly improves (grade-preservation gate).
 
 5. **Rank + explain** (sort by `points_saved`, then `relative_improvement`, then **`flavor_similarity`** as a tiebreak): `_build_explanation` builds a templated headline + reason. Flag new allergens (`HAS_ALLERGEN` edges on candidate not on original).
@@ -117,8 +117,8 @@ The three quality layers stack, cheapest first:
 
 The dominant `recompute_2026-05-11` pipeline persists `nutrition_profiling_details` with only `fat_g` / `carbs_g` / `protein_g` per ingredient — not `saturated_fat_g` / `sugar_g` / `sodium_mg` / `fibre_g` / `energy_kcal`. To get the breakdown-relevant per-ingredient contributions without re-profiling 57k rows:
 
-- `_recompute_ingredient_details()` calls `nutritional_tool_chroma` once per request using the stored `(name, weight_g)` pairs.
-- Adds ~1–2 s on first request per recipe (Chroma loads its embedding model on first use). Subsequent requests are fast.
+- `_recompute_ingredient_details()` calls `nutritional_tool_vector` once per request using the stored `(name, weight_g)` pairs.
+- Adds ~1–2 s on first request per recipe (Elasticsearch loads its embedding model on first use). Subsequent requests are fast.
 
 The persisted `name` field is the FCT canonical row name (long form), but Neo4j Ingredient nodes use everyday names. `resolve_graph_name()` in `neo4j_queries.py` bridges this via, in order:
 1. Verbatim case-insensitive match against the FCT name and any hints.
@@ -212,7 +212,7 @@ Adds ~7–15 s latency per request on `qwen3-32b` via local vLLM; sub-second on 
 #### What's still off
 
 - **MISKG/FoodOn cross-category nonsense is now caught deterministically** by the v5 food-class guard (`oil → buttermilk`, `butter → chocolate chips`, `sugar → anise oil` all dropped without an LLM). What remains is **within-class oddity** (`bananas → vanilla extract`, `bicarbonate of soda → saltine crackers`) — same food_class, so the guard can't separate them; `use_llm=true` is still needed for that nuance. A full MISKG/FoodOn edge audit would fix it at the data layer but is deferred.
-- **First request is slow**: ~5–10 s while Chroma loads. Subsequent ~1–2 s for `use_llm=false`, ~10–15 s for `use_llm=true`. We recompute per-ingredient nutrition every call because the persisted detail rows don't include the breakdown nutrients; LLM cache would amortise this.
+- **First request is slow**: ~5–10 s while Elasticsearch loads. Subsequent ~1–2 s for `use_llm=false`, ~10–15 s for `use_llm=true`. We recompute per-ingredient nutrition every call because the persisted detail rows don't include the breakdown nutrients; LLM cache would amortise this.
 - **`max_swaps > 1` returns parallel top-N suggestions**, not sequentially-applied chains. Sequential adaptation deferred.
 - **FlavorDB coverage is uneven** — the tiebreak only engages on whole-food swaps with rich compound mappings; sparse/unmapped ingredients (additives, seasonings, many branded names) yield `flavor_similarity: null` and fall back to category distance.
 - **Sustainability mode requires a 10% minimum CF reduction** for a candidate to be considered (`SUSTAINABILITY_MIN_REDUCTION_PCT` in `service.py`) — filters out trivial within-category swaps (e.g. olive→canola oil) that wouldn't be worth recommending.
@@ -245,7 +245,7 @@ Next:
 ### Reuses from main codebase (existing helpers, not modified)
 
 - `utils.nutrition_postgres.fetch_recipe_profiling_trace_by_id` — profile fetch
-- `tools.nutritional_calculator.nutritional_tool_chroma` — per-ingredient nutrient lookup
+- `tools.nutritional_calculator.nutritional_tool_vector` — per-ingredient nutrient lookup
 - `tools.sustainability_calculator.best_sustainability_match` — per-ingredient CO2e lookup
 - `utils.nutri_score.compute_nutri_score_breakdown_from_values` — Nutri-Score re-scoring
 - `utils.neo4j_utils.run_query` — Cypher executor

@@ -100,6 +100,26 @@ def _build_prompt(
             f"({offending_pct:.0f}% of recipe's total CO2e)"
         )
         candidate_block_intro = "CANDIDATE SUBSTITUTES (already filtered to materially reduce CO2e):"
+    elif mode in {"vegan", "vegetarian"}:
+        cand_lines = []
+        for c in candidates:
+            allergen_str = (
+                f" (introduces allergens: {', '.join(c.get('new_allergens') or [])})"
+                if c.get("introduces_allergen") else ""
+            )
+            cand_lines.append(
+                f"  {c['rank']}. {c['substitute_name']} "
+                f"[source: {c['source']}; explicitly {mode}-suitable]"
+                f"{allergen_str}"
+            )
+        target_block = (
+            f"BLOCKING INGREDIENT: '{offending_ingredient}' "
+            f"(the recipe is being adapted for the {mode} consumer group)"
+        )
+        candidate_block_intro = (
+            f"CANDIDATE SUBSTITUTES (all are already hard-filtered to "
+            f"explicitly {mode}-suitable):"
+        )
     else:
         cand_lines = []
         for c in candidates:
@@ -134,7 +154,7 @@ def _build_prompt(
         "  2. Is it a recognisable everyday equivalent? — pork mince and turkey breast mince are "
         "everyday burger swaps. Offal (hearts, liver, kidneys), exotic meats, and specialty "
         "ingredients are NOT everyday equivalents, even when culturally valid somewhere.\n"
-        "  3. Metric (Nutri-Score points saved / CO2e reduction) — used ONLY to break ties between "
+        "  3. Metric (Nutri-Score points saved / CO2e reduction, when supplied) — used ONLY to break ties between "
         "candidates that already pass (1) and (2). A bigger metric win does NOT outweigh a worse "
         "culinary fit.\n\n"
         "Concrete examples of how to rank:\n"

@@ -9,6 +9,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from recipe_wrangler.utils.consumer_suitability import (
+    SUITABILITY_CLASSIFICATION_VERSION,
+)
 from recipe_wrangler.utils.neo4j_utils import run_query
 
 
@@ -124,6 +127,150 @@ def find_substitute_candidates(name: str) -> list[dict[str, Any]]:
             continue
         seen.setdefault(key, cand)
     return list(seen.values())
+
+
+def fetch_recipe_consumer_context(
+    recipe_id: str,
+    group: str,
+) -> dict[str, Any] | None:
+    """Return one recipe's versioned consumer assessment and ingredient states."""
+
+    rows = run_query(
+        """
+        MATCH (r:Recipe)
+        WHERE toString(r.recipe_id) = $recipe_id
+           OR toString(r.id) = $recipe_id
+        MATCH (g:ConsumerGroup {name: $group})
+        OPTIONAL MATCH (r)-[recipe_status:SUITABILITY_FOR]->(g)
+        WHERE recipe_status.classification_version = $version
+        WITH r, g, recipe_status
+        CALL (r, g) {
+          OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
+          OPTIONAL MATCH (i)-[ingredient_status:SUITABILITY_FOR]->(g)
+          WHERE ingredient_status.classification_version = $version
+          RETURN collect(DISTINCT CASE WHEN i IS NULL THEN NULL ELSE {
+            name: i.name,
+            status: coalesce(ingredient_status.status, "unknown"),
+            reason_codes: coalesce(
+              ingredient_status.reason_codes,
+              ["insufficient_evidence"]
+            ),
+            classification_version: coalesce(
+              ingredient_status.classification_version,
+              $version
+            )
+          } END) AS ingredients
+        }
+        RETURN toString(coalesce(r.recipe_id, r.id)) AS recipe_id,
+               r.title AS title,
+               coalesce(recipe_status.status, "unknown") AS status,
+               coalesce(recipe_status.blocking_ingredients, []) AS blockers,
+               coalesce(recipe_status.unknown_ingredients, []) AS unknowns,
+               ingredients
+        LIMIT 1
+        """,
+        {
+            "recipe_id": str(recipe_id),
+            "group": group,
+            "version": SUITABILITY_CLASSIFICATION_VERSION,
+        },
+    )
+    if not rows:
+        return None
+    row = rows[0]
+    ingredients = [
+        dict(item)
+        for item in (row.get("ingredients") or [])
+        if item and item.get("name")
+    ]
+    blockers = list(row.get("blockers") or [])
+    unknowns = list(row.get("unknowns") or [])
+    if not blockers:
+        blockers = [
+            item["name"]
+            for item in ingredients
+            if item.get("status") == "not_suitable"
+        ]
+    if not unknowns:
+        unknowns = [
+            item["name"]
+            for item in ingredients
+            if item.get("status") == "unknown"
+        ]
+    return {
+        "recipe_id": str(row.get("recipe_id") or recipe_id),
+        "title": row.get("title") or "recipe",
+        "status": row.get("status") or "unknown",
+        "blocking_ingredients": blockers,
+        "unknown_ingredients": unknowns,
+        "ingredients": ingredients,
+    }
+
+
+def filter_suitable_ingredients(
+    names: list[str],
+    group: str,
+) -> list[dict[str, Any]]:
+    """Keep exact, recipe-used Ingredient nodes suitable for ``group``.
+
+    Input order is preserved so an upstream retrieval rank remains meaningful.
+    Unknown candidates and standalone vocabulary nodes are deliberately
+    excluded.
+    """
+
+    cleaned = [str(name or "").strip() for name in names]
+    cleaned = [name for name in cleaned if name]
+    if not cleaned:
+        return []
+    rows = run_query(
+        """
+        UNWIND range(0, size($names) - 1) AS position
+        WITH position, $names[position] AS requested_name
+        MATCH (i:Ingredient)
+        WHERE toLower(i.name) = toLower(requested_name)
+        MATCH (i)-[status:SUITABILITY_FOR]->
+              (:ConsumerGroup {name: $group})
+        WHERE status.status = "suitable"
+          AND status.classification_version = $version
+        MATCH (recipe:Recipe)-[:HAS_INGREDIENT]->(i)
+        RETURN position,
+               i.name AS name,
+               status.status AS suitability_status,
+               status.reason_codes AS suitability_reasons,
+               status.classification_version AS classification_version,
+               count(DISTINCT recipe) AS recipe_usage_count
+        ORDER BY position
+        """,
+        {
+            "names": cleaned,
+            "group": group,
+            "version": SUITABILITY_CLASSIFICATION_VERSION,
+        },
+    )
+    seen: set[str] = set()
+    suitable: list[dict[str, Any]] = []
+    for row in rows:
+        name = str(row.get("name") or "").strip()
+        key = name.casefold()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        suitable.append(
+            {
+                "name": name,
+                "suitability_status": row.get("suitability_status"),
+                "suitability_reasons": list(
+                    row.get("suitability_reasons") or []
+                ),
+                "classification_version": row.get(
+                    "classification_version"
+                ),
+                "recipe_usage_count": int(
+                    row.get("recipe_usage_count") or 0
+                ),
+            }
+        )
+    return suitable
 
 
 def resolve_graph_name(fct_name: str, fallback_hints: list[str] | None = None) -> str | None:

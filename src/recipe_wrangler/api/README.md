@@ -34,7 +34,7 @@ Environment:
 - If profiling stack unavailable or too slow, return `modified_recipe_profile.status="profiling_unavailable"` instead of `503`.
 
 ## Experimental Adaptation Service
-Standalone app, not mounted on main backend by default.
+Mounted on the main backend and also runnable as a standalone app.
 
 Run:
 ```bash
@@ -42,7 +42,15 @@ PYTHONPATH=src uvicorn recipe_wrangler.services.adaptation.app:app --reload --po
 ```
 
 Endpoints:
-- `POST /api/v1/recipes/{recipe_id}/adapt/suggestions` — recommend swaps or quantity reduction for worst offender
+- `POST /api/v1/recipes/{recipe_id}/adapt/suggestions` — recommend nutrition,
+  sustainability, quantity-reduction, vegan-composition, or
+  vegetarian-composition changes. Consumer-group suggestions are restricted
+  to recipe-used Neo4j ingredients with explicit suitability and valid
+  regional nutrition, and include a fully recalculated adapted recipe preview.
+  The currently supported consumer groups are `vegan` and `vegetarian`.
+  Elasticsearch proposes alternatives; FATO-aligned Neo4j
+  `SUITABILITY_FOR` evidence is the mandatory eligibility check before the
+  service recalculates nutrition and returns an adapted recipe.
 - `POST /api/v1/recipes/{recipe_id}/adapt/simulate` — simulate one exact swap and return before/after deltas
 
 ## Curl examples
@@ -61,4 +69,14 @@ curl -sS -X POST "$BASE/api/v1/recipes/search" \
 curl -sS -X POST "$BASE/api/v1/recipes/profile" \
   -H "Content-Type: application/json" \
   -d '{"raw_recipe":"Garlic Butter Shrimp...","region":"US"}'; echo
+
+curl -sS -X POST \
+  "$BASE/api/v1/recipes/020b17b247/adapt/suggestions" \
+  -H "Content-Type: application/json" \
+  -d '{"region":"IE","mode":"vegan","max_swaps":3,"use_llm":false}'; echo
+
+curl -sS -X POST \
+  "$BASE/api/v1/recipes/017f92f1c3/adapt/suggestions" \
+  -H "Content-Type: application/json" \
+  -d '{"region":"IE","mode":"vegetarian","max_swaps":1,"use_llm":false}'; echo
 ```

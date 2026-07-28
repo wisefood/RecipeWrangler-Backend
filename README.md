@@ -31,6 +31,10 @@ Services
   └── Groq LLM      – Recipe parsing, natural language → Cypher, weight estimation
 ```
 
+The optional Neo4j-only FATO/FoodOn enrichment for allergen evidence and
+ingredient suitability is documented in
+[`FATO_FOODON_NEO4J.md`](FATO_FOODON_NEO4J.md).
+
 ---
 
 ## Endpoints
@@ -483,17 +487,23 @@ Swagger UI (standalone run):
 ```
 recipe_id
   ├── PostgreSQL → load stored profiling trace
-  ├── Find worst offender
+  ├── Select mode
   │     nutrition mode       → worst negative Nutri-Score contributor
   │     sustainability mode  → highest CO2e contributor
   │     reduce_quantity mode → worst nutrient contributor for portion cut
-  ├── Neo4j → find substitute candidates
-  │     1. MISKG substitutions
-  │     2. FoodOn taxonomy siblings
-  ├── Guard candidates by food-class compatibility
+  │     vegan/vegetarian      → known blocker for requested consumer group
+  ├── Elasticsearch + Neo4j → retrieve substitute candidates
+  ├── Neo4j → require explicit consumer suitability for vegan/vegetarian
+  ├── Guard candidates by food role, nutrition identity, and graph recipe use
   ├── Re-simulate candidates with nutrition/sustainability calculators
   └── Return ranked suggestions
 ```
+
+For `mode: "vegan"` or `mode: "vegetarian"`, the response also contains the
+predicted whole-recipe consumer status and a complete adapted recipe preview
+with recalculated regional nutrition and Nutri-Score. The suitability facts are
+read from FATO-aligned Neo4j `SUITABILITY_FOR` relationships populated by the
+versioned Recipe Wrangler classifier.
 
 **Returns:** offending ingredient, contribution percentage, ranked suggestions, simulated improvement metrics. If recipe is already good enough for chosen mode, endpoint returns a validation-style error instead of fake suggestions.
 

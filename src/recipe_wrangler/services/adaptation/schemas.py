@@ -8,7 +8,13 @@ from pydantic import BaseModel, Field
 
 
 Region = Literal["IE", "US", "HU"]
-Mode = Literal["nutrition", "sustainability", "reduce_quantity"]
+Mode = Literal[
+    "nutrition",
+    "sustainability",
+    "reduce_quantity",
+    "vegan",
+    "vegetarian",
+]
 
 
 class SuggestionsRequest(BaseModel):
@@ -17,7 +23,12 @@ class SuggestionsRequest(BaseModel):
         "nutrition",
         description="Optimisation target: 'nutrition' (swap to improve Nutri-Score), "
                     "'sustainability' (swap to cut CO2e), or 'reduce_quantity' (use less of "
-                    "the worst nutrient contributor when no swap helps).",
+                    "the worst nutrient contributor when no swap helps), or 'vegan' "
+                    "(replace a known vegan-blocking ingredient with an explicitly "
+                    "vegan-suitable candidate), or 'vegetarian' (the same "
+                    "evidence-backed flow for vegetarian suitability). Vegan and "
+                    "vegetarian are the currently supported consumer groups and use "
+                    "FATO-aligned Neo4j suitability evidence.",
     )
     max_swaps: int = Field(
         1,
@@ -59,7 +70,7 @@ class Suggestion(BaseModel):
     )
     # Swap-only fields (null for action='reduce').
     substitute_name: Optional[str] = None
-    source: Optional[Literal["miskg", "foodon"]] = None
+    source: Optional[Literal["miskg", "foodon", "elastic"]] = None
     category_distance: Optional[Literal["low", "medium", "high"]] = None
     flavor_similarity: Optional[float] = Field(
         None,
@@ -75,6 +86,16 @@ class Suggestion(BaseModel):
         description="LLM-generated recipe-aware rationale. Present only when use_llm=true and "
                     "the judge accepted this candidate; null otherwise.",
     )
+    suitability_status: Optional[
+        Literal["suitable", "not_suitable", "unknown"]
+    ] = None
+    suitability_reasons: list[str] = Field(default_factory=list)
+    suitability_classification_version: Optional[str] = None
+    simulated_consumer_status: Optional[
+        Literal["suitable", "not_suitable", "unknown"]
+    ] = None
+    nutrition_match: Optional[dict[str, Any]] = None
+    adapted_recipe: Optional[dict[str, Any]] = None
 
     # ---- reduce_quantity-mode metrics (populated when action='reduce') ----
     reduced_from_weight_g: Optional[float] = None
@@ -145,6 +166,14 @@ class SuggestionsResponse(BaseModel):
     # ---- sustainability-mode context (populated when mode=sustainability) ----
     current_co2e_per_serving_kg: Optional[float] = None
     current_co2e_total_kg: Optional[float] = None
+
+    # ---- consumer-group adaptation context (vegan/vegetarian modes) ----
+    target_consumer_group: Optional[Literal["vegan", "vegetarian"]] = None
+    current_consumer_status: Optional[
+        Literal["suitable", "not_suitable", "unknown"]
+    ] = None
+    blocking_ingredients: list[str] = Field(default_factory=list)
+    unknown_ingredients: list[str] = Field(default_factory=list)
 
     suggestions: list[Suggestion]
 

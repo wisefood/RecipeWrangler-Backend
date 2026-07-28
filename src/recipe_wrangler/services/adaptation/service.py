@@ -10,10 +10,13 @@ Reuses existing helpers (no modifications to upstream code):
 from __future__ import annotations
 
 from functools import lru_cache
+import re
 from typing import Any
 
 from fastapi import HTTPException
 
+from recipe_wrangler.repositories.vector_matchers import query_vector_collection
+from recipe_wrangler.tools.fetch_recipe_info import fetch_recipe_info_by_id
 from recipe_wrangler.tools.nutrition_match import food_class
 from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_vector
 from recipe_wrangler.tools.sustainability_calculator import best_sustainability_match
@@ -27,6 +30,8 @@ from recipe_wrangler.utils.nutrition_postgres import (
 from .llm_judge import rerank_with_llm
 from .neo4j_queries import (
     fetch_recipe_default_nutriscore,
+    fetch_recipe_consumer_context,
+    filter_suitable_ingredients,
     find_substitute_candidates,
     flavor_similarity,
     get_ingredient_allergens,
@@ -57,6 +62,7 @@ REGION_TO_SOURCE = {"IE": "irish", "US": "usda", "HU": "hungarian"}
 MIN_TARGET_POINTS = 3
 NUTRI_SCORE_MAX_NEGATIVE_POINTS = 10
 CANDIDATE_MIN_SIMILARITY = 0.7
+CONSUMER_CANDIDATE_POOL_SIZE = 50
 
 # Letter rank for grade comparison: lower is better.
 _GRADE_RANK = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
@@ -129,6 +135,8 @@ NUTRIENT_MAP: dict[str, dict[str, Any]] = {
 # Full set of per-ingredient nutrient keys needed to recompute the score.
 ALL_INGREDIENT_KEYS = [
     ("energy_kcal", "energy_kcal_per_100g"),
+    ("carbs_g", "carbs_per_100g"),
+    ("fat_g", "fat_per_100g"),
     ("sugar_g", "sugars_per_100g"),
     ("saturated_fat_g", "saturated_fat_per_100g"),
     ("sodium_mg", "sodium_per_100g_mg"),
@@ -615,6 +623,734 @@ def _build_explanation(
             f"grade from {current_grade} to {simulated_grade}."
         ),
         "warning": warning,
+    }
+
+
+# ---------- consumer-group adaptation helpers ----------
+
+
+def _semantic_consumer_candidates(
+    ingredient_name: str,
+    group: str,
+    recipe_title: str,
+) -> list[dict[str, Any]]:
+    """Retrieve global ingredient alternatives from Elasticsearch.
+
+    The query encodes the requested adaptation goal (for example, ``vegan
+    alternative to cheese``). Elasticsearch supplies recall and ranking only;
+    Neo4j suitability remains the mandatory eligibility gate.
+    """
+
+    queries = [
+        f"{group} alternative to {ingredient_name} for {recipe_title}",
+        f"plant-based {ingredient_name}",
+    ]
+    candidates: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for query_number, query in enumerate(queries):
+        try:
+            hits = query_vector_collection(
+                "ingredients",
+                query,
+                CONSUMER_CANDIDATE_POOL_SIZE,
+            )
+        except Exception:
+            continue
+        for rank, hit in enumerate(hits, start=1):
+            metadata = hit.get("metadata") or {}
+            name = str(
+                metadata.get("name") or hit.get("document") or ""
+            ).strip()
+            key = name.casefold()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            candidates.append(
+                {
+                    "name": name,
+                    "source": "elastic",
+                    "category_distance": "high",
+                    "retrieval_rank": rank + (
+                        query_number * CONSUMER_CANDIDATE_POOL_SIZE
+                    ),
+                    "retrieval_score": float(hit.get("rrf_score") or 0.0),
+                }
+            )
+    return candidates
+
+
+_ALTERNATIVE_MARKER_RE = re.compile(
+    r"\b(?:vegan|vegetarian|plant[\s-]*based|dairy[\s-]*free|"
+    r"substitute|alternative|replacement|replacer)\b",
+    re.IGNORECASE,
+)
+_AMBIGUOUS_CHOICE_RE = re.compile(
+    r"\b(?:or|and/or)\b|[/|]",
+    re.IGNORECASE,
+)
+_MEASUREMENT_PREFIX_RE = re.compile(
+    r"^\s*(?:\d|[¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|"
+    r"cups?\b|tablespoons?\b|teaspoons?\b|tbsp\b|tsp\b|"
+    r"grams?\b|kilograms?\b|ounces?\b|pounds?\b|oz\b|lbs?\b)",
+    re.IGNORECASE,
+)
+
+
+def _is_explicit_functional_alternative(
+    original_name: str,
+    candidate_name: str,
+) -> bool:
+    """Require an explicit role-preserving alternative, without item lists.
+
+    Consumer safety and culinary equivalence are separate. A plant ingredient
+    can be vegan-suitable without being a cheese/butter/egg replacement. This
+    global gate keeps candidates that name the original role and explicitly
+    describe themselves as an alternative, while rejecting ambiguous strings
+    such as ``milk or plant-based milk``.
+    """
+
+    original = original_name.strip().casefold()
+    candidate = candidate_name.strip().casefold()
+    if (
+        not original
+        or not candidate
+        or _AMBIGUOUS_CHOICE_RE.search(candidate)
+        or _MEASUREMENT_PREFIX_RE.search(candidate)
+    ):
+        return False
+    role_pattern = (
+        r"(?<!\w)"
+        + re.escape(original).replace(r"\ ", r"\s+")
+        + r"(?!\w)"
+    )
+    return bool(
+        re.search(role_pattern, candidate)
+        and _ALTERNATIVE_MARKER_RE.search(candidate)
+    )
+
+
+def _is_simple_role_variant(
+    original_name: str,
+    candidate_name: str,
+) -> bool:
+    """Recognize concise role variants such as ``oat milk``.
+
+    These are lower-confidence than explicit ``vegan ...`` alternatives and
+    are used only when no explicit suitable candidate exists.
+    """
+
+    original = original_name.strip().casefold()
+    candidate = candidate_name.strip().casefold()
+    if (
+        not original
+        or not candidate
+        or candidate == original
+        or _AMBIGUOUS_CHOICE_RE.search(candidate)
+        or _MEASUREMENT_PREFIX_RE.search(candidate)
+    ):
+        return False
+    role_pattern = (
+        r"(?<!\w)"
+        + re.escape(original).replace(r"\ ", r"\s+")
+        + r"(?!\w)$"
+    )
+    return bool(
+        re.search(role_pattern, candidate)
+        and len(re.findall(r"[a-z0-9]+", candidate)) <= 4
+    )
+
+
+def _functional_alternative_rank(
+    original_name: str,
+    candidate_name: str,
+) -> tuple[int, int]:
+    """Prefer the simplest explicit role-preserving alternative."""
+
+    original = re.sub(r"\s+", " ", original_name.strip().casefold())
+    candidate = re.sub(r"\s+", " ", candidate_name.strip().casefold())
+    if candidate == f"vegan {original}":
+        tier = 0
+    elif candidate.startswith("vegan "):
+        tier = 1
+    elif candidate.startswith(("plant-based ", "plant based ", "dairy-free ")):
+        tier = 2
+    else:
+        tier = 3
+    return tier, len(re.findall(r"[a-z0-9]+", candidate))
+
+
+def _consumer_candidate_pool(
+    ingredient_name: str,
+    group: str,
+    existing_ingredients: set[str],
+    recipe_title: str,
+) -> list[dict[str, Any]]:
+    """Union semantic and graph candidates, then enforce suitability.
+
+    Semantic candidates lead because the goal-aware query reliably finds
+    explicit alternatives such as ``vegan cheese``. MISKG/FoodOn candidates
+    expand recall when those alternatives are absent. A candidate survives
+    only if Neo4j explicitly says ``suitable`` for the requested group and it
+    is not already present in the recipe.
+    """
+
+    semantic = _semantic_consumer_candidates(
+        ingredient_name,
+        group,
+        recipe_title,
+    )
+    graph = find_substitute_candidates(ingredient_name)
+    merged: dict[str, dict[str, Any]] = {}
+    for position, candidate in enumerate(semantic + graph, start=1):
+        name = str(candidate.get("name") or "").strip()
+        key = name.casefold()
+        if (
+            not key
+            or key == ingredient_name.strip().casefold()
+            or key in existing_ingredients
+        ):
+            continue
+        item = dict(candidate)
+        item.setdefault("retrieval_rank", position)
+        item.setdefault("retrieval_score", 0.0)
+        previous = merged.get(key)
+        if previous is None:
+            merged[key] = item
+        elif previous.get("source") == "elastic" and item.get("source") in {
+            "miskg",
+            "foodon",
+        }:
+            # Keep the stronger goal-aware retrieval rank while exposing the
+            # graph provenance when both systems found the same candidate.
+            previous["source"] = item["source"]
+            previous["category_distance"] = item["category_distance"]
+
+    ordered = sorted(
+        merged.values(),
+        key=lambda item: int(item.get("retrieval_rank") or 10_000),
+    )
+    suitable = filter_suitable_ingredients(
+        [item["name"] for item in ordered],
+        group,
+    )
+    suitability_by_name = {
+        item["name"].casefold(): item for item in suitable
+    }
+
+    result: list[dict[str, Any]] = []
+    original_normalized = ingredient_name.strip().casefold()
+    for item in ordered:
+        evidence = suitability_by_name.get(item["name"].casefold())
+        if evidence is None:
+            continue
+        candidate = {**item, **evidence}
+        explicit_alternative = _is_explicit_functional_alternative(
+            original_normalized,
+            candidate["name"],
+        )
+        simple_role_variant = _is_simple_role_variant(
+            original_normalized,
+            candidate["name"],
+        )
+        if not explicit_alternative and not simple_role_variant:
+            continue
+        candidate["functional_name_match"] = True
+        candidate["explicit_functional_alternative"] = explicit_alternative
+        result.append(candidate)
+
+    if any(item["explicit_functional_alternative"] for item in result):
+        result = [
+            item for item in result if item["explicit_functional_alternative"]
+        ]
+    result.sort(
+        key=lambda item: (
+            *_functional_alternative_rank(
+                ingredient_name,
+                item["name"],
+            ),
+            int(item.get("retrieval_rank") or 10_000),
+            -float(item.get("retrieval_score") or 0.0),
+        )
+    )
+    return result
+
+
+_CONSUMER_SAFE_IDENTITY_RE = re.compile(
+    r"\b(?:vegan|vegetarian|plant[\s-]*based|dairy[\s-]*free|non[\s-]*dairy|"
+    r"meat[\s-]*free|egg[\s-]*free)\b",
+    re.IGNORECASE,
+)
+
+
+def _nutrition_match_preserves_consumer_identity(
+    candidate_name: str,
+    original_name: str,
+    candidate_profile: dict[str, Any],
+    group: str,
+) -> bool:
+    """Reject nutrition matches that erase the consumer-safe identity.
+
+    A high cosine score is insufficient: Hungarian ``vegan cheese`` currently
+    retrieves ordinary ``cream cheese``. Explicit plant/vegan candidates must
+    therefore match a nutrition record carrying equivalent plant-based
+    evidence. Concise role variants such as ``oat milk`` must preserve at
+    least one qualifier beyond the original role.
+    """
+
+    matched_name = str(
+        candidate_profile.get("matched_nutritional_ingredient") or ""
+    ).strip()
+    if not matched_name:
+        return False
+
+    candidate = candidate_name.casefold()
+    matched = matched_name.casefold()
+    if group in {"vegan", "vegetarian"} and (
+        _CONSUMER_SAFE_IDENTITY_RE.search(candidate)
+    ):
+        return bool(_CONSUMER_SAFE_IDENTITY_RE.search(matched))
+
+    candidate_tokens = set(re.findall(r"[a-z0-9]+", candidate))
+    original_tokens = set(
+        re.findall(r"[a-z0-9]+", original_name.casefold())
+    )
+    qualifier_tokens = candidate_tokens - original_tokens
+    if not qualifier_tokens:
+        return False
+    matched_tokens = set(re.findall(r"[a-z0-9]+", matched))
+    return bool(qualifier_tokens & matched_tokens)
+
+
+def _find_profile_detail_for_graph_ingredient(
+    details: list[dict[str, Any]],
+    ingredient_name: str,
+) -> dict[str, Any] | None:
+    """Resolve a graph blocker to the corresponding profiled ingredient row."""
+
+    target = re.sub(r"\s+", " ", ingredient_name.strip().casefold())
+    if not target:
+        return None
+    target_tokens = set(re.findall(r"[a-z0-9]+", target))
+    best: tuple[float, dict[str, Any]] | None = None
+    for detail in details:
+        fields = [
+            detail.get("graph_name"),
+            detail.get("ingredient"),
+            detail.get("matched_nutritional_ingredient"),
+        ]
+        for field in fields:
+            normalized = re.sub(
+                r"\s+",
+                " ",
+                str(field or "").strip().casefold(),
+            )
+            if not normalized:
+                continue
+            if normalized == target:
+                return detail
+            field_tokens = set(re.findall(r"[a-z0-9]+", normalized))
+            if not target_tokens or not target_tokens.issubset(field_tokens):
+                continue
+            score = len(target_tokens) / max(1, len(field_tokens))
+            if best is None or score > best[0]:
+                best = (score, detail)
+    return best[1] if best else None
+
+
+def _scaled_candidate_detail(
+    candidate_name: str,
+    candidate_profile: dict[str, Any],
+    weight_g: float,
+) -> dict[str, Any]:
+    """Convert a candidate's 100 g profile into one weighted recipe row."""
+
+    detail = dict(candidate_profile)
+    detail["ingredient"] = candidate_name
+    detail["graph_name"] = candidate_name
+    detail["weight_g"] = float(weight_g)
+    scale = float(weight_g) / 100.0
+    for absolute_key, per_100g_key in ALL_INGREDIENT_KEYS:
+        detail[absolute_key] = (
+            float(detail.get(per_100g_key) or 0.0) * scale
+        )
+    return detail
+
+
+def _nutrition_match_summary(
+    candidate: dict[str, Any],
+    candidate_profile: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "graph_ingredient": candidate["name"],
+        "graph_recipe_usage_count": int(
+            candidate.get("recipe_usage_count") or 0
+        ),
+        "matched_nutritional_ingredient": candidate_profile.get(
+            "matched_nutritional_ingredient"
+        ),
+        "canonical_food_id": candidate_profile.get("canonical_food_id"),
+        "source_nutrition": candidate_profile.get("source_nutrition"),
+        "match_confidence": candidate_profile.get("match_confidence"),
+        "similarity": candidate_profile.get("similarity"),
+        "nutrients_per_100g": {
+            per_100g_key: float(
+                candidate_profile.get(per_100g_key) or 0.0
+            )
+            for _absolute_key, per_100g_key in ALL_INGREDIENT_KEYS
+        },
+    }
+
+
+def _build_adapted_recipe_preview(
+    graph_recipe: dict[str, Any],
+    profile_row: dict[str, Any],
+    profile_details: list[dict[str, Any]],
+    offender_detail: dict[str, Any],
+    original_name: str,
+    candidate_name: str,
+    candidate_profile: dict[str, Any],
+    region: str,
+    group: str,
+    simulated_consumer_status: str,
+) -> dict[str, Any]:
+    """Return the full recipe preview and recalculated nutrition."""
+
+    replacement_weight = float(offender_detail.get("weight_g") or 0.0)
+    adapted_profile_details: list[dict[str, Any]] = []
+    for detail in profile_details:
+        if detail is offender_detail:
+            adapted_profile_details.append(
+                _scaled_candidate_detail(
+                    candidate_name,
+                    candidate_profile,
+                    replacement_weight,
+                )
+            )
+        else:
+            adapted_profile_details.append(dict(detail))
+
+    totals, per_100g, total_weight_g = _recipe_per_100g(
+        adapted_profile_details
+    )
+    fvl_pct = _fvl_pct_from_breakdown(
+        profile_row.get("nutri_score_breakdown") or {}
+    )
+    breakdown = compute_nutri_score_breakdown_from_values(
+        _ns_inputs_from_per_100g(per_100g, fvl_pct),
+        "solid",
+    )
+    serves = _serves_from_row(profile_row)
+    divisor = serves if serves > 0 else 1.0
+    per_serving = {
+        key: value / divisor for key, value in totals.items()
+    }
+
+    adapted_ingredients: list[dict[str, Any]] = []
+    for ingredient in graph_recipe.get("ingredients") or []:
+        adapted = dict(ingredient)
+        if (
+            str(adapted.get("name") or "").strip().casefold()
+            == original_name.strip().casefold()
+        ):
+            adapted["name"] = candidate_name
+            adapted["replaces"] = original_name
+        adapted_ingredients.append(adapted)
+
+    return {
+        "source_recipe_id": str(
+            graph_recipe.get("recipe_id")
+            or profile_row.get("recipe_id")
+            or ""
+        ),
+        "title": graph_recipe.get("title") or profile_row.get("title"),
+        "source": graph_recipe.get("source"),
+        "url": graph_recipe.get("url"),
+        "image_url": graph_recipe.get("image_url"),
+        "duration": graph_recipe.get("duration"),
+        "serves": graph_recipe.get("serves"),
+        "instructions": list(graph_recipe.get("instructions") or []),
+        "ingredients": adapted_ingredients,
+        "adapted_for": group,
+        "consumer_status": simulated_consumer_status,
+        "nutrition": {
+            "region": region.upper(),
+            "nutrition_source": profile_row.get("nutrition_source"),
+            "total_weight_g": total_weight_g,
+            "effective_serves": divisor,
+            "total_nutrients": totals,
+            "total_nutrients_per_serving": per_serving,
+            "total_nutrients_per_100g": per_100g,
+            "nutri_score": _grade_letter(breakdown.get("nutri_score")),
+            "nutri_score_breakdown": breakdown,
+            "ingredient_details": adapted_profile_details,
+        },
+    }
+
+
+def _consumer_explanation(
+    group: str,
+    original_name: str,
+    candidate: dict[str, Any],
+    remaining_blockers: list[str],
+    unknown_ingredients: list[str],
+    new_allergens: list[str],
+) -> dict[str, Any]:
+    warning_parts: list[str] = []
+    if new_allergens:
+        warning_parts.append(
+            "Introduces allergen(s): " + ", ".join(new_allergens) + "."
+        )
+    if remaining_blockers:
+        warning_parts.append(
+            "The recipe still has other known blockers: "
+            + ", ".join(remaining_blockers)
+            + "."
+        )
+    if unknown_ingredients:
+        warning_parts.append(
+            "The following ingredients remain unverified: "
+            + ", ".join(unknown_ingredients)
+            + "; the adapted recipe cannot yet be labelled suitable."
+        )
+    result_statement = ""
+    if not remaining_blockers and not unknown_ingredients:
+        result_statement = (
+            f" With no other blockers or unknown ingredients, this swap "
+            f"would make the recipe compositionally {group}-suitable."
+        )
+    return {
+        "headline": f"Swap {original_name} → {candidate['name']}",
+        "reason": (
+            f"{original_name.capitalize()} blocks the recipe's {group} "
+            f"classification. {candidate['name'].capitalize()} is explicitly "
+            f"classified as {group}-suitable under "
+            f"{candidate['classification_version']} and was retrieved as a "
+            f"possible functional alternative.{result_statement}"
+        ),
+        "warning": " ".join(warning_parts) or None,
+    }
+
+
+def _generate_consumer_suggestions(
+    recipe_id: str,
+    region: str,
+    group: str,
+    max_swaps: int,
+    use_llm: bool,
+) -> dict[str, Any]:
+    """Suggest one-step replacements for a known consumer-group blocker."""
+
+    context = fetch_recipe_consumer_context(recipe_id, group)
+    if context is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Recipe '{recipe_id}' was not found in Neo4j.",
+        )
+
+    common = {
+        "recipe_id": str(recipe_id),
+        "region": region.upper(),
+        "mode": group,
+        "target_consumer_group": group,
+        "current_consumer_status": context["status"],
+        "blocking_ingredients": context["blocking_ingredients"],
+        "unknown_ingredients": context["unknown_ingredients"],
+    }
+    if context["status"] == "suitable":
+        return {
+            **common,
+            "status": "already_optimal",
+            "message": f"Recipe is already compositionally suitable for {group}.",
+            "suggestions": [],
+        }
+
+    blockers = list(context["blocking_ingredients"])
+    if not blockers:
+        return {
+            **common,
+            "status": "no_suggestions",
+            "message": (
+                f"No explicitly not-suitable {group} ingredient was found. "
+                "Unknown ingredients require more evidence and are not "
+                "automatically replaced."
+            ),
+            "suggestions": [],
+        }
+
+    # Vegan adaptation returns a complete recalculated recipe, so a regional
+    # source profile is mandatory rather than optional.
+    profile_row = _load_profile(recipe_id, region)
+    nutrition_source = _region_to_source(region)
+    profile_details = _recompute_ingredient_details(
+        profile_row,
+        nutrition_source,
+    )
+    graph_recipe = fetch_recipe_info_by_id(recipe_id)
+    if not graph_recipe:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Recipe '{recipe_id}' was not found in Neo4j.",
+        )
+
+    existing = {
+        str(item.get("name") or "").strip().casefold()
+        for item in context["ingredients"]
+        if item.get("name")
+    }
+    offender: str | None = None
+    offender_detail: dict[str, Any] | None = None
+    candidates: list[dict[str, Any]] = []
+    for blocking_ingredient in blockers:
+        profiled_blocker = _find_profile_detail_for_graph_ingredient(
+            profile_details,
+            blocking_ingredient,
+        )
+        if profiled_blocker is None:
+            continue
+        candidate_pool = _consumer_candidate_pool(
+            blocking_ingredient,
+            group,
+            existing,
+            context["title"],
+        )
+        nutrition_backed_candidates: list[dict[str, Any]] = []
+        for candidate in candidate_pool:
+            candidate_profile = _fetch_candidate_profile(
+                candidate["name"],
+                nutrition_source,
+            )
+            if not candidate_profile:
+                continue
+            if not _nutrition_match_preserves_consumer_identity(
+                candidate["name"],
+                blocking_ingredient,
+                candidate_profile,
+                group,
+            ):
+                continue
+            nutrition_backed = dict(candidate)
+            nutrition_backed["_nutrition_profile"] = candidate_profile
+            nutrition_backed_candidates.append(nutrition_backed)
+        if nutrition_backed_candidates:
+            offender = blocking_ingredient
+            offender_detail = profiled_blocker
+            candidates = nutrition_backed_candidates
+            break
+
+    if offender is None or offender_detail is None or not candidates:
+        return {
+            **common,
+            "status": "no_suggestions",
+            "message": (
+                f"No substitute was both explicitly {group}-suitable and "
+                f"reliably matched in the {region.upper()} nutrition data "
+                "for the recipe's known blocking ingredients."
+            ),
+            "suggestions": [],
+        }
+
+    original_allergens = set(get_ingredient_allergens(offender))
+    remaining_blockers = [
+        ingredient for ingredient in blockers if ingredient != offender
+    ]
+    simulated_consumer_status = (
+        "not_suitable"
+        if remaining_blockers
+        else "unknown"
+        if context["unknown_ingredients"]
+        else "suitable"
+    )
+    pool_size = max(max_swaps, 10) if use_llm else max(1, max_swaps)
+    suggestions: list[dict[str, Any]] = []
+    for rank, candidate in enumerate(candidates[:pool_size], start=1):
+        candidate_profile = candidate["_nutrition_profile"]
+        candidate_allergens = set(
+            get_ingredient_allergens(candidate["name"])
+        )
+        new_allergens = sorted(candidate_allergens - original_allergens)
+        suggestions.append(
+            {
+                "rank": rank,
+                "action": "swap",
+                "original_ingredient": offender,
+                "substitute_name": candidate["name"],
+                "source": candidate["source"],
+                "category_distance": candidate["category_distance"],
+                "flavor_similarity": None,
+                "introduces_allergen": bool(new_allergens),
+                "new_allergens": new_allergens,
+                "suitability_status": candidate["suitability_status"],
+                "suitability_reasons": candidate[
+                    "suitability_reasons"
+                ],
+                "suitability_classification_version": candidate[
+                    "classification_version"
+                ],
+                "simulated_consumer_status": simulated_consumer_status,
+                "nutrition_match": _nutrition_match_summary(
+                    candidate,
+                    candidate_profile,
+                ),
+                "adapted_recipe": _build_adapted_recipe_preview(
+                    graph_recipe=graph_recipe,
+                    profile_row=profile_row,
+                    profile_details=profile_details,
+                    offender_detail=offender_detail,
+                    original_name=offender,
+                    candidate_name=candidate["name"],
+                    candidate_profile=candidate_profile,
+                    region=region,
+                    group=group,
+                    simulated_consumer_status=simulated_consumer_status,
+                ),
+                "explanation": _consumer_explanation(
+                    group,
+                    offender,
+                    candidate,
+                    remaining_blockers,
+                    context["unknown_ingredients"],
+                    new_allergens,
+                ),
+                "llm_justification": None,
+            }
+        )
+
+    llm_used = False
+    llm_model = None
+    llm_source = None
+    llm_rejected: list[dict[str, Any]] = []
+    final_suggestions = suggestions
+    if use_llm and suggestions:
+        judge_result = rerank_with_llm(
+            recipe_title=context["title"],
+            recipe_ingredients=context["ingredients"],
+            target_nutrient_label=None,
+            target_points=None,
+            offending_ingredient=offender,
+            offending_pct=0.0,
+            candidates=suggestions,
+            mode=group,
+        )
+        if judge_result:
+            final_suggestions = judge_result["ranked"]
+            llm_rejected = judge_result.get("rejected") or []
+            llm_used = True
+            llm_model = judge_result.get("model")
+            llm_source = judge_result.get("source")
+
+    final_suggestions = final_suggestions[: max(1, max_swaps)]
+    for rank, suggestion in enumerate(final_suggestions, start=1):
+        suggestion["rank"] = rank
+
+    return {
+        **common,
+        "status": "ok",
+        "offending_ingredient": offender,
+        "suggestions": final_suggestions,
+        "llm_used": llm_used,
+        "llm_model": llm_model,
+        "llm_source": llm_source,
+        "llm_rejected": llm_rejected,
     }
 
 
@@ -1134,6 +1870,14 @@ def generate_suggestions(
     mode: str = "nutrition", goal_nutrients: list[str] | None = None,
 ) -> dict[str, Any]:
     mode_l = (mode or "").lower()
+    if mode_l in {"vegan", "vegetarian"}:
+        return _generate_consumer_suggestions(
+            recipe_id=recipe_id,
+            region=region,
+            group=mode_l,
+            max_swaps=max_swaps,
+            use_llm=use_llm,
+        )
     if mode_l == "sustainability":
         return _generate_sustainability_suggestions(
             recipe_id=recipe_id, region=region, max_swaps=max_swaps, use_llm=use_llm,

@@ -7,13 +7,18 @@ Each subdirectory is one service. Currently:
 
 | Service | Status | Mounted on |
 |---|---|---|
-| [`adaptation/`](#adaptation) | in-test (v5) — nutrition / sustainability / reduce-quantity | Standalone FastAPI app on port 8101 |
+| [`adaptation/`](#adaptation) | in-test (v6) — nutrition / sustainability / reduce-quantity / vegan / vegetarian | Main API and standalone app on port 8101 |
 
 ---
 
 ## adaptation
 
-Suggests how to improve a recipe along two axes — Nutri-Score or carbon footprint — by **swapping** an ingredient for a better one or **reducing** the worst offender's quantity. Candidate swaps come from the recipe knowledge graph (MISKG substitution edges + FoodOn taxonomy siblings); the food-composition tables (Irish / USDA / Hungarian) provide nutritional comparison; FlavorDB provides a flavor-similarity tiebreak; the sustainability table provides per-ingredient CO2e.
+Suggests how to improve a recipe for Nutri-Score, carbon footprint, vegan
+composition, or vegetarian composition by **swapping** an ingredient for a
+better one or **reducing** the worst offender's quantity. Candidate swaps come
+from the recipe knowledge graph and Elasticsearch ingredient retrieval; Neo4j
+consumer suitability is the mandatory eligibility gate for vegan and
+vegetarian adaptation.
 
 ### Status
 
@@ -24,8 +29,12 @@ Suggests how to improve a recipe along two axes — Nutri-Score or carbon footpr
 - **v3** optional LLM judge (filter + rerank culinary nonsense, opt-in via `use_llm`).
 - **v4** sustainability mode (target highest-CO2e ingredient; rank by CO2e reduction).
 - **v5** four additions, documented below: **food-class guard** (always-on, kills cross-category nonsense deterministically), **FlavorDB tiebreak** (flavor-aware ranking), **reduce-quantity mode** (use less when no swap helps), **nutri-guard on sustainability** (a CO2e swap may not worsen the grade).
+- **v6** vegan/vegetarian adaptation: detect versioned recipe blockers, retrieve
+  goal-aware alternatives from Elasticsearch plus the graph, hard-filter to
+  explicit Neo4j `suitable`, and report the simulated whole-recipe status.
 
-Current canonical run path is standalone FastAPI app (`app.py`) on port 8101.
+The router is mounted by the main API and remains runnable independently with
+`app.py` on port 8101.
 
 ### Endpoints
 
@@ -43,6 +52,11 @@ Request:
   - `nutrition` — swap to improve the worst Nutri-Score negative nutrient.
   - `sustainability` — swap to cut the highest-CO2e ingredient (with a nutri-guard so the grade can't worsen).
   - `reduce_quantity` — when no swap helps, recommend *using less* of the worst nutrient contributor (the smallest cut that still improves the grade). No LLM, no graph substitutes needed.
+  - `vegan` — replace one known vegan-blocking ingredient with candidates
+    explicitly classified vegan-suitable under `vegan-vegetarian-v1`.
+  - `vegetarian` — use the same evidence-backed flow for a known
+    vegetarian-blocking ingredient and explicitly vegetarian-suitable
+    candidates.
 - `max_swaps`: 1–3, number of ranked suggestions to return after the LLM filter (if enabled).
 - `use_llm` (default `false`): when `true`, an LLM judge runs over the top-10 deterministic candidates, rejects culinary-nonsense swaps (e.g. swapping butter for salt in a butter sauce, or beef mince for offal in a burger), and reranks the survivors by recipe-aware sense. See *LLM judge* below. Ignored in `reduce_quantity` mode.
 
@@ -55,6 +69,16 @@ Response — see `schemas.SuggestionsResponse`. The `mode` field on the response
 **Sustainability-mode fields:** `current_co2e_per_serving_kg`, `current_co2e_total_kg`, plus per suggestion: `simulated_co2e_per_serving_kg`, `co2e_reduction_per_serving_kg`, `co2e_reduction_pct`, `original_cf_kg_co2e_per_kg`, `candidate_cf_kg_co2e_per_kg`.
 
 **Reduce-quantity-mode fields:** same context block as nutrition mode (`current_nutri_score`, `target_nutrient*`), plus per suggestion (`action: "reduce"`): `simulated_nutri_score`, `nutri_score_points_saved`, `reduced_from_weight_g`, `reduced_to_weight_g`, `reduction_pct`. `substitute_name` / `source` / `category_distance` are null.
+
+**Vegan/vegetarian-mode fields:** `target_consumer_group`,
+`current_consumer_status`, `blocking_ingredients`, and
+`unknown_ingredients`; each suggestion includes `suitability_status`,
+`suitability_reasons`, `suitability_classification_version`, and
+`simulated_consumer_status`. It also includes `nutrition_match` and a complete
+`adapted_recipe` preview with the replaced graph ingredient, original
+measurements/instructions, recalculated ingredient nutrition, totals, totals
+per serving, totals per 100 g, and Nutri-Score. Unknown or nutritionally
+unverified candidates are never suggested.
 
 **Shared fields (all modes):** `offending_ingredient`, `offending_ingredient_contribution_pct` (% of the relevant total — nutrient amount or CO2e), `suggestions[]` with `rank`, `action`, `original_ingredient`, `substitute_name`, `source`, `category_distance`, `flavor_similarity` (FlavorDB Jaccard in [0,1], or null when coverage is too sparse), `introduces_allergen`, `new_allergens`, `explanation`, optional `llm_justification`. When `use_llm=true`: also `llm_used`, `llm_model`, `llm_source`, `llm_rejected[]`.
 
@@ -105,6 +129,30 @@ When no swap improves a recipe (common for energy/fat-heavy dishes with no healt
 #### sustainability nutri-guard
 
 In `_evaluate_sustainability_candidate`, after confirming a CO2e reduction, the swap is simulated nutritionally and **rejected if it worsens the Nutri-Score grade** — so a low-carbon swap can't silently tank health. If the candidate has no composition match (nutrition can't be judged), it's kept and the LLM judge remains the backstop.
+
+#### vegan/vegetarian modes (`_generate_consumer_suggestions`)
+
+1. Read the recipe's versioned relationship for the requested group and its
+   `blocking_ingredients` from Neo4j.
+2. Retrieve up to 50 candidates from each of two Elasticsearch ingredient
+   searches (recipe-aware group alternative and plant-based role), then union
+   them with MISKG/FoodOn candidates.
+3. Keep only exact Neo4j Ingredient nodes that are actually used by at least
+   one Recipe and whose current relationship for the requested group is
+   explicitly `suitable`.
+   `unknown` and standalone vocabulary nodes are hard rejections.
+4. Apply a global role-preservation/name-quality gate. It rejects ambiguous
+   choice strings, parsed measurements, and suitable-but-unrelated foods.
+5. Require a valid regional nutrition match and verify that it preserves the
+   consumer-safe identity. For example, the Hungarian match
+   `vegan cheese → cream cheese` is rejected even though its vector score is
+   high.
+6. Recalculate the whole recipe at the original ingredient weight and return
+   the adapted recipe with energy, carbohydrate, fat, sugars, saturated fat,
+   sodium, fibre, protein, per-serving/per-100 g totals, and Nutri-Score.
+7. Return ranked alternatives with allergen deltas and the expected
+   whole-recipe result: `suitable`, `not_suitable` when blockers remain, or
+   `unknown` when unverified ingredients remain.
 
 #### Candidate-quality layering
 

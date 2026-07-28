@@ -40,9 +40,18 @@ Rules:
   requirements, such as "chicken tikka masala under 30 minutes".
 - For title or title_with_constraints, put only the named dish in title_query.
   Otherwise set title_query=null.
-- Put requested ingredients into preferred_ingredients.
+- Put requested ingredients into preferred_ingredients. Use the singular
+  canonical ingredient name whenever grammatically valid (for example,
+  "eggs" becomes "egg" and "tomatoes" becomes "tomato").
 - Put ingredients to avoid into excluded_ingredients.
-- Put allergen exclusions into allergens.
+- Put an item into allergens only when the user explicitly asks to avoid it,
+  such as "without peanut", "peanut-free", or "allergic to peanut".
+  Never treat a requested ingredient as an allergen exclusion merely because
+  that ingredient can be an allergen.
+- Never put the same canonical food in both preferred_ingredients and
+  allergens. For example, "recipes with peanut" means
+  preferred_ingredients=["peanut"] and allergens=[], while "peanut-free
+  recipes" means preferred_ingredients=[] and allergens=["peanut"].
 - Put dietary intents (vegan, keto, gluten free, etc.) into diet.
 - Use max_duration_minutes only when a max/prep/cook time limit is explicitly asked.
 - Use min_servings only when a lower-bound serving size is explicitly asked.
@@ -71,6 +80,11 @@ Question:
 Classify a bare named dish as "title", a descriptive recipe request as
 "constraints", and a named dish with explicit requirements as
 "title_with_constraints". Put only the named dish in title_query.
+
+Use singular canonical ingredient names whenever grammatically valid. The
+allergens array contains only items the user explicitly asks to avoid. Do not
+infer an allergen exclusion from a positive ingredient request, and never put
+the same canonical food in preferred_ingredients and allergens.
 
 Return exactly one JSON object with these keys:
 - search_intent: "title"|"constraints"|"title_with_constraints"
@@ -116,9 +130,21 @@ class ExtractConstraintsOutput(BaseModel):
             "The named dish only for title/title_with_constraints; otherwise null."
         )
     )
-    preferred_ingredients: list[str] = Field(default_factory=list)
+    preferred_ingredients: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Requested ingredients, using singular canonical names whenever "
+            "grammatically valid."
+        ),
+    )
     excluded_ingredients: list[str] = Field(default_factory=list)
-    allergens: list[str] = Field(default_factory=list)
+    allergens: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Only allergens the user explicitly asked to avoid; never allergens "
+            "merely mentioned as requested ingredients."
+        ),
+    )
     diet: list[str] = Field(default_factory=list)
     title_keywords: list[str] = Field(default_factory=list)
     max_duration_minutes: int | None = None
@@ -133,6 +159,124 @@ def _empty_constraints() -> dict[str, Any]:
         search_intent="constraints",
         title_query=None,
     ).model_dump()
+
+
+def _constraint_key(value: object) -> str:
+    """Normalize an extracted food phrase for include/exclude comparison."""
+
+    words = re.findall(
+        r"[a-z0-9]+",
+        str(value or "").strip().casefold().replace("_", " "),
+    )
+    if not words:
+        return ""
+    last = words[-1]
+    if len(last) > 3 and last.endswith("ies"):
+        words[-1] = f"{last[:-3]}y"
+    elif len(last) > 3 and last.endswith(("ches", "shes", "xes", "zes")):
+        words[-1] = last[:-2]
+    elif (
+        len(last) > 3
+        and last.endswith("s")
+        and not last.endswith(("ss", "us", "is"))
+    ):
+        words[-1] = last[:-1]
+    return " ".join(words)
+
+
+def _food_phrase_pattern(value: object) -> str:
+    """Build a phrase pattern accepting a regular singular/plural ending."""
+
+    words = re.findall(
+        r"[a-z0-9]+",
+        str(value or "").strip().casefold().replace("_", " "),
+    )
+    if not words:
+        return r"(?!x)x"
+    last = words[-1]
+    singular = _constraint_key(last)
+    variants = {last, singular}
+    if singular.endswith("y") and len(singular) > 2:
+        variants.add(f"{singular[:-1]}ies")
+    elif singular.endswith(("ch", "sh", "x", "z")):
+        variants.add(f"{singular}es")
+    elif not singular.endswith("s"):
+        variants.add(f"{singular}s")
+    last_pattern = "(?:" + "|".join(
+        sorted((re.escape(item) for item in variants), key=len, reverse=True)
+    ) + ")"
+    return r"[\s_-]+".join(
+        [*(re.escape(word) for word in words[:-1]), last_pattern]
+    )
+
+
+def _question_explicitly_excludes(question: str, food: object) -> bool:
+    """Return whether the original question explicitly avoids ``food``."""
+
+    food_pattern = _food_phrase_pattern(food)
+    left_cues = (
+        r"(?:without|avoid(?:ing)?|exclude(?:d|ing)?|no|"
+        r"free[\s-]+(?:from|of)|allergic[\s-]+to|allergy[\s-]+to)"
+    )
+    left_pattern = (
+        rf"\b{left_cues}\s+(?:any\s+)?(?:{food_pattern})\b"
+    )
+    right_pattern = (
+        rf"\b(?:{food_pattern})(?:[\s-]+free|\s+allerg(?:y|ic))\b"
+    )
+    normalized_question = str(question or "").casefold()
+    return bool(
+        re.search(left_pattern, normalized_question)
+        or re.search(right_pattern, normalized_question)
+    )
+
+
+def resolve_ingredient_allergen_conflicts(
+    question: str,
+    requested_ingredients: list[str],
+    inferred_allergens: list[str],
+    explicit_allergens: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Remove contradictory ingredient/allergen filters before search.
+
+    Explicit request-payload exclusions always win. For contradictions created
+    by natural-language extraction, an explicit avoidance phrase keeps the
+    exclusion; otherwise the positive ingredient request wins.
+    """
+
+    requested = list(dict.fromkeys(requested_ingredients or []))
+    inferred = list(dict.fromkeys(inferred_allergens or []))
+    explicit = list(dict.fromkeys(explicit_allergens or []))
+    allergens = list(dict.fromkeys([*inferred, *explicit]))
+    explicit_keys = {
+        _constraint_key(item) for item in explicit if _constraint_key(item)
+    }
+    requested_by_key = {
+        _constraint_key(item): item
+        for item in requested
+        if _constraint_key(item)
+    }
+    allergens_by_key = {
+        _constraint_key(item): item
+        for item in allergens
+        if _constraint_key(item)
+    }
+
+    for key in requested_by_key.keys() & allergens_by_key.keys():
+        requested_item = requested_by_key[key]
+        if (
+            key in explicit_keys
+            or _question_explicitly_excludes(question, requested_item)
+        ):
+            requested = [
+                item for item in requested if _constraint_key(item) != key
+            ]
+        else:
+            allergens = [
+                item for item in allergens if _constraint_key(item) != key
+            ]
+
+    return requested, allergens
 
 
 @dataclass

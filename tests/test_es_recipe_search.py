@@ -5,6 +5,9 @@ from unittest.mock import Mock, patch
 from recipe_wrangler.api.routers import recipes
 from recipe_wrangler.schemas import RecipeSearchRequest
 from recipe_wrangler.tools import es_recipe_search as search
+from recipe_wrangler.tools.recipe_search_constraints import (
+    resolve_ingredient_allergen_conflicts,
+)
 
 
 def test_recipe_search_uses_configured_index():
@@ -51,6 +54,40 @@ def test_supported_diet_groups_filter_on_explicit_suitability() -> None:
     assert {"term": {"suitable_for": "vegan"}} in filters
     assert {"term": {"suitable_for": "vegetarian"}} in filters
     assert {"term": {"tags": "low_sodium"}} in filters
+
+
+def test_positive_ingredient_request_wins_over_inferred_allergen() -> None:
+    ingredients, allergens = resolve_ingredient_allergen_conflicts(
+        question="recipes with eggs",
+        requested_ingredients=["eggs"],
+        inferred_allergens=["egg"],
+    )
+
+    assert ingredients == ["eggs"]
+    assert allergens == []
+
+
+def test_explicit_avoidance_wins_over_requested_ingredient() -> None:
+    ingredients, allergens = resolve_ingredient_allergen_conflicts(
+        question="recipes without eggs",
+        requested_ingredients=["egg"],
+        inferred_allergens=["egg"],
+    )
+
+    assert ingredients == []
+    assert allergens == ["egg"]
+
+
+def test_explicit_payload_allergen_always_wins() -> None:
+    ingredients, allergens = resolve_ingredient_allergen_conflicts(
+        question="recipes with peanut",
+        requested_ingredients=["peanuts"],
+        inferred_allergens=[],
+        explicit_allergens=["peanut"],
+    )
+
+    assert ingredients == []
+    assert allergens == ["peanut"]
 
 
 def test_title_search_combines_exact_phrase_prefix_and_fuzzy_matching():
@@ -177,6 +214,46 @@ def test_natural_language_search_always_uses_elasticsearch():
     assert constraints.include_ingredients == ["lentils"]
     assert constraints.diet_tags == ["vegan"]
     assert constraints.max_duration_minutes == 30
+
+
+def test_natural_language_search_removes_llm_include_allergen_conflict():
+    extractor = Mock()
+    extractor.run_extract_constraints.return_value = {
+        "query_constraints": {
+            "search_intent": "constraints",
+            "title_query": None,
+            "preferred_ingredients": ["egg"],
+            "excluded_ingredients": [],
+            "allergens": ["egg"],
+            "diet": [],
+            "title_keywords": [],
+            "max_duration_minutes": None,
+            "min_servings": None,
+            "limit": 10,
+        }
+    }
+
+    with (
+        patch.object(
+            recipes,
+            "get_recipe_constraint_extractor",
+            return_value=extractor,
+        ),
+        patch.object(
+            recipes,
+            "search_recipes_es",
+            return_value={"results": []},
+        ) as es_search,
+    ):
+        asyncio.run(
+            recipes.recipe_search(
+                RecipeSearchRequest(question="recipes with egg")
+            )
+        )
+
+    constraints = es_search.call_args.args[0]
+    assert constraints.include_ingredients == ["egg"]
+    assert constraints.exclude_allergens == []
 
 
 def test_natural_language_title_intent_uses_title_search_only():

@@ -35,6 +35,9 @@ from recipe_wrangler.tools.es_recipe_search import (
     normalize_recipe_title,
     search_recipes_es,
 )
+from recipe_wrangler.tools.recipe_search_constraints import (
+    resolve_ingredient_allergen_conflicts,
+)
 from recipe_wrangler.utils.recipe_cache import (
     cache_delete,
     cache_delete_many,
@@ -1795,21 +1798,30 @@ async def recipe_search(
         if search_intent in {"title", "title_with_constraints"}
         else None
     )
+    requested_ingredients, resolved_allergens = (
+        resolve_ingredient_allergen_conflicts(
+            question=question,
+            requested_ingredients=(
+                constraints.get("preferred_ingredients") or []
+            ),
+            inferred_allergens=constraints.get("allergens") or [],
+            explicit_allergens=exclude_allergens,
+        )
+    )
 
     # Diet asked for in the question is a hard filter. Member preferences are
     # soft boosts, while allergies remain hard exclusions.
     base_constraints = dict(
         include_ingredients=(
-            [] if title_only else constraints.get("preferred_ingredients") or []
+            [] if title_only else requested_ingredients
         ),
         exclude_ingredients=(
             [] if title_only else constraints.get("excluded_ingredients") or []
         ),
-        exclude_allergens=list(
-            {
-                *([] if title_only else constraints.get("allergens") or []),
-                *exclude_allergens,
-            }
+        exclude_allergens=(
+            list(dict.fromkeys(exclude_allergens))
+            if title_only
+            else resolved_allergens
         ),
         diet_tags=[] if title_only else constraints.get("diet") or [],
         dish_types=[] if title_only else constraints.get("dish_types") or [],

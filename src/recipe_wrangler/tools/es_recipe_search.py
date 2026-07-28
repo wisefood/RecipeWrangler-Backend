@@ -25,8 +25,11 @@ ES_INDEX = "recipes_v2"
 _BASE_SOURCE_FIELDS = [
     "id", "title", "url", "source", "source_id", "image_url",
     "duration", "serves", "cost_category", "sust_score", "expert_recipe",
-    "status",
+    "status", "allergens", "allergen_evidence", "suitable_for",
+    "consumer_suitability",
 ]
+
+_SUPPORTED_CONSUMER_GROUPS = {"vegan", "vegetarian"}
 
 
 def _resolve_region(value: str) -> str:
@@ -210,9 +213,15 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     if allergens:
         must_not.append({"terms": {"allergens": allergens}})
 
-    # Diet tags — every tag must be present.
+    # Supported consumer groups use the explicit, three-state composition
+    # assessment. Other legacy dietary labels continue to use recipe tags.
     for tag in _norm(c.diet_tags):
-        filter_.append({"term": {"tags": tag}})
+        field = (
+            "suitable_for"
+            if tag in _SUPPORTED_CONSUMER_GROUPS
+            else "tags"
+        )
+        filter_.append({"term": {field: tag}})
 
     # Sources — recipe must come from one of them. Incoming values are
     # canonical slugs; expand to the raw keyword values stored in the index.
@@ -357,6 +366,10 @@ def _hit_to_card(hit: dict, region: str) -> dict[str, Any]:
         "sust_score": src.get("sust_score"),
         "expert_recipe": bool(src.get("expert_recipe", False)),
         "status": src.get("status") or "active",
+        "allergens": src.get("allergens") or [],
+        "allergen_evidence": src.get("allergen_evidence") or [],
+        "suitable_for": src.get("suitable_for") or [],
+        "consumer_suitability": src.get("consumer_suitability") or [],
     }
 
 

@@ -1536,6 +1536,10 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
         "sust_score": card.get("sust_score"),
         "expert_recipe": card.get("expert_recipe", False),
         "status": card.get("status") or "active",
+        "allergens": card.get("allergens") or [],
+        "allergen_evidence": card.get("allergen_evidence") or [],
+        "suitable_for": card.get("suitable_for") or [],
+        "consumer_suitability": card.get("consumer_suitability") or [],
     }
 
 

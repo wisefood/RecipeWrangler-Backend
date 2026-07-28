@@ -17,6 +17,14 @@ from typing import Any
 from recipe_wrangler.utils.http_pool import get_http_session
 from recipe_wrangler.utils.neo4j_utils import run_query
 from recipe_wrangler.utils.nutrition_postgres import fetch_recipe_region_scores
+from recipe_wrangler.utils.consumer_suitability import (
+    SUITABILITY_CLASSIFICATION_VERSION,
+)
+from recipe_wrangler.utils.es_recipe_evidence import (
+    normalize_allergen_evidence,
+    normalize_consumer_suitability,
+    suitable_groups,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +42,36 @@ CALL { WITH r
 CALL { WITH r
   OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
   RETURN collect(DISTINCT al.name) AS allergens
+}
+CALL { WITH r
+  OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
+                 -[:HAS_DECLARATION]->(d:AllergenDeclaration)
+                 -[:CONCERNS]->(al:Allergen)
+  RETURN collect(DISTINCT CASE WHEN al IS NULL THEN NULL ELSE {
+    allergen: al.name,
+    ingredient: i.name,
+    ingredient_id: i.canonical_id,
+    declaration_id: d.declaration_id,
+    presence: d.presence,
+    evidence_status: d.evidence_status,
+    sources: d.sources,
+    foodon_ids: d.foodon_ids,
+    keyword_matches: d.keyword_matches,
+    classification_version: d.classification_version
+  } END) AS allergen_evidence
+}
+CALL { WITH r
+  OPTIONAL MATCH (r)-[s:SUITABILITY_FOR]->(g:ConsumerGroup)
+  WHERE g.name IN ["vegan", "vegetarian"]
+    AND s.classification_version = $suitability_version
+  RETURN collect(DISTINCT CASE WHEN g IS NULL THEN NULL ELSE {
+    group: g.name,
+    status: s.status,
+    blocking_ingredients: s.blocking_ingredients,
+    reason_codes: s.reason_codes,
+    sources: s.sources,
+    classification_version: s.classification_version
+  } END) AS consumer_suitability
 }
 CALL { WITH r
   OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
@@ -56,7 +94,8 @@ RETURN
   coalesce(r.has_rcsi_lab_nutrition, false) AS has_rcsi_nutrition,
   coalesce(r.has_planeat_nutrition, false) AS has_planeat_nutrition,
   coalesce(toString(r.ground_truth_nutrition_source), "") AS ground_truth_nutrition_source,
-  ingredients, allergens, tags, dish_types
+  ingredients, allergens, allergen_evidence, consumer_suitability,
+  tags, dish_types
 LIMIT 1
 """
 
@@ -88,12 +127,25 @@ def _to_float(value: object) -> float | None:
 def build_recipe_v2_doc(recipe_id: str) -> dict[str, Any] | None:
     """Assemble the full recipes_v2 document for one recipe from its owners
     (Neo4j content/graph + Postgres scores). None if the recipe is unknown."""
-    rows = run_query(_RECIPE_QUERY, {"rid": str(recipe_id)})
+    rows = run_query(
+        _RECIPE_QUERY,
+        {
+            "rid": str(recipe_id),
+            "suitability_version": SUITABILITY_CLASSIFICATION_VERSION,
+        },
+    )
     if not rows:
         return None
     row = rows[0]
 
     source = _clean_str(row.get("source"))
+    allergen_evidence = normalize_allergen_evidence(
+        row.get("allergen_evidence")
+    )
+    consumer_suitability = normalize_consumer_suitability(
+        row.get("consumer_suitability"),
+        classification_version=SUITABILITY_CLASSIFICATION_VERSION,
+    )
     doc: dict[str, Any] = {
         "id": _clean_str(row.get("id")),
         "title": _clean_str(row.get("title")),
@@ -104,6 +156,9 @@ def build_recipe_v2_doc(recipe_id: str) -> dict[str, Any] | None:
         "source_rank": 0 if source.lower() in _CURATED_SOURCES else 1,
         "ingredients": _clean_list(row.get("ingredients")),
         "allergens": _clean_list(row.get("allergens")),
+        "allergen_evidence": allergen_evidence,
+        "suitable_for": suitable_groups(consumer_suitability),
+        "consumer_suitability": consumer_suitability,
         "tags": _clean_list(row.get("tags")),
         "dish_types": _clean_list(row.get("dish_types")),
         "duration": _to_float(row.get("duration")),

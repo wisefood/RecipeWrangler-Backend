@@ -32,6 +32,15 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from recipe_wrangler.utils.nutrition_postgres import fetch_all_recipe_scores
 from recipe_wrangler.tools.es_recipe_search import normalize_recipe_title
+from recipe_wrangler.utils.consumer_suitability import (
+    SUITABILITY_CLASSIFICATION_VERSION,
+)
+from recipe_wrangler.utils.es_recipe_evidence import (
+    RECIPE_EVIDENCE_MAPPING_PROPERTIES,
+    normalize_allergen_evidence,
+    normalize_consumer_suitability,
+    suitable_groups,
+)
 
 DEFAULT_ES_URL = os.getenv("ELASTIC_URL", "http://localhost:9200")
 DEFAULT_INDEX = "recipes_v2"
@@ -61,6 +70,7 @@ INDEX_BODY = {
             "tags": {"type": "keyword"},
             "dish_types": {"type": "keyword"},
             "allergens": {"type": "keyword"},
+            **RECIPE_EVIDENCE_MAPPING_PROPERTIES,
             "duration": {"type": "float"},
             "serves": {"type": "float"},
             "cost_category": {"type": "keyword"},
@@ -99,6 +109,36 @@ CALL { WITH r
   RETURN collect(DISTINCT al.name) AS allergens
 }
 CALL { WITH r
+  OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
+                 -[:HAS_DECLARATION]->(d:AllergenDeclaration)
+                 -[:CONCERNS]->(al:Allergen)
+  RETURN collect(DISTINCT CASE WHEN al IS NULL THEN NULL ELSE {
+    allergen: al.name,
+    ingredient: i.name,
+    ingredient_id: i.canonical_id,
+    declaration_id: d.declaration_id,
+    presence: d.presence,
+    evidence_status: d.evidence_status,
+    sources: d.sources,
+    foodon_ids: d.foodon_ids,
+    keyword_matches: d.keyword_matches,
+    classification_version: d.classification_version
+  } END) AS allergen_evidence
+}
+CALL { WITH r
+  OPTIONAL MATCH (r)-[s:SUITABILITY_FOR]->(g:ConsumerGroup)
+  WHERE g.name IN ["vegan", "vegetarian"]
+    AND s.classification_version = $suitability_version
+  RETURN collect(DISTINCT CASE WHEN g IS NULL THEN NULL ELSE {
+    group: g.name,
+    status: s.status,
+    blocking_ingredients: s.blocking_ingredients,
+    reason_codes: s.reason_codes,
+    sources: s.sources,
+    classification_version: s.classification_version
+  } END) AS consumer_suitability
+}
+CALL { WITH r
   OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
   RETURN collect(DISTINCT t.name) AS tags,
          collect(DISTINCT CASE WHEN t.category = 'dish-type' THEN t.name END) AS dish_types
@@ -119,7 +159,8 @@ RETURN
   coalesce(r.has_rcsi_lab_nutrition, false) AS has_rcsi_nutrition,
   coalesce(r.has_planeat_nutrition, false) AS has_planeat_nutrition,
   coalesce(toString(r.ground_truth_nutrition_source), "") AS ground_truth_nutrition_source,
-  ingredients, allergens, tags, dish_types
+  ingredients, allergens, allergen_evidence, consumer_suitability,
+  tags, dish_types
 ORDER BY id
 """
 
@@ -152,7 +193,13 @@ def fetch_from_neo4j(sources: list[str] | None, uri: str, username: str, passwor
     driver = GraphDatabase.driver(uri, auth=(username, password))
     try:
         with driver.session() as session:
-            rows = list(session.run(QUERY, sources=sources))
+            rows = list(
+                session.run(
+                    QUERY,
+                    sources=sources,
+                    suitability_version=SUITABILITY_CLASSIFICATION_VERSION,
+                )
+            )
     finally:
         driver.close()
 
@@ -160,6 +207,13 @@ def fetch_from_neo4j(sources: list[str] | None, uri: str, username: str, passwor
     for row in rows:
         source = _clean_str(row["source"])
         title = _clean_str(row["title"])
+        allergen_evidence = normalize_allergen_evidence(
+            row["allergen_evidence"]
+        )
+        consumer_suitability = normalize_consumer_suitability(
+            row["consumer_suitability"],
+            classification_version=SUITABILITY_CLASSIFICATION_VERSION,
+        )
         recipes.append(
             {
                 "id": _clean_str(row["id"]),
@@ -172,6 +226,9 @@ def fetch_from_neo4j(sources: list[str] | None, uri: str, username: str, passwor
                 "source_rank": 0 if source.lower() in CURATED_SOURCES else 1,
                 "ingredients": _clean_list(row["ingredients"]),
                 "allergens": _clean_list(row["allergens"]),
+                "allergen_evidence": allergen_evidence,
+                "suitable_for": suitable_groups(consumer_suitability),
+                "consumer_suitability": consumer_suitability,
                 "tags": _clean_list(row["tags"]),
                 "dish_types": _clean_list(row["dish_types"]),
                 "duration": _to_float(row["duration"]),

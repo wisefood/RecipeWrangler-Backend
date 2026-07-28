@@ -26,6 +26,38 @@ _NEO4J_ROW = {
     "ground_truth_nutrition_source": "",
     "ingredients": ["Lentils", "lentils", " Carrot "],
     "allergens": ["Celery"],
+    "allergen_evidence": [
+        {
+            "allergen": "Celery",
+            "ingredient": "Celery",
+            "ingredient_id": "ingredient-1",
+            "declaration_id": "declaration-1",
+            "presence": "contains",
+            "evidence_status": "inferred",
+            "sources": ["keyword"],
+            "foodon_ids": [],
+            "keyword_matches": ["celery"],
+            "classification_version": "fato-foodon-v1",
+        }
+    ],
+    "consumer_suitability": [
+        {
+            "group": "vegan",
+            "status": "unknown",
+            "blocking_ingredients": [],
+            "reason_codes": ["incomplete_ingredient_evidence"],
+            "sources": ["ingredient_suitability"],
+            "classification_version": "vegan-vegetarian-v1",
+        },
+        {
+            "group": "vegetarian",
+            "status": "suitable",
+            "blocking_ingredients": [],
+            "reason_codes": ["all_ingredients_suitable"],
+            "sources": ["ingredient_suitability"],
+            "classification_version": "vegan-vegetarian-v1",
+        },
+    ],
     "tags": ["gluten_free", "Main-Dish"],
     "dish_types": ["main-dish"],
 }
@@ -47,6 +79,9 @@ class BuildDocTests(unittest.TestCase):
         self.assertEqual(doc["title"], "Lentil Soup")
         self.assertEqual(doc["source_rank"], 0)  # foodhero is curated
         self.assertEqual(doc["ingredients"], ["lentils", "carrot"])  # deduped, lowered
+        self.assertEqual(doc["allergen_evidence"][0]["allergen"], "celery")
+        self.assertEqual(doc["suitable_for"], ["vegetarian"])
+        self.assertEqual(len(doc["consumer_suitability"]), 2)
         self.assertEqual(doc["dish_types"], ["main-dish"])
         self.assertEqual(doc["serves"], 4.0)
         self.assertIsNone(doc["cost_category"])

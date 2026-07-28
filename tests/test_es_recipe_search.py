@@ -40,6 +40,19 @@ def test_recipe_search_still_requires_profiled_recipes():
     assert {"exists": {"field": "nutri_score_eu"}} in payload["query"]["bool"]["filter"]
 
 
+def test_supported_diet_groups_filter_on_explicit_suitability() -> None:
+    payload = search.build_es_query(
+        search.RecipeSearchConstraints(
+            diet_tags=["vegan", "vegetarian", "low_sodium"]
+        )
+    )
+
+    filters = payload["query"]["bool"]["filter"]
+    assert {"term": {"suitable_for": "vegan"}} in filters
+    assert {"term": {"suitable_for": "vegetarian"}} in filters
+    assert {"term": {"tags": "low_sodium"}} in filters
+
+
 def test_title_search_combines_exact_phrase_prefix_and_fuzzy_matching():
     payload = search.build_es_query(
         search.RecipeSearchConstraints(title_query="Chicken Tikka Masala")

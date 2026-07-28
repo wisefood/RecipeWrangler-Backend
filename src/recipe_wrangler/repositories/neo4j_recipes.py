@@ -6,6 +6,12 @@ import logging
 import re
 from typing import Any
 
+from recipe_wrangler.utils.food_ontology import (
+    ALLERGEN_ONTOLOGY_MAPPINGS,
+    CLASSIFICATION_VERSION,
+    FATO_ALLERGEN_CLASS_IRI,
+    FATO_ALLERGEN_DECLARATION_CLASS_IRI,
+)
 from recipe_wrangler.utils.neo4j_utils import driver, run_query
 from recipe_wrangler.utils.recipe_status import NEO4J_NOT_DISABLED, STATUS_DISABLED
 
@@ -235,14 +241,66 @@ def update_recipe_in_neo4j(
                     """
                     MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)
                     WHERE (r.recipe_id = $recipe_id OR r.id = $recipe_id)
-                      AND any(k IN $keywords WHERE toLower(i.name) CONTAINS k)
+                    WITH i, [idx IN range(0, size($keywords) - 1)
+                      WHERE toLower(i.name) =~ $keyword_regexes[idx]
+                      | $keywords[idx]] AS hits
+                    WHERE size(hits) > 0
                     MERGE (al:Allergen {name: $allergen})
-                    MERGE (i)-[:HAS_ALLERGEN]->(al)
+                    SET al.canonical_id = $allergen,
+                        al.eu_label = $eu_label,
+                        al.jurisdiction = "EU",
+                        al.fato_class_iri = $fato_class_iri,
+                        al.foodon_label_claim_id = $foodon_label_claim_id,
+                        al.classification_version = $classification_version
+                    MERGE (i)-[rel:HAS_ALLERGEN]->(al)
+                    SET rel.sources = CASE
+                            WHEN rel.sources IS NULL THEN ["keyword"]
+                            WHEN "keyword" IN rel.sources THEN rel.sources
+                            ELSE rel.sources + ["keyword"]
+                        END,
+                        rel.keyword_matches = CASE
+                            WHEN rel.keyword_matches IS NULL THEN hits
+                            ELSE rel.keyword_matches
+                                 + [x IN hits
+                                    WHERE NOT x IN rel.keyword_matches]
+                        END,
+                        rel.presence = "contains",
+                        rel.evidence_status = "inferred",
+                        rel.classification_version = $classification_version
+                    WITH i, al, rel
+                    SET i.canonical_id = coalesce(i.canonical_id, randomUUID())
+                    MERGE (declaration:AllergenDeclaration {
+                        declaration_id:
+                            "ingredient:" + toString(i.canonical_id)
+                            + ":allergen:" + al.name
+                            + ":version:" + $classification_version
+                    })
+                    ON CREATE SET declaration.created_at = datetime()
+                    SET declaration.declaration_type =
+                            "inferred_ingredient_presence",
+                        declaration.presence = rel.presence,
+                        declaration.evidence_status = rel.evidence_status,
+                        declaration.sources = rel.sources,
+                        declaration.keyword_matches = rel.keyword_matches,
+                        declaration.fato_class_iri =
+                            $fato_declaration_class_iri,
+                        declaration.classification_version =
+                            $classification_version,
+                        declaration.updated_at = datetime()
+                    MERGE (i)-[:HAS_DECLARATION]->(declaration)
+                    MERGE (declaration)-[:CONCERNS]->(al)
                     """,
                     {
                         "recipe_id": recipe_id,
                         "allergen": allergen,
                         "keywords": _ALLERGEN_KEYWORDS.get(allergen, [allergen]),
+                        "keyword_regexes": [
+                            _allergen_keyword_regex(keyword)
+                            for keyword in _ALLERGEN_KEYWORDS.get(
+                                allergen, [allergen]
+                            )
+                        ],
+                        **_allergen_ontology_params(allergen),
                     },
                 )
 
@@ -369,14 +427,66 @@ def upsert_recipe_to_neo4j(
             session.run(
                 """
                 MATCH (r:Recipe {recipe_id: $recipe_id})-[:HAS_INGREDIENT]->(i:Ingredient)
-                WHERE any(k IN $keywords WHERE toLower(i.name) CONTAINS k)
+                WITH i, [idx IN range(0, size($keywords) - 1)
+                  WHERE toLower(i.name) =~ $keyword_regexes[idx]
+                  | $keywords[idx]] AS hits
+                WHERE size(hits) > 0
                 MERGE (al:Allergen {name: $allergen})
-                MERGE (i)-[:HAS_ALLERGEN]->(al)
+                SET al.canonical_id = $allergen,
+                    al.eu_label = $eu_label,
+                    al.jurisdiction = "EU",
+                    al.fato_class_iri = $fato_class_iri,
+                    al.foodon_label_claim_id = $foodon_label_claim_id,
+                    al.classification_version = $classification_version
+                MERGE (i)-[rel:HAS_ALLERGEN]->(al)
+                SET rel.sources = CASE
+                        WHEN rel.sources IS NULL THEN ["keyword"]
+                        WHEN "keyword" IN rel.sources THEN rel.sources
+                        ELSE rel.sources + ["keyword"]
+                    END,
+                    rel.keyword_matches = CASE
+                        WHEN rel.keyword_matches IS NULL THEN hits
+                        ELSE rel.keyword_matches
+                             + [x IN hits
+                                WHERE NOT x IN rel.keyword_matches]
+                    END,
+                    rel.presence = "contains",
+                    rel.evidence_status = "inferred",
+                    rel.classification_version = $classification_version
+                WITH i, al, rel
+                SET i.canonical_id = coalesce(i.canonical_id, randomUUID())
+                MERGE (declaration:AllergenDeclaration {
+                    declaration_id:
+                        "ingredient:" + toString(i.canonical_id)
+                        + ":allergen:" + al.name
+                        + ":version:" + $classification_version
+                })
+                ON CREATE SET declaration.created_at = datetime()
+                SET declaration.declaration_type =
+                        "inferred_ingredient_presence",
+                    declaration.presence = rel.presence,
+                    declaration.evidence_status = rel.evidence_status,
+                    declaration.sources = rel.sources,
+                    declaration.keyword_matches = rel.keyword_matches,
+                    declaration.fato_class_iri =
+                        $fato_declaration_class_iri,
+                    declaration.classification_version =
+                        $classification_version,
+                    declaration.updated_at = datetime()
+                MERGE (i)-[:HAS_DECLARATION]->(declaration)
+                MERGE (declaration)-[:CONCERNS]->(al)
                 """,
                 {
                     "recipe_id": recipe_id,
                     "allergen": allergen,
                     "keywords": _ALLERGEN_KEYWORDS.get(allergen, [allergen]),
+                    "keyword_regexes": [
+                        _allergen_keyword_regex(keyword)
+                        for keyword in _ALLERGEN_KEYWORDS.get(
+                            allergen, [allergen]
+                        )
+                    ],
+                    **_allergen_ontology_params(allergen),
                 },
             )
 
@@ -423,6 +533,27 @@ _ALLERGEN_KEYWORDS: dict[str, list[str]] = {
         "squid", "octopus", "cuttlefish", "whelk", "cockle", "abalone", "snail",
     ],
 }
+
+
+def _allergen_ontology_params(allergen: str) -> dict[str, str | None]:
+    mapping = ALLERGEN_ONTOLOGY_MAPPINGS.get(allergen)
+    return {
+        "eu_label": mapping.eu_label if mapping else allergen,
+        "foodon_label_claim_id": (
+            mapping.foodon_label_claim_id if mapping else None
+        ),
+        "fato_class_iri": FATO_ALLERGEN_CLASS_IRI,
+        "fato_declaration_class_iri": (
+            FATO_ALLERGEN_DECLARATION_CLASS_IRI
+        ),
+        "classification_version": CLASSIFICATION_VERSION,
+    }
+
+
+def _allergen_keyword_regex(keyword: str) -> str:
+    escaped = re.escape(keyword.strip().casefold()).replace(r"\ ", r"\s+")
+    return rf".*\b{escaped}(e?s)?\b.*"
+
 
 _PLANT_DAIRY_ALTERNATIVE_PATTERNS = (
     r"\b(?:coconut|soy|soya|almond|oat|rice|cashew|hazelnut|hemp|pea)"

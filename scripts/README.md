@@ -57,6 +57,11 @@ python scripts/neo4j/tag_recipes.py
 
 # Tag ingredients with allergen links
 python scripts/neo4j/tag_allergens.py
+
+# Build explicit vegan and vegetarian ingredient/recipe assessments
+# (omit --apply for a read-only preview)
+PYTHONPATH=src uv run python \
+  scripts/neo4j/classify_vegan_vegetarian.py --apply
 ```
 
 ### 3. Elasticsearch — vector collections
@@ -90,6 +95,11 @@ python scripts/elasticsearch/index_recipes_v2.py --recreate
 
 # Refresh only selected Neo4j sources without dropping the index
 python scripts/elasticsearch/index_recipes_v2.py --sources FoodHero HealthyFoods
+
+# Update allergen evidence and consumer suitability in place, preserving vectors
+# (omit --apply for a read-only preview)
+PYTHONPATH=src uv run python \
+  scripts/elasticsearch/sync_recipe_evidence_to_es.py --apply
 ```
 
 ## Notes

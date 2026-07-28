@@ -5,6 +5,12 @@ from typing import Optional
 from pathlib import Path
 
 from neo4j import GraphDatabase
+from recipe_wrangler.utils.food_ontology import (
+    ALLERGEN_ONTOLOGY_MAPPINGS,
+    CLASSIFICATION_VERSION,
+    FATO_ALLERGEN_CLASS_IRI,
+    FATO_ALLERGEN_DECLARATION_CLASS_IRI,
+)
 try:
     from dotenv import load_dotenv
 except Exception:  # pragma: no cover - optional dependency
@@ -407,12 +413,34 @@ def _connect(uri: str, username: str, password: Optional[str], no_auth: bool):
 
 
 def _ensure_constraints(driver) -> None:
-    statement = (
-        "CREATE CONSTRAINT allergen_name IF NOT EXISTS "
-        "FOR (n:Allergen) REQUIRE n.name IS UNIQUE"
-    )
+    statements = [
+        (
+            "CREATE CONSTRAINT allergen_name IF NOT EXISTS "
+            "FOR (n:Allergen) REQUIRE n.name IS UNIQUE"
+        ),
+        (
+            "CREATE CONSTRAINT allergen_declaration_id IF NOT EXISTS "
+            "FOR (n:AllergenDeclaration) REQUIRE n.declaration_id IS UNIQUE"
+        ),
+    ]
     with driver.session() as session:
-        session.run(statement)
+        for statement in statements:
+            session.run(statement).consume()
+
+
+def _ontology_params(allergen_name: str) -> dict[str, str | None]:
+    mapping = ALLERGEN_ONTOLOGY_MAPPINGS.get(allergen_name)
+    return {
+        "fato_class_iri": FATO_ALLERGEN_CLASS_IRI,
+        "fato_declaration_class_iri": (
+            FATO_ALLERGEN_DECLARATION_CLASS_IRI
+        ),
+        "foodon_label_claim_id": (
+            mapping.foodon_label_claim_id if mapping else None
+        ),
+        "eu_label": mapping.eu_label if mapping else allergen_name,
+        "classification_version": CLASSIFICATION_VERSION,
+    }
 
 
 def _tag_by_foodon(driver, allergen_name: str, roots: list[str]) -> int:
@@ -424,21 +452,19 @@ def _tag_by_foodon(driver, allergen_name: str, roots: list[str]) -> int:
                WHERE toLower(i.name) =~ pattern)
       AND (
         $allergen_name <> 'milk'
-        OR (
-          none(pattern IN $milk_exclusions
-               WHERE toLower(i.name) =~ pattern)
-          AND NOT EXISTS {
-            MATCH (i)-[:HAS_CLASS]->(plant_class:FoodOnClass)
-            MATCH (plant_class)-[:SUBCLASS_OF*0..]->(
-              plant_root:FoodOnClass {foodon_id: 'FOODON_00001015'}
-            )
-          }
-        )
+        OR none(pattern IN $milk_exclusions
+                WHERE toLower(i.name) =~ pattern)
       )
     WITH i,
          collect(distinct a.foodon_id) AS foodon_ids,
          collect(distinct a.label) AS foodon_labels
     MERGE (al:Allergen {name: $allergen_name})
+    SET al.canonical_id = $allergen_name,
+        al.eu_label = $eu_label,
+        al.jurisdiction = "EU",
+        al.fato_class_iri = $fato_class_iri,
+        al.foodon_label_claim_id = $foodon_label_claim_id,
+        al.classification_version = $classification_version
     MERGE (i)-[r:HAS_ALLERGEN]->(al)
     SET r.sources = CASE
             WHEN r.sources IS NULL THEN ["foodon"]
@@ -446,7 +472,31 @@ def _tag_by_foodon(driver, allergen_name: str, roots: list[str]) -> int:
             ELSE r.sources + ["foodon"]
         END,
         r.foodon_ids = foodon_ids,
-        r.foodon_labels = foodon_labels
+        r.foodon_labels = foodon_labels,
+        r.presence = "contains",
+        r.evidence_status = "inferred",
+        r.classification_version = $classification_version
+    WITH i, al, r
+    SET i.canonical_id = coalesce(i.canonical_id, randomUUID())
+    MERGE (declaration:AllergenDeclaration {
+        declaration_id:
+            "ingredient:" + toString(i.canonical_id)
+            + ":allergen:" + al.name
+            + ":version:" + $classification_version
+    })
+    ON CREATE SET declaration.created_at = datetime()
+    SET declaration.declaration_type = "inferred_ingredient_presence",
+        declaration.presence = r.presence,
+        declaration.evidence_status = r.evidence_status,
+        declaration.sources = r.sources,
+        declaration.foodon_ids = r.foodon_ids,
+        declaration.foodon_labels = r.foodon_labels,
+        declaration.keyword_matches = coalesce(r.keyword_matches, []),
+        declaration.fato_class_iri = $fato_declaration_class_iri,
+        declaration.classification_version = $classification_version,
+        declaration.updated_at = datetime()
+    MERGE (i)-[:HAS_DECLARATION]->(declaration)
+    MERGE (declaration)-[:CONCERNS]->(al)
     RETURN count(distinct i) AS tagged
     """
     with driver.session() as session:
@@ -458,6 +508,7 @@ def _tag_by_foodon(driver, allergen_name: str, roots: list[str]) -> int:
             name_exclusions=ALLERGEN_EXCLUSION_REGEXES.get(
                 allergen_name, []
             ),
+            **_ontology_params(allergen_name),
         )
         return int(result.single()["tagged"])
 
@@ -481,16 +532,8 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
                WHERE toLower(i.name) =~ pattern)
       AND (
         $allergen_name <> 'milk'
-        OR (
-          none(pattern IN $milk_exclusions
-               WHERE toLower(i.name) =~ pattern)
-          AND NOT EXISTS {
-            MATCH (i)-[:HAS_CLASS]->(plant_class:FoodOnClass)
-            MATCH (plant_class)-[:SUBCLASS_OF*0..]->(
-              plant_root:FoodOnClass {foodon_id: 'FOODON_00001015'}
-            )
-          }
-        )
+        OR none(pattern IN $milk_exclusions
+                WHERE toLower(i.name) =~ pattern)
       )
     WITH i, [idx IN range(0, size($keywords) - 1)
              WHERE (
@@ -502,6 +545,12 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
              ) |
              $keywords[idx]] AS hits
     MERGE (al:Allergen {name: $allergen_name})
+    SET al.canonical_id = $allergen_name,
+        al.eu_label = $eu_label,
+        al.jurisdiction = "EU",
+        al.fato_class_iri = $fato_class_iri,
+        al.foodon_label_claim_id = $foodon_label_claim_id,
+        al.classification_version = $classification_version
     MERGE (i)-[r:HAS_ALLERGEN]->(al)
     SET r.sources = CASE
             WHEN r.sources IS NULL THEN ["keyword"]
@@ -511,7 +560,31 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
         r.keyword_matches = CASE
             WHEN r.keyword_matches IS NULL THEN hits
             ELSE r.keyword_matches + [x IN hits WHERE NOT x IN r.keyword_matches]
-        END
+        END,
+        r.presence = "contains",
+        r.evidence_status = "inferred",
+        r.classification_version = $classification_version
+    WITH i, al, r
+    SET i.canonical_id = coalesce(i.canonical_id, randomUUID())
+    MERGE (declaration:AllergenDeclaration {
+        declaration_id:
+            "ingredient:" + toString(i.canonical_id)
+            + ":allergen:" + al.name
+            + ":version:" + $classification_version
+    })
+    ON CREATE SET declaration.created_at = datetime()
+    SET declaration.declaration_type = "inferred_ingredient_presence",
+        declaration.presence = r.presence,
+        declaration.evidence_status = r.evidence_status,
+        declaration.sources = r.sources,
+        declaration.foodon_ids = coalesce(r.foodon_ids, []),
+        declaration.foodon_labels = coalesce(r.foodon_labels, []),
+        declaration.keyword_matches = r.keyword_matches,
+        declaration.fato_class_iri = $fato_declaration_class_iri,
+        declaration.classification_version = $classification_version,
+        declaration.updated_at = datetime()
+    MERGE (i)-[:HAS_DECLARATION]->(declaration)
+    MERGE (declaration)-[:CONCERNS]->(al)
     RETURN count(distinct i) AS tagged
     """
     with driver.session() as session:
@@ -524,6 +597,7 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
             name_exclusions=ALLERGEN_EXCLUSION_REGEXES.get(
                 allergen_name, []
             ),
+            **_ontology_params(allergen_name),
         )
         return int(result.single()["tagged"])
 

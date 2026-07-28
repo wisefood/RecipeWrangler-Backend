@@ -52,6 +52,13 @@ such as `whey powder` are not suppressed merely because an existing FoodOn
 class also has plant ancestry, and keyword matching uses safer boundaries and
 exclusions.
 
+Known mapping caveat: the generic ingredient `whey powder` is currently linked
+to FoodOn class `FOODON_03311498` (`soybean and cheese whey powder`). Its soy
+ancestor therefore produces an inferred soy declaration in addition to the
+milk declaration inferred from the `whey` keyword. This mapping is more
+specific than the ingredient name supports and should be audited before the
+soy declaration is treated as reliable.
+
 FATO contributed the standard declaration, allergen, consumer-group, and
 suitability vocabulary. It did not supply recipe ingredients, new FoodOn
 matches, manufacturer declarations, or ready-made suitability facts. The

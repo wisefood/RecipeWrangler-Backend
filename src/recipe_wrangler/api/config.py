@@ -26,7 +26,11 @@ class Settings(BaseSettings):
     guardrails_model: str = Field("llama-3.1-8b-instant", alias="GUARDRAILS_MODEL")
     search_temperature: float = Field(0.0, alias="SEARCH_TEMPERATURE")
     elastic_url: str = Field("http://localhost:9200", alias="ELASTIC_URL")
-    elastic_index: str = Field("recipes_v2", alias="ELASTIC_INDEX")
+    # The alias, never a concrete index: rebuild_index swaps it atomically, so
+    # nothing downstream needs to know whether it currently resolves to
+    # recipes_v4 or recipes_v9. Defaulting to a concrete name is what made the
+    # v2 -> v4 migration a config change in every environment.
+    elastic_index: str = Field("recipes", alias="ELASTIC_INDEX")
     elastic_timeout: float = Field(3.0, alias="ELASTIC_TIMEOUT")
     cors_allow_origins: List[str] = Field(default_factory=lambda: ["*"], alias="CORS_ALLOW_ORIGINS")
     api_port: int = Field(8001, alias="PORT")
@@ -35,6 +39,36 @@ class Settings(BaseSettings):
     redis_url: str = Field("redis://localhost:6379", alias="REDIS_URL")
     redis_recipe_db: int = Field(7, alias="REDIS_RECIPE_DB")
     redis_recipe_ttl: int = Field(86400, alias="REDIS_RECIPE_TTL")
+
+    # --- catalog layer ---------------------------------------------------- #
+    # Aliases, never concrete indices: rebuild_index() swaps the alias
+    # atomically, so nothing downstream needs to know about _v3/_v4.
+    catalog_recipes_alias: str = Field("recipes", alias="CATALOG_RECIPES_ALIAS")
+    catalog_profiles_alias: str = Field(
+        "recipe_profiles", alias="CATALOG_PROFILES_ALIAS"
+    )
+    catalog_embedding_dim: int = Field(384, alias="ES_DIM")
+    catalog_bulk_chunk_size: int = Field(500, alias="CATALOG_BULK_CHUNK_SIZE")
+    # Serve FoodChat's meal-slot candidates from the catalog index rather than
+    # Neo4j. On by default: the graph holds no annotations and no planning_tier,
+    # so the Neo4j path cannot honour a cuisine preference or an exclusion from
+    # planning however it is asked. Set to false to fall back if the ES path
+    # misbehaves — the Neo4j implementation is kept, not deleted, for exactly
+    # that reason.
+    # Off by default until allergen parity with the Neo4j path is proven. The
+    # graph excludes taxonomically (mozzarella is a descendant of dairy); the
+    # index can only match the declared allergen plus the ingredient name, so it
+    # is currently the weaker filter. Better recommendations are not worth a
+    # weaker allergen exclusion.
+    foodchat_candidates_from_elastic: bool = Field(
+        False, alias="FOODCHAT_CANDIDATES_FROM_ELASTIC"
+    )
+    # The corpus is ~7k recipes after the recipe1m purge, so the whole of it
+    # sits well inside one result window; this only needs to be revisited if a
+    # corpus of a different order of magnitude is loaded again.
+    elastic_max_result_window: int = Field(
+        100000, alias="ELASTIC_MAX_RESULT_WINDOW"
+    )
 
     @field_validator("neo4j_uri")
     def _validate_neo4j_uri(cls, value: str) -> str:  # noqa: N805

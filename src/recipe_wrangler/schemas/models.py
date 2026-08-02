@@ -125,6 +125,65 @@ class RecipeSearchRequest(BaseModel):
         default=None,
         description="Region whose nutri-score the result cards carry: US, IE, HU, or EU (default).",
     )
+    # Facets the caller selected in the UI, alongside the question.
+    #
+    # Hard filters, and they take precedence over anything inferred from the
+    # question text. A click is a deliberate statement; a word scanned out of a
+    # sentence is a guess. Without these, selecting a cuisine while a search box
+    # holds text silently did nothing — the question path ignored every sidebar
+    # filter except allergens.
+    dish_types: List[str] = Field(
+        default_factory=list,
+        description="Course/dish-type filter selected by the caller (e.g. ['main-dish']).",
+    )
+    sources: List[str] = Field(
+        default_factory=list,
+        description="Restrict to these recipe collections (e.g. ['myplate']).",
+    )
+    cuisines: List[str] = Field(
+        default_factory=list,
+        description="Cuisine filter selected by the caller (e.g. ['italian']).",
+    )
+    moods: List[str] = Field(
+        default_factory=list,
+        description="Eating-occasion filter (e.g. ['comfort', 'quick']).",
+    )
+    flavor_profiles: List[str] = Field(
+        default_factory=list,
+        description="Dominant-taste filter (e.g. ['spicy']).",
+    )
+    food_groups: List[str] = Field(
+        default_factory=list,
+        description="Coarse ingredient-category filter (e.g. ['fish']).",
+    )
+    require_diet_tags: List[str] = Field(
+        default_factory=list,
+        description="Diet groups the recipe must carry — a hard filter, unlike "
+                    "`diet_tags`, which are the member's profile preferences applied "
+                    "as soft boosts. Use this for a diet the caller explicitly chose.",
+    )
+    include_disabled: bool = Field(
+        default=False,
+        description="When true, disabled (soft-deleted) recipes appear in results — "
+                    "console/admin use only, gated upstream in wisefood-api. Without "
+                    "it an expert could not find a withdrawn recipe by name, only by "
+                    "browsing the unfiltered list.",
+    )
+    limit: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=100,
+        description="Page size. Omit to let the question decide — 'give me five "
+                    "quick dinners' sets its own limit, and a caller that always "
+                    "sent one would override that.",
+    )
+    offset: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Results to skip. Paired with `limit` this makes the question "
+                    "path paginate like parameter search; without it a text query "
+                    "returns one page and no way to reach the rest.",
+    )
 
 
 class RecipeSearchResponse(BaseModel):
@@ -150,6 +209,26 @@ class RecipeSearchFilters(BaseModel):
         default_factory=list,
         validation_alias=AliasChoices("dish_types", "dish_type"),
     )
+    # Annotation facets, matching the aggregations returned alongside results.
+    # Values come from closed vocabularies in `catalog.vocabularies`; an unknown
+    # value simply matches nothing rather than erroring, which is the right
+    # behaviour for a filter the client built from a facet it was handed.
+    cuisines: List[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("cuisines", "cuisine"),
+    )
+    moods: List[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("moods", "mood"),
+    )
+    flavor_profiles: List[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("flavor_profiles", "flavor_profile"),
+    )
+    food_groups: List[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("food_groups", "food_group"),
+    )
     max_duration_minutes: Optional[int] = None
     limit: int = Field(default=10, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
@@ -173,6 +252,21 @@ class RecipeSearchFilters(BaseModel):
     @field_validator("sources", mode="before")
     @classmethod
     def _coerce_sources(cls, value):  # noqa: N805
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            return [value]
+        return value
+
+    @field_validator("cuisines", "moods", "flavor_profiles", "food_groups", mode="before")
+    @classmethod
+    def _coerce_facets(cls, value):  # noqa: N805
+        """Accept a bare string as a one-element list.
+
+        Same tolerance the singular aliases imply: a caller writing
+        ``{"cuisine": "italian"}`` means one cuisine, and rejecting it as "not a
+        list" is a validation error that teaches nothing.
+        """
         if value is None or value == "":
             return []
         if isinstance(value, str):
@@ -514,6 +608,37 @@ class NutritionProfile(BaseModel):
 class FoodChatConstraints(BaseModel):
     include_ingredients: List[str] = Field(default_factory=list)
     exclude_ingredients: List[str] = Field(default_factory=list)
+    # Discovery facets. Soft preferences, not hard filters: a meal plan that
+    # returns nothing because the member likes Thai food is worse than one that
+    # leans Thai where it can. The candidate fetch applies them and relaxes them
+    # if a slot would otherwise come back empty.
+    #
+    # These reach the planner only through the Elasticsearch-backed candidate
+    # path — the annotations exist nowhere else, so the Neo4j path ignores them.
+    cuisines: List[str] = Field(
+        default_factory=list,
+        description="Preferred cuisines, e.g. ['italian', 'thai']. Relaxed before "
+                    "a slot is allowed to come back empty.",
+    )
+    moods: List[str] = Field(
+        default_factory=list,
+        description="Preferred eating occasions, e.g. ['comfort', 'quick'].",
+    )
+    flavor_profiles: List[str] = Field(
+        default_factory=list,
+        description="Preferred tastes, e.g. ['spicy', 'umami'].",
+    )
+    food_groups: List[str] = Field(
+        default_factory=list,
+        description="Food groups that should appear, e.g. ['fish', 'legumes'].",
+    )
+    max_duration_minutes: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Longest acceptable total time. FoodChat already collects a "
+                    "cooking-time preference and previously could only phrase it "
+                    "as prose for its grader; this makes it a real constraint.",
+    )
     exclude_recipe_ids: List[str] = Field(default_factory=list)
     favorite_recipe_ids: List[str] = Field(
         default_factory=list,

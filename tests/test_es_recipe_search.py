@@ -38,22 +38,67 @@ def test_recipe_search_uses_configured_index():
 
 
 def test_recipe_search_still_requires_profiled_recipes():
+    """Browse returns only profiled recipes — via `has_profile`, not a proxy.
+
+    This asserted `exists: nutri_score_eu` for as long as every recipe came
+    from a bulk import that profiled against the EU composition pool. A recipe
+    created through the API is profiled against the region its author chose, so
+    one created with region=IE has an Irish score and no EU one — and the proxy
+    excluded it from browse entirely: profiled in Postgres, profiled in its own
+    document, and invisible anyway.
+
+    The requirement being tested has not changed. Only the field that expresses
+    it, from one that happened to correlate to the one that means it.
+    """
     payload = search.build_es_query(search.RecipeSearchConstraints())
+    filters = payload["query"]["bool"]["filter"]
 
-    assert {"exists": {"field": "nutri_score_eu"}} in payload["query"]["bool"]["filter"]
+    assert {"term": {"has_profile": True}} in filters
+    assert {"exists": {"field": "nutri_score_eu"}} not in filters
 
 
-def test_supported_diet_groups_filter_on_explicit_suitability() -> None:
+def _filter_should_terms(payload: dict) -> list[dict]:
+    """Every `term` inside a filter's `should`, flattened."""
+    out = []
+    for clause in payload["query"]["bool"]["filter"]:
+        for sub in clause.get("bool", {}).get("should", []):
+            if "term" in sub:
+                out.append(sub["term"])
+    return out
+
+
+def test_supported_diet_groups_prefer_suitability_but_fall_back_to_tags() -> None:
+    """vegan/vegetarian query the FATO assessment *and* the source tag.
+
+    `suitable_for` is the better signal — three-state, with blocking
+    ingredients and reason codes. But filtering on it alone returned zero for
+    every vegan and vegetarian search, because classify_vegan_vegetarian.py has
+    never been run against this corpus: the graph holds no ConsumerGroup nodes,
+    so the field is empty on all 7,221 recipes while the tags carry vegetarian
+    on 3,916 and vegan on 2,143.
+    """
     payload = search.build_es_query(
         search.RecipeSearchConstraints(
             diet_tags=["vegan", "vegetarian", "low_sodium"]
         )
     )
 
-    filters = payload["query"]["bool"]["filter"]
-    assert {"term": {"suitable_for": "vegan"}} in filters
-    assert {"term": {"suitable_for": "vegetarian"}} in filters
-    assert {"term": {"tags": "low_sodium"}} in filters
+    terms = _filter_should_terms(payload)
+    for group in ("vegan", "vegetarian"):
+        assert {"suitable_for": group} in terms, "evidence field must still be queried"
+        assert {"tags": group} in terms, "must not return zero while it is unpopulated"
+    assert {"tags": "low_sodium"} in terms
+
+
+def test_diet_filters_never_require_both_signals() -> None:
+    """Matching either is enough; requiring both would reintroduce the zero."""
+    payload = search.build_es_query(
+        search.RecipeSearchConstraints(diet_tags=["vegetarian"])
+    )
+    clause = next(
+        c for c in payload["query"]["bool"]["filter"] if "bool" in c
+    )
+    assert clause["bool"]["minimum_should_match"] == 1
 
 
 def test_positive_ingredient_request_wins_over_inferred_allergen() -> None:
@@ -210,7 +255,10 @@ def test_natural_language_search_always_uses_elasticsearch():
     extractor.run_extract_constraints.assert_called_once_with(
         "vegan lentils under 30 minutes"
     )
-    constraints = es_search.call_args.args[0]
+    # The FIRST call, not the last: a stubbed empty result now triggers the
+    # zero-result relaxation retry, whose constraints are deliberately
+    # different. What this asserts is how the question was interpreted.
+    constraints = es_search.call_args_list[0].args[0]
     assert constraints.include_ingredients == ["lentils"]
     assert constraints.diet_tags == ["vegan"]
     assert constraints.max_duration_minutes == 30
@@ -251,7 +299,10 @@ def test_natural_language_search_removes_llm_include_allergen_conflict():
             )
         )
 
-    constraints = es_search.call_args.args[0]
+    # The FIRST call, not the last: a stubbed empty result now triggers the
+    # zero-result relaxation retry, whose constraints are deliberately
+    # different. What this asserts is how the question was interpreted.
+    constraints = es_search.call_args_list[0].args[0]
     assert constraints.include_ingredients == ["egg"]
     assert constraints.exclude_allergens == []
 
@@ -292,7 +343,10 @@ def test_natural_language_title_intent_uses_title_search_only():
             )
         )
 
-    constraints = es_search.call_args.args[0]
+    # The FIRST call, not the last: a stubbed empty result now triggers the
+    # zero-result relaxation retry, whose constraints are deliberately
+    # different. What this asserts is how the question was interpreted.
+    constraints = es_search.call_args_list[0].args[0]
     assert constraints.title_query == "chicken tikka masala"
     assert constraints.include_ingredients == []
     assert constraints.exclude_ingredients == []
@@ -337,7 +391,10 @@ def test_natural_language_mixed_intent_combines_title_and_filters():
             )
         )
 
-    constraints = es_search.call_args.args[0]
+    # The FIRST call, not the last: a stubbed empty result now triggers the
+    # zero-result relaxation retry, whose constraints are deliberately
+    # different. What this asserts is how the question was interpreted.
+    constraints = es_search.call_args_list[0].args[0]
     assert constraints.title_query == "chicken tikka masala"
     assert constraints.exclude_ingredients == ["milk"]
     assert constraints.exclude_allergens == ["milk"]

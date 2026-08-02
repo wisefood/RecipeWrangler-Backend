@@ -198,7 +198,17 @@ def _aligned_match_names(
 @tool
 def parse_recipe_tool(recipe: str) -> dict:
     """Parses a raw recipe text into structured fields."""
-    model_name = (os.getenv("PARSE_LLM") or "llama-3.1-8b-instant").strip()
+    # NOT llama-3.1-8b-instant, which was the previous default: `ParsedRecipe`
+    # requires all seven fields with min_length=1, and the 8b model routinely
+    # returns without `directions`, so Groq rejects the tool call with
+    #   "parameters for tool ParsedRecipe did not match schema:
+    #    errors: [missing properties: 'directions']"
+    # That surfaced as a 503 "Parse pipeline request failed" on every call to
+    # POST /recipes/profile and on any create that needed profiling — i.e.
+    # recipe creation was broken, not merely degraded.
+    #
+    # Verified working: llama-3.3-70b-versatile and openai/gpt-oss-20b.
+    model_name = (os.getenv("PARSE_LLM") or "llama-3.3-70b-versatile").strip()
     if model_name == "meta-llama/llama-4-maverick-17b-128e-instruct":
         # Legacy value kept in some environments; remap to a model we can serve.
         model_name = "llama-3.1-8b-instant"

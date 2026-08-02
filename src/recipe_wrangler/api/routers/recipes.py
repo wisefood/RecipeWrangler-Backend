@@ -13,8 +13,11 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+import re
 import requests
-from fastapi import APIRouter, BackgroundTasks, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from neo4j.exceptions import DriverError as Neo4jDriverError
+from neo4j.exceptions import Neo4jError
 from starlette.concurrency import run_in_threadpool
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
@@ -28,6 +31,10 @@ from recipe_wrangler.api.exceptions import (
 from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 
+from recipe_wrangler.api.identity import Caller, get_caller, redact
+from recipe_wrangler.catalog.sources import canonical_course_type
+from recipe_wrangler.catalog.foodchat import fetch_candidates_es
+from recipe_wrangler.catalog.writer import commit as commit_recipe
 from recipe_wrangler.tools.es_recipe_search import (
     ES_INDEX,
     RecipeSearchConstraints,
@@ -992,16 +999,39 @@ def recipe_autocomplete(
     excluded_ids: set[str] = set()
     if candidate_ids:
         try:
-            mget_response = get_http_session().post(
-                f"{settings.elastic_url}/{ES_INDEX}/_mget",
-                json={"docs": [{"_id": rid, "_source": ["status"]} for rid in candidate_ids]},
+            # A search on `recipe_id`, not an _mget by _id. The document key
+            # differs per index generation — recipes_v2 used the bare recipe id
+            # as _id, the catalog index uses `urn:recipe:<id>` — so an _mget by
+            # raw id silently finds nothing after the read flip and marks every
+            # suggestion as excluded. Querying the field works under either.
+            lookup = get_http_session().post(
+                f"{settings.elastic_url}/{settings.elastic_index}/_search",
+                json={
+                    "size": len(candidate_ids),
+                    "_source": ["recipe_id", "id", "status"],
+                    "query": {
+                        "bool": {
+                            "should": [
+                                {"terms": {"recipe_id": candidate_ids}},
+                                {"terms": {"id": candidate_ids}},
+                            ],
+                            "minimum_should_match": 1,
+                        }
+                    },
+                },
                 timeout=settings.elastic_timeout,
             )
-            mget_response.raise_for_status()
-            for doc in mget_response.json().get("docs") or []:
-                status_value = str(((doc.get("_source") or {}).get("status")) or "").lower()
-                if not doc.get("found") or status_value == STATUS_DISABLED:
-                    excluded_ids.add(str(doc.get("_id")))
+            lookup.raise_for_status()
+            found: dict[str, str] = {}
+            for hit in lookup.json().get("hits", {}).get("hits") or []:
+                src = hit.get("_source") or {}
+                status_value = str(src.get("status") or "").lower()
+                for key in (src.get("recipe_id"), src.get("id")):
+                    if key:
+                        found[str(key)] = status_value
+            for rid in candidate_ids:
+                if rid not in found or found[rid] == STATUS_DISABLED:
+                    excluded_ids.add(rid)
         except requests.RequestException:
             # Best-effort: a failed cross-check must never break autocomplete.
             excluded_ids = set()
@@ -1543,6 +1573,17 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
         "allergen_evidence": card.get("allergen_evidence") or [],
         "suitable_for": card.get("suitable_for") or [],
         "consumer_suitability": card.get("consumer_suitability") or [],
+        # Already canonicalized by es_recipe_search, so the client sees one
+        # spelling regardless of which builder wrote the document.
+        "course_types": card.get("course_types") or [],
+        # Annotation facets, so a card can display the cuisine or mood that
+        # brought it back. Note this dict is an allow-list, not a passthrough:
+        # `creator` is absent from it deliberately, and anything added here is
+        # visible to every caller including anonymous ones.
+        "cuisines": card.get("cuisines") or [],
+        "moods": card.get("moods") or [],
+        "flavor_profiles": card.get("flavor_profiles") or [],
+        "food_groups": card.get("food_groups") or [],
     }
 
 
@@ -1598,10 +1639,42 @@ def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
     classification needed), and ``nutrition`` (``calories``, ``protein_g``,
     ``carbs_g``, ``fat_g`` per serving; ``null`` when no profile is stored).
     """
+    # Elasticsearch by default. The graph holds no cuisine, mood, flavour, food
+    # group or planning_tier, so the Neo4j path cannot honour a taste preference
+    # or an exclusion from planning however politely it is asked — the fields
+    # are simply not there. Flip FOODCHAT_CANDIDATES_FROM_ELASTIC to fall back.
+    use_elastic = get_settings().foodchat_candidates_from_elastic
+
     try:
-        results = fetch_foodchat_candidates(request)
+        if use_elastic:
+            results = fetch_candidates_es(request)
+        else:
+            results = fetch_foodchat_candidates(request)
         return FoodChatResponse(results=results)
+    except (Neo4jError, Neo4jDriverError) as exc:
+        raise map_dependency_error("Neo4j", exc) from exc
     except Exception as exc:
+        if use_elastic:
+            # Fall back rather than fail. The Neo4j path is kept precisely so a
+            # problem in the new one degrades the plan (no annotations) instead
+            # of removing meal planning from the product.
+            logger.error(
+                "Elasticsearch foodchat candidates failed, falling back to "
+                "Neo4j (annotations and planning_tier will be ignored): %s",
+                exc,
+            )
+            try:
+                return FoodChatResponse(results=fetch_foodchat_candidates(request))
+            except (Neo4jError, Neo4jDriverError) as fallback_exc:
+                # The same Neo4j outage reports 503 on the direct path and would
+                # have reported 500 here purely because it was reached through a
+                # fallback. A caller retrying on 503 and paging on 500 would
+                # then do the wrong thing depending on a flag it cannot see.
+                raise map_dependency_error("Neo4j", fallback_exc) from fallback_exc
+            except Exception as fallback_exc:  # noqa: BLE001
+                raise InternalError(
+                    "Failed to fetch foodchat candidates"
+                ) from fallback_exc
         raise InternalError("Failed to fetch foodchat candidates") from exc
 
 
@@ -1831,6 +1904,9 @@ async def recipe_search(
             [] if title_only else constraints.get("title_keywords") or []
         ),
         title_query=title_query,
+        # Always carried, never filters. Keeps relevance ordering even when the
+        # extractor reduced the question to filters and dropped the dish noun.
+        rank_query=question,
         max_duration_minutes=(
             None if title_only else constraints.get("max_duration_minutes")
         ),
@@ -1838,9 +1914,155 @@ async def recipe_search(
             None if title_only else constraints.get("min_servings")
         ),
         sort_by=None if title_only else constraints.get("sort_by"),
-        limit=constraints.get("limit") or 10,
+        # An explicit page size wins over the extractor's. A paging client knows
+        # how many rows it is rendering; the extractor is guessing from prose.
+        limit=payload.limit or constraints.get("limit") or 10,
+        offset=payload.offset or 0,
         region=payload.region or "eu",
+        include_disabled=payload.include_disabled,
+        # Facets for the question path too.
+        #
+        # Without them the filter panel keeps whatever counts the last
+        # parameter search produced, so typing a query leaves chips advertising
+        # totals for a different result set — clicking "Italian 1175" then
+        # returns 9. Aggregations over a 7k-document index are not a meaningful
+        # cost next to the constraint-extraction LLM call this path already
+        # makes.
+        include_facets=True,
     )
+    # Reclassify course words the extractor mistook for ingredients.
+    #
+    # "vegan dessert" came back as include_ingredients=["dessert"], demanding a
+    # recipe with an ingredient literally called "dessert" — zero matches,
+    # where the corpus holds 360 vegan desserts. A word naming a course is a
+    # course, not an ingredient, and the catalog registry already knows which
+    # words those are.
+    if base_constraints["include_ingredients"]:
+        kept_ingredients: list[str] = []
+        promoted: list[str] = []
+        for ingredient in base_constraints["include_ingredients"]:
+            canonical = canonical_course_type(ingredient)
+            if canonical:
+                promoted.append(canonical)
+            else:
+                kept_ingredients.append(ingredient)
+        if promoted:
+            base_constraints["include_ingredients"] = kept_ingredients
+            base_constraints["dish_types"] = list(
+                dict.fromkeys([*base_constraints["dish_types"], *promoted])
+            )
+            logger.info(
+                "recipe_search reclassified %s from ingredients to course types",
+                promoted,
+            )
+
+    # Recover course words the extractor dropped from the question entirely.
+    #
+    # The extractor reliably finds diet and ingredients but frequently discards
+    # the noun naming the dish, and a word it never emitted cannot be rescued by
+    # the reclassification above. The result was that "a light summer salad"
+    # returned a crumble and "comfort food for a cold evening" returned Angel
+    # Food Cake — `rank_query` matching "light summer" and "food" lexically
+    # because nothing constrained the course.
+    #
+    # Scanning the question for course vocabulary is deterministic and cheap:
+    # the words are a closed set, so this cannot invent a constraint the user
+    # did not express.
+    _question_tokens = re.findall(r"[a-z-]+", question.lower())
+
+    if not base_constraints["dish_types"]:
+        recovered: list[str] = []
+        for token in _question_tokens:
+            canonical = canonical_course_type(token)
+            if canonical and canonical not in recovered:
+                recovered.append(canonical)
+        if recovered:
+            base_constraints["dish_types"] = recovered
+            logger.info(
+                "recipe_search recovered course types %s from the question",
+                recovered,
+            )
+
+    # Moods and cuisines, same treatment. The extractor's prompt predates both
+    # vocabularies and never emits them, so "comfort food for a cold evening"
+    # arrived with no mood at all and ranked Angel Food Cake first on the word
+    # "food". Both vocabularies are closed sets, so scanning cannot invent a
+    # constraint the user did not express.
+    from recipe_wrangler.catalog import vocabularies as _V
+
+    _mood_vocab = set(_V.MOODS)
+    _cuisine_vocab = set(_V.CUISINES)
+
+    moods = [t for t in _question_tokens if t in _mood_vocab]
+    cuisines = [t for t in _question_tokens if t in _cuisine_vocab]
+    if moods:
+        base_constraints["moods"] = list(dict.fromkeys(moods))
+        logger.info("recipe_search recovered moods %s", base_constraints["moods"])
+    if cuisines:
+        base_constraints["cuisines"] = list(dict.fromkeys(cuisines))
+        logger.info("recipe_search recovered cuisines %s", base_constraints["cuisines"])
+
+    # Explicit caller selections override everything inferred above.
+    #
+    # The recovery passes exist because the extractor drops course, mood and
+    # cuisine words from the question. They are guesses about intent. A facet
+    # the caller clicked is not a guess, so it replaces the guess for that field
+    # rather than being unioned with it — otherwise picking "Greek" on a search
+    # for "italian pasta" would widen the results to both, which reads as the
+    # filter being ignored.
+    #
+    # Applied before the lexical fallback so that a selection counts as a
+    # signal: "pasta" plus a Greek cuisine chip should filter to Greek, not
+    # decide that nothing was extracted.
+    for _field in ("dish_types", "sources", "cuisines", "moods",
+                   "flavor_profiles", "food_groups"):
+        _selected = getattr(payload, _field, None) or []
+        if _selected:
+            base_constraints[_field] = list(dict.fromkeys(_selected))
+
+    # Diet needs its own field because `payload.diet_tags` already means
+    # something else here — the member's profile groups, applied as boosts. A
+    # diet the caller ticked is a requirement, so it lands on the hard filter
+    # and joins whatever the question itself stated rather than replacing it:
+    # "vegan" in the box and "gluten-free" on the chip means both.
+    if payload.require_diet_tags:
+        base_constraints["diet_tags"] = list(
+            dict.fromkeys([*base_constraints["diet_tags"], *payload.require_diet_tags])
+        )
+
+    # Lexical fallback.
+    #
+    # The extractor classifies a bare noun like "pasta" as search_intent
+    # "constraints" and then extracts no constraints, so every lexical and
+    # filtering field ends up empty. build_es_query then emits `must: []` with
+    # no `should`, which matches the entire profiled corpus, and the sort falls
+    # back to expert_recipe/source_rank — so *every* such query returns the same
+    # list in the same order regardless of what was asked. Using the raw
+    # question as the title query restores both a `should` clause and
+    # `_score`-first ordering.
+    #
+    # Deliberately only when NOTHING was extracted: a question like "under 30
+    # minutes" legitimately yields only a duration filter, and forcing the
+    # question text in as a title query would add minimum_should_match=1 and
+    # wrongly exclude everything that does not contain those words.
+    _signal_keys = (
+        "include_ingredients", "exclude_ingredients", "exclude_allergens",
+        "diet_tags", "dish_types", "sources", "title_keywords", "title_query",
+        "cuisines", "moods", "flavor_profiles", "food_groups",
+        "max_duration_minutes", "min_servings", "sort_by",
+    )
+    lexical_fallback = not any(
+        base_constraints.get(key) not in (None, [], "") for key in _signal_keys
+    )
+    if lexical_fallback:
+        base_constraints["title_query"] = question
+        title_query = question
+        logger.info(
+            "recipe_search lexical fallback engaged for %r "
+            "(extractor returned no constraints)",
+            question[:80],
+        )
+
     es_started = time.perf_counter()
     relaxed = False
     try:
@@ -1860,6 +2082,32 @@ async def recipe_search(
                     title_match_any=True,
                 ),
             )
+        elif not es_out["results"] and title_query:
+            # Demote the title requirement to a ranking signal.
+            #
+            # A title_query makes the title clauses mandatory
+            # (minimum_should_match=1). When the extractor emits one *alongside*
+            # other constraints the combination is often unsatisfiable —
+            # "vegetarian curry" yielded include_ingredients=["curry"] AND
+            # title_query="vegetarian curry", requiring a recipe both containing
+            # an ingredient called "curry" and titled with both words. That is
+            # zero recipes, where the diet filter alone matches 3,914.
+            #
+            # Dropping it to `rank_query` keeps the words influencing the order
+            # without excluding anything, so the user gets the vegetarian
+            # curries they asked for rather than an empty page.
+            relaxed = True
+            demoted = dict(base_constraints)
+            demoted["title_query"] = None
+            demoted["rank_query"] = question
+            es_out = await run_in_threadpool(
+                search_recipes_es, RecipeSearchConstraints(**demoted)
+            )
+    except ResultWindowExceededError as exc:
+        # Deep paging past Elasticsearch's result window. A 400 telling the
+        # client to narrow is honest; the alternative is a 503 blaming the
+        # search cluster for a request it correctly refused.
+        raise InvalidError(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Elasticsearch", exc) from exc
     logger.info(
@@ -1879,7 +2127,11 @@ async def recipe_search(
             }
         ),
     )
-    return {"results": [_es_card(card) for card in es_out["results"]]}
+    return {
+        "results": [_es_card(card) for card in es_out["results"]],
+        "total": es_out.get("total", 0),
+        "facets": es_out.get("facets", {}),
+    }
 
 
 @router.post(
@@ -1900,6 +2152,10 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
                 diet_tags=payload.diet_tags,
                 sources=payload.sources,
                 dish_types=payload.dish_types,
+                cuisines=payload.cuisines,
+                moods=payload.moods,
+                flavor_profiles=payload.flavor_profiles,
+                food_groups=payload.food_groups,
                 max_duration_minutes=payload.max_duration_minutes,
                 limit=payload.limit,
                 offset=payload.offset,
@@ -2019,15 +2275,32 @@ def _generate_user_recipe_id(title: str, ingredients: list[str]) -> str:
 
 
 def _project_to_recipes_v2(recipe_id: str) -> None:
-    """Refresh this recipe's full recipes_v2 doc from Neo4j+Postgres.
+    """Refresh this recipe's catalog document from its owners.
 
-    Best-effort (logged inside): the owners hold the truth and the offline
-    rebuild converges the index if this write is missed.
+    Now goes through ``catalog.projection``, which builds the document with the
+    same ``Recipe.validate`` the corpus rebuild uses. The previous
+    implementation assembled a ``recipes_v2``-shaped document — flat
+    ``ingredients``, no ``urn`` — which the catalog index's strict mapping
+    rejects with a 400. Because it was best-effort it logged and returned
+    False, so every recipe created or edited after the read flip was silently
+    absent from search.
+
+    Failure is now raised and logged at ERROR rather than swallowed. It is
+    still caught here so a projection problem cannot fail a write that already
+    committed to Neo4j and Postgres — but it is loud, and the recipe id is in
+    the message so it can be re-projected.
     """
-    from recipe_wrangler.tools.es_recipe_search import ES_INDEX
+    from recipe_wrangler.catalog.projection import ProjectionError, project
 
-    settings = get_settings()
-    project_recipe_to_es_v2(recipe_id, es_url=settings.elastic_url, index=ES_INDEX)
+    try:
+        project(recipe_id)
+    except ProjectionError:
+        logger.error(
+            "catalog projection FAILED for %s — the recipe is saved in Neo4j and "
+            "Postgres but will not appear in search until it is re-projected",
+            recipe_id,
+            exc_info=True,
+        )
 
 
 def _index_recipe_to_elastic(
@@ -2065,7 +2338,9 @@ def _index_recipe_to_elastic(
     tags=["recipes"],
     summary="Create a new user recipe with nutrition profiling",
 )
-async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
+async def recipe_create(
+    payload: RecipeCreateRequest, caller: Caller = Depends(get_caller)
+) -> RecipeCreateResponse:
     """Create a new recipe from structured fields.
 
     1. Splits raw ingredient strings into names + measurements.
@@ -2206,6 +2481,9 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
             source="user",
             source_id=payload.source_id,
             expert_recipe=payload.expert_recipe,
+            # Keycloak subject, established by wisefood-api. Set once and never
+            # overwritten, and redacted from responses for non-expert callers.
+            creator=caller.creator_id,
         )
     except Exception as exc:
         raise map_dependency_error("Neo4j", exc) from exc
@@ -2259,10 +2537,27 @@ async def recipe_create(payload: RecipeCreateRequest) -> RecipeCreateResponse:
     except Exception:
         pass  # non-fatal
 
-    # Project the full doc into the primary search index — without this the
-    # recipe exists in Neo4j/Postgres but never appears in recipes_v2 until an
-    # offline rebuild. Runs after the Postgres trace write so nutri scores land.
-    _project_to_recipes_v2(recipe_id)
+    # Commit: project into the catalog index, then annotate.
+    #
+    # A created recipe is only finished when it is stored, profiled *and*
+    # annotated. Profiling happened above; the remaining two are one call so
+    # they cannot drift apart. Without annotation the recipe exists and is
+    # searchable by text but carries no cuisine, mood, flavour or food group —
+    # so it is unreachable by every discovery filter in the UI and invisible to
+    # the meal planner's cuisine preferences. A recipe nobody can find is not
+    # meaningfully created.
+    #
+    # Runs after the Postgres trace so nutri-scores land in the same document.
+    # Partial outcomes are reported, never raised: the owners already committed,
+    # and the pending markers `commit` leaves behind are what reconciliation and
+    # the annotation backfill consume.
+    commit_result = commit_recipe(recipe_id)
+    if not commit_result.complete:
+        logger.warning(
+            "recipe %s created but incomplete — %s",
+            recipe_id,
+            commit_result.summary(),
+        )
 
     return RecipeCreateResponse(recipe_id=recipe_id)
 
@@ -2464,9 +2759,16 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
         except Exception:
             pass  # non-fatal
 
-    # --- recipes_v2: full-doc reprojection so title/tags/allergens/duration/
-    # expert_recipe edits reach search instead of going stale until a rebuild.
-    _project_to_recipes_v2(resolved_cache_id or recipe_id)
+    # --- Full-doc reprojection so title/tags/allergens/duration/expert_recipe
+    # edits reach search instead of going stale until a rebuild.
+    #
+    # Goes through the same commit path as creation, so an edit cannot leave the
+    # index in a state a creation could not. `annotate_recipe` is on but the
+    # commit skips a recipe that already carries facets — so a recipe annotated
+    # at creation is not re-classified on every edit (a model call per keystroke,
+    # and a silent overwrite of anything a human confirmed), while one that was
+    # never successfully annotated gets another attempt here.
+    commit_recipe(resolved_cache_id or recipe_id)
 
     current_tags: list[str] = []
     try:

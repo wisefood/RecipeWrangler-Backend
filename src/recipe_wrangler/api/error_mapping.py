@@ -32,6 +32,8 @@ def map_dependency_error(dependency: str, exc: Exception) -> APIException:
             "temporary failure in name resolution",
             "service unavailable",
             "is unavailable",
+            "not currently available",
+            "database is shutdown",
             "failed to fetch",
             "failed to upsert",
             "operationalerror",

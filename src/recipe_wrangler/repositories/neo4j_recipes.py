@@ -343,6 +343,7 @@ def upsert_recipe_to_neo4j(
     source: str = "user",
     source_id: str | None = None,
     expert_recipe: bool = False,
+    creator: str | None = None,
 ) -> None:
     """Write (or update) a recipe and its ingredient/allergen/tag graph in Neo4j.
 
@@ -367,7 +368,11 @@ def upsert_recipe_to_neo4j(
                 r.serves        = $serves,
                 r.image_url     = $image_url,
                 r.instructions  = $instructions,
-                r.edited        = coalesce(r.edited, false)
+                r.edited        = coalesce(r.edited, false),
+                // The Keycloak subject of whoever created this, set once and
+                // never overwritten: a later edit by someone else must not
+                // rewrite authorship. Redacted from public responses.
+                r.creator       = coalesce(r.creator, $creator)
             """,
             {
                 "recipe_id": recipe_id,
@@ -379,6 +384,7 @@ def upsert_recipe_to_neo4j(
                 "serves": serves,
                 "image_url": image_url,
                 "instructions": instructions,
+                "creator": creator,
             },
         )
 

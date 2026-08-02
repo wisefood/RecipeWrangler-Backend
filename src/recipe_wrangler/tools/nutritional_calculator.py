@@ -1,5 +1,7 @@
 # Purpose: Compute nutrition totals from ingredient weights via Elasticsearch matches.
 
+import logging
+import os
 import re
 from typing import Dict, List, Optional
 
@@ -19,6 +21,16 @@ from recipe_wrangler.repositories.vector_matchers import (
     query_usda_nutrition_candidates,
 )
 from recipe_wrangler.tools.nutrition_match import best_nutrition_match
+
+# Whether a `weak`-confidence ingredient match may contribute nutrients.
+# Off means the old behaviour: any nearest neighbour is used, however
+# implausible. Escape hatch only — leave it on.
+REJECT_WEAK_NUTRITION_MATCHES = (
+    os.getenv('NUTRITION_REJECT_WEAK_MATCHES', '1').strip().lower()
+    not in {'0', 'false', 'no'}
+)
+
+logger = logging.getLogger(__name__)
 
 SOURCE_NUTRITION = "Irish Composition Table"
 SOURCE_NUTRITION_EU = "EU Composite (Ciqual+CoFID+NEVO)"
@@ -311,12 +323,42 @@ def nutritional_tool_vector(
         distance = None if match is None else match.get("distance")
         similarity = m.get("similarity")
 
-        if match is None:
+        # A low-confidence match contributes nothing.
+        #
+        # `best_nutrition_match` already grades every match
+        # (curated / strong / weak / none) but nothing downstream ever read the
+        # grade, so a weak match was consumed exactly like a curated one. That
+        # is how "1 litre vegetable stock" became 1kg of
+        # "Shortening, vegetable, household" — 1,018 g of fat, 254 g per
+        # serving, and a Nutri-Score of D for a lentil soup.
+        #
+        # Zeroing the contribution is the honest outcome: it flows into
+        # `nutrition_coverage` and raises `low_coverage`, so the caller learns
+        # the profile is incomplete instead of receiving a confident, wrong
+        # number. The near-match is still reported for review — the reason it
+        # was rejected is more useful than pretending it did not happen.
+        rejected_weak = (
+            match is not None
+            and match_confidence == "weak"
+            and REJECT_WEAK_NUTRITION_MATCHES
+        )
+        if rejected_weak:
+            logger.info(
+                "nutrition: rejecting weak match %r -> %r (%s)",
+                ing_name,
+                m.get("matched_name"),
+                match_reason,
+            )
+
+        if match is None or rejected_weak:
             details.append({
                 "ingredient": ing_name,
                 "source": _source_label(active_source),
                 "source_nutrition": _source_label(active_source),
-                "matched_nutritional_ingredient": None,
+                "matched_nutritional_ingredient": (
+                    m.get("matched_name") if rejected_weak else None
+                ),
+                "rejected_low_confidence": bool(rejected_weak),
                 "canonical_food_id": None,
                 "weight_g": float(weight_g),
                 "protein_per_100g": 0.0,

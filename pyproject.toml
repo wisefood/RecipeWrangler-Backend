@@ -33,7 +33,13 @@ dependencies = [
     "bs4>=0.0.2",
     "requests>=2.32.5",
     "beautifulsoup4>=4.14.3",
-    "elasticsearch>=9.3.0",
+    # Must track the deployed server's major version: a 9.x client sends
+    # `compatible-with=9`, which an 8.x server rejects with
+    # media_type_header_exception on every request, including info(). The
+    # cluster runs 8.14.3 and elasticsearch-docker pins 8.15.0. Nothing in the
+    # repo imports this today — ES access goes through utils/http_pool — but
+    # the pin must not lie about what the cluster can accept.
+    "elasticsearch>=8.14,<9",
     "openai>=2.30.0",
     "langchain-openai>=0.3.35",
     "redis==6.4.0",

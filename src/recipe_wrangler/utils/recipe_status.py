@@ -90,6 +90,31 @@ def _ensure_status_mapping(es_url: str, index: str) -> None:
         logger.warning("Could not ensure status mapping on %s", index, exc_info=True)
 
 
+def _document_ids(recipe_id: str) -> tuple[str, ...]:
+    """Every `_id` a recipe may be stored under, across the indices we write.
+
+    The legacy autocomplete index keys documents by the bare recipe id; the
+    catalog index keys them by URN (`urn:recipe:<id>`), following the entity
+    convention where `_id` is the resource identifier.
+
+    Addressing only the bare id meant every disable silently no-opped on the
+    catalog index — `document_missing_exception`, counted as "not found", which
+    is also the legitimate outcome for an unindexed recipe. So a soft delete
+    reported success and the recipe stayed visible in search, in browse, and in
+    meal plans.
+
+    Both ids are sent rather than the index being asked which convention it
+    uses: one extra bulk line per recipe is far cheaper than a mapping lookup
+    per index, and it keeps working if a third index arrives with either
+    convention.
+    """
+    rid = str(recipe_id).strip()
+    if not rid:
+        return ()
+    if rid.startswith("urn:recipe:"):
+        return (rid, rid.split(":")[-1])
+    return (rid, f"urn:recipe:{rid}")
+
 def sync_recipe_status_to_es(
     recipe_ids: list[str],
     status: str,
@@ -112,14 +137,15 @@ def sync_recipe_status_to_es(
             batch = recipe_ids[start:start + _ES_BULK_BATCH]
             lines: list[str] = []
             for rid in batch:
-                lines.append(json.dumps({
-                    "update": {
-                        "_id": rid,
-                        "_index": index,
-                        "retry_on_conflict": _ES_RETRY_ON_CONFLICT,
-                    }
-                }))
-                lines.append(json.dumps({"doc": {"status": status}}))
+                for doc_id in _document_ids(rid):
+                    lines.append(json.dumps({
+                        "update": {
+                            "_id": doc_id,
+                            "_index": index,
+                            "retry_on_conflict": _ES_RETRY_ON_CONFLICT,
+                        }
+                    }))
+                    lines.append(json.dumps({"doc": {"status": status}}))
             try:
                 resp = get_http_session().post(
                     f"{es_url}/_bulk",
@@ -142,7 +168,10 @@ def sync_recipe_status_to_es(
                 if code in (200, 201):
                     stats["updated"] += 1
                 elif code == 404:
-                    # Not every recipe is indexed (e.g. unprofiled) — expected.
+                    # Expected: each recipe is addressed under both id
+                    # conventions and only one of them exists in a given index.
+                    # A recipe missing from *both* shows up as `updated` staying
+                    # flat, which the caller can see in the returned stats.
                     stats["not_found"] += 1
                 elif code == 409:
                     # A concurrent writer won even after in-ES retries. For a

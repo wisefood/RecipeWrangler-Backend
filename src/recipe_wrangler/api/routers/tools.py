@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field
 from recipe_wrangler.api.error_mapping import map_dependency_error
 from recipe_wrangler.api.identity import Caller, get_caller, redact
 from recipe_wrangler.catalog import diets as D
+from recipe_wrangler.catalog import foodchat as F
 from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog import variety
 from recipe_wrangler.catalog import vocabularies as V
@@ -189,26 +190,34 @@ def _filters(
 
     # --- never relaxed --------------------------------------------------- #
     for allergen in payload.exclude_allergens:
-        filters.append(
-            {"bool": {"must_not": [{"term": {"allergens": str(allergen).strip().lower()}}]}}
-        )
+        # The full backstop, not just the annotation. A `term` on `allergens`
+        # trusts the graph to have recorded every allergen, and it has not:
+        # "Spinach with raisins and pine nuts" carries no annotation and went
+        # to a nut-allergic member. `allergen_exclusions` adds name-level
+        # ingredient matching — the same three-source check the candidates
+        # path has always used. One filter between a member and an allergen
+        # is one too few.
+        filters.append({"bool": {"must_not": F.allergen_exclusions(allergen)}})
     for ingredient in payload.exclude_ingredients:
-        filters.append(
-            {
-                "bool": {
-                    "must_not": [
-                        {
-                            "nested": {
-                                "path": "ingredients",
-                                "query": {
-                                    "match_phrase": {"ingredients.name": ingredient}
-                                },
-                            }
-                        }
-                    ]
+        # Singular and plural, ingredients and title — the same treatment the
+        # diet filter needed, for the same analyzer. "Sweet kumara with
+        # mushrooms" reached a member who excluded "mushrooms": its ingredient
+        # row says "swiss brown mushroom", singular, a different token to an
+        # index that does not stem. The title check catches recipes that
+        # announce the ingredient without itemising it.
+        clauses: list[dict[str, Any]] = []
+        for variant in D.token_variants(ingredient):
+            clauses.append(
+                {
+                    "nested": {
+                        "path": "ingredients",
+                        "query": {"match_phrase": {"ingredients.name": variant}},
+                    }
                 }
-            }
-        )
+            )
+            clauses.append({"match_phrase": {"title": variant}})
+        if clauses:
+            filters.append({"bool": {"must_not": clauses}})
     for tag in payload.diet:
         slug = "_".join(str(tag).strip().lower().replace("-", " ").split())
         if slug in {"vegan", "vegetarian"}:

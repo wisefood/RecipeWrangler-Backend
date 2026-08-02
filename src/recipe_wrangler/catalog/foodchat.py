@@ -100,7 +100,17 @@ ALLERGEN_INGREDIENT_TERMS: dict[str, tuple[str, ...]] = {
     "egg": ("egg", "mayonnaise", "meringue", "aioli"),
     "peanut": ("peanut", "groundnut", "satay"),
     "tree_nut": ("almond", "cashew", "walnut", "pecan", "hazelnut", "pistachio",
-                 "macadamia", "brazil nut", "praline", "marzipan", "nut"),
+                 "macadamia", "brazil nut", "praline", "marzipan", "pine nut",
+                 "nut"),
+    # A profile that just says "nuts" means all of them. This key was missing:
+    # the lookup tried "nuts" and "nut", found neither, and fell back to a
+    # bare `*nuts*` wildcard — which does not match "pine nut", singular, so
+    # "Spinach with raisins and pine nuts" was served to a nut-allergic
+    # member. The `nut` fragment is deliberately broad (it also catches
+    # nutmeg and coconut); for an allergy, over-exclusion is the safe error.
+    "nut": ("almond", "cashew", "walnut", "pecan", "hazelnut", "pistachio",
+            "macadamia", "brazil nut", "praline", "marzipan", "pine nut",
+            "peanut", "groundnut", "satay", "nut"),
     "wheat": ("wheat", "flour", "bread", "pasta", "couscous", "semolina",
               "breadcrumb", "pastry"),
     "gluten": ("wheat", "barley", "rye", "flour", "bread", "pasta", "couscous",
@@ -114,7 +124,7 @@ ALLERGEN_INGREDIENT_TERMS: dict[str, tuple[str, ...]] = {
 }
 
 
-def _allergen_exclusions(allergen: str) -> list[dict[str, Any]]:
+def allergen_exclusions(allergen: str) -> list[dict[str, Any]]:
     """Clauses that, OR-ed under a `must_not`, exclude one allergen.
 
     Three sources, because no single one is complete:
@@ -163,6 +173,10 @@ def _allergen_exclusions(allergen: str) -> list[dict[str, Any]]:
     for fragment in sorted(fragments):
         clauses.append(contains(fragment))
     return clauses
+
+
+# Backwards-compatible name for callers inside this module's history.
+_allergen_exclusions = allergen_exclusions
 
 
 def _flatten_ingredients(value: Any) -> str:

@@ -17,6 +17,7 @@ from difflib import SequenceMatcher
 from typing import Any
 
 from recipe_wrangler.api.config import get_settings
+from recipe_wrangler.catalog import diets as D
 from recipe_wrangler.catalog.sources import canonical_course_type
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
@@ -482,6 +483,13 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
                     }
                 }
             )
+
+        # Whichever branch matched, verify the claim against the ingredients.
+        # The comment above explains why the tag is trusted at all; this is why
+        # it is not trusted alone. 44% of recipes tagged `vegan` here contain
+        # meat, dairy, egg or honey — the tags arrived with the source data and
+        # were never checked against the ingredient lists.
+        filter_.extend(D.exclusion_filters([tag]))
 
     # Sources — recipe must come from one of them. Incoming values are
     # canonical slugs; expand to the raw keyword values stored in the index.

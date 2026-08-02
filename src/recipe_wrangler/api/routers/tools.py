@@ -35,7 +35,9 @@ from pydantic import BaseModel, Field
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
 from recipe_wrangler.api.identity import Caller, get_caller, redact
+from recipe_wrangler.catalog import diets as D
 from recipe_wrangler.catalog import sources as S
+from recipe_wrangler.catalog import variety
 from recipe_wrangler.catalog import vocabularies as V
 from recipe_wrangler.catalog.entities import recipe_entity
 
@@ -232,6 +234,10 @@ def _filters(
             )
         else:
             filters.append({"term": {"diet_tags": slug}})
+
+    # Verify the claim against the ingredients. See `catalog.diets`: the tag
+    # alone admits eggs into a vegan plan, at scale.
+    filters.extend(D.exclusion_filters(payload.diet))
     for ingredient in payload.include_ingredients:
         filters.append(
             {
@@ -465,6 +471,14 @@ def _attach_plan_nutrition(days: list[dict[str, Any]]) -> None:
         }
 
 
+# How many candidates to fetch per requested one, so variety has a choice.
+#
+# Five is what it takes for a seven-day breakfast slot: the corpus's mueslis
+# sort adjacently, and a smaller window still returned nothing but mueslis to
+# choose between. Capped at 100 rows per slot in the call itself.
+_VARIETY_OVERSAMPLE = 5
+
+
 @router.post("/plan_meals", summary="Fill meal slots with variety and graceful relaxation")
 def plan_meals(
     payload: MealPlanRequest, caller: Caller = Depends(get_caller)
@@ -473,6 +487,10 @@ def plan_meals(
     accepted, rejected = _validate_options(payload)
 
     used: set[str] = set(payload.exclude_recipe_ids)
+    # dish family -> how many plates it already holds, across the whole plan.
+    # Shared across days and slots on purpose: the repetition a member notices
+    # is "muesli again on Thursday", which is invisible to any per-slot check.
+    families: dict[str, int] = {}
     relaxations: list[dict[str, Any]] = []
     days: list[dict[str, Any]] = []
 
@@ -509,7 +527,12 @@ def plan_meals(
                     found = entity.search(
                         filters=filters,
                         should=boosts,
-                        limit=slot_req.count,
+                        # Over-fetch so `select_diverse` has something to choose
+                        # between. Taking exactly `count` from a deterministic
+                        # ranking is what produced four mueslis in a seven-day
+                        # week: same-kind recipes score alike, so they arrive
+                        # adjacent and a top-N slice takes them as a block.
+                        limit=min(slot_req.count * _VARIETY_OVERSAMPLE, 100),
                         # Deterministic: `preferred` recipes first, then best
                         # Nutri-Score, then curated sources, then recipe_id as
                         # a total tiebreak. Without that last key Elasticsearch
@@ -531,7 +554,20 @@ def plan_meals(
                         ],
                         source_fields=CARD_FIELDS,
                     )
-                    results = [_plan_card(r) for r in found["results"]]
+                    # Variety is applied before the sufficiency check, so a slot
+                    # that came back full of one family is not mistaken for a
+                    # satisfied slot. It never shrinks the result — see
+                    # `select_diverse`, which backfills rather than under-fill.
+                    # On a copy: the ladder may run this several times, and an
+                    # abandoned attempt must not leave its families counted
+                    # against the attempt that actually succeeds. Committed to
+                    # `families` once the loop settles.
+                    attempt_families = dict(families)
+                    results = variety.select_diverse(
+                        [_plan_card(r) for r in found["results"]],
+                        slot_req.count,
+                        seen=attempt_families,
+                    )
                     if len(results) >= slot_req.count or not payload.allow_relaxation:
                         break
                     if step < len(RELAXATION_ORDER):
@@ -555,6 +591,7 @@ def plan_meals(
                         else:
                             dropped.add(candidate)
 
+                families = attempt_families
                 for row in results:
                     if row.get("recipe_id"):
                         used.add(str(row["recipe_id"]))

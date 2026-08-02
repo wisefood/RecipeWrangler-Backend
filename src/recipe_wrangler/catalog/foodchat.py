@@ -30,6 +30,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Iterable
 
+from recipe_wrangler.catalog import diets as D
 from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog.nutrition import per_serving, within_targets
 
@@ -265,6 +266,13 @@ def _hard_filters(request: Any, course_types: list[str]) -> list[dict[str, Any]]
             )
 
     diet = _norm(getattr(profile, "diet", []) or [])
+
+    # Claiming the diet is not enough. 44% of this corpus's `vegan` recipes
+    # contain meat, dairy, egg or honey by ingredient name — the tags come from
+    # the sources and were never checked against the ingredient lists. A member
+    # who asks for vegan and is served scrambled eggs has been actively misled.
+    filters.extend(D.exclusion_filters(diet))
+
     for tag in diet:
         # Same three-way match the search path uses. `suitable_for` is the
         # better signal but is unpopulated until the vegan/vegetarian classifier

@@ -79,6 +79,11 @@ RELAXATION_ORDER: tuple[str, ...] = (
     "moods", "flavor_profiles", "food_groups", "cuisines", "max_minutes",
 )
 
+# Slots where the member expects to eat a meal, not a component of one.
+# `variety.is_meal` screens these; a request for slot `side` or `dessert` is a
+# request for exactly that and is left alone.
+MEAL_SLOTS: frozenset[str] = frozenset({"breakfast", "brunch", "lunch", "dinner"})
+
 
 class MealSlotRequest(BaseModel):
     slot: str = Field(..., description="breakfast | brunch | lunch | dinner | snack | dessert | drink | side")
@@ -478,6 +483,11 @@ def _attach_plan_nutrition(days: list[dict[str, Any]]) -> None:
 # choose between. Capped at 100 rows per slot in the call itself.
 _VARIETY_OVERSAMPLE = 5
 
+# Never offer the selector fewer than this many candidates, whatever the
+# requested count. Sized for the constrained corners: a 7-day vegan plan needs
+# seven distinct breakfast families out of one slot's window.
+_VARIETY_MIN_POOL = 30
+
 
 @router.post("/plan_meals", summary="Fill meal slots with variety and graceful relaxation")
 def plan_meals(
@@ -532,7 +542,14 @@ def plan_meals(
                         # ranking is what produced four mueslis in a seven-day
                         # week: same-kind recipes score alike, so they arrive
                         # adjacent and a top-N slice takes them as a block.
-                        limit=min(slot_req.count * _VARIETY_OVERSAMPLE, 100),
+                        #
+                        # The floor matters for multi-day plans: day 7's
+                        # breakfast draws from the same window as day 1's, with
+                        # six families already spent. A count=1 request that
+                        # fetched only 5 was down to repeats by day five on the
+                        # vegan corpus.
+                        limit=max(min(slot_req.count * _VARIETY_OVERSAMPLE, 100),
+                                  _VARIETY_MIN_POOL),
                         # Deterministic: `preferred` recipes first, then best
                         # Nutri-Score, then curated sources, then recipe_id as
                         # a total tiebreak. Without that last key Elasticsearch
@@ -558,13 +575,21 @@ def plan_meals(
                     # that came back full of one family is not mistaken for a
                     # satisfied slot. It never shrinks the result — see
                     # `select_diverse`, which backfills rather than under-fill.
+                    cards = [_plan_card(r) for r in found["results"]]
+                    # A meal slot must hold a meal. The corpus files "North
+                    # African Spice Mix" under `breakfast` and lunch accepts
+                    # `starter`, which admits pickles — both legal by
+                    # annotation and absurd on a plate. Slots that *ask* for
+                    # components (side, snack, dessert, drink) keep them.
+                    if slot in MEAL_SLOTS:
+                        cards = [c for c in cards if variety.is_meal(c.get("title") or "")]
                     # On a copy: the ladder may run this several times, and an
                     # abandoned attempt must not leave its families counted
                     # against the attempt that actually succeeds. Committed to
                     # `families` once the loop settles.
                     attempt_families = dict(families)
                     results = variety.select_diverse(
-                        [_plan_card(r) for r in found["results"]],
+                        cards,
                         slot_req.count,
                         seen=attempt_families,
                     )

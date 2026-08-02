@@ -40,7 +40,10 @@ from typing import Any, Callable, Iterable, Sequence
 #
 # Commas are deliberately *not* split on: "Tomato, chickpea and barley salad"
 # would become "Tomato", losing the one word that says what the dish is.
-_TAIL = re.compile(r"\s+(?:with|on|served|topped|and served|in a|drizzled)\s+")
+# "in" is here for the sauces: "Chicken in black bean sauce" is a chicken
+# dish, and without the split its head noun would be "sauce" — which matters
+# once NON_MEAL_FAMILIES treats `sauce` as not-a-meal.
+_TAIL = re.compile(r"\s+(?:with|on|served|topped|and served|in|drizzled)\s+")
 
 # Words that qualify a dish without naming one. Stripped so "Gluten-free berry
 # muesli", "Nutty toasted muesli" and "Toasted muesli" reduce to the same head.
@@ -59,6 +62,9 @@ _QUALIFIERS: frozenset[str] = frozenset({
     # appear beside an actual muesli.
     "mix", "bowl", "plate", "platter", "dish", "recipe", "medley", "selection",
     "pot", "tray", "bake", "pieces", "slices", "wedges",
+    # Romance-language postfix adjectives: "Salsa verde" is a salsa, not a
+    # "verde", and the head-noun rule reads right-to-left.
+    "verde", "rojo", "roja", "picante", "fresca", "fresco", "blanco", "blanca",
 })
 
 # Irregular plurals the -s/-ies rules below get wrong. Small on purpose: only
@@ -84,6 +90,46 @@ def _singular(word: str) -> str:
     if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
         return word[:-1]
     return word
+
+
+# Families that are a component of a meal, never the meal itself.
+#
+# A seven-day plan served "North African Spice Mix" as a breakfast and "Chilli
+# and capsicum pickle" as a lunch. Both were legal: the spice mix is annotated
+# `course_types: ["breakfast"]` in the corpus, and the pickle is a `starter`,
+# which the lunch slot accepts. Legal, and absurd — no one eats a spice mix
+# for breakfast, and the plan's own calorie arithmetic broke because these
+# things carry no meal's nutrition.
+#
+# Food groups cannot catch this: "Vegetable biryani" and "French Toast" are
+# also annotated with `herbs_and_spices` as their only group, so filtering on
+# annotation would throw out dinners to catch a pickle. The title's head noun
+# is the honest signal — a thing *named* "pickle" or "spice mix" is telling
+# you what it is.
+#
+# Head-noun matching, not substring: "Chicken in black bean sauce" heads at
+# "chicken" (a meal), while "Tomato sauce" heads at "sauce" (not one).
+NON_MEAL_FAMILIES: frozenset[str] = frozenset({
+    "spice", "seasoning", "rub", "marinade", "brine", "glaze",
+    "sauce", "gravy", "dressing", "vinaigrette", "mayonnaise", "ketchup",
+    "pesto", "salsa", "dip", "spread", "paste", "puree",
+    "pickle", "chutney", "relish", "jam", "jelly", "marmalade", "curd",
+    "stock", "syrup", "icing", "frosting", "sprinkle", "garnish",
+    "butter",  # compound butters; actual butter is an ingredient, not a recipe
+    "powder", "extract", "essence", "vinegar", "oil", "crouton", "breadcrumb",
+})
+
+
+def is_meal(title: str) -> bool:
+    """Whether a recipe could stand as the dish of a meal slot.
+
+    False only when the title's head noun names a component — a sauce, a rub,
+    a pickle. Unreadable titles pass: erring toward inclusion is right here
+    because the exclusion list exists to stop absurdities, not to certify
+    meals, and a recipe this function cannot parse is not evidence of one.
+    """
+    family = dish_family(title)
+    return family not in NON_MEAL_FAMILIES
 
 
 def dish_family(title: str) -> str:

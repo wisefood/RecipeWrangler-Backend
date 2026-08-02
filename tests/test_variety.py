@@ -19,6 +19,7 @@ import pytest
 from recipe_wrangler.catalog.variety import (
     dish_family,
     family_counts,
+    is_meal,
     select_diverse,
 )
 
@@ -131,3 +132,59 @@ class TestSelectDiverse:
 
     def test_no_candidates_is_not_an_error(self):
         assert select_diverse([], 3) == []
+
+
+class TestIsMeal:
+    """A meal slot must hold a meal — the spice-mix-for-breakfast rule.
+
+    The corpus files "North African Spice Mix" under `course_types:
+    ["breakfast"]` and the lunch slot accepts `starter`, which admits pickles.
+    Both were served as meals in a real seven-day plan. Annotation cannot be
+    trusted here ("Vegetable biryani"'s only food group is herbs_and_spices),
+    so the title's head noun decides. Corpus-wide the screen removes 2.2% of
+    meal-slot-eligible recipes, and the sample reads as pure condiment.
+    """
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "North African Spice Mix",       # the breakfast that started this
+            "Chilli and capsicum pickle",    # the lunch
+            "Tomato sauce",
+            "Basil pesto",
+            "Caesar dressing",
+            "Salsa verde",                   # postfix adjective, still a salsa
+            "Vegetable stock",
+            "Simple herb marinade",
+            "Spicy rub",
+            "Peanut butter",
+        ],
+    )
+    def test_components_are_not_meals(self, title):
+        assert not is_meal(title)
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # Dishes that *mention* a component keep their standing: the head
+            # noun is the dish, the sauce is where it sits.
+            "Chicken in black bean sauce",
+            "Chicken with salsa verde",
+            "Eggs in purgatory",
+            "Butter chicken",
+            # Annotation red herrings — herbs_and_spices is their only food
+            # group, and they are dinners.
+            "Vegetable biryani",
+            "French Toast",
+            "Poached eggs",
+            "Apple pie",
+            "Beef stew",
+        ],
+    )
+    def test_meals_stand(self, title):
+        assert is_meal(title)
+
+    def test_unreadable_titles_err_toward_inclusion(self):
+        """The screen stops absurdities; it does not certify meals."""
+        assert is_meal("")
+        assert is_meal("!!!")

@@ -31,7 +31,7 @@ import logging
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
 from recipe_wrangler.api.identity import Caller, get_caller, redact
@@ -87,6 +87,15 @@ MEAL_SLOTS: frozenset[str] = frozenset({"breakfast", "brunch", "lunch", "dinner"
 
 
 class MealSlotRequest(BaseModel):
+    # Unknown fields are a 422, not a shrug. This surface exists for LLM
+    # agents, and Pydantic's default of silently discarding unrecognised
+    # fields turns a misremembered name into an unfiltered query: a caller
+    # who sent `query` instead of `q` got the whole corpus back, ranked by
+    # nothing, with no hint anything was wrong. The module's own rule —
+    # rejected and reported, never silently dropped — applies to field
+    # names as much as to vocabulary values.
+    model_config = ConfigDict(extra="forbid")
+
     slot: str = Field(..., description="breakfast | brunch | lunch | dinner | snack | dessert | drink | side")
     count: int = Field(3, ge=1, le=20, description="How many candidates to return for this slot.")
     course_types: list[str] = Field(
@@ -97,6 +106,9 @@ class MealSlotRequest(BaseModel):
 
 class MealPlanRequest(BaseModel):
     """A meal-planning request. Every field is optional except ``slots``."""
+
+    # See MealSlotRequest: unknown fields are rejected, not ignored.
+    model_config = ConfigDict(extra="forbid")
 
     slots: list[MealSlotRequest] = Field(
         ..., description="The meal slots to fill. Order is preserved in the response."

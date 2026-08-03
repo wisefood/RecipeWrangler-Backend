@@ -257,10 +257,18 @@ def fetch_recipe_info_by_ids(
 
     result: Dict[str, Dict[str, Any]] = {}
     for record in rows:
-        lookup_id = record.get("lookup_id") if isinstance(record, dict) else None
+        # `run_query` returns neo4j Record objects, and always has. The old
+        # guard here — `if isinstance(record, dict)` — was false for every
+        # row ever returned, so this function yielded {} for ids that exist,
+        # the details endpoint answered 200 with empty results, and every
+        # enrichment consumer downstream (day nutrition chips, "lighter"
+        # verification, the weekly calorie tracker) silently saw no data.
+        # Record supports dict(); normalise once and read from that.
+        data = record if isinstance(record, dict) else dict(record)
+        lookup_id = data.get("lookup_id")
         if not lookup_id:
             continue
-        result[str(lookup_id)] = _record_to_recipe_dict(record)
+        result[str(lookup_id)] = _record_to_recipe_dict(data)
     return result
 
 

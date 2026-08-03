@@ -151,19 +151,23 @@ def contradiction(text: str, diets: Iterable[str]) -> tuple[str, str] | None:
 
 
 def token_variants(fragment: str) -> tuple[str, ...]:
-    """A fragment and the plural that the index stores as a different word.
+    """A fragment plus the other number-forms the index stores as new words.
 
     `default_text` does not stem. `eggs` is not `egg` to it, so a phrase query
     for `egg` matched 1,368 recipes and let **131 others through** — "Poached
     eggs" was served to a member who had asked for vegan, which is the exact
-    failure this module exists to prevent. `meatballs` (67) outnumbers
-    `meatball` (30) and `rashers` (8) outnumbers `rasher` (3); the singular
-    alone was the minority spelling for several of these.
+    failure this module exists to prevent.
 
-    Rules enough for ingredient nouns, not a general pluraliser: only the last
-    word inflects, so "burger patty" becomes "burger patties". False plurals
-    ("creams", "lambs") cost nothing — they are still the animal product, and a
-    form the corpus does not use simply matches nothing.
+    **Both directions.** The first version only pluralised, on the assumption
+    that word lists are written in the singular — and then a member excluded
+    "mushrooms" and was served "Mushroom and silver beet vege scramble",
+    whose every mushroom is singular. What a *member* types is not a curated
+    list; it arrives in whichever number they thought in.
+
+    Rules enough for ingredient nouns, not a general inflector: only the last
+    word changes, so "burger patty" becomes "burger patties". False forms
+    ("creams", "lambs") cost nothing — a form the corpus does not use simply
+    matches nothing.
 
     The proper fix is a stemmed subfield on `title` and `ingredients.name`,
     which needs a mapping change and a reindex. Until then this closes the gap
@@ -173,16 +177,33 @@ def token_variants(fragment: str) -> tuple[str, ...]:
     if not word:
         return ()
     head, _, last = word.rpartition(" ")
+
+    def _form(last_word: str) -> str:
+        return f"{head} {last_word}".strip()
+
+    variants = [word]
+
+    # plural of the given form
     if last.endswith(("s", "x", "z", "ch", "sh")):
-        inflected = last + "es"
+        variants.append(_form(last + "es"))
     elif last.endswith("y") and last[-2:-1] not in "aeiou":
-        inflected = last[:-1] + "ies"
+        variants.append(_form(last[:-1] + "ies"))
     elif last.endswith("f"):
-        inflected = last[:-1] + "ves"
+        variants.append(_form(last[:-1] + "ves"))
     else:
-        inflected = last + "s"
-    plural = f"{head} {inflected}".strip()
-    return (word,) if plural == word else (word, plural)
+        variants.append(_form(last + "s"))
+
+    # singular of the given form, when it looks plural
+    if last.endswith("ies") and len(last) > 4:
+        variants.append(_form(last[:-3] + "y"))
+    elif last.endswith("ves") and len(last) > 4:
+        variants.append(_form(last[:-3] + "f"))
+    elif last.endswith("es") and len(last) > 3 and last[-3] in "sxz":
+        variants.append(_form(last[:-2]))
+    elif last.endswith("s") and not last.endswith("ss") and len(last) > 3:
+        variants.append(_form(last[:-1]))
+
+    return tuple(dict.fromkeys(v for v in variants if v))
 
 
 def exclusion_filters(diets: Iterable[str]) -> list[dict[str, Any]]:

@@ -794,7 +794,15 @@ def suggest_annotations(draft: DraftRecipe) -> dict[str, Any]:
 
 
 class FindRecipesRequest(MealPlanRequest):
-    """Same filters as a plan, plus free text — and no slots."""
+    """Same filters as a plan, plus free text — and no slots.
+
+    Two inherited fields do not apply here and are documented rather than
+    silently honoured: `days` (there is no per-day reuse to avoid in a flat
+    search) and `allow_relaxation` (there is no ladder — a search returns what
+    matches, and an empty result is a true answer rather than a starved slot).
+    `favorite_recipe_ids` DOES apply and used to be accepted and ignored, which
+    is the one thing this module's own rule forbids.
+    """
 
     slots: list[MealSlotRequest] = Field(default_factory=list, exclude=True)
     q: str | None = Field(None, description="Free text. Ranks results; never filters them.")
@@ -815,10 +823,22 @@ def find_recipes(
     accepted, rejected = _validate_options(payload)
     course_types = tuple(S.canonical_course_types(payload.course_types))
 
+    # Favourites float, exactly as they do in a plan. The field was inherited,
+    # validated, and then dropped — so a member searching for a dish they have
+    # favourited got it ranked as though they never had. `minimum_should_match`
+    # is deliberately absent: setting it would turn a boost into a
+    # favourites-only filter.
+    boosts = (
+        [{"terms": {"recipe_id": payload.favorite_recipe_ids, "boost": 10}}]
+        if payload.favorite_recipe_ids
+        else None
+    )
+
     try:
         found = entity.search(
             q=payload.q or None,
             filters=_filters(payload, accepted, course_types, dropped=set()),
+            should=boosts,
             limit=payload.limit,
             offset=payload.offset,
             source_fields=CARD_FIELDS,
@@ -828,7 +848,7 @@ def find_recipes(
             # places between requests, which makes page 2 drop or repeat rows
             # that page 1 already showed.
             sort=[{"_score": "desc"}, {"recipe_id": "asc"}]
-            if payload.q
+            if (payload.q or boosts)
             else [
                 {"default_nutri_rank": {"order": "asc", "missing": "_last"}},
                 {"source_rank": "asc"},

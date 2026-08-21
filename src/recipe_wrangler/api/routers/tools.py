@@ -76,8 +76,13 @@ SLOT_COURSE_TYPES: dict[str, tuple[str, ...]] = {
 # It relaxes after flavour and before cuisine: a stated food group is a firmer
 # signal than a taste but weaker than a named cuisine. Matches the ladder in
 # `catalog.foodchat`, so the two planning paths degrade the same way.
+# `tags` leads the ladder because a claim is the softest thing a caller can ask
+# for and the scarcest thing to satisfy: `high_fibre` is on 457 of 4500 recipes,
+# so two claims ANDed across 21 slots would starve most of them. Dropping it
+# first means "high protein and high fibre" narrows the search when it can and
+# widens when it cannot, instead of returning an empty week.
 RELAXATION_ORDER: tuple[str, ...] = (
-    "moods", "flavor_profiles", "food_groups", "cuisines", "max_minutes",
+    "tags", "moods", "flavor_profiles", "food_groups", "cuisines", "max_minutes",
 )
 
 # Slots where the member expects to eat a meal, not a component of one.
@@ -119,6 +124,14 @@ class MealPlanRequest(BaseModel):
     moods: list[str] = Field(default_factory=list, description="Preferred eating occasions, e.g. comfort, light, quick.")
     flavor_profiles: list[str] = Field(default_factory=list, description="Preferred tastes, e.g. spicy, umami.")
     food_groups: list[str] = Field(default_factory=list, description="Food groups that must be present.")
+    tags: list[str] = Field(
+        default_factory=list,
+        description="Claim tags to prefer, e.g. high_protein, high_fibre, "
+                    "low_calorie, 30_minutes_or_less. See /api/v2/tools for the "
+                    "planning-relevant list. The FIRST preference surrendered "
+                    "when a slot cannot be filled, because claims are the "
+                    "scarcest annotation in the corpus.",
+    )
 
     diet: list[str] = Field(default_factory=list, description="Dietary requirements, e.g. vegetarian, gluten_free. Never relaxed.")
     exclude_allergens: list[str] = Field(default_factory=list, description="Allergens to exclude. NEVER relaxed.")
@@ -167,6 +180,20 @@ def _validate_options(payload: MealPlanRequest) -> tuple[dict[str, list[str]], l
             for value in requested
             if str(value).strip().lower().replace(" ", "_") not in valid
         ]
+
+    # `tags` is a human-authored OPEN field, so an unlisted value is not
+    # necessarily wrong — it may simply be newer than PLANNING_TAGS. It is
+    # reported (so a caller can see it was unusual) and still applied, because
+    # it relaxes first and therefore cannot strand a slot.
+    requested_tags: list[str] = []
+    for value in payload.tags:
+        slug = str(value).strip().lower().replace(" ", "_").replace("-", "_")
+        if not slug or slug in requested_tags:
+            continue
+        requested_tags.append(slug)
+        if slug not in V.PLANNING_TAGS:
+            rejected.append(f"tags={value}")
+    accepted["tags"] = requested_tags
 
     resolved_sources: list[str] = []
     for name in payload.sources:
@@ -285,6 +312,8 @@ def _filters(
         )
 
     # --- relaxable ------------------------------------------------------- #
+    if "tags" not in dropped and accepted.get("tags"):
+        filters.append({"terms": {"tags": accepted["tags"]}})
     if "cuisines" not in dropped and accepted["cuisines"]:
         filters.append({"terms": {"cuisines": accepted["cuisines"]}})
     if "moods" not in dropped and accepted["moods"]:
@@ -399,6 +428,7 @@ def tool_manifest() -> dict[str, Any]:
             "moods": list(V.MOODS),
             "flavor_profiles": list(V.FLAVOR_PROFILES),
             "food_groups": list(V.FOOD_GROUPS),
+            "tags": list(V.PLANNING_TAGS),
             "nutri_scores": list(NUTRI_RANK),
         },
         "tools": [
@@ -433,7 +463,16 @@ def tool_manifest() -> dict[str, Any]:
             },
         ],
         "relaxation_order": list(RELAXATION_ORDER),
-        "never_relaxed": ["exclude_allergens", "exclude_ingredients", "diet"],
+        # Every constraint the ladder cannot touch, not just the three that were
+        # listed. `include_ingredients`, `min_nutri_score`, `sources` and
+        # `exclude_recipe_ids` were as hard as allergens in behaviour while the
+        # manifest implied they might be surrendered — an agent reading this to
+        # decide what to send was being told the wrong thing.
+        "never_relaxed": [
+            "exclude_allergens", "exclude_ingredients", "diet",
+            "include_ingredients", "min_nutri_score", "sources",
+            "exclude_recipe_ids", "course_types",
+        ],
     }
 
 
@@ -676,6 +715,7 @@ def plan_meals(
             "moods": accepted["moods"],
             "flavor_profiles": accepted["flavor_profiles"],
             "food_groups": accepted["food_groups"],
+            "tags": accepted.get("tags", []),
             "diet": payload.diet,
             "exclude_allergens": payload.exclude_allergens,
             "max_minutes": payload.max_minutes,

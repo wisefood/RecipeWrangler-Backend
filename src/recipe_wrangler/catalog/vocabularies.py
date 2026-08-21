@@ -219,6 +219,26 @@ MOODS: tuple[str, ...] = (
 
 # Sources whose geography is known, so a cuisine prior exists without asking a
 # model. Used as a hint in the prompt, never as the answer.
+# Claim tags worth planning against, with corpus counts at the time of writing
+# (n=4500). `tags` is a human-authored open field — anything can be written to
+# it — so this is a curated PLANNING subset, not the full set, and it exists so
+# an agent can be told which claims are worth asking for instead of guessing.
+#
+# A tag no recipe carries is not a narrow filter, it is an empty one: the agent
+# surfaces AND their filters, so asking for a claim that does not exist empties
+# every slot and the member is told no meals exist. Publishing the list is what
+# lets a caller avoid that.
+PLANNING_TAGS: tuple[str, ...] = (
+    "30_minutes_or_less",     # 2809
+    "healthy_and_nutritious", # 2535
+    "high_protein",           # 1676
+    "low_fat",                # 1081
+    "5_ingredients_or_less",  # 563
+    "high_fibre",             # 457
+    "low_calorie",            # 184
+)
+
+
 SOURCE_CUISINE_PRIOR: dict[str, str] = {
     "Curated Irish Recipes": "irish",
     "Curated Hungarian Recipes": "hungarian",

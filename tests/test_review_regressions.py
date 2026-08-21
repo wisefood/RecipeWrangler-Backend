@@ -195,10 +195,24 @@ class TestFoodGroupsRelax:
 
     def test_both_planning_paths_relax_in_the_same_order(self):
         """Two ladders that disagree mean the same request degrades differently
-        depending on which endpoint served it."""
+        depending on which endpoint served it.
+
+        Compared on the facets the two paths SHARE. `tags` is v2-only and has no
+        counterpart to disagree with: the v1 path treats tags as a soft boost
+        (`boost_tags`), so it has nothing to surrender. Requiring the ladders to
+        be byte-identical would mean either not filtering on claims at all, or
+        adding a filter to v1 that its own design deliberately made a boost.
+        """
         strip = lambda ladder: [f for f in ladder if not f.startswith("max_")]  # noqa: E731
 
-        assert strip(RELAXATION_ORDER) == strip(FOODCHAT_LADDER)
+        v2 = strip(RELAXATION_ORDER)
+        v1 = strip(FOODCHAT_LADDER)
+        v2_only = [f for f in v2 if f not in v1]
+        assert v2_only == ["tags"], (
+            f"a new v2-only relaxation step needs a reason: {v2_only}"
+        )
+        # The shared facets must still degrade in exactly the same order.
+        assert [f for f in v2 if f in v1] == v1
 
 
 class TestClearedFieldsClear:

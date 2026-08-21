@@ -216,12 +216,30 @@ class TestManifest:
         assert vocab["course_types"] == list(S.COURSE_TYPES)
 
     def test_declares_what_is_never_relaxed(self):
+        """Every constraint the ladder cannot touch, not just the three that
+        were listed. `include_ingredients`, `min_nutri_score`, `sources`,
+        `exclude_recipe_ids` and `course_types` were as hard as allergens in
+        behaviour while the manifest implied they might be surrendered — an
+        agent reading this to decide what to send was told the wrong thing."""
         manifest = tool_manifest()
         assert set(manifest["never_relaxed"]) == {
             "exclude_allergens",
             "exclude_ingredients",
             "diet",
+            "include_ingredients",
+            "min_nutri_score",
+            "sources",
+            "exclude_recipe_ids",
+            "course_types",
         }
+
+    def test_never_relaxed_and_the_ladder_do_not_overlap(self):
+        """The two lists are the whole contract: anything in one must not be in
+        the other, or the manifest contradicts itself."""
+        manifest = tool_manifest()
+        assert set(manifest["never_relaxed"]).isdisjoint(
+            set(manifest["relaxation_order"])
+        )
 
     def test_states_its_limitations(self):
         """An agent relaying allergen data to a user needs to know it is

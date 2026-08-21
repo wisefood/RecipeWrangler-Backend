@@ -95,6 +95,11 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(raw_dish_types, list):
         dish_types = [str(dt).strip() for dt in raw_dish_types if str(dt).strip()]
 
+    raw_diet_tags = record.get("diet_tags")
+    diet_tags: list[str] = []
+    if isinstance(raw_diet_tags, list):
+        diet_tags = [str(dt).strip() for dt in raw_diet_tags if str(dt).strip()]
+
     raw_ingredients = record.get("ingredients") or []
     ingredients: list[dict[str, Any]] = []
     for item in raw_ingredients:
@@ -123,6 +128,7 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
         "disabled_reason": recipe_props.get("disabled_reason"),
         "tags": tags,
         "dish_types": dish_types,
+        "diet_tags": diet_tags,
         "ingredients": ingredients,
         "instructions": instructions,
         "duration": recipe_props.get("duration"),
@@ -226,13 +232,19 @@ WITH rid, r, collect({
 OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
 WITH rid, r, ingredients,
      collect(distinct t.name) AS raw_tags,
-     collect(distinct CASE WHEN t.category = 'dish-type' THEN t.name END) AS raw_dish_types
+     collect(distinct CASE WHEN t.category = 'dish-type' THEN t.name END) AS raw_dish_types,
+     collect(distinct CASE WHEN t.category IN ['dietary','dietary_option'] THEN t.name END) AS raw_diet_tags
 RETURN
   rid AS lookup_id,
   r AS recipe,
   ingredients,
   [tag IN raw_tags WHERE tag IS NOT NULL AND trim(toString(tag)) <> ""] AS tags,
-  [dt IN raw_dish_types WHERE dt IS NOT NULL AND trim(toString(dt)) <> ""] AS dish_types
+  [dt IN raw_dish_types WHERE dt IS NOT NULL AND trim(toString(dt)) <> ""] AS dish_types,
+  // Same two categories the Elasticsearch projection reads, so a recipe's diet
+  // tags mean the same thing whichever store answered. A consumer that filters
+  // on `vegetarian` needs to be able to CHECK `vegetarian` on the result, and
+  // until now the card carried no way to.
+  [d IN raw_diet_tags WHERE d IS NOT NULL AND trim(toString(d)) <> ""] AS diet_tags
 """
 
 

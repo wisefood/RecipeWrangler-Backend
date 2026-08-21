@@ -197,10 +197,20 @@ def _recipe_response_cache_variant(region: str | None, slim: bool) -> str:
     return f"detail:v2:region:{region_key}:slim:{int(slim)}"
 
 
+# Bumped whenever the card gains a field. An entry cached before the field
+# existed still PARSES — every field has a default — so it comes back with the
+# new one empty, and a consumer that checks `diet_tags` would read a cached
+# vegetarian recipe as not vegetarian. Silent, wrong, and safety-shaped, so the
+# old entries have to be unreachable rather than merely stale.
+#
+#   v2: diet_tags added
+_CARD_NUTRITION_CACHE_VERSION = "v2"
+
+
 def _card_nutrition_cache_variant(region: str | None) -> str:
     region_key = str(region or "default").strip().upper() or "DEFAULT"
     region_key = "".join(ch if ch.isalnum() else "_" for ch in region_key)
-    return f"card_nutrition:region:{region_key}"
+    return f"card_nutrition:{_CARD_NUTRITION_CACHE_VERSION}:region:{region_key}"
 
 
 def _cached_recipe_response(
@@ -1726,6 +1736,7 @@ def _build_card_nutrition(
         duration=recipe.get("duration"),
         tags=recipe.get("tags") or [],
         dish_types=recipe.get("dish_types") or [],
+        diet_tags=recipe.get("diet_tags") or [],
         allergens=allergens,
         kcal_per_serving=kcal,
         protein_g_per_serving=protein,

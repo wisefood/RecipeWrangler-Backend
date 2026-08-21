@@ -551,6 +551,11 @@ class RecipeCardNutrition(BaseModel):
     duration: Optional[float] = None
     tags: List[str] = Field(default_factory=list)
     dish_types: List[str] = Field(default_factory=list)
+    # The recipe's own dietary tags, from the same two Neo4j tag categories the
+    # search filters on. Without them a caller could ask for `vegetarian` and
+    # had no way to CHECK that what came back was vegetarian — which is exactly
+    # the kind of constraint worth checking rather than trusting.
+    diet_tags: List[str] = Field(default_factory=list)
     allergens: List[str] = Field(default_factory=list)
     kcal_per_serving: Optional[float] = None
     protein_g_per_serving: Optional[float] = None

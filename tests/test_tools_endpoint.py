@@ -257,3 +257,55 @@ class TestFindRecipesRequest:
         req = FindRecipesRequest(q="curry", diet=["vegan"], exclude_allergens=["peanut"])
         assert req.diet == ["vegan"]
         assert req.exclude_allergens == ["peanut"]
+
+
+# ---------------------------------------------------------------------------
+# Paging: the window has to be movable, and the manifest has to say so
+# ---------------------------------------------------------------------------
+
+def test_plan_meals_accepts_an_offset():
+    """The ranking is deterministic, so a caller that cannot move the window
+    gets the same plan every time it asks."""
+    from recipe_wrangler.api.routers.tools import MealPlanRequest
+
+    assert "offset" in MealPlanRequest.model_fields
+    assert MealPlanRequest(slots=[]).offset == 0
+
+
+def test_a_negative_offset_is_refused():
+    import pytest
+    from pydantic import ValidationError
+
+    from recipe_wrangler.api.routers.tools import MealPlanRequest
+
+    with pytest.raises(ValidationError):
+        MealPlanRequest(slots=[], offset=-1)
+
+
+def test_the_manifest_says_which_fields_each_tool_takes():
+    """Unknown fields are a 422 here, so a caller has no safe way to try an
+    optional parameter and see — it either knows the field exists or it cannot
+    send it. The manifest is the only thing that can tell it."""
+    from recipe_wrangler.api.routers.tools import (
+        FindRecipesRequest,
+        MealPlanRequest,
+        tool_manifest,
+    )
+
+    tools = {t["name"]: t for t in tool_manifest()["tools"]}
+    assert set(tools["plan_meals"]["accepts"]) == set(MealPlanRequest.model_fields)
+    assert set(tools["find_recipes"]["accepts"]) == set(FindRecipesRequest.model_fields)
+    assert "offset" in tools["plan_meals"]["accepts"]
+
+
+def test_accepts_is_generated_from_the_model_not_written_out():
+    """A hand-maintained list drifts from the model the first time someone adds
+    a field — and then a caller is told it cannot send something it can, or
+    told it can send something that 422s."""
+    import inspect
+
+    from recipe_wrangler.api.routers import tools
+
+    source = inspect.getsource(tools.tool_manifest)
+    assert "sorted(MealPlanRequest.model_fields)" in source
+    assert "sorted(FindRecipesRequest.model_fields)" in source

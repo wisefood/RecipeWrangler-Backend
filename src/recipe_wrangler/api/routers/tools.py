@@ -153,6 +153,15 @@ class MealPlanRequest(BaseModel):
     )
 
     allow_relaxation: bool = Field(True, description="Drop soft preferences rather than return nothing.")
+    offset: int = Field(
+        0, ge=0,
+        description=(
+            "Skip this many recipes per slot before selecting. The ranking is "
+            "deterministic, so without this every request for a slot draws "
+            "from the same window — a caller asking twice gets the same plan. "
+            "Move the window to get a different one."
+        ),
+    )
 
 
 NUTRI_RANK = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5}
@@ -435,6 +444,15 @@ def tool_manifest() -> dict[str, Any]:
             {
                 "name": "plan_meals",
                 "endpoint": "POST /api/v2/tools/plan_meals",
+                # Generated from the request model, not written out here.
+                #
+                # Unknown fields are a 422 on this surface, so a caller has no
+                # safe way to try an optional parameter and see — it either
+                # knows the field exists or it cannot send it at all. The
+                # manifest is the only place that can tell it, and a
+                # hand-maintained list would drift from the model the first
+                # time someone added a field.
+                "accepts": sorted(MealPlanRequest.model_fields),
                 "description": (
                     "Fill named meal slots across one or more days, honouring "
                     "cuisine/mood/flavour preferences, dietary requirements and "
@@ -448,6 +466,7 @@ def tool_manifest() -> dict[str, Any]:
             {
                 "name": "find_recipes",
                 "endpoint": "POST /api/v2/tools/find_recipes",
+                "accepts": sorted(FindRecipesRequest.model_fields),
                 "description": (
                     "Free-text search with the same optional filters. Text "
                     "ranks results; filters narrow them. Use when the user "
@@ -610,6 +629,20 @@ def plan_meals(
                         # vegan corpus.
                         limit=max(min(slot_req.count * _VARIETY_OVERSAMPLE, 100),
                                   _VARIETY_MIN_POOL),
+                        # Where the window starts. Zero — every request draws
+                        # from the same top of the same deterministic ranking,
+                        # which is exactly right for reproducibility and is why
+                        # a caller asking for a second plan received the first
+                        # one again. `select_diverse` then picks the same
+                        # diverse subset of the same candidates.
+                        #
+                        # The sort already ends in `recipe_id`, a total
+                        # tiebreak, so the paging is stable: two documents tied
+                        # on every other key cannot swap places between
+                        # requests and make page 2 repeat or drop what page 1
+                        # showed. That property was added for `find_recipes`
+                        # and it is what makes an offset safe here too.
+                        offset=payload.offset,
                         # Deterministic: `preferred` recipes first, then best
                         # Nutri-Score, then curated sources, then recipe_id as
                         # a total tiebreak. Without that last key Elasticsearch

@@ -1864,7 +1864,7 @@ def _generate_portion_suggestion(
     if target_serves is None:
         raise HTTPException(status_code=422, detail="target_serves is required for portion mode")
     row = _load_profile(recipe_id, region)
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
     current_serves = _serves_from_row(row)
     factor = float(target_serves) / current_serves

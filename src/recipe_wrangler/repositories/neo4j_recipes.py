@@ -6,16 +6,49 @@ import logging
 import re
 from typing import Any
 
+from recipe_wrangler.utils.consumer_suitability import (
+    GROUP_RULES,
+    SUITABILITY_CLASSIFICATION_VERSION,
+    SUPPORTED_CONSUMER_GROUPS,
+    VEGAN_NAME_EXCLUSIONS,
+    VEGETARIAN_NAME_EXCLUSIONS,
+)
 from recipe_wrangler.utils.food_ontology import (
+    ALLERGEN_DETECTION_RULES,
+    ALLERGEN_EXCLUSION_REGEXES,
     ALLERGEN_ONTOLOGY_MAPPINGS,
     CLASSIFICATION_VERSION,
     FATO_ALLERGEN_CLASS_IRI,
     FATO_ALLERGEN_DECLARATION_CLASS_IRI,
 )
+from recipe_wrangler.utils.foodon_matching import (
+    fetch_label_index,
+    match_ingredient_to_foodon,
+    write_link as write_foodon_link,
+)
 from recipe_wrangler.utils.neo4j_utils import driver, run_query
 from recipe_wrangler.utils.recipe_status import NEO4J_NOT_DISABLED, STATUS_DISABLED
 
 logger = logging.getLogger(__name__)
+
+# Process-lifetime cache: the FoodOn label index is ~21k static ontology
+# labels that never change at runtime, so fetching it fresh on every recipe
+# import would be pure waste. Rebuilt automatically on the next call after
+# a process restart, or manually via clear_foodon_label_index_cache() if
+# the ontology itself is ever reloaded without restarting the app.
+_foodon_label_index_cache: dict[str, str] | None = None
+
+
+def clear_foodon_label_index_cache() -> None:
+    global _foodon_label_index_cache
+    _foodon_label_index_cache = None
+
+
+def _get_foodon_label_index(session) -> dict[str, str]:
+    global _foodon_label_index_cache
+    if _foodon_label_index_cache is None:
+        _foodon_label_index_cache = fetch_label_index(session)
+    return _foodon_label_index_cache
 
 _STATUS_BATCH_SIZE = 5000
 
@@ -339,18 +372,32 @@ def upsert_recipe_to_neo4j(
     serves: float,
     image_url: str | None,
     allergens: list[str],
-    tags: list[str],
+    user_tags: list[str],
     source: str = "user",
     source_id: str | None = None,
     expert_recipe: bool = False,
     creator: str | None = None,
-) -> None:
+) -> tuple[list[str], list[str]]:
     """Write (or update) a recipe and its ingredient/allergen/tag graph in Neo4j.
 
     Args:
         ingredient_lines: Original raw strings ("1 cup flour") — stored on Ingredients_original.
         ingredient_names:  Clean names ("flour") — stored on Ingredient nodes.
         measurements:      Quantity+unit strings ("1 cup") — stored on HAS_INGREDIENT edge.
+        allergens:         Keyword-detected + user-declared allergens, computed by the
+                            caller before this call. Seeds the keyword-matching step (3);
+                            the FoodOn step (3b) independently checks every category
+                            regardless, so this list does not gate FoodOn detection.
+        user_tags:         Only the tags the user explicitly supplied. Diet tags
+                            (nut_free, dairy_free, ...) are derived *here*, from the
+                            complete allergen set this function detects (keyword +
+                            FoodOn) -- not from the caller's pre-write guess, which
+                            cannot see what step 3b finds.
+
+    Returns:
+        (full_allergens, final_tags) -- the complete post-detection allergen set and
+        the tags actually written, for the caller to keep its own state consistent
+        (e.g. the legacy Elasticsearch writer) instead of reusing its stale guess.
     """
     source_id = resolve_collection_source_id(source, source_id)
 
@@ -428,6 +475,38 @@ def upsert_recipe_to_neo4j(
                 },
             )
 
+        # 2b. Link any brand-new ingredient (no HAS_CLASS yet) to FoodOn,
+        # same 4-tier cascade as the batch corpus rebuild
+        # (scripts/facets/link_foodon_classes.py) via the shared
+        # foodon_matching module -- so step 3b's FoodOn-ancestry allergen
+        # match and downstream vegan/vegetarian classification can see this
+        # recipe's ingredients immediately, not just after the next manual
+        # batch relink. Only touches ingredients missing a link; never
+        # re-evaluates ones the batch pipeline (or a prior import) already
+        # classified.
+        unclassified = session.run(
+            """
+            MATCH (r:Recipe {recipe_id: $recipe_id})-[:HAS_INGREDIENT]->(i:Ingredient)
+            WHERE coalesce(i.non_food, false) = false
+              AND NOT EXISTS { MATCH (i)-[:HAS_CLASS]->(:FoodOnClass) }
+            RETURN DISTINCT i.canonical_id AS ingredient_id, i.name AS name
+            """,
+            {"recipe_id": recipe_id},
+        )
+        unclassified_ingredients = [dict(r) for r in unclassified]
+        if unclassified_ingredients:
+            label_index = _get_foodon_label_index(session)
+            for ing in unclassified_ingredients:
+                hit = match_ingredient_to_foodon(ing["name"], label_index)
+                if not hit:
+                    continue
+                foodon_id, method, confidence, approximate = hit
+                write_foodon_link(
+                    session, ing["ingredient_id"], foodon_id,
+                    method=method, confidence=confidence, approximate=approximate,
+                    ancestor_level=(method == "ancestor_embedding"),
+                )
+
         # 3. Tag ingredients with allergens (shared Ingredient nodes, affects all recipes using them)
         for allergen in allergens:
             session.run(
@@ -496,8 +575,109 @@ def upsert_recipe_to_neo4j(
                 },
             )
 
-        # 4. Add diet tags on the Recipe node
-        for tag in tags:
+        # 3b. FoodOn-ancestry allergen matching -- catches allergens the
+        # keyword scan above misses. An ingredient's FoodOn class can mark it
+        # as a tree nut or fish product even when its name uses none of the
+        # keywords on the list (e.g. an exotic name, or a branded product).
+        # Mirrors scripts/neo4j/tag_allergens.py's _tag_by_foodon exactly
+        # (same shared ALLERGEN_DETECTION_RULES / exclusion regexes), scoped
+        # to just this recipe's already-shared Ingredient nodes. Only affects
+        # ingredients that already have a HAS_CLASS link from the bulk
+        # FoodOn-classification pipeline -- a genuinely brand-new ingredient
+        # name has none yet, same limitation food_groups derivation already
+        # documents.
+        for allergen_name, rule in ALLERGEN_DETECTION_RULES.items():
+            if not rule["roots"]:
+                continue
+            session.run(
+                """
+                MATCH (r:Recipe {recipe_id: $recipe_id})-[:HAS_INGREDIENT]->(i:Ingredient)
+                             -[:HAS_CLASS]->(f:FoodOnClass)
+                MATCH (f)-[:SUBCLASS_OF*0..]->(a:FoodOnClass)
+                WHERE a.foodon_id IN $roots
+                  AND none(pattern IN $name_exclusions
+                           WHERE toLower(i.name) =~ pattern)
+                WITH i, collect(DISTINCT a.foodon_id) AS foodon_ids,
+                     collect(DISTINCT a.label) AS foodon_labels
+                MERGE (al:Allergen {name: $allergen})
+                SET al.canonical_id = $allergen,
+                    al.eu_label = $eu_label,
+                    al.jurisdiction = "EU",
+                    al.fato_class_iri = $fato_class_iri,
+                    al.foodon_label_claim_id = $foodon_label_claim_id,
+                    al.classification_version = $classification_version
+                MERGE (i)-[rel:HAS_ALLERGEN]->(al)
+                SET rel.sources = CASE
+                        WHEN rel.sources IS NULL THEN ["foodon"]
+                        WHEN "foodon" IN rel.sources THEN rel.sources
+                        ELSE rel.sources + ["foodon"]
+                    END,
+                    rel.foodon_ids = foodon_ids,
+                    rel.foodon_labels = foodon_labels,
+                    rel.presence = "contains",
+                    rel.evidence_status = "inferred",
+                    rel.classification_version = $classification_version
+                WITH i, al, rel
+                SET i.canonical_id = coalesce(i.canonical_id, randomUUID())
+                MERGE (declaration:AllergenDeclaration {
+                    declaration_id:
+                        "ingredient:" + toString(i.canonical_id)
+                        + ":allergen:" + al.name
+                        + ":version:" + $classification_version
+                })
+                ON CREATE SET declaration.created_at = datetime()
+                SET declaration.declaration_type =
+                        "inferred_ingredient_presence",
+                    declaration.presence = rel.presence,
+                    declaration.evidence_status = rel.evidence_status,
+                    declaration.sources = rel.sources,
+                    declaration.foodon_ids = rel.foodon_ids,
+                    declaration.foodon_labels = rel.foodon_labels,
+                    declaration.keyword_matches =
+                        coalesce(rel.keyword_matches, []),
+                    declaration.fato_class_iri =
+                        $fato_declaration_class_iri,
+                    declaration.classification_version =
+                        $classification_version,
+                    declaration.updated_at = datetime()
+                MERGE (i)-[:HAS_DECLARATION]->(declaration)
+                MERGE (declaration)-[:CONCERNS]->(al)
+                """,
+                {
+                    "recipe_id": recipe_id,
+                    "allergen": allergen_name,
+                    "roots": rule["roots"],
+                    "name_exclusions": ALLERGEN_EXCLUSION_REGEXES.get(
+                        allergen_name, []
+                    ),
+                    **_allergen_ontology_params(allergen_name),
+                },
+            )
+
+        # Read back the complete allergen set detected above (keyword + FoodOn
+        # + whatever the caller already knew) before deriving anything from
+        # it. Computing diet tags / suitability from the caller's pre-write
+        # guess instead of this would silently ignore whatever step 3b just
+        # found -- exactly the ordering bug this read-back exists to close.
+        full_allergens = sorted(
+            set(
+                session.run(
+                    """
+                    MATCH (r:Recipe {recipe_id: $recipe_id})
+                          -[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
+                    RETURN collect(DISTINCT al.name) AS names
+                    """,
+                    {"recipe_id": recipe_id},
+                ).single()["names"]
+            )
+            | set(allergens)
+        )
+
+        # 4. Add diet tags on the Recipe node -- derived from full_allergens,
+        # not the caller's pre-detection guess, merged with whatever tags the
+        # user explicitly supplied.
+        final_tags = sorted(set(infer_diet_tags(set(full_allergens))) | set(user_tags))
+        for tag in final_tags:
             session.run(
                 """
                 MATCH (r:Recipe {recipe_id: $recipe_id})
@@ -507,6 +687,45 @@ def upsert_recipe_to_neo4j(
                 """,
                 {"recipe_id": recipe_id, "tag": tag},
             )
+
+        # 5. Vegan/vegetarian suitability (keyword-only, mirrors
+        # scripts/neo4j/classify_vegan_vegetarian.py's rules but scoped to
+        # this one recipe at creation time, before that FoodOn-root-based
+        # batch job ever sees it). Conservative on purpose: without a FoodOn
+        # class link for brand-new ingredient names, blocking evidence is
+        # trustworthy but the absence of it is not, so this only ever writes
+        # "not_suitable" or "unknown" -- never "suitable" -- matching the
+        # restraint the batch classifier itself uses for its own keyword path.
+        allergen_set = set(full_allergens)
+        for group in SUPPORTED_CONSUMER_GROUPS:
+            status, blocking = _classify_recipe_suitability(
+                title, ingredient_names, allergen_set, group
+            )
+            session.run(
+                """
+                MATCH (r:Recipe {recipe_id: $recipe_id})
+                MERGE (g:ConsumerGroup {name: $group})
+                MERGE (r)-[rel:SUITABILITY_FOR]->(g)
+                SET rel.status = $status,
+                    rel.scope = "recipe_composition",
+                    rel.blocking_ingredients = $blocking,
+                    rel.reason_codes = CASE $status
+                      WHEN "not_suitable" THEN ["blocking_ingredient"]
+                      ELSE ["incomplete_ingredient_evidence"] END,
+                    rel.sources = ["keyword"],
+                    rel.classification_version = $version,
+                    rel.updated_at = datetime()
+                """,
+                {
+                    "recipe_id": recipe_id,
+                    "group": group,
+                    "status": status,
+                    "blocking": blocking,
+                    "version": SUITABILITY_CLASSIFICATION_VERSION,
+                },
+            )
+
+    return full_allergens, final_tags
 
 
 # ---------------------------------------------------------------------------
@@ -616,6 +835,42 @@ def _keyword_matches(name: str, keyword: str) -> bool:
         + r"(?:e?s)?(?!\w)"
     )
     return re.search(pattern, name.casefold()) is not None
+
+
+_SUITABILITY_NAME_EXCLUSIONS: dict[str, list[str]] = {
+    "vegan": VEGAN_NAME_EXCLUSIONS,
+    "vegetarian": VEGETARIAN_NAME_EXCLUSIONS,
+}
+
+
+def _classify_recipe_suitability(
+    title: str, ingredient_names: list[str], allergens: set[str], group: str
+) -> tuple[str, list[str]]:
+    """Keyword-only vegan/vegetarian check for one recipe's title + ingredients.
+
+    Uses the same GROUP_RULES keyword lists and name exclusions as
+    scripts/neo4j/classify_vegan_vegetarian.py so a later corpus-wide rerun
+    of that script is consistent with, not contradicting, this result.
+
+    Checks the title too, not just ingredient names: a recipe named "Bacon
+    and sweetcorn baked potato" must block vegan/vegetarian even when its
+    actual ingredient ("rashers") has no FoodOn class link and matches no
+    keyword -- the dish name itself is real evidence the ingredient-only
+    scan can miss entirely.
+    """
+    rule = GROUP_RULES[group]
+    exclusions = _SUITABILITY_NAME_EXCLUSIONS[group]
+
+    def _blocked(name: str) -> bool:
+        return not any(re.search(p, name.casefold()) for p in exclusions) and any(
+            _keyword_matches(name, kw) for kw in rule["blocking_keywords"]
+        )
+
+    blocking_names = sorted({name for name in ingredient_names if _blocked(name)})
+    title_blocked = bool(title) and _blocked(title)
+    if blocking_names or title_blocked or (allergens & set(rule["blocking_allergens"])):
+        return "not_suitable", blocking_names
+    return "unknown", []
 
 
 def find_ingredient_substitutes(ingredient_name: str) -> dict[str, Any]:

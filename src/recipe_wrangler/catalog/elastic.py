@@ -211,6 +211,18 @@ class CatalogElasticClient:
                 return None
             raise
 
+    def get_many(self, index: str, doc_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+        """Fetch documents in one request, keyed by their Elasticsearch id."""
+        ids = list(dict.fromkeys(str(doc_id) for doc_id in doc_ids if str(doc_id)))
+        if not ids:
+            return {}
+        response = self._request("POST", f"{index}/_mget", body={"ids": ids})
+        return {
+            str(row["_id"]): row["_source"]
+            for row in response.get("docs", [])
+            if row.get("found") and isinstance(row.get("_source"), dict)
+        }
+
     def exists(self, index: str, doc_id: str) -> bool:
         return self._head(f"{index}/_doc/{doc_id}")
 
@@ -353,6 +365,52 @@ class CatalogElasticClient:
             logger.error(
                 "bulk_index: %s failure(s), first: %s", len(failures), failures[0]
             )
+        return succeeded, failures
+
+    def bulk_update(
+        self,
+        index: str,
+        documents: Iterable[tuple[str, dict[str, Any]]],
+        *,
+        chunk_size: int | None = None,
+        refresh: bool = False,
+    ) -> tuple[int, list[dict[str, Any]]]:
+        """Bulk-merge partial documents without replacing their other fields."""
+        chunk = chunk_size or self._settings.catalog_bulk_chunk_size
+        succeeded = 0
+        failures: list[dict[str, Any]] = []
+        batch: list[str] = []
+        pending = 0
+
+        def flush() -> None:
+            nonlocal batch, pending, succeeded
+            if not batch:
+                return
+            result = self._request(
+                "POST",
+                "_bulk",
+                raw_body="".join(batch),
+                headers=NDJSON_HEADERS,
+                timeout=max(self._timeout, 120.0),
+            )
+            for item in result.get("items", []):
+                outcome = item.get("update") or {}
+                if outcome.get("error"):
+                    failures.append(outcome)
+                else:
+                    succeeded += 1
+            batch = []
+            pending = 0
+
+        for doc_id, partial in documents:
+            batch.append(json.dumps({"update": {"_index": index, "_id": doc_id}}) + "\n")
+            batch.append(json.dumps({"doc": partial}) + "\n")
+            pending += 1
+            if pending >= chunk:
+                flush()
+        flush()
+        if refresh:
+            self.refresh(index)
         return succeeded, failures
 
     def search_body(self, index: str, body: dict[str, Any]) -> dict[str, Any]:

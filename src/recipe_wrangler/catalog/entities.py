@@ -15,6 +15,7 @@ from typing import Any, Iterable
 from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog.entity import DependentEntity, Entity, ValidationError
+from recipe_wrangler.utils.convenience import compute_convenience_tags
 
 # Nutri-Score labels in quality order; the rank is what sorting uses.
 NUTRI_RANKS: dict[str, int] = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5}
@@ -22,7 +23,7 @@ NUTRI_RANKS: dict[str, int] = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5}
 # Region precedence when falling back to the flat per-region score fields. EU
 # first because it is the only region computed for the whole corpus; the rest
 # are a deterministic tail so two documents never resolve differently.
-DEFAULT_SCORE_REGION_ORDER: tuple[str, ...] = ("eu", "ie", "hu", "si", "us")
+DEFAULT_SCORE_REGION_ORDER: tuple[str, ...] = ("eu", "ie", "hu", "slovenian")
 
 
 def nutri_label(value: object) -> str | None:
@@ -91,6 +92,10 @@ class Recipe(Entity):
         # main-dish and main_dish as separate buckets in the first place.
         # "Dish type" is also ambiguous with *dish family* (pasta, curry), which
         # is a genuinely different facet.
+        # Course labels are Elasticsearch-owned annotations.  Canonicalize
+        # their spelling, but never second-guess a stored model/human value
+        # from the title: doing so discarded paid annotations during the v4
+        # rebuild (notably recipes whose titles end in "sauce" or "marinade").
         courses = S.canonical_course_types(raw_courses)
         doc.pop("dish_types", None)
         if courses:
@@ -124,6 +129,14 @@ class Recipe(Entity):
             doc["ingredient_count"] = len(cleaned)
 
         doc["has_image"] = bool(str(doc.get("image_url") or "").strip())
+
+        # --- deterministic v4 fields -------------------------------------- #
+        # These are derived on every write, so a create, patch and full corpus
+        # rebuild cannot disagree or preserve stale values from Elasticsearch.
+        doc["convenience"] = compute_convenience_tags(
+            doc.get("duration"), doc.get("ingredient_count")
+        )
+        doc["schema_version"] = 4
 
         # --- the single score a list and a detail page must agree on -------- #
         self._apply_default_score(doc)

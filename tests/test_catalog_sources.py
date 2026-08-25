@@ -43,6 +43,21 @@ class TestSourceResolution:
 
 
 class TestSourceProperties:
+    def test_all_live_corpus_sources_are_registered_for_rebuilds(self):
+        assert {source.raw for source in S.active_sources()} >= {
+            "Best of Hungary",
+            "Curated Hungarian Recipes",
+            "Curated Irish Recipes",
+            "Curated Slovenian Recipes",
+            "FoodHero",
+            "HealthyFoods",
+            "Irish Heart Foundation",
+            "MyPlate",
+            "Slovenian Kitchen",
+            "SuperValu",
+            "The Hungary Soul",
+        }
+
     def test_curated_and_trusted_sets(self):
         assert S.curated_slugs() == {
             "foodhero",
@@ -65,11 +80,17 @@ class TestSourceProperties:
         )
         assert S.ground_truth_nutrition_sources("Curated Irish Recipes") == (
             "safefood_rcsi",
+            "safefood_web",
             "safefood",
         )
-        # recipe1m's original nutrition data outlives its recipes.
-        assert S.ground_truth_nutrition_sources("recipe1m") == ("recipe1m_original",)
-        assert S.ground_truth_nutrition_sources("MyPlate") == ()
+        assert S.ground_truth_nutrition_sources("recipe1m") == ()
+        assert S.ground_truth_nutrition_sources("MyPlate") == ("myplate",)
+        assert S.ground_truth_nutrition_sources("Curated Hungarian Recipes") == (
+            "planeat",
+        )
+        assert S.ground_truth_nutrition_sources("Curated Slovenian Recipes") == (
+            "slovenian_original",
+        )
 
     def test_rank_orders_curated_above_the_rest_and_retired_last(self):
         assert S.source_rank("FoodHero") < S.source_rank("hungarian")

@@ -5,6 +5,11 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from recipe_wrangler.utils.food_ontology import (
+    DAIRY_PRODUCT_KEYWORDS,
+    MEAT_PRODUCT_KEYWORDS,
+)
+
 SUITABILITY_CLASSIFICATION_VERSION = "vegan-vegetarian-v1"
 SUPPORTED_CONSUMER_GROUPS = ("vegan", "vegetarian")
 
@@ -166,6 +171,8 @@ GROUP_RULES: dict[str, dict[str, list[str]]] = {
             "tallow",
             "suet",
             "animal rennet",
+            *DAIRY_PRODUCT_KEYWORDS,
+            *MEAT_PRODUCT_KEYWORDS,
         ],
         "positive_keywords": ["vegan", "plant based", "plant-based"],
     },
@@ -210,6 +217,7 @@ GROUP_RULES: dict[str, dict[str, list[str]]] = {
             "tallow",
             "suet",
             "animal rennet",
+            *MEAT_PRODUCT_KEYWORDS,
         ],
         "positive_keywords": [
             "vegan",
@@ -231,6 +239,7 @@ GROUP_RULES: dict[str, dict[str, list[str]]] = {
             "propolis",
             "colostrum",
             "lanolin",
+            *DAIRY_PRODUCT_KEYWORDS,
         ],
     },
 }

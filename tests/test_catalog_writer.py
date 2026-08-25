@@ -74,7 +74,8 @@ def stub(monkeypatch):
     def fake_suggest(**kwargs):
         if rec.annotate_error:
             raise rec.annotate_error
-        return dict(rec.facets), 0.9
+        requested = set(kwargs.get("facets") or ())
+        return {k: v for k, v in rec.facets.items() if k in requested}, 0.9
 
     monkeypatch.setattr(annotation, "suggest", fake_suggest)
     monkeypatch.setattr(
@@ -206,7 +207,13 @@ class TestReAnnotation:
 
         This is what makes it safe for the edit path to share the commit path.
         """
-        stub.document = dict(stub.document, cuisines=["greek"])
+        stub.document = dict(
+            stub.document,
+            course_types=["main-dish"],
+            cuisines=["greek"],
+            moods=["comfort"],
+            flavor_profiles=["umami"],
+        )
         result = writer.commit("r-1")
 
         assert result.projected
@@ -215,10 +222,24 @@ class TestReAnnotation:
 
     def test_an_already_annotated_recipe_is_not_marked_pending(self, stub):
         """It is not a gap, so it must not appear in a backfill queue."""
-        stub.document = dict(stub.document, cuisines=["greek"])
+        stub.document = dict(
+            stub.document,
+            course_types=["main-dish"],
+            cuisines=["greek"],
+            moods=["comfort"],
+            flavor_profiles=["umami"],
+        )
         writer.commit("r-1")
 
         assert stub.pending[-1]["annotation"] is False
+
+    def test_only_missing_model_facets_are_filled(self, stub):
+        stub.document = dict(stub.document, cuisines=["greek"])
+        writer.commit("r-1")
+
+        _, changes = stub.patched[0]
+        assert changes["moods"] == ["comfort"]
+        assert "cuisines" not in changes
 
     def test_overwrite_forces_reclassification(self, stub):
         stub.document = dict(stub.document, cuisines=["greek"])

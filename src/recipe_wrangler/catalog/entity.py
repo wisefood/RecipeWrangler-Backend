@@ -119,6 +119,19 @@ class Entity:
     def get(self, identifier: object) -> dict[str, Any] | None:
         return self.es.get(self.alias, self.make_urn(identifier))
 
+    def get_many(self, identifiers: Iterable[object]) -> dict[str, dict[str, Any]]:
+        """Fetch entities in one request, keyed by the caller's local id."""
+        local_to_urn: dict[str, str] = {}
+        for identifier in identifiers:
+            urn = self.make_urn(identifier)
+            local_to_urn[self.local_id(urn)] = urn
+        found = self.es.get_many(self.alias, local_to_urn.values())
+        return {
+            local_id: found[urn]
+            for local_id, urn in local_to_urn.items()
+            if urn in found
+        }
+
     def get_or_raise(self, identifier: object) -> dict[str, Any]:
         doc = self.get(identifier)
         if doc is None:

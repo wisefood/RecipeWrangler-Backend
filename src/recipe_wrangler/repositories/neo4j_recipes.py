@@ -21,12 +21,14 @@ from recipe_wrangler.utils.food_ontology import (
     FATO_ALLERGEN_CLASS_IRI,
     FATO_ALLERGEN_DECLARATION_CLASS_IRI,
 )
+from recipe_wrangler.utils.diet_tags import compute_diet_tags
 from recipe_wrangler.utils.foodon_matching import (
     fetch_label_index,
     match_ingredient_to_foodon,
     write_link as write_foodon_link,
 )
 from recipe_wrangler.utils.neo4j_utils import driver, run_query
+from recipe_wrangler.utils.nutrition_claims import NUTRITION_CLAIM_TAG_NAMES
 from recipe_wrangler.utils.recipe_status import NEO4J_NOT_DISABLED, STATUS_DISABLED
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,34 @@ _foodon_label_index_cache: dict[str, str] | None = None
 def clear_foodon_label_index_cache() -> None:
     global _foodon_label_index_cache
     _foodon_label_index_cache = None
+
+
+def replace_recipe_nutrition_claims(recipe_id: str, claims: list[str]) -> None:
+    """Replace only rule-derived nutrition-claim edges for one recipe."""
+    accepted = [
+        name for name in dict.fromkeys(claims) if name in NUTRITION_CLAIM_TAG_NAMES
+    ]
+    with driver.session() as session:
+        session.run(
+            """
+            MATCH (r:Recipe)
+            WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
+            OPTIONAL MATCH (r)-[rel:HAS_TAG]->(old:Tag)
+            WHERE old.name IN $claim_names
+            WITH r, collect(rel) AS obsolete
+            FOREACH (old_rel IN obsolete | DELETE old_rel)
+            FOREACH (claim IN $claims |
+                MERGE (tag:Tag {name: claim})
+                SET tag.category = 'nutrition_claim'
+                MERGE (r)-[:HAS_TAG]->(tag)
+            )
+            """,
+            {
+                "recipe_id": recipe_id,
+                "claim_names": list(NUTRITION_CLAIM_TAG_NAMES),
+                "claims": accepted,
+            },
+        )
 
 
 def _get_foodon_label_index(session) -> dict[str, str]:
@@ -222,9 +252,10 @@ def update_recipe_in_neo4j(
     allergens: list[str] | None = None,
     tags: list[str] | None = None,
     duration: float | None = None,
+    seasonality: list[str] | None = None,
 ) -> bool:
     """Patch mutable fields on an existing Recipe node. Returns False if not found."""
-    if all(v is None for v in [instructions, image_url, source_id, expert_recipe, title, allergens, tags, duration]):
+    if all(v is None for v in [instructions, image_url, source_id, expert_recipe, title, allergens, tags, duration, seasonality]):
         return True  # nothing to do
 
     set_clauses = []
@@ -248,6 +279,9 @@ def update_recipe_in_neo4j(
     if duration is not None:
         set_clauses.append("r.duration = $duration")
         params["duration"] = duration
+    if seasonality is not None:
+        set_clauses.append("r.seasonality = $seasonality")
+        params["seasonality"] = seasonality
     set_clauses.append("r.edited = true")
     set_clauses.append("r.edited_at = datetime()")
 
@@ -263,8 +297,13 @@ def update_recipe_in_neo4j(
             # Remove all existing allergen edges from this recipe's ingredients, then re-add
             session.run(
                 """
-                MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)-[rel:HAS_ALLERGEN]->(:Allergen)
+                MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)-[rel:HAS_ALLERGEN]->(a:Allergen)
                 WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
+                WITH DISTINCT i, a, rel
+                OPTIONAL MATCH (i)-[:HAS_DECLARATION]->
+                               (d:AllergenDeclaration)-[:CONCERNS]->(a)
+                WITH rel, collect(DISTINCT d) AS declarations
+                FOREACH (d IN declarations | DETACH DELETE d)
                 DELETE rel
                 """,
                 {"recipe_id": recipe_id},
@@ -341,8 +380,11 @@ def update_recipe_in_neo4j(
         with driver.session() as session:
             session.run(
                 """
-                MATCH (r:Recipe)-[rel:HAS_TAG]->(:Tag)
+                MATCH (r:Recipe)-[rel:HAS_TAG]->(tag:Tag)
                 WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
+                  AND coalesce(tag.category, '') NOT IN [
+                    'dietary', 'dietary_option', 'nutrition_claim', 'dish-type'
+                  ]
                 DELETE rel
                 """,
                 {"recipe_id": recipe_id},
@@ -377,6 +419,8 @@ def upsert_recipe_to_neo4j(
     source_id: str | None = None,
     expert_recipe: bool = False,
     creator: str | None = None,
+    url: str | None = None,
+    seasonality: list[str] | None = None,
 ) -> tuple[list[str], list[str]]:
     """Write (or update) a recipe and its ingredient/allergen/tag graph in Neo4j.
 
@@ -393,6 +437,8 @@ def upsert_recipe_to_neo4j(
                             complete allergen set this function detects (keyword +
                             FoodOn) -- not from the caller's pre-write guess, which
                             cannot see what step 3b finds.
+        url:               Original recipe page. ``None`` preserves an existing
+                            URL so imports without one cannot erase provenance.
 
     Returns:
         (full_allergens, final_tags) -- the complete post-detection allergen set and
@@ -414,7 +460,9 @@ def upsert_recipe_to_neo4j(
                 r.duration      = $duration,
                 r.serves        = $serves,
                 r.image_url     = $image_url,
+                r.url           = coalesce($url, r.url),
                 r.instructions  = $instructions,
+                r.seasonality   = coalesce($seasonality, r.seasonality),
                 r.edited        = coalesce(r.edited, false),
                 // The Keycloak subject of whoever created this, set once and
                 // never overwritten: a later edit by someone else must not
@@ -430,7 +478,9 @@ def upsert_recipe_to_neo4j(
                 "duration": duration,
                 "serves": serves,
                 "image_url": image_url,
+                "url": url,
                 "instructions": instructions,
+                "seasonality": seasonality,
                 "creator": creator,
             },
         )
@@ -462,7 +512,9 @@ def upsert_recipe_to_neo4j(
 
                 MERGE (o)-[:MAPS_TO]->(i)
                 MERGE (r)-[hi:HAS_INGREDIENT]->(i)
-                ON CREATE SET hi.measurement = $measurement, hi.unit = null
+                SET hi.measurement = $measurement,
+                    hi.position = $position,
+                    hi.unit = null
                 """,
                 {
                     "recipe_id": recipe_id,
@@ -675,8 +727,9 @@ def upsert_recipe_to_neo4j(
 
         # 4. Add diet tags on the Recipe node -- derived from full_allergens,
         # not the caller's pre-detection guess, merged with whatever tags the
-        # user explicitly supplied.
-        final_tags = sorted(set(infer_diet_tags(set(full_allergens))) | set(user_tags))
+        # user explicitly supplied. Rules come from utils.diet_tags, the same
+        # single source scripts/facets/tag_diet.py reads for the batch corpus.
+        final_tags = sorted(set(compute_diet_tags(set(full_allergens))) | set(user_tags))
         for tag in final_tags:
             session.run(
                 """
@@ -728,35 +781,12 @@ def upsert_recipe_to_neo4j(
     return full_allergens, final_tags
 
 
-# ---------------------------------------------------------------------------
-# Allergen keyword map (mirrors scripts/neo4j/tag_allergens.py)
-# ---------------------------------------------------------------------------
-
+# One shared rule source drives API analysis, per-recipe graph writes, and the
+# corpus-wide tagger. Keeping a second hand-copied map here previously let the
+# API silently miss keywords added to the batch path.
 _ALLERGEN_KEYWORDS: dict[str, list[str]] = {
-    "milk": ["milk", "cheese", "butter", "cream", "yogurt", "whey", "casein", "lactose", "ghee", "curd", "kefir"],
-    "egg": ["egg", "egg white", "egg yolk", "omelet", "mayonnaise", "aioli", "meringue", "albumen"],
-    "peanut": ["peanut", "peanut butter", "groundnut", "arachis", "satay", "sate", "saté"],
-    "tree_nut": ["almond", "walnut", "pecan", "cashew", "pistachio", "hazelnut", "macadamia", "brazil nut", "pine nut"],
-    "wheat": ["wheat", "whole wheat", "durum", "semolina", "spelt", "farro", "flour", "bread", "pasta", "noodle"],
-    "soy": ["soy", "soya", "soybean", "tofu", "miso", "tempeh", "edamame"],
-    "fish": ["fish", "cod", "bass", "tuna", "salmon", "tilapia", "halibut", "trout", "sardine", "anchovy"],
-    "crustacean_shellfish": ["crab", "lobster", "shrimp", "prawn", "crawfish", "crayfish", "crustacean", "langostino"],
-    "sesame": ["sesame", "tahini", "sesame oil", "sesame seed"],
-    "gluten": ["gluten", "wheat", "barley", "rye", "malt", "brewer"],
-    "celery": ["celery", "celeriac", "celery seed", "celery salt"],
-    "mustard": ["mustard", "mustard seed", "mustard powder", "mustard flour"],
-    "sulphites": [
-        "sulphite", "sulphites", "sulfite", "sulfites",
-        "sulphur dioxide", "sulfur dioxide",
-        "metabisulphite", "metabisulfite", "bisulphite", "bisulfite",
-        "sodium sulphite", "sodium sulfite", "potassium sulphite", "potassium sulfite",
-        "e220", "e221", "e222", "e223", "e224", "e225", "e226", "e227", "e228",
-    ],
-    "lupin": ["lupin", "lupine", "lupin bean", "lupini", "lupin flour"],
-    "molluscs": [
-        "mollusc", "mollusk", "clam", "mussel", "oyster", "scallop",
-        "squid", "octopus", "cuttlefish", "whelk", "cockle", "abalone", "snail",
-    ],
+    allergen: list(rule["keywords"])
+    for allergen, rule in ALLERGEN_DETECTION_RULES.items()
 }
 
 
@@ -958,18 +988,63 @@ def detect_allergens_from_names(ingredient_names: list[str]) -> list[str]:
                 found.add(allergen)
     return sorted(found)
 
+
+def detect_allergen_evidence_from_names(
+    ingredient_names: list[str],
+) -> list[dict[str, Any]]:
+    """Explain keyword allergen detection for an unpersisted recipe.
+
+    Analysis has no graph declaration IDs or FoodOn links yet, so those fields
+    are intentionally empty. The shape otherwise matches projected recipe
+    evidence and preserves the allergen/ingredient pairing clients need.
+    """
+    evidence: list[dict[str, Any]] = []
+    for raw_name in ingredient_names:
+        ingredient = str(raw_name or "").strip()
+        if not ingredient:
+            continue
+        normalized = ingredient.casefold()
+        for allergen, keywords in _ALLERGEN_KEYWORDS.items():
+            if allergen == "milk" and _is_plant_dairy_alternative(normalized):
+                continue
+            if allergen in {"gluten", "wheat"} and _is_gluten_safe_name(
+                normalized
+            ):
+                continue
+            hits = sorted({
+                keyword.casefold()
+                for keyword in keywords
+                if _keyword_matches(normalized, keyword)
+            })
+            if not hits:
+                continue
+            evidence.append(
+                {
+                    "allergen": allergen,
+                    "ingredient": ingredient,
+                    "ingredient_id": "",
+                    "declaration_id": "",
+                    "presence": "contains",
+                    "evidence_status": "inferred",
+                    "sources": ["keyword"],
+                    "foodon_ids": [],
+                    "keyword_matches": hits,
+                    "classification_version": CLASSIFICATION_VERSION,
+                }
+            )
+    return sorted(
+        evidence,
+        key=lambda row: (row["allergen"], row["ingredient"].casefold()),
+    )
+
 def infer_diet_tags(allergens: set[str]) -> list[str]:
-    """Derive diet tags deterministically from the allergen set."""
-    tags: list[str] = []
-    if "milk" not in allergens:
-        tags.append("dairy_free")
-    if "peanut" not in allergens and "tree_nut" not in allergens:
-        tags.append("nut_free")
-    if "gluten" not in allergens and "wheat" not in allergens:
-        tags.append("gluten_free")
-    if not allergens.intersection({"fish", "crustacean_shellfish", "molluscs"}):
-        tags.append("pescatarian_safe")
-    return tags
+    """Derive diet tags deterministically from the allergen set.
+
+    Thin wrapper over utils.diet_tags.compute_diet_tags, the single source
+    of truth shared with scripts/facets/tag_diet.py -- kept here so existing
+    callers don't need to change their import path.
+    """
+    return compute_diet_tags(allergens)
 
 
 def _normalize_foodchat_terms(items: list[str]) -> list[str]:

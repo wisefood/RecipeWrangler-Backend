@@ -27,7 +27,12 @@ from recipe_wrangler.catalog import vocabularies as V
 
 logger = logging.getLogger(__name__)
 
-MODEL_FACETS: tuple[str, ...] = ("course_types", "cuisines", "flavor_profiles", "moods")
+MODEL_FACETS: tuple[str, ...] = (
+    "course_types",
+    "cuisines",
+    "flavor_profiles",
+    "moods",
+)
 DERIVED_FACETS: tuple[str, ...] = ("food_groups",)
 
 DEFAULT_MODEL = os.getenv("ANNOTATION_MODEL", "llama-3.3-70b-versatile")
@@ -38,7 +43,8 @@ def vocabulary_block() -> str:
     lines: list[str] = []
     for facet in MODEL_FACETS:
         if facet == "course_types":
-            values, description = S.COURSE_TYPES, "The course the dish is served as."
+            values = S.COURSE_TYPES
+            description = "Course or meal role of the finished recipe."
         else:
             spec = V.FACETS[facet]
             values, description = spec["values"], spec["description"]
@@ -57,7 +63,7 @@ Rules, in order of importance:
 3. Judge the dish as a whole, from its title and ingredients. Do not infer a
    cuisine from a single ingredient — olive oil does not make a dish Italian,
    and soy sauce does not make it Chinese.
-4. Assign at most 2 cuisines, 4 flavor_profiles, 2 moods and 2 course_types.
+4. Assign at most 1 course_type, 2 cuisines, 4 flavor_profiles, and 2 moods.
 5. confidence is your own 0-1 estimate that the whole assignment is right.
 
 {vocabulary_block()}
@@ -74,15 +80,8 @@ def build_user_prompt(
     description: str | None = None,
     tags: Iterable[str] = (),
     source: str | None = None,
-    existing_course_types: Iterable[str] = (),
-    trust_existing_course: bool = True,
 ) -> str:
-    """The per-recipe half of the prompt.
-
-    ``trust_existing_course=False`` omits the stored course type deliberately:
-    stating it anchors the model to the value being corrected — a chocolate
-    brownie came back as "main-dish" purely because the prompt said it was one.
-    """
+    """The per-recipe half of the prompt."""
     parts = [f"Title: {title}"]
 
     names = [str(i).strip() for i in ingredients if str(i or "").strip()]
@@ -90,10 +89,6 @@ def build_user_prompt(
         parts.append(f"Ingredients: {', '.join(names[:40])}")
     if description:
         parts.append(f"Description: {str(description)[:400]}")
-
-    existing = [c for c in existing_course_types if c]
-    if existing and trust_existing_course:
-        parts.append(f"Course type already known (do not change): {', '.join(existing)}")
 
     prior = V.SOURCE_CUISINE_PRIOR.get(str(source or ""))
     if prior:
@@ -157,6 +152,8 @@ def validate_facets(
 
     out: dict[str, list[str]] = {}
     for facet in facets:
+        if facet not in MODEL_FACETS:
+            continue
         proposed = raw.get(facet) or []
         values = (
             S.canonical_course_types(proposed)
@@ -177,6 +174,7 @@ def suggest(
     source: str | None = None,
     model: str = DEFAULT_MODEL,
     temperature: float = 0.0,
+    facets: Iterable[str] = MODEL_FACETS,
 ) -> tuple[dict[str, list[str]], float | None]:
     """Annotate an unsaved draft. Returns (facet values, confidence)."""
     prompt = build_user_prompt(
@@ -185,9 +183,10 @@ def suggest(
         description=description,
         tags=tags,
         source=source,
-        trust_existing_course=False,
     )
-    return validate_facets(call_model(prompt, model=model, temperature=temperature))
+    return validate_facets(
+        call_model(prompt, model=model, temperature=temperature), facets=facets
+    )
 
 
 

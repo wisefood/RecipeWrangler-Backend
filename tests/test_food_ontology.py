@@ -19,7 +19,9 @@ def test_internal_allergens_map_to_foodon_label_claims() -> None:
         ALLERGEN_ONTOLOGY_MAPPINGS["wheat"].foodon_label_claim_id
         == ALLERGEN_ONTOLOGY_MAPPINGS["gluten"].foodon_label_claim_id
     )
-    assert set(CONSUMER_GROUP_IRIS) == {"coeliac", "vegan", "vegetarian"}
+    assert set(CONSUMER_GROUP_IRIS) == {
+        "coeliac", "vegan", "vegetarian", "halal", "kosher", "infant", "elderly"
+    }
     assert FATO_ALLERGEN_DECLARATION_CLASS_IRI.endswith(
         "/AllergenDeclaration"
     )
@@ -82,6 +84,10 @@ def test_missing_suitability_evidence_is_unknown() -> None:
         "coeliac": "unknown",
         "vegan": "unknown",
         "vegetarian": "unknown",
+        "halal": "unknown",
+        "kosher": "unknown",
+        "infant": "unknown",
+        "elderly": "unknown",
     }
 
 

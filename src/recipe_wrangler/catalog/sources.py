@@ -91,6 +91,7 @@ SOURCES: tuple[Source, ...] = (
         # rather than propagating a dangling reference; create the collection
         # and fill this in.
         collection_urn=None,
+        ground_truth_nutrition_sources=("myplate",),
     ),
     Source(
         slug="irish_safefood",
@@ -100,19 +101,51 @@ SOURCES: tuple[Source, ...] = (
         collection_urn="urn:rcollection:rcsi-recipes",
         curated=True,
         trusted=True,
-        ground_truth_nutrition_sources=("safefood_rcsi", "safefood"),
+        ground_truth_nutrition_sources=("safefood_rcsi", "safefood_web", "safefood"),
     ),
     Source(
         slug="hungarian",
         raw="Curated Hungarian Recipes",
         display_name="Curated Hungarian Recipes",
         curated=True,
+        ground_truth_nutrition_sources=("planeat",),
     ),
     Source(
         slug="slovenian",
         raw="Curated Slovenian Recipes",
         display_name="Curated Slovenian Recipes",
         curated=True,
+        ground_truth_nutrition_sources=("slovenian_original",),
+    ),
+    # Web sources added after the original six-source registry was introduced.
+    # Keep them here even though they do not yet have catalog collection URNs:
+    # the full-corpus builder filters Neo4j by ``active_sources()``, so omitting
+    # one here makes an otherwise successful rebuild silently delete that
+    # source from Elasticsearch.
+    Source(
+        slug="best_of_hungary",
+        raw="Best of Hungary",
+        display_name="Best of Hungary",
+    ),
+    Source(
+        slug="irish_heart_foundation",
+        raw="Irish Heart Foundation",
+        display_name="Irish Heart Foundation",
+    ),
+    Source(
+        slug="slovenian_kitchen",
+        raw="Slovenian Kitchen",
+        display_name="Slovenian Kitchen",
+    ),
+    Source(
+        slug="supervalu",
+        raw="SuperValu",
+        display_name="SuperValu",
+    ),
+    Source(
+        slug="the_hungary_soul",
+        raw="The Hungary Soul",
+        display_name="The Hungary Soul",
     ),
     Source(
         slug="user",
@@ -123,8 +156,6 @@ SOURCES: tuple[Source, ...] = (
         slug="recipe1m",
         raw="recipe1m",
         display_name="Recipe1M+",
-        collection_urn="urn:rcollection:recipe1m",
-        ground_truth_nutrition_sources=("recipe1m_original",),
         retired=True,
     ),
 )

@@ -75,11 +75,14 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 
 _DATE = {"type": "date", "format": "strict_date_optional_time||epoch_millis"}
 
-# Regions with a full score/colour/rank/points quartet.
-SCORE_REGIONS: tuple[str, ...] = ("eu", "ie", "hu", "us", "si")
+# Regions with a full score/colour/rank/points quartet. 4 supported nutrition
+# sources (3 regional + 1 global) per 2026-08-21 decision — USDA ("us") dropped,
+# Slovenian uses the full-word suffix (nutri_score_slovenian, not the old
+# nutri_score_si) so there's exactly one Slovenian field, not two.
+SCORE_REGIONS: tuple[str, ...] = ("eu", "ie", "hu", "slovenian")
 
 # Regions that only ever carry a label and a colour.
-LABEL_ONLY_REGIONS: tuple[str, ...] = ("planeat", "slovenian")
+LABEL_ONLY_REGIONS: tuple[str, ...] = ("planeat",)
 
 
 def _embedding(dim: int) -> dict[str, Any]:
@@ -181,6 +184,7 @@ def _annotation_fields() -> dict[str, Any]:
         "food_groups": {"type": "keyword"},
         "flavor_profiles": {"type": "keyword"},
         "moods": {"type": "keyword"},
+        "convenience": {"type": "keyword"},
         "annotation_evidence": {
             "type": "nested",
             "properties": {
@@ -294,6 +298,8 @@ def recipe_index(dim: int = DEFAULT_DIM) -> dict[str, Any]:
         # classification (human-authoritative)
         "tags": {"type": "keyword", "copy_to": "all_text"},
         "diet_tags": {"type": "keyword"},
+        "nutrition_claims": {"type": "keyword"},
+        "seasonality": {"type": "keyword"},
         # No `dish_types`. It was the v2 name for the same thing as
         # `course_types` and carried byte-identical values; keeping both is what
         # let main-dish/main_dish drift apart across two writers. `course_types`

@@ -103,6 +103,10 @@ FOODON_ID_TO_FOOD_GROUP: dict[str, str] = {
     "FOODON_02010107": "meat",         # piece of animal meat
     "FOODON_00001283": "poultry",
     "FOODON_02020686": "poultry",      # poultry material
+    # Duck never reaches "poultry material" through SUBCLASS_OF -- FoodOn's
+    # ancestry for it stops at "duck material", a sibling branch, not a
+    # descendant of the poultry-material node the rest of this map relies on.
+    "FOODON_02020115": "poultry",      # duck material
     # fish & seafood
     "FOODON_00001248": "fish",         # fish food product
     "FOODON_03411365": "fish",         # bony fish
@@ -110,6 +114,17 @@ FOODON_ID_TO_FOOD_GROUP: dict[str, str] = {
     "FOODON_00001293": "seafood",      # shellfish food product
     # other
     "FOODON_00001274": "eggs",
+    # Plain "egg"/"eggs" ingredient entries classify to this node directly,
+    # never reaching FOODON_00001274 -- a separate branch, same gap shape as
+    # duck above.
+    "FOODON_03420225": "eggs",         # egg (without shell)
+    # egg white / egg yolk resolve through "poultry material" too (both are
+    # animal substance under avian material), so without their own more
+    # specific entries here they were counted as poultry, not eggs. Adding
+    # these adds "eggs" alongside "poultry" for those two ingredients rather
+    # than replacing it -- this map has no notion of "most specific wins".
+    "FOODON_03304840": "eggs",         # chicken egg white food product
+    "FOODON_03315772": "eggs",         # chicken egg yolk food product
     "FOODON_00001264": "legumes",
     "FOODON_00001209": "legumes",      # pulse food product
     "FOODON_00003042": "herbs_and_spices",

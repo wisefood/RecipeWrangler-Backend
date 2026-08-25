@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 # Facets an annotation pass fills. A recipe missing all of them is unreachable
 # by every discovery filter the UI offers.
 ANNOTATED_FACETS: tuple[str, ...] = (
+    "course_types",
     "cuisines",
     "moods",
     "flavor_profiles",
@@ -141,8 +142,11 @@ def annotate(
     from recipe_wrangler.catalog.entities import recipe_entity
 
     already = _existing_facets(document)
-    if already and not overwrite:
-        return False, already, "already annotated"
+    missing_model_facets = tuple(
+        facet
+        for facet in A.MODEL_FACETS
+        if overwrite or not document.get(facet)
+    )
 
     title = str(document.get("title") or "").strip()
     if not title:
@@ -156,19 +160,18 @@ def annotate(
         for item in (document.get("ingredients") or [])
     ]
 
-    facets, confidence = A.suggest(
-        title=title,
-        ingredients=[str(i) for i in ingredients if i],
-        description=document.get("description"),
-        tags=document.get("tags") or [],
-        source=document.get("source"),
-    )
+    facets: dict[str, list[str]] = {}
+    confidence: float | None = None
+    if missing_model_facets:
+        facets, confidence = A.suggest(
+            title=title,
+            ingredients=[str(i) for i in ingredients if i],
+            description=document.get("description"),
+            tags=document.get("tags") or [],
+            source=document.get("source"),
+            facets=missing_model_facets,
+        )
     facets = {k: v for k, v in (facets or {}).items() if v}
-    if not facets:
-        # A model that returns nothing usable is not an error — it may be a
-        # genuine abstention on an ambiguous recipe — but it is also not an
-        # annotation, and calling it one would hide the gap.
-        return False, {}, "model returned no usable facets"
 
     patch = dict(facets)
     evidence = A.evidence_for(facets, method="model", confidence=confidence)
@@ -180,15 +183,29 @@ def annotate(
     # been linked into the taxonomy yet; the gap is recorded rather than filled
     # with something plausible.
     groups, group_evidence = A.derive_food_groups(document)
-    if groups:
+    if groups and (overwrite or not document.get("food_groups")):
         patch["food_groups"] = groups
         evidence = [*evidence, *group_evidence]
 
-    patch["annotation_evidence"] = evidence
+    if not patch:
+        if not missing_model_facets:
+            return False, already, "already annotated"
+        # A model that returns nothing usable is not an error — it may be a
+        # genuine abstention on an ambiguous recipe — but it is also not an
+        # annotation, and calling it one would hide the gap.
+        return False, already, "model returned no usable facets"
+
+    existing_evidence = list(document.get("annotation_evidence") or [])
+    replaced = {(entry.get("facet"), entry.get("value")) for entry in evidence}
+    patch["annotation_evidence"] = [
+        entry
+        for entry in existing_evidence
+        if (entry.get("facet"), entry.get("value")) not in replaced
+    ] + evidence
 
     entity = recipe_entity()
     entity.patch(recipe_id, patch, refresh="wait_for", reread=False)
-    return True, facets, None
+    return True, {**already, **facets, **({"food_groups": groups} if groups else {})}, None
 
 
 def commit(

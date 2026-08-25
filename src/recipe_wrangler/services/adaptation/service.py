@@ -25,6 +25,7 @@ from recipe_wrangler.utils.nutri_score import (
 )
 from recipe_wrangler.utils.nutrition_postgres import (
     fetch_recipe_profiling_trace_by_id,
+    fetch_recipe_profiling_traces_by_id,
 )
 
 from .llm_judge import rerank_with_llm
@@ -166,6 +167,18 @@ def _load_profile(recipe_id: str, region: str) -> dict[str, Any]:
     source = _region_to_source(region)
     row = fetch_recipe_profiling_trace_by_id(recipe_id, nutrition_source=source)
     if not row:
+        # Fall back to whatever region the recipe *was* profiled in, exactly as
+        # the recipe-detail endpoint does when the requested region has no row.
+        #
+        # Without this the two disagreed: a Slovenian recipe asked for in US
+        # rendered fine (detail falls back to its `eu` profile) but every
+        # adaptation call 404d, so the "Improve" button appeared on recipes it
+        # could never work for. Coverage is per (recipe, region) and is
+        # genuinely partial, so an exact-match requirement here is a promise
+        # the corpus does not keep.
+        rows = fetch_recipe_profiling_traces_by_id(recipe_id) or []
+        row = next((candidate for candidate in rows if candidate), None)
+    if not row:
         raise HTTPException(
             status_code=404,
             detail=f"No profile found for recipe '{recipe_id}' in region '{region}'. "
@@ -183,6 +196,19 @@ def _load_profile(recipe_id: str, region: str) -> dict[str, Any]:
             detail=f"Profile for '{recipe_id}' (region '{region}') has no nutrition_profiling_details.",
         )
     return row
+
+
+def _profile_source(row: dict[str, Any], region: str) -> str:
+    """The nutrition source the loaded profile row was actually computed with.
+
+    Call sites used to re-derive this from the region, which was fine only while
+    `_load_profile` refused anything but an exact regional match. Now that it
+    falls back, deriving it from the region again would recompute per-ingredient
+    details against one region's tables while `nutri_score_breakdown` on the same
+    row came from another's — a breakdown and a detail list that disagree.
+    """
+    stored = str(row.get("nutrition_source") or "").strip().lower()
+    return stored or _region_to_source(region)
 
 
 def _recompute_ingredient_details(
@@ -1180,7 +1206,7 @@ def _generate_consumer_suggestions(
     # Vegan adaptation returns a complete recalculated recipe, so a regional
     # source profile is mandatory rather than optional.
     profile_row = _load_profile(recipe_id, region)
-    nutrition_source = _region_to_source(region)
+    nutrition_source = _profile_source(profile_row, region)
     profile_details = _recompute_ingredient_details(
         profile_row,
         nutrition_source,
@@ -1538,7 +1564,7 @@ def _generate_sustainability_suggestions(
     """Sustainability-mode orchestrator: target the top CO2e contributor with substitutes."""
 
     row = _load_profile(recipe_id, region)
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
     details = _enrich_with_co2e(details)
     serves = _serves_from_row(row)
@@ -1700,7 +1726,7 @@ def _generate_reduce_quantity_suggestions(
 
     row = _load_profile(recipe_id, region)
     breakdown = row["nutri_score_breakdown"]
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
 
     target = _identify_target_nutrient(breakdown)
@@ -1889,7 +1915,7 @@ def generate_suggestions(
 
     row = _load_profile(recipe_id, region)
     breakdown = row["nutri_score_breakdown"]
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
 
     target = _identify_target_nutrient(breakdown, _normalize_goal_nutrients(goal_nutrients))
@@ -2057,7 +2083,7 @@ def simulate_swap(
 ) -> dict[str, Any]:
     row = _load_profile(recipe_id, region)
     breakdown = row["nutri_score_breakdown"]
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
 
     # Locate original ingredient in the profile.

@@ -1,7 +1,7 @@
-"""Resolve a recipe ingredient to a composition-table record.
+"""Resolve a recipe ingredient to a regional composition-table record.
 
-Wraps the Elasticsearch vector lookup with: a curated recipe1m->USDA link shortcut,
-query cleaning, a BM25 + similarity rerank that *gates* on lexical overlap, and
+Wraps the Elasticsearch vector lookup with query cleaning, a BM25 + similarity
+rerank that *gates* on lexical overlap, and
 a conservative food-class compatibility guard. Returns a Elasticsearch-candidate-shaped
 dict plus a confidence label ("curated" | "strong" | "weak" | "none") so callers
 can flag weak matches instead of silently trusting or zeroing them.
@@ -10,28 +10,12 @@ can flag weak matches instead of silently trusting or zeroing them.
 from __future__ import annotations
 
 import math
-import os
 import re
-from functools import lru_cache
-from typing import Optional
-
-from recipe_wrangler.utils.env_loader import load_runtime_env
-
-load_runtime_env()
-
-# Modular fallback source. Override via NUTRITION_FALLBACK_SOURCE in .env.
-# Used as the secondary pool after the primary (irish / hungarian / default).
-# Valid: "usda" | "eu". Passing source="usda" or source="eu" directly to
-# best_nutrition_match bypasses this and uses that source alone.
-NUTRITION_FALLBACK_SOURCE = os.getenv("NUTRITION_FALLBACK_SOURCE", "usda").strip().lower()
-if NUTRITION_FALLBACK_SOURCE not in {"usda", "eu"}:
-    NUTRITION_FALLBACK_SOURCE = "usda"
-
 from recipe_wrangler.repositories.vector_matchers import (  # noqa: E402
     query_eu_nutrition_candidates,
     query_hungarian_nutrition_candidates,
     query_irish_nutrition_candidates,
-    query_usda_nutrition_candidates,
+    query_slovenian_nutrition_candidates,
 )
 
 # --------------------------------------------------------------------------- #
@@ -46,6 +30,8 @@ _QUALIFIER_RE = re.compile(
     r"store[- ]?bought|good[- ]?quality|best[- ]?quality|"
     r"to taste|to serve|to garnish|to drizzle|to finish|to brush|to grease|"
     r"for serving|for garnish|for dusting|for sprinkling|for frying|for greasing|"
+    r"spray oil|cooking spray|"
+    r"no[- ]added[- ]salt|reduced[- ]salt|salt[- ]reduced|low[- ]salt|"
     r"plus more|plus extra|or more|as needed|of your choice|approximately|about|"
     r"halved|quartered|cubed|julienned)\b",
     re.IGNORECASE,
@@ -59,11 +45,14 @@ _LEADING_QTY_RE = re.compile(r"^\s*\d+(?:[.\-/]\d+)*\s*(?:%|cups?|tbsps?|tsps?|"
 
 def clean_query(name: str) -> str:
     s = str(name or "").lower()
+    # Preserve the nutrition-relevant prepared state when an upstream parser
+    # leaves a container noun at the start of the food name.
+    s = re.sub(r"\bcans?\b", "canned", s)
     s = _PAREN_RE.sub(" ", s)
     s = s.replace(",", " ")            # commas usually separate prep notes; keep the words
     s = _QUALIFIER_RE.sub(" ", s)
     s = _NON_NAME_RE.sub(" ", s)
-    # drop a leading quantity/unit (recipe1m sometimes fuses it into the name)
+    # Drop a leading quantity/unit when an upstream parser fuses it into the name.
     prev = None
     while prev != s:
         prev = s
@@ -98,6 +87,8 @@ _SYNONYMS = {
     "capsicums": "pepper", "coriander": "cilantro", "prawn": "shrimp", "prawns": "shrimp",
     "mangetout": "snowpea", "swede": "rutabaga", "kumara": "sweetpotato",
     "passata": "tomato", "sultana": "raisin", "sultanas": "raisin",
+    "chickpea": "chickpea", "chickpeas": "chickpea",
+    "garbanzo": "chickpea", "garbanzos": "chickpea",
 }
 
 
@@ -195,48 +186,56 @@ _CLASS_PATTERNS = [
                      r"polenta|semolina|couscous|bulgur|bulghur|quinoa|millet|"
                      r"farro|spelt|pasta|noodle|noodles|spaghetti|macaroni|penne|"
                      r"linguine|fettuccine|lasagn|vermicelli|orzo|bread|"
-                     r"breadcrumb|crumbs|cracker|tortilla|cereal|granola|muesli|"
-                     r"tapioca|cornstarch|corn\s*starch|arrowroot|grits)\b"),
+                     r"breadcrumb|crumbs|cracker|biscuit|biscuits|rusk|tortilla|cereal|granola|muesli|"
+                     r"tapioca|cornstarch|corn\s*starch|arrowroot|grits|pastry|pastries)\b"),
     ("animal_protein", r"\b(beef|steak|chuck|brisket|sirloin|tenderloin|ribeye|"
                        r"rib[- ]?eye|veal|oxtail|pork|ham|bacon|sausage|chorizo|"
                        r"prosciutto|pancetta|salami|pepperoni|kielbasa|bratwurst|"
                        r"lamb|mutton|chicken|turkey|duck|goose|quail|pheasant|"
                        r"fish|salmon|tuna|cod|haddock|tilapia|trout|bass|halibut|"
-                       r"snapper|mackerel|sardine|sardines|anchov(?:y|ies)|herring|"
+                       r"snapper|mackerel|sardine|sardines|anchov(?:y|ies)|herring|kipper|"
                        r"flounder|sole|pollock|catfish|mahi|swordfish|shrimp|prawn|"
                        r"crab|lobster|clam|mussel|oyster|scallop|squid|calamari|"
                        r"octopus|crayfish|crawfish|frog|rabbit|venison|bison|"
-                       r"liver|kidney|tripe|gizzard)\b"),
+                       r"liver|kidney|tripe|gizzard|cold\s*cuts?)\b"),
     ("leafy_green", r"\b(lettuce|spinach|arugula|rocket|kale|chard|collard|"
                     r"watercress|endive|escarole|radicchio|mizuna|mesclun|"
-                    r"romaine|cabbage|bok\s*choy|pak\s*choi|tatsoi|cress)\b"),
-    ("spice_herb", r"\b(salt|peppercorn|cinnamon|cumin|coriander|paprika|turmeric|"
-                   r"nutmeg|clove|cardamom|fenugreek|saffron|cayenne|allspice|"
-                   r"mace|anise|caraway|sumac|za'?atar|garam\s*masala|"
-                   r"curry\s*powder|chili\s*powder|chilli\s*powder|five\s*spice|"
-                   r"basil|oregano|thyme|rosemary|sage|cilantro|dill|tarragon|"
-                   r"marjoram|bay\s*leaf|chive|chives|spice|spices|seasoning|herb)\b"),
-    ("fruit", r"\b(apple|banana|orange|lemon|lime|grape|grapefruit|berry|berries|"
+                    r"romaine|cabbage|bok\s*choy|pak\s*choi|tatsoi|cress|"
+                    r"asian\s*greens?|greens)\b"),
+    ("fruit", r"\b(apple|banana|orange|lemon|lime|grape|grapefruit|olive|olives|berry|berries|"
               r"strawberr|blueberr|raspberr|blackberr|cranberr|boysenberr|"
               r"gooseberr|cherry|cherries|peach|peaches|nectarine|plum|prune|"
               r"apricot|mango|mangoe?s|pineapple|melon|watermelon|cantaloupe|"
               r"honeydew|kiwi|papaya|guava|fig|figs|date|dates|raisin|currant|"
               r"sultana|pomegranate|pear|pears|persimmon|lychee|passionfruit|"
               r"tangerine|mandarin|clementine|rhubarb)\b"),
-    ("vegetable", r"\b(carrot|onion|shallot|leek|garlic|potato|potatoes|sweet\s*potato|"
+    ("vegetable", r"\b(carrots?|onion|shallot|leek|garlic|potato|potatoes|sweet\s*potato|"
                   r"yam|tomato|tomatoes|cucumber|zucchini|courgette|squash|pumpkin|"
                   r"eggplant|aubergine|capsicum|broccoli|cauliflower|celery|"
                   r"asparagus|artichoke|beet|beets|beetroot|radish|turnip|parsnip|"
                   r"rutabaga|swede|fennel|mushroom|mushrooms|corn|sweetcorn|peas?|"
                   r"green\s*bean|brussels?\s*sprout|okra|scallion|spring\s*onion|"
                   r"chayote|kohlrabi|jicama|daikon|ginger|galangal|horseradish|"
-                  r"plantain|cassava|taro)\b"),
+                  r"plantain|cassava|taro|vegetable|vegetables)\b"),
+    # A composed salad is not a condiment merely because its source text says
+    # "with a little dressing". Keep this before condiment_sauce so the food
+    # class guard rejects mayonnaise/dressing composition rows for salad.
+    ("salad", r"\bsalad\b(?!\s+dressing)"),
     ("condiment_sauce", r"\b(sauce|ketchup|mayonnaise|mustard|relish|salsa|"
                         r"dressing|vinaigrette|marinade|gravy|chutney|dip|paste|"
                         r"spread|jam|jelly|preserve|marmalade|pickle|vinegar|"
                         r"worcestershire|tabasco|sriracha|hoisin|teriyaki|"
                         r"barbecue|bbq|aioli|pesto|tapenade|hummus|guacamole|"
                         r"tomato\s*paste|stock|broth|bouillon|consomme)\b"),
+    # Keep seasonings after concrete food identities. A qualifier such as
+    # "no-added-salt tomatoes" must still classify as a vegetable, while
+    # standalone salt/cumin/thyme continue to classify as seasonings.
+    ("spice_herb", r"\b(salt|peppercorn|cinnamon|cumin|coriander|paprika|turmeric|"
+                   r"nutmeg|clove|cardamom|fenugreek|saffron|cayenne|allspice|"
+                   r"mace|anise|caraway|sumac|za'?atar|garam\s*masala|"
+                   r"curry\s*powder|chili\s*powder|chilli\s*powder|five\s*spice|"
+                   r"basil|oregano|thyme|rosemary|sage|cilantro|dill|tarragon|"
+                   r"marjoram|bay\s*leaf|chive|chives|spice|spices|seasoning|herb)\b"),
 ]
 _CLASS_RES = [(c, re.compile(p, re.IGNORECASE)) for c, p in _CLASS_PATTERNS]
 
@@ -256,11 +255,12 @@ _HARD_INCOMPATIBLE = frozenset(
         ("dairy", "plant_milk"),
         ("animal_protein", "dairy"), ("animal_protein", "plant_milk"),
         ("animal_protein", "egg"), ("animal_protein", "grain_cereal"),
+        ("salad", "condiment_sauce"),
         ("animal_protein", "legume"), ("animal_protein", "nut_seed"),
         ("animal_protein", "fruit"), ("animal_protein", "vegetable"),
         ("animal_protein", "leafy_green"), ("animal_protein", "spice_herb"),
         ("animal_protein", "sweetener"), ("animal_protein", "oil_fat"),
-        ("animal_protein", "alcohol"),
+        ("animal_protein", "alcohol"), ("animal_protein", "condiment_sauce"),
         ("alcohol", "grain_cereal"), ("alcohol", "vegetable"),
         ("alcohol", "leafy_green"), ("alcohol", "fruit"), ("alcohol", "nut_seed"),
         ("alcohol", "legume"), ("alcohol", "spice_herb"), ("alcohol", "dairy"),
@@ -273,9 +273,13 @@ _HARD_INCOMPATIBLE = frozenset(
         ("dairy", "leafy_green"), ("dairy", "vegetable"), ("dairy", "fruit"),
         ("dairy", "spice_herb"), ("dairy", "alcohol"),
         ("leafy_green", "fruit"), ("leafy_green", "grain_cereal"),
-        ("oil_fat", "fruit"), ("oil_fat", "leafy_green"), ("oil_fat", "sweetener"),
+        ("oil_fat", "fruit"), ("oil_fat", "leafy_green"),
+        ("oil_fat", "vegetable"), ("oil_fat", "sweetener"),
         ("sweetener", "leafy_green"), ("sweetener", "vegetable"),
         ("vegetable", "grain_cereal"),  # red onion ↛ red rice, etc.
+        ("legume", "nut_seed"),         # chickpea ↛ peanut
+        ("nut_seed", "vegetable"),      # sunflower seed ↛ sweetcorn kernels
+        ("leafy_green", "condiment_sauce"),
     ]
 )
 
@@ -283,159 +287,83 @@ _HARD_INCOMPATIBLE = frozenset(
 def classes_compatible(a: str, b: str) -> bool:
     if a == b:
         return True
+    pair = frozenset((a, b))
+    if pair in _HARD_INCOMPATIBLE:
+        return False
     if "other" in (a, b) or "condiment_sauce" in (a, b):
         return True  # too ambiguous to reject on
-    return frozenset((a, b)) not in _HARD_INCOMPATIBLE
+    return True
 
 
-# --------------------------------------------------------------------------- #
-# FoodOn ontology check (reuses the weight tool's Neo4j-backed lookup; layered
-# on top of the coarse food-class guard — FoodOn-first, coarse fallback, neutral
-# when neither side has a FoodOn class). Cooking-method / form words are dropped
-# and UK/US synonyms applied before the lookup so candidate names like
-# "Garlic, raw" or "low-fat yoghurt" still resolve to a class.
-# --------------------------------------------------------------------------- #
-_FORM_WORDS_RE = re.compile(
-    r"\b(?:raw|cooked|canned|tinned|boiled|baked|fried|grilled|broiled|steamed|"
-    r"stewed|roasted|microwaved|braised|poached|drained|solids?|fluid|liquid|"
-    r"with|without|added|prepared|reconstituted|undiluted|diluted|enriched|"
-    r"fortified|low|fat|free|reduced|whole|skim|skimmed|part|plain|natural|"
-    r"regular|original|unflavou?red)\b",
-    re.IGNORECASE,
+_ANIMAL_KIND_PATTERNS = (
+    ("fish", re.compile(r"\b(?:cod|salmon|tuna|trout|haddock|hake|mackerel|sardine|anchovy|eel|fish)\b", re.I)),
+    ("shellfish", re.compile(r"\b(?:shrimp|prawn|crab|lobster|oyster|mussel|scallop|clam)\b", re.I)),
+    ("poultry", re.compile(r"\b(?:chicken|turkey|duck|goose)\b", re.I)),
+    ("pork", re.compile(r"\b(?:pork|pig|ham|bacon|rasher)\b", re.I)),
+    ("beef", re.compile(r"\b(?:beef|veal|cow)\b", re.I)),
+    ("lamb", re.compile(r"\b(?:lamb|mutton)\b", re.I)),
 )
 
 
-def _foodon_name_variants(name: str) -> tuple[str, ...]:
-    raw = str(name or "").strip().lower()
-    cleaned = clean_query(raw)
-    core = re.sub(r"\s+", " ", _FORM_WORDS_RE.sub(" ", cleaned)).strip(" -'/")
-
-    def _syn(s: str) -> str:
-        return " ".join(_SYNONYMS.get(_singular(w), _singular(w)) for w in s.split())
-
-    out: list[str] = []
-    for v in (raw, cleaned, core, _syn(cleaned), _syn(core)):
-        v = (v or "").strip()
-        if v and v not in out:
-            out.append(v)
-    return tuple(out)
-
-
-@lru_cache(maxsize=16384)
-def _foodon_class_ids(name: str) -> tuple[str, ...]:
-    try:
-        from recipe_wrangler.tools.ingredient_weight_tool import (
-            _foodon_class_ids_for_ingredient,
-        )
-    except Exception:
-        return ()
-    for variant in _foodon_name_variants(name):
-        ids = _foodon_class_ids_for_ingredient(variant, "")
-        if ids:
-            return ids
-    return ()
-
-
-def _foodon_compatible(query_name: str, candidate_name: str) -> Optional[bool]:
-    q_ids = _foodon_class_ids(query_name)
-    if not q_ids:
-        return None
-    c_ids = _foodon_class_ids(candidate_name)
-    if not c_ids:
-        return None
-    try:
-        from recipe_wrangler.tools.ingredient_weight_tool import (
-            _foodon_classes_have_common_ancestor,
-        )
-    except Exception:
-        return None
-    return _foodon_classes_have_common_ancestor(q_ids, c_ids)
-
-
-# --------------------------------------------------------------------------- #
-# recipe1m -> USDA links (NB: this table is itself an *embedding* match
-# (`embedding_similarity_source: "elasticsearch_embeddings"`), median similarity ~0.77
-# — NOT human-verified. So it is treated as one more candidate scored on its own
-# similarity, with a small prior bonus, never as an outright override.)
-# --------------------------------------------------------------------------- #
-@lru_cache(maxsize=1)
-def _curated_link_index() -> dict[str, dict]:
-    """Normalized canonical name -> {usda_id, sim, label}."""
-    try:
-        from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data
-
-        rows = load_pipeline_data("recipe1m-usda-links-canonical")
-    except Exception:
-        return {}
-    idx: dict[str, dict] = {}
-    for row in rows or []:
-        uid = str(row.get("usda_id") or "").strip()
-        cname = str(row.get("canonical") or "").strip()
-        if not (uid and cname):
-            continue
-        try:
-            sim = float(row.get("embedding_similarity"))
-        except (TypeError, ValueError):
-            sim = 0.85
-        idx.setdefault(_norm(cname), {
-            "usda_id": uid, "sim": sim,
-            "label": str(row.get("usda_food_label") or cname).strip(),
-        })
-    return idx
-
-
-def _curated_link(cleaned_name: str) -> Optional[dict]:
-    key = _norm(cleaned_name)
-    if not key:
-        return None
-    idx = _curated_link_index()
-    hit = idx.get(key)
-    if hit:
-        return hit
-    # the table is mostly singular ("mango", "cardamom") — try the singularised
-    # + synonym-normalised form before giving up.
-    alt = " ".join(_SYNONYMS.get(_singular(w), _singular(w)) for w in key.split())
-    if alt != key:
-        return idx.get(alt)
+def animal_kind(name: str) -> str | None:
+    for kind, pattern in _ANIMAL_KIND_PATTERNS:
+        if pattern.search(str(name or "")):
+            return kind
     return None
 
 
-# --------------------------------------------------------------------------- #
-# Hand-curated alias table — small, hand-verified overrides for the highest-
-# frequency raw proteins / produce / staples (chicken breast -> the raw breast
-# record, not a deli roll). Trusted: when an alias hits, it wins outright.
-# Built by scripts/build_nutrition_aliases.py; loaded from pipeline_static_data.
-# --------------------------------------------------------------------------- #
-@lru_cache(maxsize=1)
-def _alias_index() -> dict[str, dict]:
-    """Normalized alias -> {usda_id, label}."""
-    try:
-        from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data
-
-        rows = load_pipeline_data("ingredient_nutrition_aliases")
-    except Exception:
-        return {}
-    idx: dict[str, dict] = {}
-    for row in rows or []:
-        uid = str(row.get("usda_id") or "").strip()
-        alias = _norm(row.get("alias"))
-        if uid and alias:
-            idx.setdefault(alias, {"usda_id": uid, "label": str(row.get("usda_food_name") or alias).strip()})
-    return idx
+def animal_kinds_compatible(query_name: str, candidate_name: str) -> bool:
+    query_kind = animal_kind(query_name)
+    candidate_kind = animal_kind(candidate_name)
+    return not query_kind or not candidate_kind or query_kind == candidate_kind
 
 
-def _alias_lookup(cleaned_name: str) -> Optional[dict]:
-    key = _norm(cleaned_name)
-    if not key:
-        return None
-    idx = _alias_index()
-    hit = idx.get(key)
-    if hit:
-        return hit
-    alt = " ".join(_SYNONYMS.get(_singular(w), _singular(w)) for w in key.split())
-    if alt != key:
-        return idx.get(alt)
-    return None
+def ingredient_forms_compatible(query_name: str, candidate_name: str) -> bool:
+    """Reject a few exact form contradictions embeddings routinely confuse."""
+    query_words = set(_TOKEN_RE.findall(str(query_name or "").casefold()))
+    candidate_words = set(
+        _TOKEN_RE.findall(str(candidate_name or "").casefold())
+    )
+    # "spray oil" must not become an unrelated product whose brand happens to
+    # contain Spray (for example Ocean Spray cranberry drink).
+    if "oil" in query_words and "oil" not in candidate_words:
+        return False
+    if (
+        "canned" in query_words
+        and not ({"canned", "tinned", "cooked", "boiled"} & candidate_words)
+    ):
+        return False
+    # Reject seed products when the recipe asks for the flesh of a squash or
+    # pumpkin. Composition tables frequently rank "pumpkin seed" above the
+    # ordinary vegetable because both identity words overlap.
+    if (
+        {"pumpkin", "squash"} & query_words
+        and "seed" not in query_words
+        and {"seed", "seeds"} & candidate_words
+    ):
+        return False
+    # A named animal ingredient must retain that animal identity. This catches
+    # cases such as tuna in spring water matching bottled spring water.
+    query_animal = animal_kind(query_name)
+    if query_animal and animal_kind(candidate_name) != query_animal:
+        return False
+    # Blue-cheese dressing and similar condiments are not interchangeable with
+    # the cheese itself at the ingredient's full weight.
+    if (
+        "cheese" in query_words
+        and "dressing" not in query_words
+        and "dressing" in candidate_words
+    ):
+        return False
+    # A measured cup of liquid stock cannot use concentrated stock-cube
+    # nutrition at the liquid weight.
+    if (
+        "stock" in query_words
+        and {"cube", "cubes"} & candidate_words
+        and not ({"cube", "cubes"} & query_words)
+    ):
+        return False
+    return True
 
 
 # --------------------------------------------------------------------------- #
@@ -454,26 +382,23 @@ def _candidate_name(match: dict) -> str:
 
 def _candidate_pools(source: str) -> list[tuple[str, object]]:
     # Resolved at call time (not import time) so the functions stay patchable.
-    fb = NUTRITION_FALLBACK_SOURCE
-    fallback_fn = (
-        query_eu_nutrition_candidates
-        if fb == "eu"
-        else query_usda_nutrition_candidates
-    )
     if source == "hungarian":
-        return [("hungarian", query_hungarian_nutrition_candidates), (fb, fallback_fn)]
-    if source == "usda":
-        return [("usda", query_usda_nutrition_candidates)]
+        return [("hungarian", query_hungarian_nutrition_candidates), ("eu", query_eu_nutrition_candidates)]
     if source == "eu":
         return [("eu", query_eu_nutrition_candidates)]
-    return [("irish", query_irish_nutrition_candidates), (fb, fallback_fn)]
+    if source == "slovenian":
+        return [("slovenian", query_slovenian_nutrition_candidates), ("eu", query_eu_nutrition_candidates)]
+    if source == "irish":
+        return [("irish", query_irish_nutrition_candidates), ("eu", query_eu_nutrition_candidates)]
+    raise ValueError(
+        f"Unsupported nutrition source '{source}'. Supported sources: irish, hungarian, eu, slovenian"
+    )
 
 
 # Tuning knobs (kept loose; the audit drives these).
 _STRONG_SCORE = 0.50
 _WEAK_SCORE = 0.30
 _HIGH_SIM_NO_OVERLAP = 0.90  # zero-overlap candidate must clear this to survive
-_CURATED_BONUS = 0.06        # small prior for the recipe1m->USDA link candidate
 # When a candidate name carries a cooking-state / processing / brand token that
 # the *raw* query didn't ask for, prefer the plainer alternative — recipe
 # ingredients are almost always the raw/uncooked form (the cook cooks it; the
@@ -505,28 +430,10 @@ def best_nutrition_match(name: str, source: str = "irish", min_similarity: float
     q_tokens = _tokens(cleaned)
     q_class = food_class(cleaned)
 
-    # 0) hand-curated alias table — trusted; wins outright when it hits.
-    #    Try the raw name first so "unsalted butter" hits its own alias before
-    #    clean_query strips "unsalted" and "butter" hits the salted-butter alias.
-    #    The alias table maps to USDA ids — skip when fallback must avoid USDA
-    #    composition (EU, IE, HU all route through EU on fallback, never USDA).
-    _no_usda = source == "eu" or (
-        source in {"irish", "hungarian"}
-        and NUTRITION_FALLBACK_SOURCE == "eu"
-    )
-    alias = None if _no_usda else _alias_lookup(str(name or ""))
-    if alias is None and not _no_usda:
-        alias = _alias_lookup(cleaned)
-    if alias:
-        return {
-            "match": {"metadata": {"usda_id": alias["usda_id"], "food_name": alias.get("label")},
-                      "document": alias.get("label") or cleaned, "distance": 0.0},
-            "source_key": "usda", "similarity": 1.0, "confidence": "alias",
-            "reason": "alias_table", "matched_name": alias.get("label") or cleaned,
-            "cleaned_query": cleaned,
-        }
-
-    # 1) gather candidates from the source pool + USDA cross-pool
+    # 1) Gather the complete candidate pool for the selected region. Regional
+    #    and EU hits compete in one reranking pass; EU is not a second-stage
+    #    fallback. This lets a more precise regional row win without forcing a
+    #    weak regional candidate over a stronger EU composition match.
     cands: list[dict] = []
     for src_key, fn in _candidate_pools(source):
         try:
@@ -539,33 +446,31 @@ def best_nutrition_match(name: str, source: str = "irish", min_similarity: float
                 c2["_source_key"] = src_key
                 cands.append(c2)
 
-    # ...plus the recipe1m->USDA link as one more candidate, scored on its own
-    # (machine-derived) similarity — it competes, it doesn't override. If its
-    # USDA label is branded / cooked / dried and the query didn't ask for that
-    # (the table maps "chicken breast" -> "Oscar Mayer, Chicken Breast",
-    # "mango" -> "Mango, dried, sweetened"), it competes as a *vanilla*
-    # candidate — no curated prior, no "curated" label.
-    # Curated recipe1m -> USDA link: USDA-only, so skip whenever USDA must not
-    # appear in the result (EU, IE, HU).
-    link = None if _no_usda else _curated_link(cleaned)
-    if link:
-        _q_raw = set(_TOKEN_RE.findall(str(name or "").lower()))
-        _label_words = set(_TOKEN_RE.findall(str(link.get("label") or "").lower()))
-        _clean_link = not bool((_PROCESSED_MARKERS & _label_words) - _q_raw)
-        cands.append({
-            "metadata": {"usda_id": link["usda_id"], "food_name": link.get("label") or cleaned},
-            "document": link.get("label") or cleaned,
-            "distance": max(0.0, 1.0 - float(link.get("sim") or 0.85)),
-            "_source_key": "usda", "_curated": _clean_link,
-        })
     if not cands:
         return {"match": None, "source_key": source, "similarity": None,
                 "confidence": "none", "reason": "no_candidates", "matched_name": None,
                 "cleaned_query": cleaned}
 
-    # 2) rerank. Pass 1 (cheap): similarity + BM25 + overlap + coarse-class gate
-    #    + curated prior. Pass 2: re-score only the top few with the FoodOn
-    #    ontology check (a Neo4j round-trip per candidate — too costly for all).
+    # 2) Rerank using Elasticsearch similarity, lexical overlap and hard local
+    #    semantic guards. FoodOn used to add a sparse soft nudge here through
+    #    Neo4j. It made profiling depend on the graph at request time while
+    #    failing open whenever the graph was unavailable, so it was neither a
+    #    reliable safety boundary nor worth the latency. The food-class and
+    #    animal-species checks below are deterministic and are the hard gates.
+    # Hard semantic boundary before ranking. A high embedding similarity must
+    # never make cod become pork/beef, or an olive become a "beef olive" dish.
+    cands = [
+        c
+        for c in cands
+        if classes_compatible(q_class, food_class(_candidate_name(c)))
+        and animal_kinds_compatible(cleaned, _candidate_name(c))
+        and ingredient_forms_compatible(cleaned, _candidate_name(c))
+    ]
+    if not cands:
+        return {"match": None, "source_key": source, "similarity": None,
+                "confidence": "none", "reason": "no_semantically_compatible_candidates",
+                "matched_name": None, "cleaned_query": cleaned}
+
     names = [_candidate_name(c) for c in cands]
     corpus = [_tokens(n) for n in names]
     bm = _bm25_scores(q_tokens, corpus) if q_tokens else [0.0] * len(cands)
@@ -595,8 +500,6 @@ def best_nutrition_match(name: str, source: str = "irish", min_similarity: float
             pen -= 0.5
         if not classes_compatible(q_class, food_class(cname)):
             pen -= 1.0
-        if c.get("_curated"):
-            pen += _CURATED_BONUS
         c_raw_words = set(_TOKEN_RE.findall(str(cname or "").lower()))
         if (_PROCESSED_MARKERS & c_raw_words) - q_raw_words:
             pen -= 0.12  # cooking-state / processed / branded marker the query didn't ask for
@@ -612,31 +515,16 @@ def best_nutrition_match(name: str, source: str = "irish", min_similarity: float
             overlap,
         )
 
-    pass1 = sorted(
+    ranked = sorted(
         (( *_base_score(c, cn, ct, bms), c, cn) for c, cn, ct, bms in zip(cands, names, corpus, bm)),
         key=lambda t: -t[0],
     )
-    best = None
-    for base, sim, overlap, c, cname in pass1[:3]:
-        # Soft FoodOn nudge — never alone rejects/rescues; the local graph is sparse.
-        fo = _foodon_compatible(name, cname)
-        adj = (-0.25 if fo is False else (0.10 if fo is True else 0.0))
-        score = base + adj
-        if best is None or score > best[0]:
-            best = (score, sim, overlap, c, cname, fo)
-    # fall back to the pass-1 winner if pass-2 somehow produced nothing
-    if best is None:
-        base, sim, overlap, c, cname = pass1[0]
-        best = (base, sim, overlap, c, cname, None)
-
-    score, sim, overlap, c, cname, fo = best
+    score, sim, overlap, c, cname = ranked[0]
     src_key = c.get("_source_key", source)
-    is_curated = bool(c.get("_curated"))
-    fo_tag = ":foodon_incompat" if fo is False else ""
 
     if score < _WEAK_SCORE:
         return {"match": None, "source_key": src_key, "similarity": sim,
-                "confidence": "none", "reason": f"below_floor:{score:.2f}{fo_tag}",
+                "confidence": "none", "reason": f"below_floor:{score:.2f}",
                 "matched_name": cname, "cleaned_query": cleaned}
 
     strong = (
@@ -645,11 +533,11 @@ def best_nutrition_match(name: str, source: str = "irish", min_similarity: float
         and (overlap > 0 or sim >= _HIGH_SIM_NO_OVERLAP)
     )
     if strong:
-        confidence = "curated" if is_curated else "strong"
-        reason = ("curated_link" if is_curated else "") + fo_tag
+        confidence = "strong"
+        reason = ""
     else:
         confidence = "weak"
-        reason = f"weak:{score:.2f}" + (":curated" if is_curated else "") + fo_tag
+        reason = f"weak:{score:.2f}"
     return {
         "match": c, "source_key": src_key, "similarity": sim,
         "confidence": confidence, "reason": reason or "",

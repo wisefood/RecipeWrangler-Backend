@@ -2,6 +2,7 @@
 
 # recipe_profiling.py
 
+import re
 from typing import Any, Dict
 
 from recipe_wrangler.schemas import RecipeState
@@ -20,17 +21,82 @@ NUTRI_SCORE_SOURCE_URL = (
 
 # --- accuracy guards ------------------------------------------------------- #
 _SERVES_MIN = 1.0
-_SERVES_GIVEN_MAX = 50.0        # a *given* serves up to this is accepted (cookies/muffins/etc.)
+_SERVES_GIVEN_MAX = 500.0       # given yields may be large (cookies, syrup, catering batches)
 _SERVES_EST_MIN, _SERVES_EST_MAX = 1.0, 16.0  # an *estimated* serves is clamped to this
 _SERVING_EST_G = 450.0          # rough grams/serving used to estimate missing serves
 _PER_SERVING_TARGET_G = 700.0   # what a sanity-trimmed recipe is brought back to
 _PER_SERVING_CEILING_G = 2500.0  # above this/serving the recipe is "implausibly inflated"
 _LOW_COVERAGE_THRESHOLD = 0.80   # below this fraction of recipe weight matched -> flagged
 
+_PER_PERSON_WEIGHT_RE = re.compile(
+    r"(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:g|grams?|grammes?)\b"
+    r"[^()]{0,80}?\bper\s+(?:person|serving)\b",
+    re.IGNORECASE,
+)
+_SERVED_COOKED_MEAT_TOTAL_RE = re.compile(
+    r"\bserve\s+\d+(?:\s+\w+){0,2}\s+portions?\s*\(\s*"
+    r"(\d+(?:[.,]\d+)?)\s*g\s+cooked\s+(?:meat|chicken|turkey|lamb|beef|pork)\b",
+    re.IGNORECASE,
+)
+_WHOLE_MEAT_INGREDIENT_RE = re.compile(
+    r"\b(?:whole\s+)?(?:chicken|turkey|lamb|beef|pork)\b", re.IGNORECASE
+)
+
+
+def _apply_explicit_per_person_weights(
+    ingredient_names: list[str], weights: list[float], serves: float
+) -> tuple[list[float], list[int]]:
+    """Honor an explicit edible gram amount per person in source text."""
+    adjusted = list(weights)
+    changed: list[int] = []
+    if serves <= 0:
+        return adjusted, changed
+    for index, name in enumerate(ingredient_names):
+        if index >= len(adjusted):
+            break
+        match = _PER_PERSON_WEIGHT_RE.search(str(name or ""))
+        if not match:
+            continue
+        grams = float(match.group(1).replace(",", "."))
+        if not 0 < grams <= 2000:
+            continue
+        adjusted[index] = grams * serves
+        changed.append(index)
+    return adjusted, changed
+
+
+def _apply_explicit_served_meat_weight(
+    ingredient_names: list[str],
+    directions: list[str],
+    weights: list[float],
+) -> tuple[list[float], list[int]]:
+    """Use a source instruction's explicit served cooked-meat total.
+
+    This separates the amount eaten in this recipe from a whole bird/cut that
+    the instructions explicitly reserve for later meals.
+    """
+    instruction_text = " ".join(str(line or "") for line in directions)
+    match = _SERVED_COOKED_MEAT_TOTAL_RE.search(instruction_text)
+    if not match:
+        return list(weights), []
+    grams = float(match.group(1).replace(",", "."))
+    candidates = [
+        index
+        for index, name in enumerate(ingredient_names)
+        if index < len(weights)
+        and _WHOLE_MEAT_INGREDIENT_RE.search(str(name or ""))
+        and float(weights[index]) > grams
+    ]
+    if not 0 < grams <= 5000 or len(candidates) != 1:
+        return list(weights), []
+    adjusted = list(weights)
+    adjusted[candidates[0]] = grams
+    return adjusted, candidates
+
 
 def _sanitize_serves(parsed: Any, total_weight_g: float) -> tuple[float, str]:
-    """Return (serves, source). 'given' if the parsed value is in [1, 50] (so a
-    legitimate "makes 24 cookies" survives), else 'estimated' from total recipe
+    """Return (serves, source). 'given' if the parsed value is in [1, 500] (so
+    legitimate item and concentrate yields survive), else 'estimated' from total recipe
     weight at ~450 g/serving (clamped to [1, 16]). A wildly-large total weight
     (parse artefact) is *not* trusted — fall back to 4 and let the weight cap trim it."""
     try:
@@ -62,8 +128,12 @@ def _cap_recipe_weights(weights: list[float], serves: float) -> tuple[list[float
             trim = total - serves * _PER_SERVING_TARGET_G
             w[biggest] = max(w[biggest] * 0.05, w[biggest] - trim)
             return w, True
-    # uniformly inflated -> scale everything down to the ceiling
-    scale = (serves * _PER_SERVING_CEILING_G) / total
+    # Uniformly inflated means there is no single safe culprit to trim. Scale
+    # the whole recipe to the same target used by the dominant-ingredient
+    # branch. Scaling only to the *detection ceiling* left as much as 2.5 kg
+    # per serving in the calculation and allowed five-digit calorie results to
+    # survive the guard that was meant to remove them.
+    scale = (serves * _PER_SERVING_TARGET_G) / total
     return [x * scale for x in w], True
 
 
@@ -71,22 +141,22 @@ def _source_from_region(region: Any) -> str:
     region_norm = str(region or "IE").strip().upper()
     if region_norm == "IE":
         return "irish"
-    if region_norm == "US":
-        return "usda"
     if region_norm == "HU":
         return "hungarian"
     if region_norm == "EU":
         return "eu"
-    raise ValueError(f"Unsupported region '{region_norm}'. Supported regions: IE, US, HU, EU")
+    if region_norm == "SI":
+        return "slovenian"
+    raise ValueError(f"Unsupported region '{region_norm}'. Supported regions: IE, HU, EU, SI")
 
 
 def _resolve_nutrition_source(payload: Dict[str, Any]) -> str:
     explicit_source = str(payload.get("source") or "").strip().lower()
     if explicit_source:
-        if explicit_source in {"irish", "usda", "hungarian", "eu"}:
+        if explicit_source in {"irish", "hungarian", "eu", "slovenian"}:
             return explicit_source
         raise ValueError(
-            f"Unsupported source '{explicit_source}'. Supported sources: irish, usda, hungarian, eu"
+            f"Unsupported source '{explicit_source}'. Supported sources: irish, hungarian, eu, slovenian"
         )
     return _source_from_region(payload.get("region"))
 
@@ -190,9 +260,6 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 from typing import Any, Dict, List, cast
-from recipe_wrangler.repositories.vector_matchers import query_usda_nutrition_candidates
-
-_USDA_MATCH_THRESHOLD = 0.4
 _CLEAN_TOTAL_KEYS = [
     "protein_g", "carbohydrate_g", "fat_g", "energy_kcal",
     "sugar_g", "saturated_fat_g", "sodium_mg", "fibre_g",
@@ -213,22 +280,6 @@ def _extract_clean_totals(totals: Dict[str, Any], suffix: str) -> Dict[str, floa
             return None
         result[key] = float(val)
     return result
-
-
-def _resolve_fvl_usda_id(canonical_food_id: str | None, name: str | None) -> str | None:
-    """Return a USDA NDB number for food-group classification (fruit% calculation)."""
-    if canonical_food_id:
-        s = str(canonical_food_id)
-        if len(s) >= 2 and s[:2].isdigit():
-            return s
-    if name:
-        try:
-            candidates = query_usda_nutrition_candidates(name.strip())
-            if candidates and candidates[0].get("distance", 1.0) < _USDA_MATCH_THRESHOLD:
-                return candidates[0].get("metadata", {}).get("usda_id")
-        except Exception:
-            pass
-    return None
 
 
 def _build_total_nutrients_for_score(
@@ -341,15 +392,21 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         _trusted if _trusted else state.serves, sum(weights)
     )
     raw_total_g = sum(weights)
+    weights, per_person_weight_indices = _apply_explicit_per_person_weights(
+        names, weights, serves
+    )
+    weights, served_meat_weight_indices = _apply_explicit_served_meat_weight(
+        names, list(state.directions or []), weights
+    )
     weights, weights_capped = _cap_recipe_weights(weights, serves)
 
     region = (state.region or "IE").strip().upper()
     region_source = (
         "irish"
         if region == "IE"
-        else ("usda" if region == "US"
-              else ("hungarian" if region == "HU"
-                    else ("eu" if region == "EU" else None)))
+        else ("hungarian" if region == "HU"
+              else ("eu" if region == "EU"
+                    else ("slovenian" if region == "SI" else None)))
     )
     nutrition_source = (
         getattr(state, "nutrition_source", None)
@@ -358,7 +415,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         or region_source
     )
     if not nutrition_source:
-        raise ValueError(f"Unsupported region '{region}'. Supported regions: IE, US, HU")
+        raise ValueError(f"Unsupported region '{region}'. Supported regions: IE, HU, EU, SI")
 
     payload: Dict[str, Any] = {
         "title": state.title or "Untitled Recipe",
@@ -387,11 +444,9 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         score_ingredients = []
         for i in range(min(len(names), len(weights), len(prof_items))):
             entry: Dict[str, Any] = {"name": names[i], "weight_grams": weights[i]}
-            usda_id = _resolve_fvl_usda_id(
-                prof_items[i].get("canonical_food_id"), names[i]
-            )
-            if usda_id:
-                entry["usda_id"] = usda_id
+            for key in ("food_groups", "ingredient_class_ancestors"):
+                if prof_items[i].get(key):
+                    entry[key] = prof_items[i][key]
             score_ingredients.append(entry)
         maybe_score = compute_nutri_score_with_breakdown(score_input, score_ingredients)
         if "error" not in maybe_score:
@@ -430,6 +485,8 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "serves_source": serves_source,
         "serves": serves,
         "weights_capped": weights_capped,
+        "explicit_per_person_weight_indices": per_person_weight_indices,
+        "explicit_served_meat_weight_indices": served_meat_weight_indices,
         "raw_total_weight_g": round(raw_total_g, 1),
         "capped_total_weight_g": round(sum(weights), 1),
         "nutrition_coverage": nutrition_coverage,

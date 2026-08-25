@@ -55,11 +55,6 @@ def query_irish_nutrition_candidates(name: str) -> list[dict]:
 
 
 @lru_cache(maxsize=4096)
-def query_usda_nutrition_candidates(name: str) -> list[dict]:
-    return query_vector_collection("nutritional_ingredients_usda", name, 10)
-
-
-@lru_cache(maxsize=4096)
 def query_hungarian_nutrition_candidates(name: str) -> list[dict]:
     return query_vector_collection("nutritional_ingredients_hungarian", name, 10)
 
@@ -67,6 +62,11 @@ def query_hungarian_nutrition_candidates(name: str) -> list[dict]:
 @lru_cache(maxsize=4096)
 def query_eu_nutrition_candidates(name: str) -> list[dict]:
     return query_vector_collection("nutritional_ingredients_eu", name, 10)
+
+
+@lru_cache(maxsize=4096)
+def query_slovenian_nutrition_candidates(name: str) -> list[dict]:
+    return query_vector_collection("nutritional_ingredients_slovenian", name, 10)
 
 
 @lru_cache(maxsize=4096)

@@ -11,13 +11,14 @@ class ServesSanitizeTests(unittest.TestCase):
         self.assertEqual(rpt._sanitize_serves("6", 9999), (6.0, "given"))
         self.assertEqual(rpt._sanitize_serves(4.4, 1800), (4.0, "given"))  # rounded
         self.assertEqual(rpt._sanitize_serves(24, 1300), (24.0, "given"))  # "makes 24 cookies"
+        self.assertEqual(rpt._sanitize_serves(100, 5000), (100.0, "given"))  # syrup servings
 
     def test_missing_or_implausible_is_estimated_from_weight(self):
         # ~450 g/serving, clamped to [1, 16]
         self.assertEqual(rpt._sanitize_serves(None, 1800), (4.0, "estimated"))
         self.assertEqual(rpt._sanitize_serves(0, 1800), (4.0, "estimated"))
         self.assertEqual(rpt._sanitize_serves(-3, 1800), (4.0, "estimated"))
-        self.assertEqual(rpt._sanitize_serves(200, 1800), (4.0, "estimated"))   # > 50 -> implausible
+        self.assertEqual(rpt._sanitize_serves(501, 1800), (4.0, "estimated"))
         # absurd total weight -> not trusted for the estimate -> fall back to 4
         self.assertEqual(rpt._sanitize_serves(None, 50000), (4.0, "estimated"))
 
@@ -26,6 +27,43 @@ class ServesSanitizeTests(unittest.TestCase):
 
 
 class WeightCapTests(unittest.TestCase):
+    def test_explicit_edible_grams_per_person_override_carcass_weight(self):
+        weights, changed = rpt._apply_explicit_per_person_weights(
+            ["whole chicken (100g cooked chicken per person)", "potatoes"],
+            [1500.0, 250.0],
+            2,
+        )
+        self.assertEqual(weights, [200.0, 250.0])
+        self.assertEqual(changed, [0])
+
+    def test_per_person_override_ignores_unrelated_gram_text(self):
+        weights, changed = rpt._apply_explicit_per_person_weights(
+            ["whole 1.5kg chicken", "100g potatoes"], [1500.0, 100.0], 2
+        )
+        self.assertEqual(weights, [1500.0, 100.0])
+        self.assertEqual(changed, [])
+
+    def test_explicit_served_meat_total_overrides_reserved_whole_bird(self):
+        weights, changed = rpt._apply_explicit_served_meat_weight(
+            ["chicken (see tip)", "potatoes"],
+            [
+                "Serve 2 portions (300g cooked meat) of the chicken with "
+                "potatoes. Reserve remaining chicken for other dishes."
+            ],
+            [1300.0, 300.0],
+        )
+        self.assertEqual(weights, [300.0, 300.0])
+        self.assertEqual(changed, [0])
+
+    def test_served_meat_override_requires_unambiguous_source_instruction(self):
+        weights, changed = rpt._apply_explicit_served_meat_weight(
+            ["chicken", "potatoes"],
+            ["Cook until the chicken reaches 75C."],
+            [1300.0, 300.0],
+        )
+        self.assertEqual(weights, [1300.0, 300.0])
+        self.assertEqual(changed, [])
+
     def test_normal_recipe_is_untouched(self):
         w, capped = rpt._cap_recipe_weights([250, 16, 490, 100, 28], 4)
         self.assertFalse(capped)
@@ -42,9 +80,17 @@ class WeightCapTests(unittest.TestCase):
     def test_uniformly_inflated_recipe_is_scaled_down(self):
         w, capped = rpt._cap_recipe_weights([5000, 4000, 3000], 4)
         self.assertTrue(capped)
-        self.assertAlmostEqual(sum(w), 4 * 2500.0, delta=1.0)   # scaled to the ceiling
+        self.assertAlmostEqual(sum(w), 4 * 700.0, delta=1.0)   # scaled to the sane target
         # ratios preserved
         self.assertAlmostEqual(w[0] / w[1], 5000 / 4000, places=4)
+
+    def test_salad_cup_does_not_use_dressing_density(self):
+        from recipe_wrangler.tools.ingredient_weight_tool import _common_unit_reference_grams
+
+        self.assertEqual(
+            _common_unit_reference_grams("salad with a little dressing", "cup"),
+            (40.0, "loose mixed salad cup"),
+        )
 
 
 class MatchQueryPropagationTests(unittest.TestCase):

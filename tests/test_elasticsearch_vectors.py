@@ -45,7 +45,7 @@ def test_elasticsearch_query_returns_distance_hits(monkeypatch):
 
     with patch.object(esv.requests, "post", return_value=response) as post:
         hits = esv.query_elasticsearch_vector_collection_by_embedding(
-            "nutritional_ingredients_usda",
+            "usda_ingredients",
             [1.0, 0.0],
             10,
         )
@@ -60,7 +60,7 @@ def test_elasticsearch_query_returns_distance_hits(monkeypatch):
     ]
     payload = post.call_args.kwargs["json"]
     assert payload["knn"]["filter"] == {
-        "term": {"collection": "nutritional_ingredients_usda"}
+        "term": {"collection": "usda_ingredients"}
     }
     assert payload["knn"]["k"] == 10
     assert payload["knn"]["num_candidates"] == 100
@@ -75,7 +75,7 @@ def test_exact_search_uses_same_normalized_score_contract(monkeypatch):
 
     with patch.object(esv.requests, "post", return_value=response) as post:
         esv.query_elasticsearch_vector_collection_by_embedding(
-            "nutritional_ingredients_usda",
+            "usda_ingredients",
             [1.0, 0.0],
             10,
         )
@@ -83,7 +83,7 @@ def test_exact_search_uses_same_normalized_score_contract(monkeypatch):
     payload = post.call_args.kwargs["json"]
     script_score = payload["query"]["script_score"]
     assert script_score["query"] == {
-        "term": {"collection": "nutritional_ingredients_usda"}
+        "term": {"collection": "usda_ingredients"}
     }
     assert (
         script_score["script"]["source"]

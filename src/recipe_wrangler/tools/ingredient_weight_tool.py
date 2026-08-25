@@ -104,10 +104,10 @@ _SLASHLESS_RANGE_FRACTION_MASS_MEASUREMENT_RE = re.compile(
 # Detect a measurement that got fused into the start of an ingredient name,
 # e.g. "12 lbs lean hamburger" sitting in the name field with measurement="1".
 _NAME_LEADING_MEASUREMENT_RE = re.compile(
-    r"^\s*(?P<qty>\d+(?:\s+\d+/\d+|/\d+|\.\d+)?)\s*"
+    r"^\s*\(?(?P<qty>\d+(?:\s+\d+/\d+|/\d+|\.\d+)?)\s*"
     r"(?P<unit>cups?|tbsp|tablespoons?|tsp|teaspoons?|"
     r"lbs?|pounds?|oz|ounces?|grams?|g|kg|ml|millilitres?|milliliters?|"
-    r"l|litres?|liters?)\b\.?\s+(?P<rest>\S.*)$",
+    r"l|litres?|liters?)\b\.?\)?\s+(?P<rest>\S.*)$",
     re.IGNORECASE,
 )
 # Recipe1M also fuses a bare unit abbreviation into the start of the name while
@@ -643,7 +643,7 @@ USDA_LINKS_EMBED_COLLECTIONS = tuple(
     c.strip()
     for c in os.getenv(
         "USDA_LINKS_EMBED_COLLECTIONS",
-        "nutritional_ingredients_usda,usda_ingredients_canonical",
+        "usda_ingredients",
     ).split(",")
     if c.strip()
 )
@@ -659,7 +659,6 @@ USDA_LINKS_EMBED_MIN_CONFIDENCE = float(
 LIVE_LLM_CONFIDENCE_THRESHOLD = float(
     os.getenv("LIVE_LLM_CONFIDENCE_THRESHOLD", "0.45")
 )
-FOODON_MATCH_MAX_DEPTH = int(os.getenv("FOODON_MATCH_MAX_DEPTH", "3"))
 
 
 @lru_cache(maxsize=1)
@@ -862,97 +861,6 @@ def _lexical_usda_link_candidates(query: str) -> list[dict]:
     return ranked[: max(1, USDA_LINKS_LEXICAL_QUERY_K)]
 
 
-@lru_cache(maxsize=8192)
-def _foodon_class_ids_for_ingredient(name: str, canonical_id: str = "") -> tuple[str, ...]:
-    name_norm = str(name or "").strip()
-    canonical_id_norm = str(canonical_id or "").strip()
-    if not name_norm and not canonical_id_norm:
-        return ()
-    try:
-        from recipe_wrangler.utils.neo4j_utils import run_query
-    except Exception:
-        return ()
-    if run_query is None:
-        return ()
-    query = """
-    MATCH (i:Ingredient)-[:HAS_CLASS]->(c:FoodOnClass)
-    WHERE ($canonical_id <> '' AND i.canonical_id = $canonical_id)
-       OR ($name <> '' AND toLower(i.name) = toLower($name))
-    RETURN DISTINCT coalesce(c.foodon_id, c.name, c.label) AS class_id
-    LIMIT 20
-    """
-    try:
-        rows = run_query(query, {"name": name_norm, "canonical_id": canonical_id_norm})
-    except Exception:
-        return ()
-    class_ids = []
-    for row in rows or []:
-        class_id = str(row.get("class_id") or "").strip()
-        if class_id:
-            class_ids.append(class_id)
-    return tuple(sorted(set(class_ids)))
-
-
-@lru_cache(maxsize=8192)
-def _foodon_classes_have_common_ancestor(
-    source_class_ids: tuple[str, ...],
-    candidate_class_ids: tuple[str, ...],
-) -> Optional[bool]:
-    if not source_class_ids or not candidate_class_ids:
-        return None
-    if set(source_class_ids) & set(candidate_class_ids):
-        return True
-    try:
-        from recipe_wrangler.utils.neo4j_utils import run_query
-    except Exception:
-        return None
-    if run_query is None:
-        return None
-    depth = max(0, min(8, FOODON_MATCH_MAX_DEPTH))
-    query = f"""
-    MATCH (s:FoodOnClass)
-    WHERE coalesce(s.foodon_id, s.name, s.label) IN $source_class_ids
-    MATCH (c:FoodOnClass)
-    WHERE coalesce(c.foodon_id, c.name, c.label) IN $candidate_class_ids
-    MATCH (s)-[:SUBCLASS_OF*0..{depth}]->(ancestor:FoodOnClass)<-[:SUBCLASS_OF*0..{depth}]-(c)
-    RETURN count(DISTINCT ancestor) AS common_count
-    """
-    try:
-        rows = run_query(
-            query,
-            {
-                "source_class_ids": list(source_class_ids),
-                "candidate_class_ids": list(candidate_class_ids),
-            },
-        )
-    except Exception:
-        return None
-    count = 0
-    if rows:
-        try:
-            count = int(rows[0].get("common_count") or 0)
-        except (TypeError, ValueError):
-            count = 0
-    return count > 0
-
-
-def _foodon_compatibility(
-    source_name: str,
-    candidate: dict,
-) -> Optional[bool]:
-    source_class_ids = _foodon_class_ids_for_ingredient(str(source_name or ""), "")
-    if not source_class_ids:
-        return None
-    candidate_name = _candidate_label(candidate)
-    candidate_class_ids = _foodon_class_ids_for_ingredient(
-        candidate_name,
-        str(candidate.get("canonical_id") or ""),
-    )
-    if not candidate_class_ids:
-        return None
-    return _foodon_classes_have_common_ancestor(source_class_ids, candidate_class_ids)
-
-
 def _hybrid_usda_candidate_score(candidate: dict, query: str) -> float:
     similarity = candidate.get("similarity")
     vector_score = 0.0
@@ -968,12 +876,10 @@ def _hybrid_usda_candidate_score(candidate: dict, query: str) -> float:
         lexical_score_f = max(0.0, min(1.0, float(lexical_score)))
     except (TypeError, ValueError):
         lexical_score_f = 0.0
-    foodon = candidate.get("foodon_compatible")
-    foodon_score = 1.0 if foodon is True else 0.5 if foodon is None else 0.0
     mismatch_penalty = 0.0
     if _head_token_mismatch_reason(query, _candidate_label(candidate)) is not None:
         mismatch_penalty = 0.2
-    return max(0.0, 0.58 * vector_score + 0.27 * lexical_score_f + 0.15 * foodon_score - mismatch_penalty)
+    return max(0.0, 0.68 * vector_score + 0.32 * lexical_score_f - mismatch_penalty)
 
 
 @lru_cache(maxsize=2048)
@@ -1100,26 +1006,6 @@ def _embedding_usda_link(name: str, unit: Optional[str] = None) -> Optional[dict
         )
     )
     all_candidates = all_candidates[: max(1, USDA_LINKS_HYBRID_QUERY_K)]
-
-    foodon_checked: list[dict] = []
-    for candidate in all_candidates:
-        foodon_compatible = _foodon_compatibility(query, candidate)
-        if foodon_compatible is False:
-            continue
-        candidate["foodon_compatible"] = foodon_compatible
-        candidate["hybrid_score"] = _hybrid_usda_candidate_score(candidate, query)
-        foodon_checked.append(candidate)
-    all_candidates = foodon_checked
-    if not all_candidates:
-        return None
-
-    all_candidates.sort(
-        key=lambda c: (
-            0 if (c.get("_supports_unit") or not prefer_unit) else 1,
-            -float(c.get("hybrid_score") or 0.0),
-            float(c.get("distance")) if c.get("distance") is not None else float("inf"),
-        )
-    )
 
     best = dict(all_candidates[0])
     best.pop("_supports_unit", None)
@@ -1629,8 +1515,16 @@ def _common_unit_reference_grams(
         return sized(14.0, "jalapeno chile")
     if single_count_unit and ("zucchini" in tokens or "squash" in tokens):
         return sized(196.0, "summer squash")
+    if (
+        single_count_unit
+        and "dried" in tokens
+        and tokens & {"pepper", "chile", "chilli", "chili"}
+    ):
+        return sized(2.0, "dried chile pepper")
     if single_count_unit and "pepper" in tokens:
         return sized(120.0, "bell pepper")
+    if single_count_unit and "lamb" in tokens and tokens & {"cutlet", "chop"}:
+        return sized(113.0, "lamb cutlet")
     if unit_norm == "cube" and "watermelon" in tokens:
         return 8.0, "2cm watermelon cube"
     if unit_norm == "cube" and ("honeydew" in tokens or "melon" in tokens):
@@ -1681,6 +1575,11 @@ def _common_unit_reference_grams(
         return 142.0, "thin pizza shell"
     if unit_norm == "slice" and "cheese" in tokens:
         return 20.0, "cheese slice"
+    if unit_norm == "cup" and "salad" in tokens:
+        # One cup of loose mixed salad leaves is roughly 30--50 g. Without a
+        # specific reference, vector lookup latched onto the word "dressing"
+        # and treated eight cups of salad as 2.3 kg of mayonnaise.
+        return 40.0, "loose mixed salad cup"
     if (
         unit_norm == "cup"
         and "cheese" in tokens
@@ -2900,23 +2799,22 @@ def ingredient_weight_tool_usda(
     for idx, name in enumerate(names_list):
         measurement = measures_list[idx] if idx < len(measures_list) else None
         qty, unit, qty_inferred = _split_measurement(measurement)
-        # Recipe1M sometimes leaves the real measurement fused into the start
-        # of the ingredient name (e.g. name="12 lbs lean hamburger",
-        # measurement="1"). When the parsed measurement lacks a unit, lift
-        # qty+unit out of the name prefix and use those instead.
-        if unit is None:
-            extracted = _extract_leading_measurement_from_name(name)
-            if extracted is not None:
-                qty, unit, name = extracted
-                qty_inferred = False
-            else:
-                # Bare unit abbreviation fused into the name ("c. flour" + "1/3").
-                lead_unit = _extract_leading_unit_from_name(name)
-                if lead_unit is not None:
-                    unit, name = lead_unit
-                    if qty is None:
-                        qty = "1"
-                        qty_inferred = True
+        # Some source lines keep the authoritative total mass in the ingredient
+        # name (for example measurement="4 medium", name="(600g) chicken
+        # thighs"). Always prefer that explicit mass over the outer count;
+        # otherwise four 600 g total pieces become 2.4 kg.
+        extracted = _extract_leading_measurement_from_name(name)
+        if extracted is not None:
+            qty, unit, name = extracted
+            qty_inferred = False
+        elif unit is None:
+            # Bare unit abbreviation fused into the name ("c. flour" + "1/3").
+            lead_unit = _extract_leading_unit_from_name(name)
+            if lead_unit is not None:
+                unit, name = lead_unit
+                if qty is None:
+                    qty = "1"
+                    qty_inferred = True
         unit_missing_from_measurement = unit is None
         unit_inferred = False
         if _is_zero_measurement(measurement):
@@ -2969,6 +2867,17 @@ def ingredient_weight_tool_usda(
             if (qty is not None and unit is not None)
             else None
         )
+        # A code-reviewed deterministic kitchen reference is stronger than an
+        # LLM-rebuilt offline row. Keep accepted deterministic offline truth,
+        # but do not let a generic 200 g LLM estimate override a known small
+        # lamb cutlet or dried-chile portion.
+        if (
+            offline_ref is not None
+            and offline_ref.get("source_type") == "llm_rebuilt"
+            and _common_unit_reference_grams(name, unit, measurement=measurement)
+            is not None
+        ):
+            offline_ref = None
         if offline_ref is not None:
             qty_value = _parse_quantity_value(qty)
             if qty_value is not None:

@@ -15,7 +15,7 @@ class CleanQueryTests(unittest.TestCase):
             "garlic, finely chopped": "garlic",
             "2 1/2 cups all-purpose flour": "all-purpose flour",
             "low-fat yoghurt": "low-fat yoghurt",
-            "1 (28 oz) can crushed tomatoes": "crushed tomatoes",
+            "1 (28 oz) can crushed tomatoes": "canned crushed tomatoes",
         }
         for raw, want in cases.items():
             with self.subTest(raw=raw):
@@ -36,6 +36,12 @@ class CleanQueryTests(unittest.TestCase):
         ):
             self.assertEqual(nm.clean_query(name), name)
 
+    def test_can_container_is_normalized_to_canned_state(self):
+        self.assertEqual(
+            nm.clean_query("cans no-added-salt chickpeas, rinsed, drained"),
+            "canned chickpeas",
+        )
+
 
 class FoodClassTests(unittest.TestCase):
     def test_class_assignment(self):
@@ -49,6 +55,14 @@ class FoodClassTests(unittest.TestCase):
         self.assertEqual(nm.food_class("rice, white, italian arborio risotto, raw"), "grain_cereal")
         self.assertEqual(nm.food_class("eggplant"), "vegetable")
         self.assertEqual(nm.food_class("egg"), "egg")
+        self.assertEqual(nm.food_class("salad with a little dressing"), "salad")
+        self.assertEqual(nm.food_class("green olives"), "fruit")
+        self.assertEqual(nm.food_class("no-added-salt chopped tomatoes"), "vegetable")
+        self.assertEqual(nm.food_class("Rusk, no added salt"), "grain_cereal")
+        self.assertEqual(nm.food_class("Salad dressing vinaigrette"), "condiment_sauce")
+        self.assertEqual(nm.food_class("steamed Asian greens"), "leafy_green")
+        self.assertEqual(nm.food_class("Pastries, Asian"), "grain_cereal")
+        self.assertEqual(nm.food_class("spring cold cuts"), "animal_protein")
         self.assertEqual(nm.food_class("something unmappable xyz"), "other")
 
     def test_hard_incompatibilities(self):
@@ -57,28 +71,14 @@ class FoodClassTests(unittest.TestCase):
         self.assertFalse(nm.classes_compatible("leafy_green", "spice_herb"))
         self.assertFalse(nm.classes_compatible("alcohol", "grain_cereal"))
         self.assertFalse(nm.classes_compatible("egg", "vegetable"))
+        self.assertFalse(nm.classes_compatible("salad", "condiment_sauce"))
         # allowed / too-ambiguous-to-reject
         self.assertTrue(nm.classes_compatible("animal_protein", "animal_protein"))
         self.assertTrue(nm.classes_compatible("dairy", "other"))
         self.assertTrue(nm.classes_compatible("vegetable", "condiment_sauce"))
-        self.assertTrue(nm.classes_compatible("animal_protein", "condiment_sauce"))
-
-
-class FoodOnVariantTests(unittest.TestCase):
-    def test_variants_strip_form_words_and_apply_synonyms(self):
-        self.assertIn("garlic", nm._foodon_name_variants("Garlic, raw"))
-        self.assertIn("yogurt", nm._foodon_name_variants("low-fat yoghurt"))
-        self.assertIn("yogurt", nm._foodon_name_variants("Yogurt, plain, low fat"))
-        self.assertIn("arugula", nm._foodon_name_variants("rocket"))
-        # the original (lowercased) is always included
-        self.assertEqual(nm._foodon_name_variants("Garlic, raw")[0], "garlic, raw")
-
-    def test_foodon_compatible_neutral_when_unresolvable(self):
-        # An obviously-not-an-ingredient name on at least one side -> None (neutral),
-        # never raises, even if the weight tool / Neo4j is unavailable.
-        with patch.object(nm, "_foodon_class_ids", side_effect=lambda n: () if "zzz" in n else ("FOODON_X",)):
-            self.assertIsNone(nm._foodon_compatible("zzz nothing", "tomato"))
-            self.assertIsNone(nm._foodon_compatible("tomato", "zzz nothing"))
+        self.assertFalse(nm.classes_compatible("animal_protein", "condiment_sauce"))
+        self.assertFalse(nm.classes_compatible("legume", "nut_seed"))
+        self.assertFalse(nm.classes_compatible("leafy_green", "condiment_sauce"))
 
 
 class Bm25Tests(unittest.TestCase):
@@ -92,99 +92,255 @@ class Bm25Tests(unittest.TestCase):
 
 
 class BestNutritionMatchTests(unittest.TestCase):
-    def setUp(self):
-        # These tests exercise USDA fallback behavior independently of runtime
-        # regional configuration (production may select the EU fallback pool).
-        self._fallback_patch = patch.object(
-            nm, "NUTRITION_FALLBACK_SOURCE", "usda"
-        )
-        self._fallback_patch.start()
-
-    def tearDown(self):
-        self._fallback_patch.stop()
-
-    def _patch_pools(self, irish=None, usda=None):
-        # bypass the alias table + curated table to test the vector/rerank path
+    def _patch_pools(self, irish=None, eu=None):
         return (
             patch.object(nm, "query_irish_nutrition_candidates", return_value=irish or []),
-            patch.object(nm, "query_usda_nutrition_candidates", return_value=usda or []),
-            patch.object(nm, "_curated_link_index", return_value={}),
-            patch.object(nm, "_alias_index", return_value={}),
+            patch.object(nm, "query_eu_nutrition_candidates", return_value=eu or []),
         )
 
-    def test_alias_table_wins_outright(self):
-        idx = {"boneless skinless chicken breast": {
-            "usda_id": "05062",
-            "label": "Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw",
-        }}
-        with patch.object(nm, "_alias_index", return_value=idx):
-            r = nm.best_nutrition_match("boneless skinless chicken breast", "us")
-        self.assertEqual(r["confidence"], "alias")
-        self.assertEqual(r["source_key"], "usda")
-        self.assertEqual(r["match"]["metadata"]["usda_id"], "05062")
+    def test_irish_uses_eu_as_its_only_fallback(self):
+        p1, p2 = self._patch_pools(
+            eu=[_cand("Chicken breast, raw", 0.18)],
+        )
+        with p1, p2:
+            r = nm.best_nutrition_match("chicken breast", "irish")
+        self.assertEqual(r["source_key"], "eu")
+        self.assertEqual(r["matched_name"], "Chicken breast, raw")
 
-    def test_curated_link_competes_and_wins_when_strong(self):
-        idx = {"boneless skinless chicken breast": {
-            "usda_id": "05064",
-            "sim": 0.95,
-            "label": "Chicken, broilers or fryers, breast, meat only, raw",
-        }}
-        with patch.object(nm, "_curated_link_index", return_value=idx), \
-             patch.object(nm, "_alias_index", return_value={}), \
-             patch.object(nm, "query_irish_nutrition_candidates", return_value=[]), \
-             patch.object(nm, "query_usda_nutrition_candidates", return_value=[]):
-            r = nm.best_nutrition_match("Boneless, skinless chicken breast", "irish")
-        self.assertEqual(r["confidence"], "curated")
-        self.assertEqual(r["source_key"], "usda")
-        self.assertEqual(r["match"]["metadata"]["usda_id"], "05064")
+    def test_slovenian_and_eu_candidates_compete_in_one_pool(self):
+        with (
+            patch.object(
+                nm,
+                "query_slovenian_nutrition_candidates",
+                return_value=[_cand("Apple sauce", 0.30)],
+            ),
+            patch.object(
+                nm,
+                "query_eu_nutrition_candidates",
+                return_value=[_cand("Apple, raw", 0.12)],
+            ),
+        ):
+            r = nm.best_nutrition_match("apple", "slovenian")
+        self.assertEqual(r["source_key"], "eu")
+        self.assertEqual(r["matched_name"], "Apple, raw")
 
-    def test_curated_link_loses_to_a_better_vector_candidate(self):
-        idx = {"all-purpose flour": {"usda_id": "11413", "sim": 0.86, "label": "Potato flour"}}
-        with patch.object(nm, "query_irish_nutrition_candidates", return_value=[]), \
-             patch.object(nm, "query_usda_nutrition_candidates",
-                          return_value=[_cand("Wheat flour, white, all-purpose, unenriched", 0.11)]), \
-             patch.object(nm, "_curated_link_index", return_value=idx), \
-             patch.object(nm, "_alias_index", return_value={}):
-            r = nm.best_nutrition_match("all-purpose flour", "irish")
-        self.assertEqual(r["matched_name"], "Wheat flour, white, all-purpose, unenriched")
-        self.assertNotEqual(r["match"]["metadata"].get("usda_id"), "11413")
+    def test_slovenian_wins_when_it_is_the_best_match(self):
+        with (
+            patch.object(
+                nm,
+                "query_slovenian_nutrition_candidates",
+                return_value=[_cand("Potato, raw", 0.10)],
+            ),
+            patch.object(
+                nm,
+                "query_eu_nutrition_candidates",
+                return_value=[_cand("Potato starch", 0.20)],
+            ),
+        ):
+            r = nm.best_nutrition_match("potato", "slovenian")
+        self.assertEqual(r["source_key"], "slovenian")
+        self.assertEqual(r["matched_name"], "Potato, raw")
+
+    def test_usda_source_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported nutrition source"):
+            nm.best_nutrition_match("chicken breast", "usda")
 
     def test_strong_match_on_token_overlap(self):
-        p1, p2, p3, p4 = self._patch_pools(
+        p1, p2 = self._patch_pools(
             irish=[_cand("Chicken breast, raw", 0.18), _cand("Chicken broth", 0.30)],
         )
-        with p1, p2, p3, p4:
+        with p1, p2:
             r = nm.best_nutrition_match("chicken breast", "irish")
         self.assertEqual(r["confidence"], "strong")
         self.assertEqual(r["matched_name"], "Chicken breast, raw")
 
+    def test_matching_does_not_read_neo4j(self):
+        p1, p2 = self._patch_pools(
+            irish=[_cand("Chicken breast, raw", 0.18)],
+        )
+        with (
+            p1,
+            p2,
+            patch(
+                "recipe_wrangler.utils.neo4j_utils.run_query",
+                side_effect=AssertionError("nutrition matching must be ES-only"),
+            ),
+        ):
+            result = nm.best_nutrition_match("chicken breast", "irish")
+        self.assertEqual(result["matched_name"], "Chicken breast, raw")
+
     def test_zero_overlap_attractor_is_demoted(self):
-        p1, p2, p3, p4 = self._patch_pools(
+        p1, p2 = self._patch_pools(
             irish=[_cand("Rice, white, Italian Arborio risotto, raw", 0.34),
                    _cand("Wine, table, red", 0.48)],
         )
-        with p1, p2, p3, p4:
+        with p1, p2:
             r = nm.best_nutrition_match("chianti wine", "irish")
         self.assertEqual(r["matched_name"], "Wine, table, red")
 
     def test_food_class_guard_rejects_incompatible(self):
-        p1, p2, p3, p4 = self._patch_pools(irish=[_cand("Tofu yogurt", 0.16)])
-        with p1, p2, p3, p4:
+        p1, p2 = self._patch_pools(irish=[_cand("Tofu yogurt", 0.16)])
+        with p1, p2:
             r = nm.best_nutrition_match("low-fat yoghurt", "irish")
         self.assertEqual(r["confidence"], "none")
         self.assertIsNone(r["match"])
 
     def test_food_class_guard_prefers_compatible(self):
-        p1, p2, p3, p4 = self._patch_pools(
+        p1, p2 = self._patch_pools(
             irish=[_cand("Tofu yogurt", 0.16), _cand("Yogurt, plain, low fat", 0.22)],
         )
-        with p1, p2, p3, p4:
+        with p1, p2:
             r = nm.best_nutrition_match("low-fat yoghurt", "irish")
         self.assertEqual(r["matched_name"], "Yogurt, plain, low fat")
 
+    def test_species_guard_prevents_cod_from_matching_pork_or_beef_fillet(self):
+        p1, p2 = self._patch_pools(
+            irish=[
+                _cand("Pork fillet raw", 0.05),
+                _cand("Beef fillet tenderloin", 0.08),
+                _cand("Cod fillet raw", 0.22),
+            ],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match("fresh cod fillet", "irish")
+        self.assertEqual(result["matched_name"], "Cod fillet raw")
+
+    def test_trailing_spray_oil_does_not_turn_pumpkin_into_seed_oil(self):
+        p1, p2 = self._patch_pools(
+            irish=[
+                _cand("Pumpkin seed oil", 0.03),
+                _cand("Pumpkin, raw", 0.24),
+            ],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match(
+                "pumpkin, peeled, cut in 2cm pieces spray oil", "irish"
+            )
+        self.assertEqual(result["cleaned_query"], "pumpkin cut in 2cm pieces")
+        self.assertEqual(result["matched_name"], "Pumpkin, raw")
+
+    def test_standalone_spray_oil_still_profiles_as_oil(self):
+        p1, p2 = self._patch_pools(
+            irish=[_cand("Oil spray", 0.15)],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match("spray oil", "irish")
+        self.assertEqual(result["cleaned_query"], "spray oil")
+        self.assertEqual(result["matched_name"], "Oil spray")
+
+    def test_spray_oil_rejects_brand_name_spray_attractor(self):
+        p1, p2 = self._patch_pools(
+            irish=[
+                _cand("Juice drink Ocean Spray Cranberry classic", 0.02),
+                _cand("Oil spray", 0.25),
+            ],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match("spray oil", "irish")
+        self.assertEqual(result["matched_name"], "Oil spray")
+
+    def test_lamb_cutlet_rejects_french_dressing_attractor(self):
+        p1, p2 = self._patch_pools(
+            irish=[
+                _cand("Dressing, French", 0.02),
+                _cand("Lamb cutlet, raw", 0.25),
+            ],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match(
+                "French-trimmed lamb cutlets", "irish"
+            )
+        self.assertEqual(result["matched_name"], "Lamb cutlet, raw")
+
+    def test_liquid_stock_rejects_concentrated_cube_nutrition(self):
+        p1, p2 = self._patch_pools(
+            irish=[
+                _cand("Stock cubes, chicken", 0.02),
+                _cand("Chicken stock, liquid", 0.25),
+            ],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match(
+                "boiling salt-reduced liquid chicken stock", "irish"
+            )
+        self.assertEqual(result["matched_name"], "Chicken stock, liquid")
+
+    def test_pumpkin_flesh_rejects_seed_product(self):
+        p1, p2 = self._patch_pools(
+            irish=[
+                _cand("Pumpkin and squash, seed, dried", 0.02),
+                _cand("Pumpkin, flesh, raw", 0.24),
+            ],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match("squash or pumpkin, deseeded", "irish")
+        self.assertEqual(result["matched_name"], "Pumpkin, flesh, raw")
+
+    def test_chickpea_rejects_peanut_attractor(self):
+        p1, p2 = self._patch_pools(
+            irish=[
+                _cand("Peanut, no added salt", 0.02),
+                _cand("Chickpeas, canned, drained", 0.24),
+            ],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match(
+                "no-added-salt chickpeas, rinsed, drained", "irish"
+            )
+        self.assertEqual(result["matched_name"], "Chickpeas, canned, drained")
+
+    def test_chickpea_and_garbanzo_tokens_share_identity(self):
+        self.assertIn("chickpea", nm._tokens("chickpeas"))
+        self.assertIn("chickpea", nm._tokens("garbanzos"))
+
+    def test_canned_chickpeas_reject_unspecified_dry_row(self):
+        p1, p2 = self._patch_pools(
+            irish=[
+                _cand("Chickpeas", 0.02),
+                _cand("Chickpeas, canned, drained", 0.24),
+            ],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match("can chickpeas, drained", "irish")
+        self.assertEqual(result["matched_name"], "Chickpeas, canned, drained")
+
+    def test_tuna_in_water_rejects_plain_spring_water(self):
+        p1, p2 = self._patch_pools(
+            irish=[
+                _cand("Spring water, bottled", 0.02),
+                _cand("Tuna, canned in spring water, drained", 0.24),
+            ],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match(
+                "tuna in spring water, drained", "irish"
+            )
+        self.assertEqual(result["matched_name"], "Tuna, canned in spring water, drained")
+
+    def test_spinach_with_dressing_rejects_pure_vinaigrette(self):
+        p1, p2 = self._patch_pools(
+            irish=[
+                _cand("Salad dressing vinaigrette", 0.02),
+                _cand("Spinach, raw", 0.24),
+            ],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match(
+                "baby spinach dressed with balsamic vinaigrette", "irish"
+            )
+        self.assertEqual(result["matched_name"], "Spinach, raw")
+
+    def test_olive_does_not_match_beef_olives(self):
+        p1, p2 = self._patch_pools(
+            irish=[_cand("Beef olives raw", 0.04), _cand("Olives green", 0.25)],
+        )
+        with p1, p2:
+            result = nm.best_nutrition_match("olives sliced", "irish")
+        self.assertEqual(result["matched_name"], "Olives green")
+
     def test_no_candidates_returns_none(self):
-        p1, p2, p3, p4 = self._patch_pools()
-        with p1, p2, p3, p4:
+        p1, p2 = self._patch_pools()
+        with p1, p2:
             r = nm.best_nutrition_match("zzz nonexistent", "irish")
         self.assertEqual(r["confidence"], "none")
         self.assertIsNone(r["match"])

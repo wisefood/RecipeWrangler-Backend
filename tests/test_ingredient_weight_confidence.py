@@ -8,8 +8,6 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
     def setUp(self):
         mod._embedding_usda_link.cache_clear()
         mod._usda_links_lexical_index.cache_clear()
-        mod._foodon_class_ids_for_ingredient.cache_clear()
-        mod._foodon_classes_have_common_ancestor.cache_clear()
 
     def invoke_debug(self, names, measurements):
         return mod.ingredient_weight_tool_usda.invoke(
@@ -38,6 +36,19 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         self.assertAlmostEqual(result["weights"][0], 92.0)
         self.assertEqual(detail["match_type"], "liquid_density_volume_fallback")
         self.assertEqual(detail["confidence"], 0.65)
+
+    def test_teaspoon_is_converted_to_ingredient_specific_grams(self):
+        with patch.object(
+            mod,
+            "canonical_name_to_usda",
+            return_value={"usda_id": "oil", "canonical": "olive oil"},
+        ):
+            result = self.invoke_debug(["olive oil"], ["2 teaspoons"])
+
+        detail = result["details"][0]
+        self.assertAlmostEqual(result["weights"][0], 9.2)
+        self.assertEqual(detail["parsed_unit"], "teaspoon")
+        self.assertEqual(detail["match_type"], "liquid_density_volume_fallback")
 
     def test_informal_splash_uses_liquid_density(self):
         with patch.object(mod, "canonical_name_to_usda", return_value={"usda_id": "milk", "canonical": "milk"}):
@@ -207,6 +218,45 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         self.assertEqual(qty, "1/2")
         self.assertEqual(unit, "lbs")
         self.assertEqual(rest, "lean hamburger, no more than 10% fat")
+
+    def test_parenthesized_total_mass_overrides_outer_piece_count(self):
+        extracted = mod._extract_leading_measurement_from_name(
+            "(600g) skinless chicken thigh fillets, fat trimmed"
+        )
+        self.assertEqual(
+            extracted,
+            ("600", "g", "skinless chicken thigh fillets, fat trimmed"),
+        )
+        result = self.invoke_debug(
+            ["(600g) skinless chicken thigh fillets, fat trimmed"],
+            ["4 medium"],
+        )
+        self.assertEqual(result["weights"], [600.0])
+        self.assertEqual(result["details"][0]["match_type"], "direct_mass")
+
+    def test_dried_chile_count_uses_dried_not_bell_pepper_weight(self):
+        with (
+            patch.object(mod, "canonical_name_to_usda", return_value=None),
+            patch.object(mod, "_embedding_usda_link", return_value=None),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+        ):
+            result = self.invoke_debug(
+                ["dried arbol peppers", "dried chipotle peppers"],
+                ["15", "2"],
+            )
+        self.assertEqual(result["weights"], [30.0, 4.0])
+
+    def test_small_lamb_cutlet_count_uses_meat_portion_reference(self):
+        with (
+            patch.object(mod, "canonical_name_to_usda", return_value=None),
+            patch.object(mod, "_embedding_usda_link", return_value=None),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+        ):
+            result = self.invoke_debug(
+                ["French-trimmed lamb cutlets"],
+                ["6-8 small"],
+            )
+        self.assertAlmostEqual(result["weights"][0], 7 * 113 * 0.65)
 
     def test_extract_leading_measurement_returns_none_for_plain_names(self):
         for name in (
@@ -761,7 +811,6 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         with (
             patch.object(mod, "_get_usda_links_collections", return_value=[FakeCollection()]),
             patch.object(mod, "get_embeddings", return_value=[0.0, 1.0]),
-            patch.object(mod, "_foodon_compatibility", return_value=None),
         ):
             hit = mod._embedding_usda_link("Minute Rice")
 
@@ -770,7 +819,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         self.assertEqual(hit["match_source"], "hybrid")
         self.assertGreater(hit["lexical_score"], 0)
 
-    def test_foodon_incompatible_candidate_is_rejected_from_hybrid_match(self):
+    def test_usda_portion_matching_does_not_read_neo4j(self):
         class FakeCollection:
             name = "fake_usda"
 
@@ -794,9 +843,14 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         with (
             patch.object(mod, "_get_usda_links_collections", return_value=[FakeCollection()]),
             patch.object(mod, "get_embeddings", return_value=[0.0, 1.0]),
-            patch.object(mod, "_foodon_compatibility", return_value=False),
+            patch(
+                "recipe_wrangler.utils.neo4j_utils.run_query",
+                side_effect=AssertionError("portion matching must be ES-only"),
+            ),
         ):
-            self.assertIsNone(mod._embedding_usda_link("bread"))
+            hit = mod._embedding_usda_link("bread")
+        self.assertIsNotNone(hit)
+        self.assertEqual(hit["usda_id"], "18000")
 
     def test_common_reference_covers_gelatin_package(self):
         self.assertEqual(

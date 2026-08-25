@@ -24,13 +24,18 @@ from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
 
 logger = logging.getLogger(__name__)
 
-_VALID_REGIONS = {"eu", "ie", "hu"}
-# Deprecated. Kept only because the runtime projection still imports it; every
-# read path resolves the index from settings so the alias can be repointed
-# without a code change. The projection itself writes v2-shaped documents
-# (flat `ingredients`, no `urn`) and will be rejected by the catalog index's
-# strict mapping — replacing it is the outstanding write-path work.
-ES_INDEX = "recipes_v2"
+_REGION_ALIASES = {
+    "eu": "eu",
+    "ie": "ie",
+    "irish": "ie",
+    "hu": "hu",
+    "hungarian": "hu",
+    "si": "slovenian",
+    "slovenian": "slovenian",
+}
+# Deprecated compatibility name. Keep it on the live alias, never on a concrete
+# generation: recipes_v4 contains the annotation history that recipes_v2 lacks.
+ES_INDEX = "recipes"
 
 # Region-agnostic fields returned per hit. The region-specific nutri fields
 # (nutri_score_<r> / nutri_color_<r>) are appended per request.
@@ -53,15 +58,16 @@ _BASE_SOURCE_FIELDS = [
     # returned, which left cards unable to show *why* a recipe matched — a
     # cuisine chip in the sidebar with no cuisine on the result it produced.
     "cuisines", "moods", "flavor_profiles", "food_groups",
+    "convenience", "nutrition_claims",
 ]
 
 _SUPPORTED_CONSUMER_GROUPS = {"vegan", "vegetarian"}
 
 
 def _resolve_region(value: str) -> str:
-    """Normalize a region selector (EU/IE/HU, any case) to eu/ie/hu; default eu."""
+    """Normalize an API region selector to its Elasticsearch field suffix."""
     region = (value or "eu").strip().lower()
-    return region if region in _VALID_REGIONS else "eu"
+    return _REGION_ALIASES.get(region, "eu")
 
 
 @dataclass
@@ -94,6 +100,9 @@ class RecipeSearchConstraints:
     # user who picks "spicy" is excluding mild food, not ranking it lower.
     flavor_profiles: list[str] = field(default_factory=list)
     food_groups: list[str] = field(default_factory=list)
+    convenience: list[str] = field(default_factory=list)
+    nutrition_claims: list[str] = field(default_factory=list)
+    nutri_scores: list[str] = field(default_factory=list)
     title_keywords: list[str] = field(default_factory=list)
     title_query: str | None = None
     # The raw question, used for ranking only — never filtering.
@@ -130,7 +139,6 @@ _SOURCE_SLUG_TO_RAW: dict[str, list[str]] = {
     "irish safefood": ["Curated Irish Recipes"],
     "hungarian": ["Curated Hungarian Recipes"],
     "slovenian": ["Curated Slovenian Recipes"],
-    "recipe1m": ["recipe1m"],
 }
 
 _RAW_SOURCE_TO_SLUG: dict[str, str] = {
@@ -140,7 +148,6 @@ _RAW_SOURCE_TO_SLUG: dict[str, str] = {
     "curated irish recipes": "irish_safefood",
     "curated hungarian recipes": "hungarian",
     "curated slovenian recipes": "slovenian",
-    "recipe1m": "recipe1m",
 }
 
 # The index carries spelling variants per dish type (main-dish/main_dish,
@@ -410,6 +417,7 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     must: list[dict] = []
     must_not: list[dict] = []
     should: list[dict] = []
+    region = _resolve_region(c.region)
 
     # Only profiled recipes.
     #
@@ -548,6 +556,18 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
         filter_.append({"terms": {"flavor_profiles": _norm_tags(c.flavor_profiles)}})
     if c.food_groups:
         filter_.append({"terms": {"food_groups": _norm_tags(c.food_groups)}})
+    if c.convenience:
+        filter_.append({"terms": {"convenience": _norm_tags(c.convenience)}})
+    if c.nutrition_claims:
+        filter_.append({"terms": {"nutrition_claims": _norm_tags(c.nutrition_claims)}})
+    if c.nutri_scores:
+        grades = [
+            str(value).strip().upper()
+            for value in c.nutri_scores
+            if str(value).strip().upper() in {"A", "B", "C", "D", "E"}
+        ]
+        if grades:
+            filter_.append({"terms": {f"nutri_score_{region}": list(dict.fromkeys(grades))}})
 
     if c.max_duration_minutes is not None:
         filter_.append({"range": {"duration": {"lte": c.max_duration_minutes}}})
@@ -598,8 +618,6 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
 
     limit = max(1, min(int(c.limit), 100))
     offset = max(0, int(c.offset))
-    region = _resolve_region(c.region)
-
     query: dict[str, Any] = {"bool": {"filter": filter_, "must": must, "must_not": must_not}}
     if should:
         query["bool"]["should"] = should
@@ -676,6 +694,9 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
             "flavor_profiles": {"terms": {"field": "flavor_profiles", "size": 20}},
             "food_groups": {"terms": {"field": "food_groups", "size": 20}},
             "diet_tags": {"terms": {"field": "diet_tags", "size": 40}},
+            "convenience": {"terms": {"field": "convenience", "size": 10}},
+            "nutrition_claims": {"terms": {"field": "nutrition_claims", "size": 20}},
+            "nutri_scores": {"terms": {"field": f"nutri_score_{region}", "size": 5}},
             "allergens": {"terms": {"field": "allergens", "size": 30}},
         }
 
@@ -732,6 +753,8 @@ def _hit_to_card(hit: dict, region: str) -> dict[str, Any]:
         "moods": src.get("moods") or [],
         "flavor_profiles": src.get("flavor_profiles") or [],
         "food_groups": src.get("food_groups") or [],
+        "convenience": src.get("convenience") or [],
+        "nutrition_claims": src.get("nutrition_claims") or [],
     }
 
 

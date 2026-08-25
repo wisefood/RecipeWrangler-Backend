@@ -55,7 +55,7 @@ class ParamSearchTests(unittest.TestCase):
         self.assertIn('= "foodhero" THEN 1', query)
         self.assertIn('= "myplate" THEN 2', query)
         self.assertIn('= "irish_safefood" THEN 3', query)
-        self.assertIn('= "recipe1m" THEN 5', query)
+        self.assertNotIn('= "recipe1m"', query)
         self.assertIn('ELSE 4', query)
 
     def test_unconstrained_browse_can_return_source_facets(self):

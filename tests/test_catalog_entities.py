@@ -117,10 +117,25 @@ class TestRecipeValidation:
     def test_scalar_course_type_accepted(self, recipe):
         assert build(recipe, course_types="soup")["course_types"] == ["soup"]
 
+    def test_stored_main_dish_is_not_guessed_away_from_the_title(self, recipe):
+        doc = build(recipe, title="Basic tomato sauce", course_types=["main-dish"])
+        assert doc["course_types"] == ["main-dish"]
+
     def test_has_image_reflects_url_presence(self, recipe):
         assert build(recipe, image_url="http://x/y.jpg")["has_image"] is True
         assert build(recipe, image_url="  ")["has_image"] is False
         assert build(recipe)["has_image"] is False
+
+    def test_every_write_is_stamped_as_schema_v4(self, recipe):
+        assert build(recipe)["schema_version"] == 4
+
+    def test_convenience_is_derived_on_every_write(self, recipe):
+        doc = build(recipe, duration=30, ingredients=["a", "b", "c", "d", "e"])
+        assert doc["convenience"] == ["quick", "simple"]
+
+    def test_stale_convenience_is_replaced(self, recipe):
+        doc = build(recipe, duration=60, ingredients=[str(i) for i in range(6)], convenience=["quick"])
+        assert doc["convenience"] == []
 
 
 class TestIngredientNormalization:
@@ -197,6 +212,7 @@ class TestDefaultScoreSelection:
 
     def test_region_order_is_deterministic_and_eu_first(self):
         assert DEFAULT_SCORE_REGION_ORDER[0] == "eu"
+        assert DEFAULT_SCORE_REGION_ORDER == ("eu", "ie", "hu", "slovenian")
         assert len(set(DEFAULT_SCORE_REGION_ORDER)) == len(DEFAULT_SCORE_REGION_ORDER)
 
 
@@ -228,8 +244,8 @@ class TestProfileValidation:
         )
         assert derived["is_ground_truth"] is False
 
-    def test_recipe1m_original_still_recognised_as_ground_truth(self, profile):
-        """Its recipes are purged but the original nutrition data was kept."""
+    def test_recipe1m_original_is_not_supported_ground_truth(self, profile):
+        """The retired source and its nutrition no longer enter the catalog."""
         doc = profile.validate(
             {
                 "recipe_id": "x",
@@ -237,7 +253,7 @@ class TestProfileValidation:
                 "source": "recipe1m",
             }
         )
-        assert doc["is_ground_truth"] is True
+        assert doc["is_ground_truth"] is False
 
     def test_score_label_normalized_with_rank(self, profile):
         doc = profile.validate(

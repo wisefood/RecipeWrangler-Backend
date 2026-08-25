@@ -1,4 +1,5 @@
 from recipe_wrangler.repositories.neo4j_recipes import (
+    detect_allergen_evidence_from_names,
     detect_allergens_from_names,
     infer_diet_tags,
 )
@@ -35,6 +36,45 @@ def test_satay_keywords_do_not_overmatch() -> None:
         assert "peanut" not in detect_allergens_from_names([benign]), benign
 
 
+def test_compound_sauces_and_pastes_trigger_their_hidden_allergens() -> None:
+    cases = {
+        "mole sauce": "peanut",
+        "mole paste": "peanut",
+        "romesco sauce": "tree_nut",
+        "hazelnut praline": "tree_nut",
+        "worcestershire sauce": "fish",
+        "worcester sauce": "fish",
+        "caesar dressing": "fish",
+    }
+    for ingredient, allergen in cases.items():
+        assert allergen in detect_allergens_from_names([ingredient]), ingredient
+
+
+def test_compound_keywords_keep_word_boundaries() -> None:
+    for benign in ["mole poblano pepper", "romanesco", "Caesarea"]:
+        assert detect_allergens_from_names([benign]) == [], benign
+
+
+def test_unpersisted_analysis_evidence_preserves_ingredient_pairing() -> None:
+    evidence = detect_allergen_evidence_from_names(
+        ["Caesar dressing", "fresh tomatoes"]
+    )
+    assert evidence == [
+        {
+            "allergen": "fish",
+            "ingredient": "Caesar dressing",
+            "ingredient_id": "",
+            "declaration_id": "",
+            "presence": "contains",
+            "evidence_status": "inferred",
+            "sources": ["keyword"],
+            "foodon_ids": [],
+            "keyword_matches": ["caesar dressing"],
+            "classification_version": "fato-foodon-v1",
+        }
+    ]
+
+
 def test_molluscs_are_not_classified_as_crustaceans() -> None:
     assert detect_allergens_from_names(["scallops", "oysters"]) == ["molluscs"]
     assert detect_allergens_from_names(["shrimp", "crab"]) == [
@@ -42,7 +82,10 @@ def test_molluscs_are_not_classified_as_crustaceans() -> None:
     ]
 
 
-def test_molluscs_prevent_pescatarian_safe_tag() -> None:
+def test_pescatarian_safety_is_not_inferred_from_allergens() -> None:
+    # Seafood is allowed for pescatarians; meat/poultry composition determines
+    # this tag, not the presence or absence of a fish-family allergen.
+    assert "pescatarian_safe" not in infer_diet_tags(set())
     assert "pescatarian_safe" not in infer_diet_tags({"molluscs"})
 
 

@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from pyNutriScore import NutriScore
 
-from .usda_nutrients_v1 import fruits_veg_legumes_percent
+from .fruit_vegetable_content import fruits_veg_legumes_percent
 
 _NUTRI_SCORE = NutriScore()
 

@@ -1,7 +1,7 @@
 """Catalog-backed recipe endpoints — the uniform search contract.
 
 Served from the ``recipes`` alias (recipes_v3) through the catalog entity layer,
-alongside the legacy ``/api/v1`` routes which still read ``recipes_v2``. Both
+alongside the ``/api/v1`` routes. Both
 run at once so the read flip can be done per-consumer rather than as one
 cut-over.
 

@@ -30,7 +30,6 @@ def _get_config():
         "db_host": _env("NUTRITION_HOST", _env("POSTGRES_HOST", "localhost")),
         "db_port": _env("NUTRITION_PORT", _env("POSTGRES_PORT", "5432")),
         "schema": _env("NUTRITION_SCHEMA", "public"),
-        "ingredients_table": _env("NUTRITION_INGREDIENTS_TABLE", "nutrients-ingredients-usda"),
         "irish_ingredients_table": _env("NUTRITION_INGREDIENTS_IRISH_TABLE", "nutrients-ingredients-irish"),
         "hungarian_ingredients_table": _env(
             "NUTRITION_INGREDIENTS_HUNGARIAN_TABLE",
@@ -39,6 +38,10 @@ def _get_config():
         "eu_ingredients_table": _env(
             "NUTRITION_INGREDIENTS_EU_TABLE",
             "nutrients-ingredients-eu",
+        ),
+        "slovenian_ingredients_table": _env(
+            "NUTRITION_INGREDIENTS_SLOVENIAN_TABLE",
+            "nutrients-ingredients-slovenian",
         ),
         "profiles_table": _env("NUTRITION_PROFILES_TABLE", "nutrients-recipe-profiles"),
         "use_docker": _env("NUTRITION_USE_DOCKER", "0") == "1",
@@ -141,79 +144,6 @@ def get_connection():
         yield conn
     finally:
         conn.close()
-
-
-def fetch_ingredient_nutrition_by_usda_id(usda_id: str) -> Optional[dict]:
-    """
-    Return ingredient nutrient record from Postgres by USDA id.
-
-    Args:
-        usda_id: USDA food identifier
-
-    Returns:
-        Dictionary with keys: usda_id, food_name, nutrients
-        None if not found
-
-    Raises:
-        SQLAlchemyError: If database query fails
-    """
-    cfg = _get_config()
-
-    # Build the query using SQLAlchemy text() with bound parameters
-    # This prevents SQL injection by properly escaping parameters
-    query = text("""
-        SELECT row_to_json(t) as data
-        FROM (
-            SELECT usda_id, food_name, nutrients
-            FROM :schema.:table
-            WHERE usda_id = :usda_id
-            LIMIT 1
-        ) t
-    """).bindparams(
-        schema=cfg["schema"],
-        table=cfg["ingredients_table"],
-        usda_id=str(usda_id)
-    )
-
-    # Note: SQLAlchemy doesn't support binding schema/table names directly
-    # We need to use string formatting for identifiers (but still safe with our config)
-    query_str = f"""
-        SELECT row_to_json(t) as data
-        FROM (
-            SELECT usda_id, food_name, nutrients
-            FROM "{cfg['schema']}"."{cfg['ingredients_table']}"
-            WHERE usda_id = :usda_id
-            LIMIT 1
-        ) t
-    """
-
-    try:
-        with get_connection() as conn:
-            result = conn.execute(text(query_str), {"usda_id": str(usda_id)})
-            row = result.fetchone()
-
-            if row is None:
-                return None
-
-            # row[0] or row.data contains the JSON object
-            return row[0]
-
-    except SQLAlchemyError as e:
-        if cfg["use_docker"] and cfg["container"]:
-            query = f"""
-                SELECT row_to_json(t)
-                FROM (
-                    SELECT usda_id, food_name, nutrients
-                    FROM "{cfg['schema']}"."{cfg['ingredients_table']}"
-                    WHERE usda_id = '{str(usda_id).replace("'", "''")}'
-                    LIMIT 1
-                ) t
-            """
-            out = _run_psql_fallback(query, cfg)
-            if not out:
-                return None
-            return json.loads(out)
-        raise RuntimeError(f"Failed to fetch ingredient nutrition: {e}") from e
 
 
 def fetch_recipe_nutrition_by_id(
@@ -336,16 +266,19 @@ def fetch_recipe_nutrition_batch(recipe_ids: list[str]) -> dict[str, dict]:
         raise RuntimeError(f"Failed to fetch recipe nutrition batch: {e}") from e
 
 
-_REGION_BY_SOURCE = {"irish": "ie", "hungarian": "hu", "eu": "eu"}
+_REGION_BY_SOURCE = {
+    "irish": "ie",
+    "hungarian": "hu",
+    "eu": "eu",
+    "slovenian": "slovenian",
+}
 
 
 def fetch_ingredient_nutrition_by_eu_id(eu_id: str) -> Optional[dict]:
     """Return ingredient nutrient record from the EU composite Postgres table.
 
-    The row's JSONB ``nutrients`` column is keyed by USDA-canonical nutrient
-    names (Protein, Carbohydrate by difference, Total lipid (fat), …), so the
-    downstream USDA-shaped consumer in ``nutritional_calculator`` reads it
-    directly without a per-source branch.
+    The row's JSONB ``nutrients`` column uses normalized nutrient names, which
+    ``nutritional_calculator`` reads directly.
     """
     cfg = _get_config()
     query_str = f"""
@@ -381,6 +314,46 @@ def fetch_ingredient_nutrition_by_eu_id(eu_id: str) -> Optional[dict]:
         raise RuntimeError(f"Failed to fetch EU ingredient nutrition: {e}") from e
 
 
+def fetch_ingredient_nutrition_by_slovenian_id(slovenian_id: str) -> Optional[dict]:
+    """Return ingredient nutrient record from the Slovenian composite Postgres table.
+
+    Same JSONB ``nutrients`` shape as the EU table, so
+    ``nutritional_calculator`` reads it directly without a per-source branch.
+    """
+    cfg = _get_config()
+    query_str = f"""
+        SELECT row_to_json(t) AS data
+        FROM (
+            SELECT id, food_name, source, country, food_group, nutrients
+            FROM "{cfg['schema']}"."{cfg['slovenian_ingredients_table']}"
+            WHERE id = :slovenian_id
+            LIMIT 1
+        ) t
+    """
+    try:
+        with get_connection() as conn:
+            row = conn.execute(text(query_str), {"slovenian_id": str(slovenian_id)}).fetchone()
+            if row is None:
+                return None
+            return row[0]
+    except SQLAlchemyError as e:
+        if cfg["use_docker"] and cfg["container"]:
+            q = f"""
+                SELECT row_to_json(t)
+                FROM (
+                    SELECT id, food_name, source, country, food_group, nutrients
+                    FROM "{cfg['schema']}"."{cfg['slovenian_ingredients_table']}"
+                    WHERE id = '{str(slovenian_id).replace("'", "''")}'
+                    LIMIT 1
+                ) t
+            """
+            out = _run_psql_fallback(q, cfg)
+            if not out:
+                return None
+            return json.loads(out)
+        raise RuntimeError(f"Failed to fetch Slovenian ingredient nutrition: {e}") from e
+
+
 def fetch_all_recipe_scores() -> dict[str, dict]:
     """Return per-region nutri scores + sustainability for every profiled recipe.
 
@@ -396,7 +369,7 @@ def fetch_all_recipe_scores() -> dict[str, dict]:
     query_str = f"""
         SELECT recipe_id, nutrition_source, nutri_score, total_sustainability_per_serving
         FROM "{cfg['schema']}"."{cfg['profiles_table']}"
-        WHERE nutrition_source IN ('irish', 'hungarian', 'eu')
+        WHERE nutrition_source IN ('irish', 'hungarian', 'eu', 'slovenian')
     """
     scores: dict[str, dict] = {}
     with get_connection() as conn:
@@ -418,7 +391,7 @@ def fetch_all_recipe_scores() -> dict[str, dict]:
 def fetch_recipe_region_scores(recipe_id: str) -> dict:
     """Single-recipe variant of fetch_all_recipe_scores — same shape, one ID.
 
-    Used by the runtime recipes_v2 projection on create/update, where loading
+    Used by the runtime catalog projection on create/update, where loading
     the full corpus score map per request is not an option.
     """
     cfg = _get_config()
@@ -426,7 +399,7 @@ def fetch_recipe_region_scores(recipe_id: str) -> dict:
         SELECT nutrition_source, nutri_score, total_sustainability_per_serving
         FROM "{cfg['schema']}"."{cfg['profiles_table']}"
         WHERE recipe_id = :recipe_id
-          AND nutrition_source IN ('usda', 'irish', 'hungarian', 'eu')
+          AND nutrition_source IN ('irish', 'hungarian', 'eu', 'slovenian')
     """
     entry: dict = {"sust_score": None}
     with get_connection() as conn:
@@ -506,6 +479,7 @@ _TRACE_READ_COLUMNS = """
                 nutri_score_breakdown,
                 nutrition_profiling_details,
                 nutrition_profiling_debug,
+                profiling_quality,
                 total_sustainability,
                 total_sustainability_per_serving,
                 sustainability_per_kg,
@@ -591,6 +565,7 @@ def fetch_recipe_profiling_trace_by_id(
                         nutri_score_breakdown,
                         nutrition_profiling_details,
                         nutrition_profiling_debug,
+                        profiling_quality,
                         total_sustainability,
                         total_sustainability_per_serving,
                         sustainability_per_kg,
@@ -631,9 +606,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
     source = record.get("source")
     source_text = str(source or "").strip()
     raw_source_id = record.get("source_id")
-    if source_text == "recipe1m":
-        resolved_source_id = "urn:rcollection:recipe1m"
-    elif source_text == "HealthyFoods":
+    if source_text == "HealthyFoods":
         resolved_source_id = "urn:rcollection:healthyfood"
     elif source_text == "FoodHero":
         resolved_source_id = "urn:rcollection:foodhero"
@@ -659,6 +632,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             nutri_score_breakdown jsonb,
             nutrition_profiling_details jsonb,
             nutrition_profiling_debug jsonb,
+            profiling_quality jsonb,
             total_sustainability float8,
             total_sustainability_per_serving float8,
             sustainability_per_kg float8,
@@ -683,6 +657,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             nutri_score_breakdown,
             nutrition_profiling_details,
             nutrition_profiling_debug,
+            profiling_quality,
             total_sustainability,
             total_sustainability_per_serving,
             sustainability_per_kg,
@@ -704,6 +679,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             CAST(:nutri_score_breakdown AS jsonb),
             CAST(:nutrition_profiling_details AS jsonb),
             CAST(:nutrition_profiling_debug AS jsonb),
+            CAST(:profiling_quality AS jsonb),
             :total_sustainability,
             :total_sustainability_per_serving,
             :sustainability_per_kg,
@@ -723,6 +699,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             nutri_score_breakdown = EXCLUDED.nutri_score_breakdown,
             nutrition_profiling_details = EXCLUDED.nutrition_profiling_details,
             nutrition_profiling_debug = EXCLUDED.nutrition_profiling_debug,
+            profiling_quality = EXCLUDED.profiling_quality,
             total_sustainability = EXCLUDED.total_sustainability,
             total_sustainability_per_serving = EXCLUDED.total_sustainability_per_serving,
             sustainability_per_kg = EXCLUDED.sustainability_per_kg,
@@ -738,7 +715,8 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
         ADD COLUMN IF NOT EXISTS total_sustainability float8,
         ADD COLUMN IF NOT EXISTS total_sustainability_per_serving float8,
         ADD COLUMN IF NOT EXISTS sustainability_per_kg float8,
-        ADD COLUMN IF NOT EXISTS sustainability_profiling_details jsonb
+        ADD COLUMN IF NOT EXISTS sustainability_profiling_details jsonb,
+        ADD COLUMN IF NOT EXISTS profiling_quality jsonb
     """
     # Deployed tables can predate the (recipe_id, nutrition_source) primary
     # key in create_table_sql; without a matching unique constraint the
@@ -760,6 +738,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
             nutri_score_breakdown = CAST(:nutri_score_breakdown AS jsonb),
             nutrition_profiling_details = CAST(:nutrition_profiling_details AS jsonb),
             nutrition_profiling_debug = CAST(:nutrition_profiling_debug AS jsonb),
+            profiling_quality = CAST(:profiling_quality AS jsonb),
             total_sustainability = :total_sustainability,
             total_sustainability_per_serving = :total_sustainability_per_serving,
             sustainability_per_kg = :sustainability_per_kg,
@@ -775,6 +754,18 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
     def _as_json(value: object) -> str:
         return json.dumps(value if value is not None else None, separators=(",", ":"))
 
+    trace_value = record.get("trace")
+    debug_value = record.get("nutrition_profiling_debug")
+    profiling_quality = record.get("profiling_quality")
+    if not isinstance(profiling_quality, dict) and isinstance(trace_value, dict):
+        profiling_quality = trace_value.get("profiling_quality")
+        if not isinstance(profiling_quality, dict):
+            profiling_quality = (trace_value.get("profiling") or {}).get("quality")
+    if not isinstance(profiling_quality, dict) and isinstance(debug_value, dict):
+        profiling_quality = debug_value.get("profiling_quality")
+        if not isinstance(profiling_quality, dict):
+            profiling_quality = (debug_value.get("profiling") or {}).get("quality")
+
     params = {
         "recipe_id": recipe_id,
         "title": record.get("title"),
@@ -787,6 +778,7 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
         "nutri_score_breakdown": _as_json(record.get("nutri_score_breakdown")),
         "nutrition_profiling_details": _as_json(record.get("nutrition_profiling_details")),
         "nutrition_profiling_debug": _as_json(record.get("nutrition_profiling_debug")),
+        "profiling_quality": _as_json(profiling_quality),
         "total_sustainability": record.get("total_sustainability"),
         "total_sustainability_per_serving": record.get("total_sustainability_per_serving"),
         "sustainability_per_kg": record.get("sustainability_per_kg"),

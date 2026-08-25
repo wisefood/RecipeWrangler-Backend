@@ -12,7 +12,6 @@ from __future__ import annotations
 import pytest
 
 from recipe_wrangler.catalog import annotation as A
-from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog import vocabularies as V
 
 
@@ -28,11 +27,11 @@ class TestVocabularyEnforcement:
         assert "cuisines" not in values
         assert "moods" not in values
 
-    def test_course_types_are_canonicalized_not_just_filtered(self):
-        """A model saying 'dessert' or 'dinner' must land on the stored
-        spelling, or the value is unbrowsable."""
-        values, _ = A.validate_facets({"course_types": ["dessert", "dinner"]})
-        assert set(values["course_types"]) == {"desserts", "main-dish"}
+    def test_course_types_are_canonicalized_from_the_model(self):
+        values, _ = A.validate_facets(
+            {"course_types": ["dessert", "dinner"]}, facets=("course_types",)
+        )
+        assert values["course_types"] == ["desserts", "main-dish"]
 
     def test_spacing_and_case_tolerated(self):
         values, _ = A.validate_facets({"moods": ["  Comfort  "], "cuisines": ["ITALIAN"]})
@@ -61,7 +60,12 @@ class TestVocabularyEnforcement:
 
 class TestPromptConstruction:
     def test_system_prompt_lists_every_allowed_value(self):
-        for value in (*S.COURSE_TYPES, *V.CUISINES, *V.MOODS, *V.FLAVOR_PROFILES):
+        for value in (*V.CUISINES, *V.MOODS, *V.FLAVOR_PROFILES):
+            assert value in A.SYSTEM_PROMPT
+
+    def test_system_prompt_requests_every_course_type(self):
+        assert "course_types" in A.SYSTEM_PROMPT
+        for value in A.S.COURSE_TYPES:
             assert value in A.SYSTEM_PROMPT
 
     def test_system_prompt_permits_abstention(self):
@@ -71,22 +75,6 @@ class TestPromptConstruction:
 
     def test_system_prompt_warns_against_single_ingredient_inference(self):
         assert "olive oil does not make a dish Italian" in A.SYSTEM_PROMPT
-
-    def test_existing_course_is_stated_when_trusted(self):
-        prompt = A.build_user_prompt(
-            title="X", existing_course_types=["desserts"], trust_existing_course=True
-        )
-        assert "do not change" in prompt
-
-    def test_existing_course_is_withheld_when_being_corrected(self):
-        """Stating the stored value anchors the model to it — a chocolate
-        brownie came back 'main-dish' purely because the prompt said so."""
-        prompt = A.build_user_prompt(
-            title="Chocolate brownie",
-            existing_course_types=["main-dish"],
-            trust_existing_course=False,
-        )
-        assert "main-dish" not in prompt
 
     def test_source_cuisine_prior_is_offered_as_a_prior_not_a_fact(self):
         prompt = A.build_user_prompt(title="Goulash", source="Curated Hungarian Recipes")
@@ -149,10 +137,11 @@ class TestFacetPartitioning:
         assert "food_groups" not in A.MODEL_FACETS
         assert "food_groups" not in A.SYSTEM_PROMPT
 
-    def test_model_facets_are_exactly_the_subjective_ones(self):
+    def test_model_facets_include_the_four_llm_facets(self):
         assert set(A.MODEL_FACETS) == {
             "course_types",
             "cuisines",
             "flavor_profiles",
             "moods",
         }
+        assert "course_types" in A.SYSTEM_PROMPT

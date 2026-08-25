@@ -2,7 +2,6 @@
 
 import logging
 import os
-import re
 from typing import Dict, List, Optional
 
 from langchain.tools import tool
@@ -12,13 +11,7 @@ from recipe_wrangler.repositories.postgres_nutrition import (
     get_eu_ingredient_nutrition,
     get_hungarian_ingredient_nutrition,
     get_irish_ingredient_nutrition,
-    get_usda_ingredient_nutrition,
-)
-from recipe_wrangler.repositories.vector_matchers import (
-    query_eu_nutrition_candidates,
-    query_hungarian_nutrition_candidates,
-    query_irish_nutrition_candidates,
-    query_usda_nutrition_candidates,
+    get_slovenian_ingredient_nutrition,
 )
 from recipe_wrangler.tools.nutrition_match import best_nutrition_match
 
@@ -43,27 +36,8 @@ SATURATED_FAT_KEY = "Satd FA /100g fd (g)"
 SODIUM_KEY = "Sodium (mg)"
 ENERGY_KCAL_KEY = "Energy (kcal) (kcal)"
 ENERGY_KJ_KEY = "Energy (kJ) (kJ)"
-SOURCE_NUTRITION_USDA = "USDA Nutrients"
 SOURCE_NUTRITION_HUNGARIAN = "Hungarian Composition Table"
-_TOKEN_RE = re.compile(r"[a-z0-9]+")
-_STOP_TOKENS = {
-    "fresh", "raw", "cooked", "dried", "whole", "large", "small", "medium",
-    "cup", "cups", "tbsp", "tsp", "tablespoon", "teaspoon",
-    "white", "red", "green", "black",
-}
-_REGIONAL_USDA_LEXICAL_FALLBACK_TOKENS = {
-    "chickpea",
-    "chickpeas",
-    "garbanzo",
-    "tahini",
-    "wine",
-    "parsley",
-}
-_ZERO_IF_UNRELATED_TOKENS = {"stock", "broth"}
-_USDA_MISMATCH_GUARDS = {
-    "chicken": {"fat", "skin", "drippings"},
-    "pepper": {"sauce", "hot", "ready", "serve", "ready-to-serve"},
-}
+SOURCE_NUTRITION_SLOVENIAN = "Slovenian Composition Tables"
 HUNGARIAN_PROTEIN_KEYS = ("Protein g", "Protein (g)")
 HUNGARIAN_CARB_KEYS = ("Carbohydrat\nes g", "Carbohydrates g", "Carbohydrate (g)")
 HUNGARIAN_FAT_KEYS = ("Fat g", "Fat (g)")
@@ -83,8 +57,8 @@ def _to_float(value: object, default: float = 0.0) -> float:
 
 def _nutrient_value(raw: object, default: float = 0.0) -> float:
     """
-    USDA nutrients are stored as nested objects like {"value": 12.3, "unit": "g"}.
-    Irish values are plain numeric-like strings.
+    EU and Slovenian nutrients are stored as nested objects like
+    {"value": 12.3, "unit": "g"}; Irish values are plain numeric-like strings.
     """
     if isinstance(raw, dict):
         return _to_float(raw.get("value"), default=default)
@@ -103,164 +77,13 @@ def _first_float(meta: dict, keys: tuple[str, ...], default: float = 0.0) -> flo
 
 
 def _source_label(source_key: str) -> str:
-    if source_key == "usda":
-        return SOURCE_NUTRITION_USDA
     if source_key == "hungarian":
         return SOURCE_NUTRITION_HUNGARIAN
     if source_key == "eu":
         return SOURCE_NUTRITION_EU
+    if source_key == "slovenian":
+        return SOURCE_NUTRITION_SLOVENIAN
     return SOURCE_NUTRITION
-
-
-def _best_usda_match(
-    ingredient_name: str,
-    min_similarity: float,
-) -> tuple[Optional[dict], Optional[float], Optional[float]]:
-    usda_matches = query_usda_nutrition_candidates(ingredient_name) or []
-    usda_match = _select_usda_match(ingredient_name, usda_matches)
-    if not usda_match:
-        return None, None, None
-    usda_distance = usda_match.get("distance", None)
-    usda_similarity = None if usda_distance is None else (1.0 - float(usda_distance))
-    if usda_similarity is not None and usda_similarity < float(min_similarity):
-        return None, usda_distance, usda_similarity
-    return usda_match, usda_distance, usda_similarity
-
-
-def _usda_gap_nutrients(ingredient_name: str, min_similarity: float) -> dict:
-    """Return the nutrients that regional DBs commonly lack, sourced from USDA.
-
-    Used to fill sugars, saturated fat, and fibre for Hungarian, and any of
-    those fields that are null/zero in the Irish table. Returns zeros on failure.
-    """
-    usda_match, _, _ = _best_usda_match(ingredient_name, min_similarity)
-    if not usda_match:
-        return {"sugars_per_100g": 0.0, "saturated_fat_per_100g": 0.0, "fibre_per_100g": 0.0}
-    usda_id = (usda_match.get("metadata") or {}).get("usda_id")
-    nutrient_row = get_usda_ingredient_nutrition(str(usda_id)) if usda_id else None
-    if not nutrient_row:
-        return {"sugars_per_100g": 0.0, "saturated_fat_per_100g": 0.0, "fibre_per_100g": 0.0}
-    nutrients = nutrient_row.get("nutrients") or {}
-    return {
-        "sugars_per_100g": _nutrient_value(
-            nutrients.get("Sugars, total including NLEA", nutrients.get("Sugars, total")), 0.0
-        ),
-        "saturated_fat_per_100g": _nutrient_value(
-            nutrients.get("Fatty acids, total saturated"), 0.0
-        ),
-        "fibre_per_100g": _nutrient_value(nutrients.get("Fiber, total dietary"), 0.0),
-    }
-
-
-def _tokenize(text: object) -> set[str]:
-    raw = str(text or "").strip().lower()
-    if not raw:
-        return set()
-    return {tok for tok in _TOKEN_RE.findall(raw) if tok and tok not in _STOP_TOKENS}
-
-
-def _candidate_name(match: dict) -> str:
-    meta = match.get("metadata") or {}
-    return str(
-        meta.get("food_name")
-        or meta.get("Food Name")
-        or meta.get("title")
-        or match.get("document")
-        or ""
-    ).strip()
-
-
-def _meaningful_overlap(left: set[str], right: set[str]) -> set[str]:
-    return {token for token in left & right if token not in _STOP_TOKENS}
-
-
-def _select_usda_match(ingredient_name: str, matches: List[dict]) -> Optional[dict]:
-    if not matches:
-        return None
-
-    query_tokens = _tokenize(ingredient_name)
-    best_match = None
-    best_score = float("-inf")
-
-    for match in matches:
-        if not isinstance(match, dict):
-            continue
-        candidate_name = _candidate_name(match)
-        candidate_tokens = _tokenize(candidate_name)
-        distance = match.get("distance")
-        similarity = 0.0 if distance is None else (1.0 - float(distance))
-
-        overlap = len(query_tokens & candidate_tokens)
-        lexical_boost = 0.0
-        if query_tokens:
-            lexical_boost = 0.25 * (overlap / len(query_tokens))
-
-        penalty = 0.0
-        for token, banned in _USDA_MISMATCH_GUARDS.items():
-            if token in query_tokens and not (query_tokens & banned) and (candidate_tokens & banned):
-                penalty -= 0.35
-
-        score = similarity + lexical_boost + penalty
-        if score > best_score:
-            best_score = score
-            best_match = match
-
-    return best_match
-
-
-def _best_usda_lexical_match(
-    ingredient_name: str,
-    min_similarity: float = 0.6,
-) -> tuple[Optional[dict], Optional[float], Optional[float]]:
-    query_tokens = _tokenize(ingredient_name)
-    matches = query_usda_nutrition_candidates(ingredient_name) or []
-    best = None
-    best_distance = None
-    best_similarity = None
-    best_overlap = 0
-
-    for match in matches:
-        candidate_name = _candidate_name(match)
-        candidate_tokens = _tokenize(candidate_name)
-        overlap = len(_meaningful_overlap(query_tokens, candidate_tokens))
-        if overlap <= 0:
-            continue
-        distance = match.get("distance", None)
-        similarity = None if distance is None else (1.0 - float(distance))
-        if similarity is not None and similarity < float(min_similarity):
-            continue
-        candidate_sort_distance = float(distance) if distance is not None else float("inf")
-        if query_tokens & {"chickpea", "chickpeas", "garbanzo"}:
-            candidate_name_l = candidate_name.lower()
-            if "raw" in candidate_name_l and not any(
-                token in candidate_name_l for token in ("canned", "cooked")
-            ):
-                candidate_sort_distance += 0.08
-            if any(token in candidate_name_l for token in ("canned", "cooked")):
-                candidate_sort_distance -= 0.04
-
-        best_sort_distance = (
-            float(best_distance) if best_distance is not None else float("inf")
-        )
-        if best and query_tokens & {"chickpea", "chickpeas", "garbanzo"}:
-            best_name_l = _candidate_name(best).lower()
-            if "raw" in best_name_l and not any(
-                token in best_name_l for token in ("canned", "cooked")
-            ):
-                best_sort_distance += 0.08
-            if any(token in best_name_l for token in ("canned", "cooked")):
-                best_sort_distance -= 0.04
-
-        if overlap > best_overlap or (
-            overlap == best_overlap
-            and candidate_sort_distance < best_sort_distance
-        ):
-            best = match
-            best_distance = distance
-            best_similarity = similarity
-            best_overlap = overlap
-
-    return best, best_distance, best_similarity
 
 
 @tool(
@@ -301,18 +124,12 @@ def nutritional_tool_vector(
             serves_value = None
 
     source_normalized = (source or "irish").strip().lower()
-
-    # Select query function based on source
-    def _query_nutrition(name: str):
-        if source_normalized == "irish":
-            return query_irish_nutrition_candidates(name)
-        if source_normalized == "usda":
-            return query_usda_nutrition_candidates(name)
-        if source_normalized == "hungarian":
-            return query_hungarian_nutrition_candidates(name)
-        if source_normalized == "eu":
-            return query_eu_nutrition_candidates(name)
-        return query_irish_nutrition_candidates(name)
+    supported_sources = {"irish", "hungarian", "eu", "slovenian"}
+    if source_normalized not in supported_sources:
+        raise ValueError(
+            f"Unsupported nutrition source '{source_normalized}'. "
+            "Supported sources: irish, hungarian, eu, slovenian"
+        )
 
     for ing_name, weight_g in zip(ingredient_names, weights):
         m = best_nutrition_match(ing_name, source_normalized, float(min_similarity))
@@ -384,8 +201,8 @@ def nutritional_tool_vector(
 
         vector_metadata = match.get("metadata") or {}
         canonical_food_id = vector_metadata.get("canonical_food_id")
-        usda_id = vector_metadata.get("usda_id")
         eu_id = vector_metadata.get("eu_id")
+        slovenian_id = vector_metadata.get("slovenian_id")
         nutrient_row = None
         if active_source == "irish":
             if canonical_food_id:
@@ -400,27 +217,9 @@ def nutritional_tool_vector(
         elif active_source == "eu":
             if eu_id:
                 nutrient_row = get_eu_ingredient_nutrition(str(eu_id))
-        else:
-            if usda_id:
-                nutrient_row = get_usda_ingredient_nutrition(str(usda_id))
-
-        if (
-            active_source == "hungarian"
-            and not nutrient_row
-        ):
-            usda_match, usda_distance, usda_similarity = _best_usda_match(
-                ing_name, float(min_similarity)
-            )
-            if usda_match is not None:
-                match = usda_match
-                vector_metadata = match.get("metadata") or {}
-                usda_id = vector_metadata.get("usda_id")
-                if usda_id:
-                    nutrient_row = get_usda_ingredient_nutrition(str(usda_id))
-                    if nutrient_row:
-                        active_source = "usda"
-                        distance = usda_distance
-                        similarity = usda_similarity
+        elif active_source == "slovenian":
+            if slovenian_id:
+                nutrient_row = get_slovenian_ingredient_nutrition(str(slovenian_id))
 
         if not nutrient_row:
             details.append({
@@ -429,7 +228,10 @@ def nutritional_tool_vector(
                 "source_nutrition": _source_label(active_source),
                 "matched_nutritional_ingredient": None,
                 "canonical_food_id": (
-                    canonical_food_id if active_source in {"irish", "hungarian"} else (eu_id if active_source == "eu" else usda_id)
+                    canonical_food_id if active_source in {"irish", "hungarian"}
+                    else eu_id if active_source == "eu"
+                    else slovenian_id if active_source == "slovenian"
+                    else None
                 ),
                 "weight_g": float(weight_g),
                 "protein_per_100g": 0.0,
@@ -475,15 +277,6 @@ def nutritional_tool_vector(
                 fibre_per_100g = _to_float(meta.get("Fibre (g)", meta.get("Fiber (g)", 0.0)))
                 energy_kcal_per_100g = _to_float(meta.get(ENERGY_KCAL_KEY), default=0.0)
                 energy_kj_per_100g = _to_float(meta.get(ENERGY_KJ_KEY), default=0.0)
-                # Fill any missing fields from USDA
-                if sugars_per_100g == 0.0 or saturated_fat_per_100g == 0.0 or fibre_per_100g == 0.0:
-                    usda_gap = _usda_gap_nutrients(ing_name, float(min_similarity))
-                    if sugars_per_100g == 0.0:
-                        sugars_per_100g = usda_gap["sugars_per_100g"]
-                    if saturated_fat_per_100g == 0.0:
-                        saturated_fat_per_100g = usda_gap["saturated_fat_per_100g"]
-                    if fibre_per_100g == 0.0:
-                        fibre_per_100g = usda_gap["fibre_per_100g"]
             else:
                 protein_per_100g = _first_float(meta, HUNGARIAN_PROTEIN_KEYS, default=0.0)
                 carbs_per_100g = _first_float(meta, HUNGARIAN_CARB_KEYS, default=0.0)
@@ -491,11 +284,11 @@ def nutritional_tool_vector(
                 sodium_per_100g_mg = _first_float(meta, HUNGARIAN_SODIUM_KEYS, default=0.0)
                 energy_kcal_per_100g = _first_float(meta, HUNGARIAN_ENERGY_KCAL_KEYS, default=0.0)
                 energy_kj_per_100g = _first_float(meta, HUNGARIAN_ENERGY_KJ_KEYS, default=0.0)
-                # Sugars, saturated fat, fibre not in Hungarian DB — fill from USDA
-                usda_gap = _usda_gap_nutrients(ing_name, float(min_similarity))
-                sugars_per_100g = usda_gap["sugars_per_100g"]
-                saturated_fat_per_100g = usda_gap["saturated_fat_per_100g"]
-                fibre_per_100g = usda_gap["fibre_per_100g"]
+                # These fields are absent from the Hungarian source. Keep the
+                # values explicitly empty rather than borrowing another table.
+                sugars_per_100g = 0.0
+                saturated_fat_per_100g = 0.0
+                fibre_per_100g = 0.0
 
             # Try to read kcal/100g from metadata; if missing, approximate via 4/4/9
             if energy_kcal_per_100g <= 0:
@@ -558,7 +351,10 @@ def nutritional_tool_vector(
             "source_nutrition": _source_label(active_source),
             "matched_nutritional_ingredient": matched_name,
             "canonical_food_id": (
-                canonical_food_id if active_source in {"irish", "hungarian"} else (eu_id if active_source == "eu" else usda_id)
+                canonical_food_id if active_source in {"irish", "hungarian"}
+                else eu_id if active_source == "eu"
+                else slovenian_id if active_source == "slovenian"
+                else None
             ),
             "weight_g": float(weight_g),
             "protein_per_100g": protein_per_100g,

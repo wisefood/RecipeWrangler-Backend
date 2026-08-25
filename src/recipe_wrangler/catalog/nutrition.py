@@ -21,12 +21,15 @@ from recipe_wrangler.catalog import sources as S
 
 # Nutrition sources that get their own flat score fields on the document.
 # Keyed by the Postgres `nutrition_source` value, valued by the field suffix.
+# The 4 supported sources (3 regional + 1 global) per 2026-08-21 decision — USDA
+# dropped (see TODO.md "ACTIVE ROADMAP" #2), Slovenian uses the full-word suffix
+# `slovenian` (not `si`) so `nutri_score_slovenian` is the only Slovenian field,
+# no `_si` duplicate.
 FLAT_REGIONS: dict[str, str] = {
     "eu": "eu",
     "irish": "ie",
     "hungarian": "hu",
-    "usda": "us",
-    "slovenian": "si",
+    "slovenian": "slovenian",
 }
 
 

@@ -8,7 +8,7 @@ from recipe_wrangler.utils.nutrition_postgres import (
     fetch_ingredient_nutrition_by_canonical_id_hungarian,
     fetch_ingredient_nutrition_by_canonical_id_irish,
     fetch_ingredient_nutrition_by_eu_id,
-    fetch_ingredient_nutrition_by_usda_id,
+    fetch_ingredient_nutrition_by_slovenian_id,
     fetch_recipe_nutrition_batch,
     fetch_recipe_nutrition_by_id,
     fetch_recipe_profiling_trace_by_id,
@@ -38,10 +38,6 @@ def save_recipe_profile_trace(record: dict) -> None:
     upsert_recipe_profiling_trace(record)
 
 
-def get_usda_ingredient_nutrition(usda_id: str) -> Optional[dict]:
-    return fetch_ingredient_nutrition_by_usda_id(usda_id)
-
-
 def get_irish_ingredient_nutrition(canonical_food_id: str) -> Optional[dict]:
     return fetch_ingredient_nutrition_by_canonical_id_irish(canonical_food_id)
 
@@ -52,3 +48,7 @@ def get_hungarian_ingredient_nutrition(canonical_food_id: str) -> Optional[dict]
 
 def get_eu_ingredient_nutrition(eu_id: str) -> Optional[dict]:
     return fetch_ingredient_nutrition_by_eu_id(eu_id)
+
+
+def get_slovenian_ingredient_nutrition(slovenian_id: str) -> Optional[dict]:
+    return fetch_ingredient_nutrition_by_slovenian_id(slovenian_id)

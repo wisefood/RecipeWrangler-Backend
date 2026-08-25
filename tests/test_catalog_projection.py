@@ -66,8 +66,33 @@ class TestDocumentShape:
         same validator accepts — that is the point of sharing it."""
         doc = recipe.validate(build_document(owner_row()))
         assert doc["source"] == "FoodHero"
-        assert doc["course_types"] == ["main-dish"]
+        assert "course_types" not in doc
         assert doc["ingredient_names"] == ["onion", "garlic"]
+
+    def test_projection_keeps_ingredient_measurements_for_detail_reads(self, recipe):
+        ingredients = [
+            {
+                "name": "olive oil",
+                "quantity": "1.5",
+                "unit": "tbsp",
+                "measurement": "1 1/2 tbsp",
+                "position": 0,
+                "canonical_id": "oil-1",
+            }
+        ]
+        doc = recipe.validate(build_document(owner_row(ingredients=ingredients)))
+        assert doc["ingredients"] == [{
+            "name": "olive oil",
+            "quantity": 1.5,
+            "unit": "tbsp",
+            "measurement": "1 1/2 tbsp",
+            "position": 0,
+            "canonical_urn": "urn:ingredient:oil-1",
+        }]
+
+    def test_retired_recipe1m_source_cannot_be_projected(self):
+        with pytest.raises(Exception, match="retired recipe source"):
+            build_document(owner_row(source="recipe1m"))
 
 
 class TestAnnotationPreservation:
@@ -85,19 +110,37 @@ class TestAnnotationPreservation:
         for field, value in preserved.items():
             assert doc[field] == value
 
-    def test_preserved_course_type_wins_over_the_owner_tag(self):
-        """A confirmed or reannotated course type must not be overwritten by
-        the scraped source tag it was correcting."""
+    def test_only_preserved_course_type_is_written(self):
+        """Missing course types stay empty; received ES annotations survive."""
         doc = build_document(
             owner_row(tag_dish_types=["main-dish"]),
             preserve={"course_types": ["desserts"]},
         )
         assert doc["course_types"] == ["desserts"]
 
+    def test_paid_course_annotation_survives_title_based_reprojection(self, recipe):
+        doc = recipe.validate(
+            build_document(
+                owner_row(title="Basic tomato sauce"),
+                preserve={"course_types": ["main-dish"]},
+            )
+        )
+        assert doc["course_types"] == ["main-dish"]
+
     def test_every_annotation_facet_is_in_the_preserve_list(self):
         for field in ("course_types", "cuisines", "flavor_profiles", "moods",
                       "food_groups", "annotation_evidence", "enhancements"):
             assert field in ES_OWNED_FIELDS
+
+    def test_convenience_is_rederived_not_preserved(self, recipe):
+        assert "convenience" not in ES_OWNED_FIELDS
+        doc = recipe.validate(
+            build_document(
+                owner_row(duration=60, ingredients=[str(i) for i in range(6)]),
+                preserve={"convenience": ["quick"]},
+            )
+        )
+        assert doc["convenience"] == []
 
     def test_planning_overrides_are_preserved(self):
         """A human decision to exclude a recipe from planning must survive a
@@ -108,16 +151,31 @@ class TestAnnotationPreservation:
     def test_created_at_is_preserved(self):
         assert "created_at" in ES_OWNED_FIELDS
 
+    def test_title_change_drops_stale_embedding_but_keeps_annotations(self):
+        doc = build_document(
+            owner_row(title="New title"),
+            preserve={
+                "cuisines": ["irish"],
+                "embedding": [0.1, 0.2],
+                "embedding_model": "test-model",
+                "embedding_text": "Old title",
+                "embedded_at": "2026-01-01T00:00:00+00:00",
+            },
+        )
+        assert doc["cuisines"] == ["irish"]
+        assert "embedding" not in doc
+        assert "embedding_text" not in doc
+
 
 class TestPlanningTier:
-    def test_curated_and_complete_is_preferred(self, recipe):
+    def test_curated_without_course_type_is_standard(self, recipe):
         doc = recipe.validate(
             build_document(
                 owner_row(),
                 preserve={"has_profile": True, "default_nutri_score": "A"},
             )
         )
-        assert doc["planning_tier"] == "preferred"
+        assert doc["planning_tier"] == "standard"
 
     def test_incomplete_recipe_is_standard_not_excluded(self, recipe):
         """Missing nutrition makes a recipe a poor planning choice, not an

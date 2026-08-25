@@ -34,6 +34,8 @@ from recipe_wrangler.catalog.integrity import content_digest
 from recipe_wrangler.utils.consumer_suitability import (
     SUITABILITY_CLASSIFICATION_VERSION,
 )
+from recipe_wrangler.utils.diet_tags import DIET_TAG_NAMES
+from recipe_wrangler.utils.nutrition_claims import NUTRITION_CLAIM_TAG_NAMES
 from recipe_wrangler.utils.es_recipe_evidence import (
     normalize_allergen_evidence,
     normalize_consumer_suitability,
@@ -55,20 +57,28 @@ class ProjectionError(RuntimeError):
 RECIPE_QUERY = """
 MATCH (r:Recipe)
 WHERE r.recipe_id = $rid OR r.id = $rid
-CALL { WITH r
-  OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
-  RETURN collect(DISTINCT i.name) AS ingredients
+CALL (r) {
+  OPTIONAL MATCH (r)-[rel:HAS_INGREDIENT]->(i:Ingredient)
+  WITH i, rel ORDER BY coalesce(rel.position, 2147483647), i.name
+  RETURN collect(CASE WHEN i IS NULL THEN NULL ELSE {
+    name: i.name,
+    quantity: coalesce(rel.quantity, rel.measurement),
+    unit: rel.unit,
+    measurement: rel.measurement,
+    position: rel.position,
+    canonical_id: i.canonical_id
+  } END) AS ingredients
 }
-CALL { WITH r
+CALL (r) {
   OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
   RETURN collect(DISTINCT al.name) AS allergens
 }
-CALL { WITH r
+CALL (r) {
   OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_CLASS]->(:FoodOnClass)
                  -[:SUBCLASS_OF*0..5]->(anc:FoodOnClass)
   RETURN collect(DISTINCT anc.foodon_id) AS ingredient_class_ancestors
 }
-CALL { WITH r
+CALL (r) {
   OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
                  -[:HAS_DECLARATION]->(d:AllergenDeclaration)
                  -[:CONCERNS]->(al:Allergen)
@@ -80,7 +90,7 @@ CALL { WITH r
     classification_version: d.classification_version
   } END) AS allergen_evidence
 }
-CALL { WITH r
+CALL (r) {
   OPTIONAL MATCH (r)-[s:SUITABILITY_FOR]->(g:ConsumerGroup)
   WHERE g.name IN ["vegan", "vegetarian"]
     AND s.classification_version = $suitability_version
@@ -91,11 +101,14 @@ CALL { WITH r
     classification_version: s.classification_version
   } END) AS consumer_suitability
 }
-CALL { WITH r
+CALL (r) {
   OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
   RETURN collect(DISTINCT t.name) AS tags,
          collect(DISTINCT CASE WHEN t.category = 'dish-type' THEN t.name END) AS tag_dish_types,
-         collect(DISTINCT CASE WHEN t.category IN ['dietary','dietary_option'] THEN t.name END) AS diet_tags
+         collect(DISTINCT CASE WHEN t.category IN ['dietary','dietary_option']
+                               AND t.name IN $diet_tag_names THEN t.name END) AS diet_tags,
+         collect(DISTINCT CASE WHEN t.category = 'nutrition_claim'
+                               AND t.name IN $nutrition_claim_names THEN t.name END) AS nutrition_claims
 }
 RETURN
   coalesce(r.recipe_id, r.id) AS recipe_id,
@@ -106,12 +119,13 @@ RETURN
   r.serves AS serves, r.cost_category AS cost_category,
   coalesce(r.expert_recipe, false) AS expert_recipe,
   coalesce(r.status, "active") AS status,
-  toString(r.disabled_at) AS disabled_at,
+  toString(properties(r)['disabled_at']) AS disabled_at,
   coalesce(r.has_profile, false) AS has_profile,
   r.creator AS creator,
-  r.meal_type AS meal_type, r.dish_type AS dish_type,
+  r.meal_type AS meal_type, r.dish_type AS dish_type, r.seasonality AS seasonality,
   ingredients, allergens, ingredient_class_ancestors,
-  allergen_evidence, consumer_suitability, tags, tag_dish_types, diet_tags
+  allergen_evidence, consumer_suitability, tags, tag_dish_types, diet_tags,
+  nutrition_claims
 LIMIT 1
 """
 
@@ -147,11 +161,50 @@ def _float(value: object) -> float | None:
         return None
 
 
+def _clean_ingredients(values: object) -> list[dict[str, Any]]:
+    if not isinstance(values, (list, tuple)):
+        return []
+    ingredients: list[dict[str, Any]] = []
+    for fallback_position, value in enumerate(values):
+        if not isinstance(value, dict):
+            name = _clean(value)
+            if name:
+                ingredients.append({"name": name, "position": fallback_position})
+            continue
+        name = _clean(value.get("name"))
+        if not name:
+            continue
+        position = _float(value.get("position"))
+        entry: dict[str, Any] = {
+            "name": name,
+            "position": int(position if position is not None else fallback_position),
+        }
+        quantity = _float(value.get("quantity"))
+        if quantity is not None:
+            entry["quantity"] = quantity
+        unit = _clean(value.get("unit"))
+        if unit:
+            entry["unit"] = unit
+        measurement = _clean(value.get("measurement"))
+        if measurement:
+            entry["measurement"] = measurement
+        canonical_id = _clean(value.get("canonical_id"))
+        if canonical_id:
+            entry["canonical_urn"] = f"urn:ingredient:{canonical_id}"
+        ingredients.append(entry)
+    return ingredients
+
+
 def fetch_owner_row(recipe_id: str) -> dict[str, Any] | None:
     with driver.session() as session:
         rows = session.run(
             RECIPE_QUERY,
-            {"rid": recipe_id, "suitability_version": SUITABILITY_CLASSIFICATION_VERSION},
+            {
+                "rid": recipe_id,
+                "suitability_version": SUITABILITY_CLASSIFICATION_VERSION,
+                "diet_tag_names": list(DIET_TAG_NAMES),
+                "nutrition_claim_names": list(NUTRITION_CLAIM_TAG_NAMES),
+            },
         ).data()
     return rows[0] if rows else None
 
@@ -168,15 +221,11 @@ def build_document(
     provenance, planning overrides — which no owner can reproduce. Without it a
     patch to a recipe's title would silently wipe its cuisine and mood.
     """
-    recipe_id = _clean(row.get("recipe_id"))
+    source = S.resolve(row.get("source"))
+    if source is not None and source.retired:
+        raise ProjectionError(f"retired recipe source cannot be projected: {source.slug}")
 
-    course_candidates = list(_clean_list(row.get("tag_dish_types")))
-    for key in ("meal_type", "dish_type"):
-        value = row.get(key)
-        if isinstance(value, (list, tuple)):
-            course_candidates.extend(_clean_list(value))
-        elif _clean(value):
-            course_candidates.append(_clean(value).lower())
+    recipe_id = _clean(row.get("recipe_id"))
 
     consumer = normalize_consumer_suitability(
         row.get("consumer_suitability"),
@@ -207,7 +256,7 @@ def build_document(
         "creator": _clean(row.get("creator")) or None,
         "disabled_at": _clean(row.get("disabled_at")) or None,
         "has_profile": bool(profiles) or bool(row.get("has_profile")),
-        "ingredients": _clean_list(row.get("ingredients")),
+        "ingredients": _clean_ingredients(row.get("ingredients")),
         "ingredient_class_ancestors": _clean_list(row.get("ingredient_class_ancestors")),
         "allergens": _clean_list(row.get("allergens")),
         "allergen_evidence": normalize_allergen_evidence(row.get("allergen_evidence")),
@@ -215,12 +264,17 @@ def build_document(
         "suitable_for": suitable_groups(consumer),
         "tags": _clean_list(row.get("tags")),
         "diet_tags": _clean_list(row.get("diet_tags")),
-        "course_types": course_candidates,
+        "nutrition_claims": _clean_list(row.get("nutrition_claims")),
+        "seasonality": _clean_list(row.get("seasonality")),
     }
     apply_profiles(doc, profiles or [])
 
     doc = {k: v for k, v in doc.items() if v is not None}
     if preserve:
+        preserve = dict(preserve)
+        if preserve.get("embedding_text") != doc.get("title"):
+            for field in ("embedding", "embedding_model", "embedding_text", "embedded_at"):
+                preserve.pop(field, None)
         # ES-owned fields win: a re-derived course type must not overwrite one
         # a person confirmed.
         doc.update(preserve)
@@ -243,7 +297,7 @@ OWNER_PROJECTED_FIELDS: tuple[str, ...] = (
     "source", "source_id", "duration", "serves", "cost_category",
     "disabled_at", "ingredients", "ingredient_class_ancestors",
     "allergens", "allergen_evidence", "consumer_suitability",
-    "suitable_for", "tags", "diet_tags",
+    "suitable_for", "tags", "diet_tags", "nutrition_claims", "seasonality",
 )
 
 
@@ -355,6 +409,16 @@ def project(recipe_id: str, *, refresh: str = "wait_for") -> dict[str, Any]:
         for field in OWNER_PROJECTED_FIELDS:
             if field in existing and field not in validated:
                 validated[field] = None
+
+        # Flat nutrition fields are Postgres-profile-derived, not Neo4j-owned.
+        # A partial ES update must explicitly clear any score whose profile no
+        # longer exists. Only the four canonical v4 regions are runtime fields;
+        # retired USDA/short-Slovenian fields are absent from the strict schema.
+        for suffix in ("eu", "ie", "hu", "slovenian"):
+            for prefix in ("nutri_score_", "nutri_color_", "nutri_rank_", "nutri_points_"):
+                field = f"{prefix}{suffix}"
+                if field in existing and field not in validated:
+                    validated[field] = None
 
     try:
         if existing:

@@ -4,6 +4,46 @@ from recipe_wrangler.tools.recipe_profiling_chain import split_ingredient_lines
 
 
 class IngredientLineSplitterTests(unittest.TestCase):
+    def test_drops_section_header_and_proven_duplicate_compound_summary(self):
+        compound = (
+            "For the curry crust 5cm piece fresh ginger, peeled and chopped "
+            "3 cloves garlic, chopped 1 red chilli, halved 2 cups coriander "
+            "1/2 cup coconut 2 tablespoons breadcrumbs"
+        )
+        names, measurements = split_ingredient_lines(
+            [
+                compound,
+                "For the curry crust",
+                "5cm piece fresh ginger, peeled and chopped",
+                "3 cloves garlic, chopped",
+                "1 red chilli, halved",
+                "2 cups coriander",
+                "1/2 cup coconut",
+                "2 tablespoons breadcrumbs",
+            ]
+        )
+        self.assertNotIn("For the curry crust", names)
+        self.assertNotIn(compound, names)
+        self.assertEqual(
+            names,
+            [
+                "piece fresh ginger, peeled and chopped",
+                "garlic, chopped",
+                "red chilli, halved",
+                "coriander",
+                "coconut",
+                "breadcrumbs",
+            ],
+        )
+
+    def test_keeps_unique_for_the_sauce_ingredient_line(self):
+        names, measurements = split_ingredient_lines(
+            ["For the sauce 1 cup chopped tomatoes", "2 cloves garlic"]
+        )
+        self.assertEqual(
+            names, ["For the sauce 1 cup chopped tomatoes", "garlic"]
+        )
+
     def test_unicode_mixed_fraction_line(self):
         names, measurements = split_ingredient_lines(["2 ¼ cups frozen sweet corn"])
 

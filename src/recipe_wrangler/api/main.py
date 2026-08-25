@@ -79,9 +79,9 @@ async def startup_event():
         import logging
         import time as _time
         try:
-            from recipe_wrangler.api.dependencies import get_recipe_search_app
+            from recipe_wrangler.api.dependencies import get_recipe_constraint_extractor
             started = _time.perf_counter()
-            get_recipe_search_app()
+            get_recipe_constraint_extractor()
             logging.getLogger(__name__).info(
                 "search app warmed in %.2fs", _time.perf_counter() - started
             )

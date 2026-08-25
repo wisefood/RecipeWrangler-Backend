@@ -58,7 +58,12 @@ def _authoritative_grade(recipe_id: str, breakdown: dict[str, Any]) -> str:
     return _grade_letter(breakdown.get("nutri_score"))
 
 
-REGION_TO_SOURCE = {"IE": "irish", "US": "usda", "HU": "hungarian"}
+REGION_TO_SOURCE = {
+    "IE": "irish",
+    "HU": "hungarian",
+    "EU": "eu",
+    "SI": "slovenian",
+}
 
 MIN_TARGET_POINTS = 3
 NUTRI_SCORE_MAX_NEGATIVE_POINTS = 10
@@ -393,7 +398,7 @@ def _fetch_candidate_profile(candidate_name: str, source: str) -> dict[str, Any]
     """Run the existing per-ingredient nutrition pipeline at 100g for one candidate.
 
     Cached: candidate names repeat heavily across recipes and requests (cream,
-    butter, yoghurt, ...), and each lookup costs several Chroma/Postgres/USDA
+    butter, yoghurt, ...), and each lookup costs several vector/Postgres
     round-trips — the dominant share of a suggestions call's latency.
     """
     det = _fetch_candidate_profile_cached(
@@ -1853,6 +1858,51 @@ def _generate_reduce_quantity_suggestions(
 # ---------- public entry points ----------
 
 
+def _generate_portion_suggestion(
+    recipe_id: str, region: str, target_serves: float | None,
+) -> dict[str, Any]:
+    if target_serves is None:
+        raise HTTPException(status_code=422, detail="target_serves is required for portion mode")
+    row = _load_profile(recipe_id, region)
+    source = _region_to_source(region)
+    details = _recompute_ingredient_details(row, source)
+    current_serves = _serves_from_row(row)
+    factor = float(target_serves) / current_serves
+    scaled = [
+        {
+            "name": item.get("ingredient"),
+            "weight_g": round(float(item.get("weight_g") or 0.0) * factor, 1),
+        }
+        for item in details
+    ]
+    return {
+        "recipe_id": recipe_id,
+        "region": region.upper(),
+        "mode": "portion",
+        "offending_ingredient": "",
+        "offending_ingredient_contribution_pct": 0.0,
+        "suggestions": [{
+            "rank": 1,
+            "action": "scale",
+            "original_ingredient": "whole recipe",
+            "explanation": {
+                "headline": f"Scale recipe to {target_serves:g} servings",
+                "reason": f"All profiled ingredient weights are multiplied by {factor:.3f}.",
+                "warning": "Cooking vessel size and cooking time may still need manual adjustment.",
+            },
+            "adjusted_serves": target_serves,
+            "scale_factor": round(factor, 4),
+            "adapted_recipe": {
+                "title": row.get("title"),
+                "serves": target_serves,
+                "ingredients": scaled,
+            },
+        }],
+        "llm_used": False,
+        "llm_rejected": [],
+    }
+
+
 def _already_optimal_response(
     recipe_id: str, region: str, mode: str, breakdown: dict[str, Any],
 ) -> dict[str, Any]:
@@ -1894,6 +1944,7 @@ def _no_suggestions_response(
 def generate_suggestions(
     recipe_id: str, region: str, max_swaps: int = 1, use_llm: bool = False,
     mode: str = "nutrition", goal_nutrients: list[str] | None = None,
+    target_serves: float | None = None,
 ) -> dict[str, Any]:
     mode_l = (mode or "").lower()
     if mode_l in {"vegan", "vegetarian"}:
@@ -1912,6 +1963,8 @@ def generate_suggestions(
         return _generate_reduce_quantity_suggestions(
             recipe_id=recipe_id, region=region, max_swaps=max_swaps,
         )
+    if mode_l == "portion":
+        return _generate_portion_suggestion(recipe_id, region, target_serves)
 
     row = _load_profile(recipe_id, region)
     breakdown = row["nutri_score_breakdown"]

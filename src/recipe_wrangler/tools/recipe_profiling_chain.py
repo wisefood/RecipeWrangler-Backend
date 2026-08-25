@@ -32,7 +32,7 @@ _UNIT_WORDS = {
     "cup", "cups", "tbsp", "tablespoon", "tablespoons",
     "tsp", "teaspoon", "teaspoons", "oz", "ounce", "ounces",
     "lb", "lbs", "pound", "pounds", "g", "gram", "grams",
-    "kg", "ml", "l", "liter", "litre", "liters", "litres",
+    "kg", "ml", "l", "liter", "litre", "liters", "litres", "cm",
     "clove", "cloves", "slice", "slices", "piece", "pieces",
     "can", "cans", "bunch", "handfuls", "handful", "pinch",
     "dash", "sprig", "sprigs", "stalk", "stalks", "head", "heads",
@@ -240,7 +240,24 @@ def split_ingredient_lines(lines: List[str]) -> tuple[List[str], List[str]]:
     """Return (ingredient_names, measurements) from a list of ingredient strings."""
     names: List[str] = []
     measurements: List[str] = []
-    for line in lines:
+    raw_lines = [str(line or "").strip() for line in lines if str(line or "").strip()]
+    normalized_lines = [re.sub(r"\s+", " ", line.casefold()) for line in raw_lines]
+    for index, line in enumerate(raw_lines):
+        normalized = normalized_lines[index]
+        if re.fullmatch(r"for\s+the\s+[a-z][a-z\s-]{1,60}:?", normalized):
+            # Section labels such as "For the curry crust" are not food.
+            continue
+        if normalized.startswith("for the ") and len(normalized) >= 100:
+            contained_atomic_lines = sum(
+                1
+                for other_index, other in enumerate(normalized_lines)
+                if other_index != index and len(other) >= 8 and other in normalized
+            )
+            if contained_atomic_lines >= 3:
+                # Broken source markup sometimes emits one concatenated section
+                # summary and then every atomic ingredient again. Keep the
+                # atomic rows and discard only the proven duplicate summary.
+                continue
         parts = [p.strip() for p in _INGREDIENT_BOUNDARY_RE.split(str(line or "")) if p.strip()]
         if not parts:
             parts = [str(line or "").strip()]
@@ -313,7 +330,7 @@ def Recipe_Profiling_Chain(
     source = (
         "irish"
         if normalized_region == "IE"
-        else ("usda" if normalized_region == "US" else ("hungarian" if normalized_region == "HU" else ("eu" if normalized_region == "EU" else None)))
+        else ("hungarian" if normalized_region == "HU" else ("eu" if normalized_region == "EU" else ("slovenian" if normalized_region == "SI" else None)))
     )
     initial_state = RecipeState(
         raw_recipe=recipe_text,
@@ -384,7 +401,7 @@ def Recipe_Profiling_Chain_Structured(
         serves: Number of servings.
         total_time: Total cooking time in minutes (optional).
         directions: List of instruction steps (optional, not used for nutrition).
-        region: Nutrition source region — "IE" (Irish), "US" (USDA), "HU" (Hungarian).
+        region: Nutrition source region — IE, HU, EU, or SI.
         debug: Emit debug output from pipeline nodes.
         weights: Pre-computed per-ingredient weights in grams (one per name).
             Weights are region-independent, so multi-region reprofiling passes
@@ -395,7 +412,7 @@ def Recipe_Profiling_Chain_Structured(
     source = (
         "irish"
         if normalized_region == "IE"
-        else ("usda" if normalized_region == "US" else ("hungarian" if normalized_region == "HU" else ("eu" if normalized_region == "EU" else None)))
+        else ("hungarian" if normalized_region == "HU" else ("eu" if normalized_region == "EU" else ("slovenian" if normalized_region == "SI" else None)))
     )
     initial_state = RecipeState(
         title=title,

@@ -7,18 +7,19 @@ from typing import Any, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
-Region = Literal["IE", "US", "HU"]
+Region = Literal["IE", "HU", "EU", "SI"]
 Mode = Literal[
     "nutrition",
     "sustainability",
     "reduce_quantity",
+    "portion",
     "vegan",
     "vegetarian",
 ]
 
 
 class SuggestionsRequest(BaseModel):
-    region: Region = Field(..., description="Nutrition region: IE / US / HU.")
+    region: Region = Field(..., description="Nutrition region: IE / HU / EU / SI.")
     mode: Mode = Field(
         "nutrition",
         description="Optimisation target: 'nutrition' (swap to improve Nutri-Score), "
@@ -49,6 +50,11 @@ class SuggestionsRequest(BaseModel):
                     "reduce_salt, reduce_calories) or nutrient keys (saturated_fats, sugar, "
                     "sodium, energy). A goal wins only if the recipe actually scores badly on it.",
     )
+    target_serves: Optional[float] = Field(
+        None,
+        gt=0,
+        description="Required for portion mode: scale the profiled ingredient weights to this serving count.",
+    )
 
 
 class Explanation(BaseModel):
@@ -59,7 +65,7 @@ class Explanation(BaseModel):
 
 class Suggestion(BaseModel):
     rank: int
-    action: Literal["swap", "reduce"] = Field(
+    action: Literal["swap", "reduce", "scale"] = Field(
         "swap",
         description="'swap' replaces the ingredient with a substitute; 'reduce' keeps the "
                     "ingredient but uses less of it (reduce_quantity mode).",
@@ -124,6 +130,8 @@ class Suggestion(BaseModel):
         None,
         description="Carbon footprint of the substitute (kg CO2e / kg).",
     )
+    adjusted_serves: Optional[float] = None
+    scale_factor: Optional[float] = None
 
 
 class LLMRejection(BaseModel):

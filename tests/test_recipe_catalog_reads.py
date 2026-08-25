@@ -22,8 +22,19 @@ def _doc(status="active"):
         "instructions": "Chop.\nBoil.",
         "ingredients": ["onion", {"name": "water", "quantity": 1, "unit": "l"}],
         "course_types": ["main-dish"],
+        "diet_tags": ["vegan"],
+        "nutrition_claims": ["low_fat"],
+        "seasonality": ["winter"],
+        "food_groups": ["vegetables"],
+        "cuisines": ["irish"],
+        "moods": ["comfort"],
+        "flavor_profiles": ["savory"],
+        "convenience": ["quick"],
         "allergens": ["celery"],
+        "allergen_evidence": [{"allergen": "celery", "ingredient": "celery"}],
         "tags": ["vegan"],
+        "duration": 20,
+        "serves": 2,
     }
 
 
@@ -35,6 +46,19 @@ def test_catalog_detail_normalizes_the_v4_document(monkeypatch):
     assert recipe["ingredients"][1]["quantity"] == 1
     assert recipe["dish_types"] == ["main-dish"]
     assert recipe["allergens"] == ["celery"]
+
+
+def test_detail_response_preserves_every_v4_facet() -> None:
+    from recipe_wrangler.schemas.models import RecipeDetailResponse
+
+    payload = R._catalog_recipe_payload(_doc())
+    response = RecipeDetailResponse(**payload).model_dump()
+    for field in (
+        "course_types", "diet_tags", "nutrition_claims", "seasonality",
+        "food_groups", "cuisines", "moods", "flavor_profiles",
+        "convenience", "allergens", "allergen_evidence",
+    ):
+        assert response[field] == payload[field]
 
 
 def test_catalog_detail_hides_disabled_unless_admin_opted_in(monkeypatch):

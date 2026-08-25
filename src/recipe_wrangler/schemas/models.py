@@ -552,6 +552,18 @@ class RecipeDetailResponse(BaseModel):
     disabled_reason: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     allergens: List[str] = Field(default_factory=list)
+    allergen_evidence: List[Dict[str, Any]] = Field(default_factory=list)
+    course_types: List[str] = Field(default_factory=list)
+    # Backward-compatible alias used by existing FoodChat clients.
+    dish_types: List[str] = Field(default_factory=list)
+    diet_tags: List[str] = Field(default_factory=list)
+    nutrition_claims: List[str] = Field(default_factory=list)
+    seasonality: List[str] = Field(default_factory=list)
+    food_groups: List[str] = Field(default_factory=list)
+    cuisines: List[str] = Field(default_factory=list)
+    moods: List[str] = Field(default_factory=list)
+    flavor_profiles: List[str] = Field(default_factory=list)
+    convenience: List[str] = Field(default_factory=list)
     ingredients: List[Dict[str, Any]]
     instructions: List[str]
     duration: Optional[float]

@@ -125,8 +125,8 @@ def sync_recipe_status_to_es(
 ) -> dict[str, dict[str, int]]:
     """Best-effort bulk `status` update for the given recipe IDs on every index.
 
-    Both the primary search index (recipes_v2) and the legacy autocomplete/
-    fallback index must be updated or disabled recipes linger in search.
+    The current catalog uses URN document ids; bare ids remain supported so
+    old exports can still be repaired before migration.
     Returns per-index stats: {index: {updated, not_found, conflicts, errors}}.
     """
     all_stats: dict[str, dict[str, int]] = {}

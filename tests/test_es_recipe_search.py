@@ -57,6 +57,14 @@ def test_recipe_search_still_requires_profiled_recipes():
     assert {"exists": {"field": "nutri_score_eu"}} not in filters
 
 
+def test_slovenian_region_reads_slovenian_score_fields() -> None:
+    payload = search.build_es_query(
+        search.RecipeSearchConstraints(region="SI")
+    )
+    assert "nutri_score_slovenian" in payload["_source"]
+    assert "nutri_color_slovenian" in payload["_source"]
+
+
 def _filter_should_terms(payload: dict) -> list[dict]:
     """Every `term` inside a filter's `should`, flattened."""
     out = []

@@ -22,8 +22,17 @@ Environment:
 - `GET /health` — readiness probe
 - `GET /api/v1/recipes/{recipe_id}` — fetch recipe metadata by recipe_id
 - `POST /api/v1/recipes/search` — intent-aware Elasticsearch recipe search
+- `POST /api/v1/recipes/param_search` — deterministic source, annotation,
+  convenience, nutrition-claim and selected-region Nutri-Score filters
 - `POST /api/v1/recipes/profile` — run the parsing + profiling chain on raw recipe text (may be GPU-heavy)
+- `POST /api/v1/recipes/url/preview` — safely extract schema.org Recipe JSON-LD
+  from a public URL; missing values stay missing
+- `POST /api/v1/recipes/url/import` — import only a complete URL preview
 - `POST /api/v1/recipes/{recipe_id}/substitute` — swap one ingredient using Neo4j substitution graph; returns either recalculated profile or fallback modified ingredient payload
+- `POST /api/v2/tools/food_safety` — retrieve topic-ranked, cited SafeFood
+  Ireland guidance
+- `POST /api/v2/recipes/search` — direct catalog search with `q` and ANDed
+  Lucene `fq` clauses
 
 ## Substitution Mechanism
 - Load recipe from Neo4j.
@@ -43,7 +52,7 @@ PYTHONPATH=src uvicorn recipe_wrangler.services.adaptation.app:app --reload --po
 
 Endpoints:
 - `POST /api/v1/recipes/{recipe_id}/adapt/suggestions` — recommend nutrition,
-  sustainability, quantity-reduction, vegan-composition, or
+  sustainability, portion-scaling, quantity-reduction, vegan-composition, or
   vegetarian-composition changes. Consumer-group suggestions are restricted
   to recipe-used Neo4j ingredients with explicit suitability and valid
   regional nutrition, and include a fully recalculated adapted recipe preview.
@@ -51,6 +60,8 @@ Endpoints:
   Elasticsearch proposes alternatives; FATO-aligned Neo4j
   `SUITABILITY_FOR` evidence is the mandatory eligibility check before the
   service recalculates nutrition and returns an adapted recipe.
+  `portion` requires `target_serves` and scales profiled weights by the serving
+  ratio.
 - `POST /api/v1/recipes/{recipe_id}/adapt/simulate` — simulate one exact swap and return before/after deltas
 
 ## Curl examples
@@ -68,7 +79,7 @@ curl -sS -X POST "$BASE/api/v1/recipes/search" \
 
 curl -sS -X POST "$BASE/api/v1/recipes/profile" \
   -H "Content-Type: application/json" \
-  -d '{"raw_recipe":"Garlic Butter Shrimp...","region":"US"}'; echo
+  -d '{"raw_recipe":"Garlic Butter Shrimp...","region":"IE"}'; echo
 
 curl -sS -X POST \
   "$BASE/api/v1/recipes/020b17b247/adapt/suggestions" \
@@ -79,4 +90,12 @@ curl -sS -X POST \
   "$BASE/api/v1/recipes/017f92f1c3/adapt/suggestions" \
   -H "Content-Type: application/json" \
   -d '{"region":"IE","mode":"vegetarian","max_swaps":1,"use_llm":false}'; echo
+
+curl -sS -X POST "$BASE/api/v1/recipes/url/preview" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://www.bbcgoodfood.com/recipes/easy-pancakes","region":"EU"}'; echo
+
+curl -sS -X POST "$BASE/api/v2/tools/food_safety" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"How should I store leftover chicken and rice?","ingredients":["chicken","rice"]}'; echo
 ```

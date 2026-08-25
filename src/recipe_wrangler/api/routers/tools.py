@@ -377,6 +377,15 @@ def _plan_card(recipe: dict[str, Any]) -> dict[str, Any]:
     # `directions` is the name FoodChat's candidate contract uses; carried
     # alongside `instructions` so both vocabularies read the same text.
     recipe["directions"] = recipe.get("instructions") or ""
+    recipe_id = str(recipe.get("recipe_id") or "").strip()
+    if recipe_id:
+        recipe["adaptation"] = {
+            "suggestions_endpoint": f"/api/v1/recipes/{recipe_id}/adapt/suggestions",
+            "modes": [
+                "nutrition", "sustainability", "portion",
+                "reduce_quantity", "vegan", "vegetarian",
+            ],
+        }
     return recipe
 
 
@@ -398,10 +407,9 @@ def tool_manifest() -> dict[str, Any]:
         "service": "RecipeWrangler",
         "description": (
             "A curated recipe corpus with nutrition profiling, allergen "
-            "evidence and discovery annotations. Every recipe carries a "
-            "Nutri-Score, an allergen list derived from ingredient-level "
-            "declarations, and classification into course type, cuisine, "
-            "flavour profile, mood and food groups."
+            "evidence and discovery annotations. Regional nutrition is "
+            "available for the catalog; allergen and discovery annotations "
+            "are returned when supported by source or classification evidence."
         ),
         "corpus": {
             "recipes": total,
@@ -410,10 +418,10 @@ def tool_manifest() -> dict[str, Any]:
                 for s in S.active_sources()
             ],
             "coverage_note": (
-                "course_types 100%, moods and flavour ~100%, cuisines 86% "
-                "(the remainder are deliberate abstentions where the dish has "
-                "no identifiable tradition), food_groups 90% (limited by "
-                "ingredient-to-ontology linkage)."
+                "Every recipe has every facet field and a classified course "
+                "type. Optional cuisine, mood, flavour, seasonality and "
+                "rule-derived arrays can be empty when their source or "
+                "classifier has no defensible value."
             ),
         },
         "capabilities": [
@@ -422,6 +430,7 @@ def tool_manifest() -> dict[str, Any]:
             "Rank or filter by Nutri-Score",
             "Build multi-day, multi-slot meal plans with variety control",
             "Relax soft preferences automatically and report what was relaxed",
+            "Retrieve cited SafeFood Ireland food-safety guidance",
         ],
         "limitations": [
             "Allergen data is derived from ingredient declarations and is not a "
@@ -478,6 +487,16 @@ def tool_manifest() -> dict[str, Any]:
                 "name": "describe_options",
                 "endpoint": "GET /api/v2/tools",
                 "description": "This document. Call it to discover valid option values.",
+                "required": [],
+            },
+            {
+                "name": "food_safety",
+                "endpoint": "POST /api/v2/tools/food_safety",
+                "description": (
+                    "Retrieve topic-ranked, cited SafeFood Ireland guidance for "
+                    "a question and optional ingredient list. Guidance is "
+                    "advisory and does not replace packaging or public-health advice."
+                ),
                 "required": [],
             },
         ],
@@ -759,6 +778,31 @@ def plan_meals(
         "total_recipes_used": len(used - set(payload.exclude_recipe_ids)),
     }
     return redact(envelope, caller)
+
+
+class FoodSafetyRequest(BaseModel):
+    query: str = Field(default="", max_length=500)
+    ingredients: list[str] = Field(default_factory=list, max_length=100)
+    limit: int = Field(default=5, ge=1, le=10)
+
+
+@router.post(
+    "/food_safety",
+    summary="Retrieve authoritative SafeFood Ireland guidance",
+)
+def food_safety_guidance(payload: FoodSafetyRequest) -> dict[str, Any]:
+    from recipe_wrangler.services.food_safety import search_safefood_guidance
+
+    return {
+        "source": "SafeFood Ireland",
+        "results": search_safefood_guidance(
+            payload.query, payload.ingredients, payload.limit
+        ),
+        "disclaimer": (
+            "Authoritative general guidance, not a recipe-specific safety guarantee. "
+            "Follow packaging and local public-health advice where they differ."
+        ),
+    }
 
 
 class DraftRecipe(BaseModel):

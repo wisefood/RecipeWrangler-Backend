@@ -61,13 +61,20 @@ WITH r, collect({
     unit: CASE WHEN unit = '' THEN NULL ELSE unit END,
     measurement: pretty
 }) AS ingredients
-OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
+OPTIONAL MATCH (r)-[original_rel:HAS_INGREDIENT_ORIGINAL]->(original:Ingredients_original)
+WITH r, ingredients, original_rel, original
+ORDER BY coalesce(original_rel.position, 2147483647)
 WITH r, ingredients,
+     [value IN collect(coalesce(original.original_text, original.name))
+      WHERE value IS NOT NULL AND trim(toString(value)) <> ""] AS original_ingredients
+OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
+WITH r, ingredients, original_ingredients,
      collect(distinct t.name) AS raw_tags,
      collect(distinct CASE WHEN t.category = 'dish-type' THEN t.name END) AS raw_dish_types
 RETURN
   r AS recipe,
   ingredients,
+  original_ingredients,
   [tag IN raw_tags WHERE tag IS NOT NULL AND trim(toString(tag)) <> ""] AS tags,
   [dt IN raw_dish_types WHERE dt IS NOT NULL AND trim(toString(dt)) <> ""] AS dish_types
 """
@@ -130,6 +137,11 @@ def _record_to_recipe_dict(record: Dict[str, Any]) -> Dict[str, Any]:
         "dish_types": dish_types,
         "diet_tags": diet_tags,
         "ingredients": ingredients,
+        "original_ingredients": [
+            str(value).strip()
+            for value in (record.get("original_ingredients") or [])
+            if str(value).strip()
+        ],
         "instructions": instructions,
         "duration": recipe_props.get("duration"),
         "serves": recipe_props.get("serves"),

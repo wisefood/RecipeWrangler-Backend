@@ -51,6 +51,7 @@ class RecipeState(BaseModel):
     total_time: Optional[float] = None
     tags: List[str] = Field(default_factory=list)
     allergens: List[str] = Field(default_factory=list)
+    allergen_evidence: List[Dict[str, Any]] = Field(default_factory=list)
 
     sustainability_per_kg: Optional[float] = None
     total_sustainability: Optional[float] = None
@@ -123,7 +124,7 @@ class RecipeSearchRequest(BaseModel):
     )
     region: Optional[str] = Field(
         default=None,
-        description="Region whose nutri-score the result cards carry: US, IE, HU, or EU (default).",
+        description="Region whose nutri-score the result cards carry: IE, HU, SI, or EU (default).",
     )
     # Facets the caller selected in the UI, alongside the question.
     #
@@ -155,6 +156,18 @@ class RecipeSearchRequest(BaseModel):
     food_groups: List[str] = Field(
         default_factory=list,
         description="Coarse ingredient-category filter (e.g. ['fish']).",
+    )
+    convenience: List[str] = Field(
+        default_factory=list,
+        description="Derived convenience tags (quick and/or simple).",
+    )
+    nutrition_claims: List[str] = Field(
+        default_factory=list,
+        description="Rule-derived nutrition claims (e.g. ['high_protein']).",
+    )
+    nutri_scores: List[Literal["A", "B", "C", "D", "E"]] = Field(
+        default_factory=list,
+        description="Nutri-Score grades required in the selected region.",
     )
     require_diet_tags: List[str] = Field(
         default_factory=list,
@@ -229,6 +242,19 @@ class RecipeSearchFilters(BaseModel):
         default_factory=list,
         validation_alias=AliasChoices("food_groups", "food_group"),
     )
+    convenience: List[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("convenience", "convenience_tag"),
+    )
+    nutrition_claims: List[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("nutrition_claims", "nutrition_claim"),
+    )
+    nutri_scores: List[Literal["A", "B", "C", "D", "E"]] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("nutri_scores", "nutri_score"),
+    )
+    region: Literal["IE", "HU", "EU", "SI"] = "EU"
     max_duration_minutes: Optional[int] = None
     limit: int = Field(default=10, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
@@ -258,7 +284,10 @@ class RecipeSearchFilters(BaseModel):
             return [value]
         return value
 
-    @field_validator("cuisines", "moods", "flavor_profiles", "food_groups", mode="before")
+    @field_validator(
+        "cuisines", "moods", "flavor_profiles", "food_groups",
+        "convenience", "nutrition_claims", "nutri_scores", mode="before",
+    )
     @classmethod
     def _coerce_facets(cls, value):  # noqa: N805
         """Accept a bare string as a one-element list.
@@ -298,9 +327,9 @@ class RecipeProfileRequest(BaseModel):
         min_length=1,
         description="Unstructured recipe text to analyze",
     )
-    region: Literal["IE", "US", "HU"] = Field(
+    region: Literal["IE", "HU", "EU", "SI"] = Field(
         default="IE",
-        description="Country/region code used to select nutrition source (supports 'IE', 'US', and 'HU').",
+        description="Country/region code used to select nutrition source: IE, HU, EU, or SI.",
     )
     persist_trace: bool = Field(
         default=True,
@@ -337,6 +366,7 @@ class RecipeUpdateRequest(BaseModel):
     allergens: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     duration: Optional[float] = Field(default=None, gt=0)
+    seasonality: Optional[List[Literal["autumn", "summer", "spring", "winter"]]] = None
 
 
 class RecipeUpdateResponse(BaseModel):
@@ -393,15 +423,23 @@ class RecipeCreateRequest(BaseModel):
     instructions: List[str] = Field(default_factory=list)
     duration: float = Field(..., gt=0, description="Total cooking time in minutes")
     serves: float = Field(..., gt=0)
-    region: Literal["IE", "US", "HU"] = Field(
+    region: Literal["IE", "HU", "EU", "SI"] = Field(
         default="IE",
-        description="Nutrition source region — IE (Irish), US (USDA), HU (Hungarian)",
+        description="Nutrition source region — IE, HU, EU, or SI.",
     )
     image_url: Optional[str] = None
+    url: Optional[str] = Field(
+        default=None,
+        description="Original source page for a recipe imported from the web.",
+    )
     source_id: Optional[str] = Field(default=None, description="UUID of the source from the sources microservice")
     expert_recipe: bool = Field(default=False, description="Whether this recipe has been reviewed and annotated by a nutrition expert")
     tags: List[str] = Field(default_factory=list, description="User-supplied diet/category tags")
     allergens: List[str] = Field(default_factory=list, description="User-supplied allergen labels")
+    seasonality: List[Literal["autumn", "summer", "spring", "winter"]] = Field(
+        default_factory=list,
+        description="Source/user-provided seasons; leave empty when unknown.",
+    )
     protein_g: Optional[float] = Field(
         default=None,
         ge=0,
@@ -448,14 +486,23 @@ class RecipeCreateResponse(BaseModel):
     """Confirmation returned after a new recipe is created."""
 
     recipe_id: str
+    allergens: List[str] = Field(default_factory=list)
+    allergen_evidence: List[Dict[str, Any]] = Field(default_factory=list)
     message: str = "Recipe created successfully"
+
+
+class RecipeUrlRequest(BaseModel):
+    """Preview or import one public schema.org Recipe URL."""
+
+    url: str = Field(..., min_length=8)
+    region: Literal["IE", "HU", "EU", "SI"] = "IE"
 
 
 class RecipeSubstituteRequest(BaseModel):
     """Payload for the ingredient substitution endpoint."""
 
     ingredient: str = Field(..., min_length=1, description="Name of the ingredient to substitute")
-    region: Literal["IE", "US", "HU"] = Field(
+    region: Literal["IE", "HU", "EU", "SI"] = Field(
         default="IE",
         description="Nutrition source region for the re-profiling step",
     )
@@ -491,7 +538,7 @@ class RecipeCardResponse(BaseModel):
 
 
 class RecipeDetailResponse(BaseModel):
-    """Detailed recipe representation fetched directly from Neo4j."""
+    """Detailed recipe representation from Elasticsearch plus stored profiles."""
 
     recipe_id: Optional[str]
     title: Optional[str]
@@ -524,6 +571,7 @@ class RecipeDetailResponse(BaseModel):
     total_nutrients: Optional[Dict[str, Any]] = None
     total_nutrients_per_serving: Optional[Dict[str, Any]] = None
     nutri_score_breakdown: Optional[Dict[str, Any]] = None
+    nutri_score_explanation: Optional[Dict[str, Any]] = None
     nutrition_source: Optional[str] = None
     has_ground_truth_nutrition: bool = False
     ground_truth_nutrition_source: Optional[str] = None
@@ -534,6 +582,9 @@ class RecipeDetailResponse(BaseModel):
     total_sustainability_per_serving: Optional[float] = None
     sustainability_per_kg: Optional[float] = None
     sustainability_profiling_details: Optional[List[Dict[str, Any]]] = None
+    sustainability_explanation: Optional[Dict[str, Any]] = None
+    profiling_quality: Dict[str, Any] = Field(default_factory=dict)
+    calculation_disclaimer: Optional[Dict[str, Any]] = None
     profiling_status: Optional[str] = None
 
 
@@ -575,7 +626,7 @@ class RecipeDetailsBatchRequest(BaseModel):
     )
     region: Optional[str] = Field(
         default=None,
-        description="Optional nutrition region selector: US, IE, or HU.",
+        description="Optional nutrition region selector: IE, HU, EU, or SI.",
     )
 
     @field_validator("recipe_ids")

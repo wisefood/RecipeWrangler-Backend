@@ -26,8 +26,8 @@ FastAPI (src/recipe_wrangler/api/)
 
 Services
   ├── Neo4j         – Recipe knowledge graph (recipes, ingredients, allergens, diet tags)
-  ├── Elasticsearch – Recipe search and ingredient-vector indexes
-  ├── PostgreSQL    – Structured nutrition data (USDA + Irish) and profiling traces
+  ├── Elasticsearch – Recipe search, regional ingredient vectors, and USDA portion-weight references
+  ├── PostgreSQL    – Regional composition nutrient tables and recipe profiling traces
   └── Groq LLM      – Recipe parsing, natural language → Cypher, weight estimation
 ```
 
@@ -90,7 +90,7 @@ When Postgres has source-provided nutrition for the recipe, the response also in
 - `ground_truth_nutrition_source`
 - `ground_truth_nutrition.nutrients_per_serving`
 
-Those fields expose original/source per-serving nutrition separately from computed regional profiles. SafeFood rows use `nutrition_source="safefood"`, Recipe1M original nutrition uses `nutrition_source="recipe1m_original"`, and HealthyFoods source nutrition uses `nutrition_source="healthyfoods_original"` when available. Computed profiles such as `usda`, `irish`, and `hungarian` are not marked as ground truth.
+Those fields expose original/source per-serving nutrition separately from computed regional profiles. SafeFood rows use `nutrition_source="safefood"`, MyPlate rows retain their source-provided nutrition, and HealthyFoods source nutrition uses `nutrition_source="healthyfoods_original"` when available. Computed regional profiles (`irish`, `hungarian`, `eu`, and `slovenian`) are not marked as ground truth.
 
 ---
 
@@ -118,7 +118,7 @@ question
         → title_with_constraints: title relevance plus filters
   │
   └── Build an Elasticsearch bool query
-        └── Search recipes_v2 and return recipe cards
+        └── Search the `recipes` catalog alias and return recipe cards
 ```
 
 **Database:** Elasticsearch only.
@@ -181,7 +181,7 @@ filters
         ├── Reject excluded ingredients and allergens
         ├── Filter diet tags and dish types
         └── Apply duration and pagination constraints
-  └── Search recipes_v2 and return recipe cards
+  └── Search the `recipes` catalog alias and return recipe cards
 ```
 
 Results are ordered deterministically for pagination: expert recipes first, then preferred catalog sources (`FoodHero` and `HealthyFoods`), then `has_profile=true` recipes, then recipes with duration and serving metadata, then stable recipe identity fields. Empty filter payloads return a stable profiled-recipe catalog page using `limit` and `offset`.
@@ -226,7 +226,8 @@ raw_recipe
         │      → Query Elasticsearch for best ingredient match
         │      → Fetch per-100g values from Postgres
         │      → Scale by weight, sum totals + per-serving
-        │      → Source: Irish table (region=IE), USDA (region=US), or Hungarian table (region=HU)
+        │      → Source: Irish (IE), Hungarian (HU), EU composite (EU), or Slovenian (SI)
+        │      → USDA is never used for nutrient composition
         │
         ├── 4. Sustainability (Elasticsearch)
         │      → Match ingredient to carbon footprint DB
@@ -239,13 +240,13 @@ raw_recipe
 ```
 
 **Databases:** Elasticsearch (nutrition + sustainability matching), PostgreSQL (nutrient data + trace storage).
-**LLM:** Groq for parsing + weight fallback by default; currently switched to local vLLM (`ingredient-tagger`, Llama 3.1 8B on :8008) for the bulk Recipe1M retag — switch back to Groq afterwards (`WEIGHT_LLM_SOURCE`).
+**LLM:** Groq for parsing + weight fallback by default; a local OpenAI-compatible vLLM endpoint can be selected with `WEIGHT_LLM_SOURCE`.
 
 ---
 
 ## Ingredient matching strategy (weight & nutrition)
 
-The hard part of profiling is mapping a free-text recipe ingredient ("3 cloves garlic, finely chopped", "1 lb boneless skinless chicken breast", "313 cups flour") onto (a) a gram weight and (b) a row in a composition table (USDA / Irish / Hungarian). Both are now **deterministic-first cascades** with cheap reliable steps tried before expensive fuzzy ones, hard guards against the obvious cross-category errors, and a confidence label on every result so weak matches are *visible* rather than silently wrong. The LLM is a last resort, and its output is verified before it's trusted.
+The hard part of profiling is mapping a free-text recipe ingredient ("3 cloves garlic, finely chopped", "1 lb boneless skinless chicken breast") onto (a) a gram weight and (b) a row in a regional composition table. USDA identifiers and data are used only for portion-to-gram estimation. Nutrient composition comes only from the Irish, Hungarian, EU composite, or Slovenian tables. Both paths are deterministic-first and expose weak matches instead of silently accepting them.
 
 ### 1. Weight estimation — `tools/ingredient_weight_tool.ingredient_weight_tool_usda`
 
@@ -265,15 +266,15 @@ The verified offline reference is rebuilt by the pipeline in `docs/weight_refere
 
 ### 2. Nutrition / composition-table match — `tools/nutrition_match.best_nutrition_match`
 
-Used by `nutritional_calculator.nutritional_tool_vector`. Per ingredient, in order:
+Used by `nutritional_calculator.nutritional_tool_vector`. Per ingredient:
 
-0. **Hand-curated alias table** (`ingredient_nutrition_aliases`, ~190 ingredients / ~680 alias rows; `scripts/build_nutrition_aliases.py`) — checked first on the *raw* name then the cleaned name. Pins the high-frequency raw proteins / produce / staples to the canonical raw/plain USDA records: `chicken breast → Chicken, …, breast, skinless, boneless, meat only, raw`, `ground beef → Beef, ground, 85% lean / 15% fat, raw`, `red onion → Onions, raw`, `unsalted butter → Butter, without salt`, `low-fat yoghurt → Yogurt, plain, low fat`, `dark chocolate → Chocolate, dark, 60-69% cacao`, `red wine → Alcoholic beverage, wine, table, red`, etc. — including the low-fat/nonfat/light dairy variants, the chocolate/cocoa family and common alcohols. Hand-verified → `confidence="alias"`, wins outright. *(Raw-name-first matters: `clean_query` strips qualifiers like "unsalted"/"low-fat", so without it "unsalted butter" → "butter" → the salted-butter alias would win.)*
-1. **Clean the query** — strip parentheticals, prep clauses (`finely chopped`, `to brush`, `for dusting`), qualifier words, leading quantities; normalise UK/US spellings (`yoghurt`→`yogurt`, `rocket`→`arugula`, `courgette`→`zucchini`) and singular/plural — *before* the embedding. (`raw`/`cooked`/`canned`/`light`/`dark` are kept — they're part of the food identity.)
-2. **Gather candidates** from the Irish + USDA Elasticsearch pools, **plus the `recipe1m-usda-links-canonical` link as one more candidate** scored on its own `embedding_similarity` — that table is itself a machine embedding-match (median sim ~0.77, *not* human-verified — it maps `all-purpose flour → "Potato flour"`, `garlic cloves → "garlic pear"`), so it competes with a small prior bonus, it never overrides; a branded/cooked label gets no bonus at all.
-3. **Rerank** by `0.6·similarity + 0.4·BM25 + 0.15·token-overlap` — a zero-token-overlap "attractor" candidate (e.g. the `Italian Arborio risotto` record) is heavily demoted unless cosine ≥ 0.90; a `recipe1m → USDA` candidate that survives the guards gets a small prior; a candidate carrying a cooking-state / branded / dried marker the recipe didn't ask for is demoted (so `chicken breast` beats "Oscar Mayer … honey glazed" / "casseroled, meat and skin", `buttermilk` beats "… dried"), and a state-less query gets a small nudge toward the `…, raw` record.
-4. **Food-class guard (hard gate)** — coarse classes (animal protein / dairy / plant-milk / egg / grain / legume / nut-seed / leafy-green / vegetable / fruit / spice-herb / oil-fat / sweetener / alcohol / …) with a conservative hard-incompatible set: rejects dairy↔plant-milk (`low-fat yoghurt ↛ Tofu yogurt`), animal↔non-animal (`chuck ↛ Cheese, colby`), alcohol↔grain (`chianti wine ↛ Arborio rice`), egg↔vegetable (`egg ↛ eggplant`), spice↔leafy-green (`arugula ↛ fenugreek`), vegetable↔grain (`red onion ↛ red rice`), spice↔grain (`ground cinnamon ↛ cinnamon bread`), …
-5. **FoodOn ontology nudge (soft)** — on the top-3 only (a Neo4j round-trip per candidate, too costly for all), reuses the weight tool's `_foodon_class_ids_for_ingredient` / `_foodon_classes_have_common_ancestor` with form-word/synonym normalisation; only `±penalty` into the score, never a hard reject, because the local FoodOn graph is sparse and `is False` is often a false signal.
-6. **Confidence label on every detail row** — `match_confidence` ∈ `{alias, curated, strong, weak, none}` + `match_reason` (incl. `:foodon_incompat`). A `weak` or `none` ingredient is visible in the profiling trace instead of being silently zeroed or silently accepted.
+1. Clean the query and normalize spelling, form, and plural variants before embedding.
+2. Query the selected region's collection together with the EU composite and rerank the combined candidate pool; a stronger regional or EU match wins on evidence, and no path can query USDA nutrition.
+3. Rerank by vector similarity, BM25, token overlap, processing-state penalties, coarse food-class compatibility, and a soft FoodOn ancestry check.
+4. Fetch per-100g nutrients only from the matched regional Postgres table. Missing regional nutrients remain missing/zero; they are not filled from another authority.
+5. Record `match_confidence` (`strong`, `weak`, or `none`) and `match_reason` on every detail row.
+
+Nutri-Score fruit/vegetable/legume/nut percentage is derived from FoodOn food groups when available, with a conservative ingredient-name fallback. It does not use USDA nutrient records or USDA food-group prefixes.
 
 ### 3. Recipe-level guards & quality signals — `tools/recipe_profiling_tool.Recipe_Profiling_Node`
 
@@ -331,15 +332,14 @@ Neo4j graph cleanup:
 
 Nutrition matcher (recipe ingredient -> composition-table record):
 
-- New `tools/nutrition_match.py` (`best_nutrition_match`) replaces the naive top-1 Elasticsearch vector pick used by `nutritional_calculator.nutritional_tool_vector`. It: (0) checks a **hand-curated alias table** first — checked on the *raw* name then the cleaned name (`scripts/build_nutrition_aliases.py` → `data/processed/fallbacks/ingredient_nutrition_aliases.csv` → `pipeline_static_data.ingredient_nutrition_aliases`, ~680 alias rows / ~190 ingredients) — `chicken breast` → `Chicken, …, breast, skinless, boneless, meat only, raw`, `ground beef` → `Beef, ground, 85% lean / 15% fat, raw`, `red onion` → `Onions, raw`, `buttermilk` → `Milk, buttermilk, fluid`, `unsalted butter` → `Butter, without salt`, `low-fat yoghurt` → `Yogurt, plain, low fat`, `dark chocolate` → `Chocolate, dark, 60-69% cacao`, `red wine` → `Alcoholic beverage, wine, table, red`, etc. — including the low-fat/nonfat/light dairy variants, the chocolate/cocoa family, and common alcohols. `confidence="alias"`, hand-verified, wins outright. (Raw-name-first matters because `clean_query` strips qualifiers like "unsalted"/"low-fat"; and `clean_query` no longer strips `light`/`dark` so `dark chocolate`/`dark soy sauce` keep that token.) (1) **cleans the query** — strips parentheticals, prep clauses, qualifier words, leading quantities, normalises UK/US spellings + singular/plural, before the embedding; (2) gathers candidates from the Irish + USDA Elasticsearch pools **plus the `recipe1m-usda-links-canonical` entry as one more candidate** scored on its own `embedding_similarity` (this table is itself a machine embedding-match, median sim ~0.77 — *not* human-verified — so it competes with a small prior bonus, it never overrides; e.g. its `all-purpose flour → Potato flour` and `garlic cloves → garlic pear` entries are correctly beaten by the vector candidates); (3) **reranks** by similarity + BM25 + token overlap, with a zero-overlap "attractor" candidate (e.g. the `Italian Arborio risotto` record) heavily demoted unless cosine ≥ 0.90; (4) applies a **food-class compatibility guard** (hard gate) — coarse classes (animal protein / dairy / plant-milk / egg / grain / legume / nut-seed / leafy-green / vegetable / fruit / spice-herb / oil-fat / sweetener / alcohol / …) with a conservative hard-incompatible set that rejects dairy↔plant-milk (`low-fat yoghurt`↛`Tofu yogurt`), animal↔non-animal (`chuck`↛`Cheese, colby`), alcohol↔grain (`chianti wine`↛`Arborio rice`), egg↔vegetable (`egg`↛`eggplant`), spice↔leafy-green (`arugula`↛`fenugreek`), vegetable↔grain (`red onion`↛`red rice`), … — **plus a soft FoodOn ontology nudge** on the top-3 candidates (reuses the weight tool's Neo4j-backed `_foodon_class_ids_for_ingredient` / `_foodon_classes_have_common_ancestor`, with form-word/synonym normalisation; only `±penalty` into the score, never a hard reject — the local FoodOn graph is sparse — and only on the top-3 to keep the Neo4j round-trips bounded); (5) a **threshold split** — results carry `match_confidence` (`alias`|`curated`|`strong`|`weak`|`none`) and `match_reason` (incl. `:foodon_incompat`) on every detail row, so weak/no-match ingredients are visible in the trace instead of silently zeroed or silently accepted. Tuning: `_STRONG_SCORE` / `_WEAK_SCORE` / `_CURATED_BONUS` / `_HARD_INCOMPATIBLE` in `nutrition_match.py`. `nutrition_match.py` calls `load_runtime_env()` at import (the curated-link / FoodOn lookups need `NUTRITION_*` env vars).
-- Match-quality audit (`scripts/audit_nutrition_matches.py --matcher new|old`, 400 sampled Neo4j ingredients, seed 13): loose-flag rate ~42–43% — but that number is the audit's *deliberately loose* heuristic and ~half of its flags are its own false positives (plurals/spellings/low-but-fine similarities); filtering those, the realistic read is **~88–92% correct (incl. `alias`/`curated`/`strong`), ~3–4% honest `none`/`weak` (visible in the trace, not silently wrong), ~5–8% genuinely-wrong-but-accepted** (close-but-imperfect: `green capsicum → Peppers, sweet, red, raw`, `cherry chips → Cherries, sweet, raw`, …) — vs the pre-rework ~10–20% *silent*-wrong, with the catastrophic cross-category cases (yoghurt↔tofu, beef↔cheese, wine↔rice, arugula↔fenugreek, all-purpose-flour↔potato-flour) and the cooked/deli-protein class (chicken breast↔deli-roll) eliminated. Sample-recipe spot-check (`Recipe_Profiling_Chain_Structured`, 3 recipes / 24 ingredients): all 24 correct — `chicken breast → Chicken, …, breast, skinless, boneless, meat only, raw`, `buttermilk → Milk, buttermilk, fluid, cultured, lowfat`, `red onion → Onions, raw`, `all-purpose flour → Wheat flour, white, all-purpose, enriched`, garlic/broccoli/carrots/ginger/eggs/sesame-oil/olive-oil/feta/arugula/cherry-tomatoes/soy-sauce/white-rice/… all to their raw/plain records. The chicken-breast fix alone moved the stir-fry sample from ~2,167 mg sodium/serving (Nutri-Score C) to ~579 mg (Nutri-Score A). Residual long tail (bge-small): specialty sauces collapsing to `Sauce, barbecue`, mushroom varieties, "english cucumber"↔"english walnut", within-meat (`chicken mince`↔`lamb mince`) — extend the alias table (`scripts/build_nutrition_aliases.py`) for the worst recurring offenders, or switch to `bge-base` / a cross-encoder rerank; diminishing returns.
+- `tools/nutrition_match.py` performs query cleaning, combined regional/EU vector and BM25 retrieval, and hard food-class/species guards. USDA composition candidates and Recipe1M-to-USDA nutrition aliases were removed.
 
 Audit (1,000-recipe sample, seed 13): flagged rows 1,586 -> 1,210; `error:missing_unit` 540 -> 336; the LLM-portion verifier caught 31 bad outputs and turned them into errors. Catastrophic deterministic outliers (`> 3 kg` ingredient on inputs like `"313 cups flour"`) are unchanged and would need a per-recipe sanity cap (not done).
 
 Validation run:
 
 - `cd tests && PYTHONPATH=../src uv run python -m unittest test_ingredient_weight_confidence test_ingredient_line_splitter test_cleanup_non_food test_nutrition_match test_profiling_accuracy` (89 tests, all green)
-- `uv run python -m py_compile src/recipe_wrangler/tools/ingredient_weight_tool.py src/recipe_wrangler/tools/ingredient_weight_llm_tool.py src/recipe_wrangler/tools/recipe_profiling_chain.py src/recipe_wrangler/tools/recipe_profiling_tool.py src/recipe_wrangler/tools/nutrition_match.py src/recipe_wrangler/tools/nutritional_calculator.py src/recipe_wrangler/tools/sustainability_calculator.py scripts/cleanup_non_food_ingredients.py scripts/audit_nutrition_matches.py scripts/build_nutrition_aliases.py scripts/validate_profiling.py`
+- `uv run python -m compileall -q src scripts preprocessing`
 
 ### 2026-05-07 accuracy pass
 
@@ -377,7 +377,7 @@ Validation run:
 }
 ```
 
-`region` must be `IE`, `US`, or `HU`. `instructions`, `image_url`, `tags`, `allergens` are optional.
+`region` must be `IE`, `HU`, `EU`, or `SI`. `instructions`, `image_url`, `tags`, `allergens` are optional.
 
 **Flow:**
 ```
@@ -413,7 +413,7 @@ curl -X POST http://localhost:8001/api/v1/recipes/ \
 }
 ```
 
-`region` must be `IE`, `US`, or `HU`. Defaults to `IE`.
+`region` must be `IE`, `HU`, `EU`, or `SI`. Defaults to `IE`.
 
 **Flow:**
 ```
@@ -579,7 +579,7 @@ curl -X PATCH http://localhost:8001/api/v1/recipes/3758007968 \
 | **Neo4j** | Recipe graph: recipes, ingredients, allergens, diet tags | `neo4j-docker/docker-compose.yml` |
 | **Elasticsearch** | Recipe title autocomplete and fallback search | `elasticsearch-docker/docker-compose.yml` |
 | **Elasticsearch** | Vector similarity for nutrition & sustainability matching | `elasticsearch-docker/docker-compose.yml` |
-| **PostgreSQL** | Nutrition data (USDA + Irish) and profiling traces | `postgresql-docker/docker-compose.yml` |
+| **PostgreSQL** | Regional composition data, USDA portion weights, and profiling traces | `postgresql-docker/docker-compose.yaml` |
 
 ---
 
@@ -616,7 +616,7 @@ SEARCH_LLM_SOURCE=openrouter
 SEARCH_MAIN_MODEL=openai/gpt-oss-20b
 OPENROUTER_API_KEY=sk-or-v1-...
 ELASTIC_URL=http://localhost:9200
-ELASTIC_INDEX=recipes_v2
+ELASTIC_INDEX=recipes
 ELASTIC_VECTOR_INDEX=ingredient_vectors
 ELASTIC_VECTOR_SEARCH_MODE=exact
 NUTRITION_HOST=localhost

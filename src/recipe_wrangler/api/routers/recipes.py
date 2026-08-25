@@ -16,8 +16,6 @@ from uuid import uuid4
 import re
 import requests
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
-from neo4j.exceptions import DriverError as Neo4jDriverError
-from neo4j.exceptions import Neo4jError
 from starlette.concurrency import run_in_threadpool
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
@@ -32,8 +30,12 @@ from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 
 from recipe_wrangler.api.identity import Caller, get_caller, redact
-from recipe_wrangler.catalog.sources import canonical_course_type
+from recipe_wrangler.catalog.sources import (
+    canonical_course_type,
+    ground_truth_nutrition_sources,
+)
 from recipe_wrangler.catalog.foodchat import fetch_candidates_es
+from recipe_wrangler.catalog.entities import recipe_entity
 from recipe_wrangler.catalog.writer import commit as commit_recipe
 from recipe_wrangler.tools.es_recipe_search import (
     ES_INDEX,
@@ -53,7 +55,6 @@ from recipe_wrangler.utils.recipe_cache import (
     cache_mset,
     cache_set,
 )
-from recipe_wrangler.utils.es_recipe_projection import project_recipe_to_es_v2
 from recipe_wrangler.utils.recipe_status import (
     STATUS_ACTIVE,
     STATUS_DISABLED,
@@ -62,21 +63,13 @@ from recipe_wrangler.utils.recipe_status import (
     sync_recipe_status_to_es,
 )
 from recipe_wrangler.utils.neo4j_utils import run_query as _run_query
-from recipe_wrangler.tools.fetch_recipe_info import (
-    fetch_recipe_info,
-    fetch_recipe_info_by_ids,
-    fetch_recipe_info_by_id,
-)
 from recipe_wrangler.repositories.neo4j_recipes import (
-    count_recipes,
-    fetch_foodchat_candidates,
+    detect_allergen_evidence_from_names,
     detect_allergens_from_names,
-    fetch_recipe_allergens_by_ids,
     fetch_recipe_dish_types_by_ids,
-    fetch_recipe_image_urls_by_ids,
-    fetch_recipe_scores_by_ids,
     find_ingredient_substitutes,
     infer_diet_tags,
+    replace_recipe_nutrition_claims,
     resolve_collection_source_id,
     resolve_recipe_ids_by_query,
     set_recipe_status,
@@ -91,12 +84,14 @@ from recipe_wrangler.repositories.postgres_nutrition import (
     save_recipe_profile_trace,
 )
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
-from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
-from recipe_wrangler.repositories.vector_matchers import query_usda_nutrition_candidates
+from recipe_wrangler.utils.nutrition_claims import (
+    compute_nutrition_claim_tags,
+    infer_physical_form,
+)
+from recipe_wrangler.utils.fruit_vegetable_content import fruits_veg_legumes_percent
 
 logger = logging.getLogger(__name__)
 
-_USDA_MATCH_THRESHOLD = 0.4
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _HEALTHYFOODS_NUTRITION_PATH = (
     _REPO_ROOT / "data/HealthyFoods/HealthyFood_recipes_nutrition.json"
@@ -138,11 +133,21 @@ from recipe_wrangler.schemas import (
     RecipeSubstituteResponse,
     RecipeUpdateRequest,
     RecipeUpdateResponse,
+    RecipeUrlRequest,
 )
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
 _RECIPE_BASE_CACHE_VARIANT = "base"
+
+
+def _analysis_allergen_fields(ingredient_names: list[str]) -> dict[str, Any]:
+    """Return paired, explainable keyword evidence for an unpersisted recipe."""
+    evidence = detect_allergen_evidence_from_names(ingredient_names)
+    return {
+        "allergens": sorted({row["allergen"] for row in evidence}),
+        "allergen_evidence": evidence,
+    }
 
 
 def _profile_meta() -> str:
@@ -155,6 +160,17 @@ def _as_id(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _hit_recipe_id(source: dict[str, Any], hit: dict[str, Any]) -> str | None:
+    """Resolve the public recipe id, never the catalog row UUID."""
+    recipe_id = _as_id(source.get("recipe_id"))
+    if recipe_id:
+        return recipe_id
+    document_id = _as_id(hit.get("_id"))
+    if document_id and document_id.startswith("urn:recipe:"):
+        return document_id.split(":", 2)[2]
+    return document_id
 
 
 def _as_dict(value: object) -> dict[str, Any] | None:
@@ -178,13 +194,92 @@ def _as_list_of_dicts(value: object) -> list[dict[str, Any]]:
     return [row for row in value if isinstance(row, dict)]
 
 
+def _catalog_recipe_payload(doc: dict[str, Any]) -> dict[str, Any]:
+    """Convert a v4 catalog document to the established v1 detail shape."""
+    recipe = dict(doc)
+    recipe_id = _as_id(recipe.get("recipe_id"))
+    if recipe_id:
+        recipe["recipe_id"] = recipe_id
+
+    instructions = recipe.get("instructions")
+    if isinstance(instructions, str):
+        recipe["instructions"] = [
+            line.strip() for line in instructions.splitlines() if line.strip()
+        ]
+    elif isinstance(instructions, (list, tuple)):
+        recipe["instructions"] = [
+            str(line).strip() for line in instructions if str(line).strip()
+        ]
+    else:
+        recipe["instructions"] = []
+
+    ingredients: list[dict[str, Any]] = []
+    for position, item in enumerate(recipe.get("ingredients") or []):
+        if isinstance(item, dict):
+            entry = dict(item)
+            entry.setdefault("position", position)
+        else:
+            name = str(item or "").strip()
+            if not name:
+                continue
+            entry = {"name": name, "position": position}
+        if str(entry.get("name") or "").strip():
+            ingredients.append(entry)
+    recipe["ingredients"] = ingredients
+    recipe["tags"] = list(recipe.get("tags") or [])
+    recipe["allergens"] = list(recipe.get("allergens") or [])
+    # The old FoodChat card field was named dish_types. Keep its response
+    # contract while reading the canonical v4 course_types field.
+    recipe["dish_types"] = list(recipe.get("course_types") or [])
+    recipe.setdefault("status", "active")
+    return recipe
+
+
+def _catalog_recipe_by_id(
+    recipe_id: str, *, include_disabled: bool = False
+) -> dict[str, Any] | None:
+    doc = recipe_entity().get(recipe_id)
+    if not doc:
+        return None
+    if not include_disabled and str(doc.get("status") or "active").lower() == STATUS_DISABLED:
+        return None
+    return _catalog_recipe_payload(doc)
+
+
+def _catalog_recipes_by_ids(recipe_ids: list[str]) -> dict[str, dict[str, Any]]:
+    docs = recipe_entity().get_many(recipe_ids)
+    return {
+        requested_id: _catalog_recipe_payload(doc)
+        for requested_id, doc in docs.items()
+        if str(doc.get("status") or "active").lower() != STATUS_DISABLED
+    }
+
+
+def _catalog_recipe_id_by_title(title: str) -> str | None:
+    normalized = normalize_recipe_title(title)
+    if not normalized:
+        return None
+    result = recipe_entity().search(
+        filters=[{"term": {"title_normalized": normalized}}],
+        limit=1,
+        source_fields=["recipe_id"],
+    )
+    rows = result.get("results") or []
+    return _as_id(rows[0].get("recipe_id")) if rows else None
+
+
 def _nutrition_source_from_region(region: str | None) -> str | None:
     if region is None:
         return None
     region_norm = str(region).strip().upper()
     if not region_norm:
         return None
-    mapping = {"US": "usda", "IE": "irish", "HU": "hungarian", "EU": "eu"}
+    mapping = {
+        "IE": "irish",
+        "HU": "hungarian",
+        "EU": "eu",
+        "SI": "slovenian",
+    }
     return mapping.get(region_norm)
 
 
@@ -248,14 +343,13 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 50))
     payload = {
         "size": safe_limit,
-        "_source": ["id", "title", "image_url"],
+        "_source": ["recipe_id", "title", "image_url"],
         "query": {
             "function_score": {
                 "query": {
                     "bool": {
                         "must": [
                             {"term": {"source": "MyPlate"}},
-                            {"exists": {"field": "image_url"}},
                         ],
                         "must_not": [es_not_disabled_clause()],
                     }
@@ -274,7 +368,7 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for hit in hits:
         source = hit.get("_source", {}) if isinstance(hit, dict) else {}
-        rid = _as_id(source.get("id")) or _as_id(hit.get("_id"))
+        rid = _hit_recipe_id(source, hit)
         title = source.get("title")
         image_url = source.get("image_url")
         if not rid:
@@ -303,7 +397,7 @@ def _search_elastic_keyword(query: str, limit: int = 10) -> list[dict[str, Any]]
     safe_limit = max(1, min(int(limit), 100))
     payload = {
         "size": safe_limit,
-        "_source": ["id", "title", "image_url", "source"],
+        "_source": ["recipe_id", "title", "image_url", "source"],
         "query": {
             "function_score": {
                 "query": {
@@ -334,7 +428,7 @@ def _search_elastic_keyword(query: str, limit: int = 10) -> list[dict[str, Any]]
     results: list[dict[str, Any]] = []
     for hit in hits:
         source = hit.get("_source", {}) if isinstance(hit, dict) else {}
-        rid = _as_id(source.get("id")) or _as_id(hit.get("_id"))
+        rid = _hit_recipe_id(source, hit)
         title = source.get("title")
         image_url = source.get("image_url")
         source_name = _as_id(source.get("source"))
@@ -351,169 +445,6 @@ def _search_elastic_keyword(query: str, limit: int = 10) -> list[dict[str, Any]]
             }
         )
     return results
-
-
-def _normalize_search_results(raw_results: list[object]) -> list[object]:
-    """Attach metadata and keep only public keys for search responses."""
-
-    raw_results = _attach_nutri_colors(raw_results)
-    raw_results = _attach_recipe_scores(raw_results)
-    raw_results = _attach_image_urls(raw_results)
-    allowed_keys = {
-        "recipe_id",
-        "title",
-        "url",
-        "source",
-        "duration",
-        "serves",
-        "nutri_score",
-        "sust_score",
-        "image_url",
-    }
-
-    filtered_results: list[object] = []
-    for entry in raw_results:
-        if isinstance(entry, dict):
-            # Some pipelines return `id` instead of `recipe_id`.
-            # Keep response shape stable for UI routing/card links.
-            rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-            if rid and _as_id(entry.get("recipe_id")) is None:
-                entry = {**entry, "recipe_id": rid}
-            filtered_results.append(
-                {key: entry.get(key) for key in allowed_keys if key in entry}
-            )
-        else:
-            filtered_results.append(entry)
-    return filtered_results
-
-
-def _extract_title(candidate: dict[str, object]) -> str | None:
-    """Best-effort extraction of a recipe title from a LangGraph result row."""
-
-    title = candidate.get("title")
-    if isinstance(title, str) and title.strip():
-        return title.strip()
-
-    for key, value in candidate.items():
-        if isinstance(value, str) and "title" in key.lower():
-            return value
-        if isinstance(value, dict):
-            nested_title = value.get("title")
-            if isinstance(nested_title, str) and nested_title.strip():
-                return nested_title.strip()
-
-    return None
-
-
-def _attach_recipe_metadata(results: list[object]) -> list[object]:
-    """Augment each result row with full recipe metadata when possible."""
-
-    cache: dict[str, dict] = {}
-    enriched: list[object] = []
-
-    for entry in results:
-        if not isinstance(entry, dict):
-            enriched.append(entry)
-            continue
-
-        recipe_id = _as_id(entry.get("id"))
-        title = _extract_title(entry)
-        cache_key = recipe_id or title
-
-        if not cache_key:
-            enriched.append(entry)
-            continue
-
-        if cache_key not in cache:
-            metadata: dict[str, Any] = {}
-            try:
-                if recipe_id:
-                    metadata = fetch_recipe_info_by_id(recipe_id) or {}
-                if not metadata and title:
-                    metadata = fetch_recipe_info(title) or {}
-            except Exception:
-                metadata = {}
-
-            cache[cache_key] = metadata
-
-        metadata = cache.get(cache_key) or {}
-        if metadata:
-            combined = dict(entry)
-            combined["recipe_info"] = metadata
-            enriched.append(combined)
-        else:
-            enriched.append(entry)
-
-    return enriched
-
-
-def _attach_recipe_scores(results: list[object]) -> list[object]:
-    """Attach nutri_score and sust_score (per serving) from Neo4j when possible."""
-
-    if not results:
-        return results
-
-    ids: list[str] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            continue
-        candidate = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        if candidate:
-            ids.append(candidate)
-
-    if not ids:
-        return results
-
-    score_map = fetch_recipe_scores_by_ids(ids)
-
-    enriched: list[object] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            enriched.append(entry)
-            continue
-        rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        combined = dict(entry)
-        if rid and rid in score_map:
-            record = score_map[rid]
-            for key in ("nutri_score", "sust_score", "duration", "serves", "source", "title"):
-                if combined.get(key) in (None, "") and record.get(key) is not None:
-                    combined[key] = record.get(key)
-        enriched.append(combined)
-
-    return enriched
-
-
-def _attach_image_urls(results: list[object]) -> list[object]:
-    """Attach image_url for recipe rows by recipe_id/id when possible."""
-
-    if not results:
-        return results
-
-    ids: list[str] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            continue
-        candidate = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        if candidate:
-            ids.append(candidate)
-
-    if not ids:
-        return results
-
-    image_map = fetch_recipe_image_urls_by_ids(ids)
-
-    enriched: list[object] = []
-    for entry in results:
-        if not isinstance(entry, dict):
-            enriched.append(entry)
-            continue
-        rid = _as_id(entry.get("recipe_id")) or _as_id(entry.get("id"))
-        combined = dict(entry)
-        if rid and "image_url" not in combined:
-            combined["image_url"] = image_map.get(rid)
-        enriched.append(combined)
-
-    return enriched
 
 
 def _nutri_color_from_score(nutri_score: object) -> str | None:
@@ -756,32 +687,18 @@ def _build_nutri_score_breakdown(
         return None
 
     total_weight_g = 0.0
-    fvl_ingredients: list[dict[str, Any]] = []
+    score_ingredients: list[dict[str, Any]] = []
     for row in profile_details:
         weight = _coerce_float(row.get("weight_g"))
         if weight is None or weight <= 0:
             continue
         total_weight_g += weight
-        canonical_food_id = _as_id(row.get("canonical_food_id"))
         ingredient_name = row.get("ingredient") or ""
-        usda_id: str | None = None
-        if canonical_food_id and canonical_food_id[:2].isdigit():
-            usda_id = canonical_food_id
-        elif ingredient_name:
-            try:
-                candidates = query_usda_nutrition_candidates(ingredient_name)
-                if candidates and candidates[0].get("distance", 1.0) < _USDA_MATCH_THRESHOLD:
-                    usda_id = candidates[0].get("metadata", {}).get("usda_id")
-            except Exception:
-                pass
-        if usda_id:
-            fvl_ingredients.append(
-                {
-                    "name": ingredient_name,
-                    "weight_grams": weight,
-                    "usda_id": usda_id,
-                }
-            )
+        ingredient = {"name": ingredient_name, "weight_grams": weight}
+        for key in ("food_groups", "ingredient_class_ancestors"):
+            if row.get(key):
+                ingredient[key] = row[key]
+        score_ingredients.append(ingredient)
 
     if total_weight_g <= 0:
         return None
@@ -794,36 +711,25 @@ def _build_nutri_score_breakdown(
         "fibers": (float(total_fiber_g) / total_weight_g) * 100.0,
         "proteins": (float(total_protein_g) / total_weight_g) * 100.0,
         "fruit_percentage": (
-            fruits_veg_legumes_percent(fvl_ingredients) if fvl_ingredients else 0.0
+            fruits_veg_legumes_percent(score_ingredients) if score_ingredients else 0.0
         ),
     }
 
     breakdown = compute_nutri_score_breakdown_from_values(nutrient_values, "solid")
     breakdown["inputs"] = {
         "total_weight_g": total_weight_g,
-        "ingredients_with_usda_id_count": len(fvl_ingredients),
+        "ingredients_evaluated_for_fvln_count": len(score_ingredients),
     }
     return breakdown
 
 
 def _source_ground_truth_nutrition_source(recipe_source: object) -> str | None:
-    source = str(recipe_source or "").strip()
-    mapping = {
-        "Curated Irish Recipes": "safefood_rcsi",
-        "SafeFood": "safefood_rcsi",
-        "HealthyFoods": "healthyfoods_original",
-        "recipe1m": "recipe1m_original",
-    }
-    return mapping.get(source)
+    sources = ground_truth_nutrition_sources(recipe_source)
+    return sources[0] if sources else None
 
 
 def _source_ground_truth_nutrition_sources(recipe_source: object) -> list[str]:
-    primary = _source_ground_truth_nutrition_source(recipe_source)
-    if primary == "safefood_rcsi":
-        return ["safefood_rcsi", "safefood"]
-    if primary == "healthyfoods_original":
-        return ["healthyfoods_original", "healthyfoods"]
-    return [primary] if primary else []
+    return list(ground_truth_nutrition_sources(recipe_source))
 
 
 def _is_source_ground_truth_trace(trace: dict[str, Any] | None) -> bool:
@@ -834,10 +740,13 @@ def _is_source_ground_truth_trace(trace: dict[str, Any] | None) -> bool:
     return (
         nutrition_source in {
             "safefood_rcsi",
+            "safefood_web",
             "safefood",
-            "recipe1m_original",
             "healthyfoods",
             "healthyfoods_original",
+            "myplate",
+            "planeat",
+            "slovenian_original",
         }
         or "ground_truth" in pipeline_version
     )
@@ -869,6 +778,149 @@ def _ground_truth_nutrition_payload(
         if source_trace.get(key) is not None:
             payload[key] = source_trace.get(key)
     return payload
+
+
+_NUTRI_GRADE_MEANINGS = {
+    "A": "most favourable nutrient balance",
+    "B": "favourable nutrient balance",
+    "C": "middle nutrient balance",
+    "D": "less favourable nutrient balance",
+    "E": "least favourable nutrient balance",
+}
+
+
+def _nutri_grade(value: object) -> str | None:
+    text = str(value or "").strip().upper().replace("NUTRISCORE_", "")
+    return text if text in _NUTRI_GRADE_MEANINGS else None
+
+
+def _nutri_score_explanation(
+    label: object,
+    breakdown: dict[str, Any] | None,
+    recipe_id: str,
+) -> dict[str, Any] | None:
+    grade = _nutri_grade(label)
+    if not grade:
+        return None
+    negative = _as_dict((breakdown or {}).get("negative_points")) or {}
+    positive = _as_dict((breakdown or {}).get("positive_points")) or {}
+    negative_items = _as_dict(negative.get("items")) or {}
+    positive_items = _as_dict(positive.get("items")) or {}
+
+    def ranked(items: dict[str, Any], *, positive_side: bool) -> list[dict[str, Any]]:
+        drivers: list[dict[str, Any]] = []
+        for name, raw in items.items():
+            item = _as_dict(raw) or {}
+            points = _coerce_float(item.get("points")) or 0.0
+            if points <= 0:
+                continue
+            drivers.append(
+                {
+                    "factor": name,
+                    "points": points,
+                    "value_per_100g": item.get("value_per_100g"),
+                    "unit": item.get("unit"),
+                    "effect": "improves_score" if positive_side else "worsens_score",
+                    **({"applied": item.get("applied", True)} if positive_side else {}),
+                }
+            )
+        return sorted(drivers, key=lambda item: item["points"], reverse=True)[:3]
+
+    return {
+        "grade": grade,
+        "meaning": _NUTRI_GRADE_MEANINGS[grade],
+        "basis": "Calculated per 100 g from the selected regional ingredient composition data.",
+        "main_negative_drivers": ranked(negative_items, positive_side=False),
+        "main_positive_drivers": ranked(positive_items, positive_side=True),
+        "guidance": (
+            "Nutri-Score compares nutrient balance; it is not a judgement of a person, "
+            "a single portion, or whether the recipe can never be eaten."
+        ),
+        "improve_endpoint": f"/api/v1/recipes/{recipe_id}/adapt/suggestions",
+    }
+
+
+def _extract_profiling_quality(stored_trace: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(stored_trace, dict):
+        return {}
+    quality = _as_dict(stored_trace.get("profiling_quality"))
+    if quality:
+        return quality
+    debug = _as_dict(stored_trace.get("nutrition_profiling_debug")) or {}
+    quality = _as_dict(debug.get("profiling_quality"))
+    if quality:
+        return quality
+    profiling = _as_dict(debug.get("profiling")) or {}
+    return _as_dict(profiling.get("quality")) or {}
+
+
+def _calculation_disclaimer(
+    quality: dict[str, Any],
+    profile_details: list[dict[str, Any]],
+) -> dict[str, Any]:
+    reasons: list[str] = []
+    if not quality:
+        reasons.append("quality_metadata_unavailable")
+    if quality.get("serves_source") == "estimated":
+        reasons.append("servings_estimated")
+    if quality.get("weights_capped") is True:
+        reasons.append("ingredient_weights_sanity_adjusted")
+    if quality.get("nutrition_low_coverage") is True:
+        reasons.append("low_nutrition_coverage")
+    if quality.get("sustainability_low_coverage") is True:
+        reasons.append("low_sustainability_coverage")
+    weak = sum(
+        1
+        for item in profile_details
+        if str(item.get("match_confidence") or item.get("confidence") or "").lower()
+        in {"weak", "low"}
+    )
+    if weak:
+        reasons.append("weak_ingredient_matches")
+    required = bool(reasons)
+    return {
+        "required": required,
+        "reasons": reasons,
+        "message": (
+            "Nutrition and sustainability values are estimates; use them with caution "
+            "because one or more inputs have limited confidence."
+            if required
+            else "Nutrition and sustainability values are calculated estimates from ingredient matches."
+        ),
+    }
+
+
+def _sustainability_explanation(
+    total_per_serving: object,
+    details: list[dict[str, Any]],
+    quality: dict[str, Any],
+) -> dict[str, Any] | None:
+    total = _coerce_float(total_per_serving)
+    if total is None and not details:
+        return None
+    contributors: list[dict[str, Any]] = []
+    for item in details:
+        contribution = _coerce_float(item.get("contribution"))
+        if contribution is None:
+            continue
+        contributors.append(
+            {
+                "ingredient": item.get("name") or item.get("ingredient"),
+                "matched_ingredient": item.get("matched_sustainability_ingredient"),
+                "kg_co2e": contribution,
+            }
+        )
+    contributors.sort(key=lambda item: item["kg_co2e"], reverse=True)
+    return {
+        "kg_co2e_per_serving": total,
+        "method": "Ingredient weights multiplied by Sustainable FooDB emission factors.",
+        "top_contributors": contributors[:3],
+        "coverage": quality.get("sustainability_coverage"),
+        "guidance": (
+            "This is an ingredient-production estimate, not a full life-cycle assessment; "
+            "transport, cooking energy, packaging, and waste may be absent."
+        ),
+    }
 
 
 def _healthyfoods_nutrition_number(value: object) -> float | None:
@@ -962,7 +1014,7 @@ def recipe_autocomplete(
         # Over-fetch: some candidates may be dropped by the recipes_v2
         # disabled-status cross-check below.
         "size": min(limit * 2, 40),
-        "_source": ["id", "title"],
+        "_source": ["recipe_id", "title"],
         "query": {
             "bool": {
                 "must": [
@@ -995,8 +1047,7 @@ def recipe_autocomplete(
 
     # Cross-check the shortlist against recipes_v2 (one _mget, <=40 ids) and
     # DROP anything the primary index doesn't vouch for:
-    #  - disabled recipes whose bulk status flip never reached this legacy
-    #    index (recipe1m), and
+    #  - disabled recipes whose bulk status flip never reached a legacy index, and
     #  - corrupt legacy docs whose stored id is a title or dead short id
     #    ("Leftover Turkey Casserole", "15cdb65ed2") — suggesting those sent
     #    every consumer (UI clicks, FoodChat seed anchoring) into 404s.
@@ -1061,7 +1112,7 @@ def recipe_autocomplete(
         key = normalized.casefold()
         if key in seen:
             continue
-        rid = _as_id(source.get("id")) or _as_id(hit.get("_id"))
+        rid = _hit_recipe_id(source, hit)
         if not rid or rid in excluded_ids:
             continue
         seen.add(key)
@@ -1074,13 +1125,13 @@ def recipe_autocomplete(
     "/count",
     response_model=None,
     tags=["recipes"],
-    summary="Return the total number of recipes in the graph",
+    summary="Return the total number of active recipes in the catalog",
 )
 def get_recipe_count() -> dict[str, int]:
     try:
-        total = count_recipes()
+        total = recipe_entity().count(recipe_entity().es.active_query())
     except Exception as exc:
-        raise map_dependency_error("Neo4j", exc) from exc
+        raise map_dependency_error("Elasticsearch", exc) from exc
     return {"count": total}
 
 
@@ -1094,7 +1145,7 @@ def get_recipe(
     recipe_id: str,
     region: str | None = Query(
         default=None,
-        description="Optional nutrition region selector: US, IE, or HU.",
+        description="Optional nutrition region selector: IE, HU, EU, or SI.",
     ),
     slim: bool = Query(
         default=False,
@@ -1116,9 +1167,9 @@ def get_recipe(
     recipe = None if include_disabled else cache_get(recipe_id, variant=_RECIPE_BASE_CACHE_VARIANT)
     if recipe is None:
         try:
-            recipe = fetch_recipe_info_by_id(recipe_id, include_disabled=include_disabled)
+            recipe = _catalog_recipe_by_id(recipe_id, include_disabled=include_disabled)
         except Exception as exc:  # noqa: BLE001
-            raise map_dependency_error("Neo4j", exc) from exc
+            raise map_dependency_error("Elasticsearch", exc) from exc
 
         if not recipe:
             raise NotFoundError("Recipe not found")
@@ -1126,8 +1177,7 @@ def get_recipe(
         if not include_disabled:
             cache_set(recipe_id, recipe, variant=_RECIPE_BASE_CACHE_VARIANT)
 
-    # A request can match either r.recipe_id or r.id. Nutrition/profile stores are keyed by
-    # canonical recipe_id, so prefer the resolved recipe_id from Neo4j when available.
+    # Nutrition/profile stores are keyed by canonical recipe_id.
     resolved_recipe_id = str(recipe.get("recipe_id") or recipe_id)
     recipe["recipe_id"] = resolved_recipe_id
     if resolved_recipe_id != recipe_id and not include_disabled:
@@ -1183,11 +1233,12 @@ def get_recipe(
         source_key = str(trace_row.get("nutrition_source") or "").strip().lower()
         rows_by_source.setdefault(source_key, trace_row)
 
-    stored_trace = None
+    preferred_trace = None
     if preferred_nutrition_source:
-        stored_trace = rows_by_source.get(str(preferred_nutrition_source).strip().lower())
-    if not stored_trace and trace_rows:
-        stored_trace = trace_rows[0]
+        preferred_trace = rows_by_source.get(
+            str(preferred_nutrition_source).strip().lower()
+        )
+    stored_trace = preferred_trace or (trace_rows[0] if trace_rows else None)
 
     # Nutrition is derived from stored_trace further below (same table, same
     # row selection the dedicated nutrition query used to make).
@@ -1209,12 +1260,12 @@ def get_recipe(
         or _healthyfoods_ground_truth_nutrition(recipe)
     )
 
-    # On-the-fly profiling for recipes with no stored trace (e.g. unprofiled
-    # recipe1m). The profiling chain is far too slow to block a GET on, so it
-    # runs in a background thread that persists the trace and invalidates the
-    # response cache; until then the response carries profiling_status=pending.
+    # On-the-fly profiling for the region the caller selected. An existing
+    # profile for another region may be returned while this completes, but it
+    # must not suppress generation of the requested one. The profiling chain is
+    # far too slow to block a GET, so it runs in a background thread.
     profiling_status = None
-    if not stored_trace and not nutrition:
+    if preferred_nutrition_source and preferred_trace is None:
         if _schedule_live_profile_job(resolved_recipe_id, recipe, region or "IE"):
             profiling_status = "pending"
 
@@ -1247,6 +1298,11 @@ def get_recipe(
     sustainability_details = _as_list_of_dicts(
         stored_trace.get("sustainability_profiling_details") if isinstance(stored_trace, dict) else None
     )
+    profiling_quality = _extract_profiling_quality(stored_trace)
+    payload["profiling_quality"] = profiling_quality
+    payload["calculation_disclaimer"] = _calculation_disclaimer(
+        profiling_quality, profile_details
+    )
 
     if profile_details:
         payload["nutrition_profiling_details"] = profile_details
@@ -1261,6 +1317,11 @@ def get_recipe(
             "total_sustainability_per_serving": stored_trace.get("total_sustainability_per_serving"),
             "sustainability_per_kg": stored_trace.get("sustainability_per_kg"),
         })
+        payload["sustainability_explanation"] = _sustainability_explanation(
+            stored_trace.get("total_sustainability_per_serving"),
+            sustainability_details,
+            profiling_quality,
+        )
 
     if nutrition:
         nutri_score_payload = _coerce_nutri_score_payload(nutrition.get("nutri_score"))
@@ -1375,22 +1436,16 @@ def get_recipe(
         payload["nutri_score_label"] = original_nutri_score
         payload["nutri_score_color"] = _nutri_color_from_score(original_nutri_score)
 
-    # Allergens ride on the detail response so clients can warn before a user
-    # opens a recipe that conflicts with their profile. Neo4j derives them per
-    # ingredient; a lookup failure is logged rather than raised, since failing
-    # an entire recipe read over it would be worse. Note the field then falls
-    # back to [], which a client cannot distinguish from "genuinely none" —
-    # the warning is the only signal, so alert on it.
-    try:
-        payload["allergens"] = sorted(
-            fetch_recipe_allergens_by_ids([resolved_recipe_id]).get(resolved_recipe_id, [])
-        )
-    except Exception:  # noqa: BLE001 - allergen lookup is best-effort
-        logger.warning(
-            "Allergen lookup failed for recipe %s; omitting from detail response",
-            resolved_recipe_id,
-            exc_info=True,
-        )
+    payload["nutri_score_explanation"] = _nutri_score_explanation(
+        payload.get("nutri_score_label"),
+        _as_dict(payload.get("nutri_score_breakdown")),
+        resolved_recipe_id,
+    )
+
+    # Allergen declarations and their FATO/FoodOn evidence are projected into
+    # the v4 catalog. Detail reads must not round-trip to Neo4j to rediscover
+    # information already owned by the search document.
+    payload["allergens"] = sorted(payload.get("allergens") or [])
 
     response = RecipeDetailResponse(**payload)
     # A pending-profile response must not be cached: the background job
@@ -1409,10 +1464,9 @@ def _resolve_profile_recipe_id(payload: dict[str, Any], profile_result: dict[str
     if not title:
         return None
     try:
-        info = fetch_recipe_info(recipe_title=title)
+        return _catalog_recipe_id_by_title(title)
     except Exception:
         return None
-    return _as_id((info or {}).get("recipe_id"))
 
 
 def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: dict[str, Any]) -> tuple[bool, str | None]:
@@ -1445,6 +1499,7 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
         "nutri_score_breakdown": profile_result.get("nutri_score_breakdown"),
         "nutrition_profiling_details": profile_result.get("ingredients"),
         "nutrition_profiling_debug": profile_result.get("pipeline_trace"),
+        "profiling_quality": profile_result.get("profiling_quality"),
         "total_sustainability": profile_result.get("total_sustainability"),
         "total_sustainability_per_serving": profile_result.get("total_sustainability_per_serving"),
         "sustainability_per_kg": profile_result.get("sustainability_per_kg"),
@@ -1458,11 +1513,10 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
     return True, None
 
 
-# In-flight guard for background live-profiling jobs: one job per recipe at a
-# time (the job covers every region), no matter how many GETs race on it.
+# In-flight guard for background live-profiling jobs: one job per recipe and
+# selected region, no matter how many identical GETs race on it.
 _LIVE_PROFILE_JOBS: set[str] = set()
 _LIVE_PROFILE_JOBS_LOCK = threading.Lock()
-_LIVE_PROFILE_REGIONS = ("IE", "US", "HU")
 
 
 def _schedule_live_profile_job(recipe_id: str, recipe: dict[str, Any], region: str) -> bool:
@@ -1473,7 +1527,8 @@ def _schedule_live_profile_job(recipe_id: str, recipe: dict[str, Any], region: s
     """
     if not (recipe.get("ingredients") or []):
         return False
-    key = str(recipe_id)
+    selected_region = (region or "IE").strip().upper()
+    key = f"{recipe_id}:{selected_region}"
     with _LIVE_PROFILE_JOBS_LOCK:
         if key in _LIVE_PROFILE_JOBS:
             return True
@@ -1481,8 +1536,8 @@ def _schedule_live_profile_job(recipe_id: str, recipe: dict[str, Any], region: s
     try:
         threading.Thread(
             target=_run_live_profile_job,
-            args=(key, dict(recipe), (region or "IE").strip().upper()),
-            name=f"live-profile-{recipe_id}",
+            args=(str(recipe_id), dict(recipe), selected_region, key),
+            name=f"live-profile-{recipe_id}-{selected_region.lower()}",
             daemon=True,
         ).start()
     except Exception:
@@ -1492,73 +1547,70 @@ def _schedule_live_profile_job(recipe_id: str, recipe: dict[str, Any], region: s
     return True
 
 
-def _run_live_profile_job(recipe_id: str, recipe: dict[str, Any], first_region: str) -> None:
-    """Profile a recipe for every region and persist each trace.
-
-    The requested region runs first (weight estimation included) so the viewer
-    unblocks soonest; the remaining regions reuse its region-independent
-    weights, paying only the per-region nutrition mapping. Persisting through
-    _persist_profile_trace_best_effort also gives the adaptation service the
-    traces it requires, and its cache_delete makes the next GET pick them up.
-    """
+def _run_live_profile_job(
+    recipe_id: str,
+    recipe: dict[str, Any],
+    region: str,
+    job_key: str,
+) -> None:
+    """Profile only the region selected by the caller and reproject the recipe."""
     try:
         ingredients = recipe.get("ingredients") or []
-        ingredient_lines = [
-            f"{ing.get('measurement', '')} {ing.get('name', '')}".strip()
-            if isinstance(ing, dict) else str(ing)
-            for ing in ingredients
-        ]
+        ingredient_lines = list(
+            dict.fromkeys(recipe.get("original_ingredients") or [])
+        )
+        if not ingredient_lines:
+            ingredient_lines = [
+                f"{ing.get('measurement', '')} {ing.get('name', '')}".strip()
+                if isinstance(ing, dict) else str(ing)
+                for ing in ingredients
+            ]
         ingredient_names, measurements = split_ingredient_lines(ingredient_lines)
-        regions = [first_region] + [r for r in _LIVE_PROFILE_REGIONS if r != first_region]
+        started = time.perf_counter()
+        live_result = Recipe_Profiling_Chain_Structured.invoke({
+            "title": recipe.get("title", ""),
+            "ingredient_names": ingredient_names,
+            "measurements": measurements,
+            "serves": float(recipe.get("serves") or 4),
+            "total_time": recipe.get("duration"),
+            "directions": recipe.get("instructions") or [],
+            "region": region,
+            "debug": False,
+        })
+        if not isinstance(live_result, dict):
+            logger.warning(
+                "Live profiling for %s (%s) returned unexpected payload type %s",
+                recipe_id, region, type(live_result).__name__,
+            )
+            return
 
-        reusable_weights: list[float] | None = None
-        for region in regions:
-            try:
-                started = time.perf_counter()
-                live_result = Recipe_Profiling_Chain_Structured.invoke({
-                    "title": recipe.get("title", ""),
-                    "ingredient_names": ingredient_names,
-                    "measurements": measurements,
-                    "serves": float(recipe.get("serves") or 4),
-                    "total_time": recipe.get("duration"),
-                    "directions": recipe.get("instructions") or [],
-                    "region": region,
-                    "debug": False,
-                    "weights": reusable_weights,
-                })
-                if not isinstance(live_result, dict):
-                    logger.warning(
-                        "Live profiling for %s (%s) returned unexpected payload type %s",
-                        recipe_id, region, type(live_result).__name__,
-                    )
-                    continue
+        persisted, warning = _persist_profile_trace_best_effort(
+            {"recipe_id": recipe_id}, live_result
+        )
+        if not persisted:
+            logger.warning(
+                "Live profiling for %s (%s) completed but was not persisted: %s",
+                recipe_id, region, warning,
+            )
+            return
 
-                if reusable_weights is None:
-                    weights = live_result.get("weights")
-                    if isinstance(weights, list) and len(weights) == len(ingredient_names):
-                        reusable_weights = [float(w or 0.0) for w in weights]
+        # The profile owner is Postgres, but consumers query Elasticsearch.
+        # Reproject after persistence so the selected region becomes visible in
+        # profiles[], regions_available and the flat score fields immediately.
+        from recipe_wrangler.catalog.projection import project
 
-                persisted, warning = _persist_profile_trace_best_effort(
-                    {"recipe_id": recipe_id}, live_result
-                )
-                if persisted:
-                    logger.info(
-                        "Live profiling %s (%s) done in %.1fs (weights %s)",
-                        recipe_id, region, time.perf_counter() - started,
-                        "reused" if region != regions[0] and reusable_weights else "computed",
-                    )
-                else:
-                    logger.warning(
-                        "Live profiling for %s (%s) completed but was not persisted: %s",
-                        recipe_id, region, warning,
-                    )
-            except Exception:
-                logger.warning(
-                    "Live profiling failed for %s (%s)", recipe_id, region, exc_info=True
-                )
+        project(recipe_id)
+        logger.info(
+            "Live profiling %s (%s) persisted and projected in %.1fs",
+            recipe_id, region, time.perf_counter() - started,
+        )
+    except Exception:
+        logger.warning(
+            "Live profiling failed for %s (%s)", recipe_id, region, exc_info=True
+        )
     finally:
         with _LIVE_PROFILE_JOBS_LOCK:
-            _LIVE_PROFILE_JOBS.discard(recipe_id)
+            _LIVE_PROFILE_JOBS.discard(job_key)
 
 
 def _es_card(card: dict[str, Any]) -> dict[str, Any]:
@@ -1594,6 +1646,8 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
         "moods": card.get("moods") or [],
         "flavor_profiles": card.get("flavor_profiles") or [],
         "food_groups": card.get("food_groups") or [],
+        "convenience": card.get("convenience") or [],
+        "nutrition_claims": card.get("nutrition_claims") or [],
     }
 
 
@@ -1613,7 +1667,7 @@ def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
 
     **Filtering (hard constraints)**
 
-    - ``user_profile.allergies`` — excluded via the food taxonomy graph.
+    - ``user_profile.allergies`` — excluded via projected allergen evidence.
       Excluding ``"dairy"`` also excludes recipes whose ingredients are
       taxonomic descendants of dairy (e.g. parmesan, whey).
     - ``user_profile.diet`` — recipe must carry *all* requested diet tags
@@ -1649,43 +1703,10 @@ def get_foodchat_candidates(request: FoodChatRequest) -> FoodChatResponse:
     classification needed), and ``nutrition`` (``calories``, ``protein_g``,
     ``carbs_g``, ``fat_g`` per serving; ``null`` when no profile is stored).
     """
-    # Elasticsearch by default. The graph holds no cuisine, mood, flavour, food
-    # group or planning_tier, so the Neo4j path cannot honour a taste preference
-    # or an exclusion from planning however politely it is asked — the fields
-    # are simply not there. Flip FOODCHAT_CANDIDATES_FROM_ELASTIC to fall back.
-    use_elastic = get_settings().foodchat_candidates_from_elastic
-
     try:
-        if use_elastic:
-            results = fetch_candidates_es(request)
-        else:
-            results = fetch_foodchat_candidates(request)
-        return FoodChatResponse(results=results)
-    except (Neo4jError, Neo4jDriverError) as exc:
-        raise map_dependency_error("Neo4j", exc) from exc
+        return FoodChatResponse(results=fetch_candidates_es(request))
     except Exception as exc:
-        if use_elastic:
-            # Fall back rather than fail. The Neo4j path is kept precisely so a
-            # problem in the new one degrades the plan (no annotations) instead
-            # of removing meal planning from the product.
-            logger.error(
-                "Elasticsearch foodchat candidates failed, falling back to "
-                "Neo4j (annotations and planning_tier will be ignored): %s",
-                exc,
-            )
-            try:
-                return FoodChatResponse(results=fetch_foodchat_candidates(request))
-            except (Neo4jError, Neo4jDriverError) as fallback_exc:
-                # The same Neo4j outage reports 503 on the direct path and would
-                # have reported 500 here purely because it was reached through a
-                # fallback. A caller retrying on 503 and paging on 500 would
-                # then do the wrong thing depending on a flag it cannot see.
-                raise map_dependency_error("Neo4j", fallback_exc) from fallback_exc
-            except Exception as fallback_exc:  # noqa: BLE001
-                raise InternalError(
-                    "Failed to fetch foodchat candidates"
-                ) from fallback_exc
-        raise InternalError("Failed to fetch foodchat candidates") from exc
+        raise map_dependency_error("Elasticsearch", exc) from exc
 
 
 
@@ -1696,7 +1717,7 @@ def _build_card_nutrition(
     allergens: list[str],
     nutri_score: object,
 ) -> RecipeCardNutrition:
-    """Assemble a slim card with per-serving macros from Neo4j metadata + stored nutrition."""
+    """Assemble a slim card with catalog metadata plus stored nutrition."""
 
     kcal = protein = carbs = fat = None
     if nutrition:
@@ -1766,8 +1787,7 @@ def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetail
     - ``region`` namespaces the per-recipe response cache; the batch nutrition
       lookup returns the most recently updated stored profile per recipe.
     - Read-only and batch-shaped: one Redis MGET, then for cache misses only a
-      single bulk Neo4j metadata query, one batch Postgres nutrition query,
-      and batch allergen/score queries.
+      single Elasticsearch mget and one batch Postgres nutrition query.
     """
     variant = _card_nutrition_cache_variant(request.region)
     requested_ids = list(dict.fromkeys(request.recipe_ids))
@@ -1784,9 +1804,9 @@ def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetail
         return RecipeDetailsBatchResponse(results=results)
 
     try:
-        recipes = fetch_recipe_info_by_ids(missing)
+        recipes = _catalog_recipes_by_ids(missing)
     except Exception as exc:  # noqa: BLE001
-        raise map_dependency_error("Neo4j", exc) from exc
+        raise map_dependency_error("Elasticsearch", exc) from exc
 
     if not recipes:
         return RecipeDetailsBatchResponse(results=results)
@@ -1806,16 +1826,6 @@ def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetail
     except Exception:  # noqa: BLE001 - nutrition is best-effort; macros stay null
         nutrition_map = {}
 
-    try:
-        allergen_map = fetch_recipe_allergens_by_ids(found_ids)
-    except Exception:  # noqa: BLE001
-        allergen_map = {}
-
-    try:
-        score_map = fetch_recipe_scores_by_ids(found_ids)
-    except Exception:  # noqa: BLE001
-        score_map = {}
-
     fresh: dict[str, dict[str, Any]] = {}
     for rid in missing:
         recipe = recipes.get(rid)
@@ -1826,8 +1836,8 @@ def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetail
             recipe_id=resolved_id,
             recipe=recipe,
             nutrition=nutrition_map.get(resolved_id) or nutrition_map.get(rid),
-            allergens=allergen_map.get(rid, []),
-            nutri_score=(score_map.get(rid) or {}).get("nutri_score"),
+            allergens=list(recipe.get("allergens") or []),
+            nutri_score=recipe.get("default_nutri_score"),
         )
         results[rid] = card
         fresh[rid] = card.model_dump(mode="json")
@@ -2003,15 +2013,22 @@ async def recipe_search(
 
     _mood_vocab = set(_V.MOODS)
     _cuisine_vocab = set(_V.CUISINES)
+    _food_group_vocab = set(_V.FOOD_GROUPS)
 
     moods = [t for t in _question_tokens if t in _mood_vocab]
     cuisines = [t for t in _question_tokens if t in _cuisine_vocab]
+    food_groups = [t for t in _question_tokens if t in _food_group_vocab]
     if moods:
         base_constraints["moods"] = list(dict.fromkeys(moods))
         logger.info("recipe_search recovered moods %s", base_constraints["moods"])
     if cuisines:
         base_constraints["cuisines"] = list(dict.fromkeys(cuisines))
         logger.info("recipe_search recovered cuisines %s", base_constraints["cuisines"])
+    if food_groups:
+        base_constraints["food_groups"] = list(dict.fromkeys(food_groups))
+        logger.info(
+            "recipe_search recovered food groups %s", base_constraints["food_groups"]
+        )
 
     # Explicit caller selections override everything inferred above.
     #
@@ -2026,7 +2043,8 @@ async def recipe_search(
     # signal: "pasta" plus a Greek cuisine chip should filter to Greek, not
     # decide that nothing was extracted.
     for _field in ("dish_types", "sources", "cuisines", "moods",
-                   "flavor_profiles", "food_groups"):
+                   "flavor_profiles", "food_groups", "convenience",
+                   "nutrition_claims", "nutri_scores"):
         _selected = getattr(payload, _field, None) or []
         if _selected:
             base_constraints[_field] = list(dict.fromkeys(_selected))
@@ -2059,7 +2077,8 @@ async def recipe_search(
     _signal_keys = (
         "include_ingredients", "exclude_ingredients", "exclude_allergens",
         "diet_tags", "dish_types", "sources", "title_keywords", "title_query",
-        "cuisines", "moods", "flavor_profiles", "food_groups",
+        "cuisines", "moods", "flavor_profiles", "food_groups", "convenience",
+        "nutrition_claims", "nutri_scores",
         "max_duration_minutes", "min_servings", "sort_by",
     )
     lexical_fallback = not any(
@@ -2167,6 +2186,10 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
                 moods=payload.moods,
                 flavor_profiles=payload.flavor_profiles,
                 food_groups=payload.food_groups,
+                convenience=payload.convenience,
+                nutrition_claims=payload.nutrition_claims,
+                nutri_scores=payload.nutri_scores,
+                region=payload.region,
                 max_duration_minutes=payload.max_duration_minutes,
                 limit=payload.limit,
                 offset=payload.offset,
@@ -2200,8 +2223,8 @@ async def recipe_profile(
     region = str(payload.region or "IE").strip().upper()
     trusted_serves = payload.serves
 
-    if region not in {"IE", "US", "HU"}:
-        region = "US"
+    if region not in {"IE", "HU", "EU", "SI"}:
+        region = "IE"
 
     if payload.parse_only:
         from recipe_wrangler.tools.parse_recipe_tool import parse_recipe_tool
@@ -2218,9 +2241,11 @@ async def recipe_profile(
         total_time = parsed.get("total_time") or 0
         serves = trusted_serves or parsed.get("serves") or 0
         try:
-            auto_allergens = detect_allergens_from_names(names)
+            allergen_fields = _analysis_allergen_fields(names)
+            auto_allergens = allergen_fields["allergens"]
             auto_tags = list(infer_diet_tags(set(auto_allergens)))
         except Exception:
+            allergen_fields = {"allergens": [], "allergen_evidence": []}
             auto_allergens, auto_tags = [], []
         return {
             "message": "Success",
@@ -2231,6 +2256,7 @@ async def recipe_profile(
             "duration": total_time if total_time > 0 else None,
             "serves": serves if serves > 0 else None,
             "allergens": auto_allergens,
+            "allergen_evidence": allergen_fields["allergen_evidence"],
             "tags": auto_tags,
             # also expose split form for display/editing
             "ingredient_names": names,
@@ -2269,6 +2295,22 @@ async def recipe_profile(
             profile_result["profiling_trace_persisted"] = False
             profile_result["profiling_trace_warning"] = f"Failed to persist trace: {exc}"
 
+    profile_names = [
+        str(name).strip()
+        for name in (profile_result.get("ingredient_names") or [])
+        if str(name).strip()
+    ]
+    if not profile_names:
+        profile_names = [
+            str(item.get("name") or item.get("ingredient") or "").strip()
+            for item in (profile_result.get("ingredients") or [])
+            if isinstance(item, dict)
+            and str(item.get("name") or item.get("ingredient") or "").strip()
+        ]
+    allergen_fields = _analysis_allergen_fields(profile_names)
+    profile_result["allergens"] = allergen_fields["allergens"]
+    profile_result["allergen_evidence"] = allergen_fields["allergen_evidence"]
+
     # Return the full chain output so clients can access all parsed/profiling fields.
     # Strip top-level None values — they represent unset pipeline state, not meaningful nulls.
     profile_result = {k: v for k, v in profile_result.items() if v is not None}
@@ -2279,62 +2321,60 @@ async def recipe_profile(
 # Recipe creation endpoint
 # ---------------------------------------------------------------------------
 
+@router.post(
+    "/url/preview",
+    tags=["recipes"],
+    summary="Preview structured recipe data from a public URL",
+)
+async def recipe_url_preview(payload: RecipeUrlRequest) -> dict[str, Any]:
+    from recipe_wrangler.utils.recipe_url import RecipeUrlError, fetch_recipe_from_url
+
+    try:
+        return await asyncio.to_thread(fetch_recipe_from_url, payload.url)
+    except RecipeUrlError as exc:
+        raise DataError(detail=str(exc), extra={"title": "RecipeUrlError"}) from exc
+    except requests.RequestException as exc:
+        raise map_dependency_error("recipe source website", exc) from exc
+
+
+@router.post(
+    "/url/import",
+    response_model=RecipeCreateResponse,
+    tags=["recipes"],
+    summary="Import and profile a recipe from a public URL",
+)
+async def recipe_url_import(
+    payload: RecipeUrlRequest, caller: Caller = Depends(get_caller)
+) -> RecipeCreateResponse:
+    draft = await recipe_url_preview(payload)
+    missing = list(draft.get("missing_required_fields") or [])
+    if missing:
+        raise DataError(
+            detail=(
+                "The source page does not provide fields required for a safe import: "
+                + ", ".join(missing)
+                + ". Preview it and supply/correct these fields through the normal create endpoint."
+            ),
+            extra={"title": "IncompleteRecipeUrl", "missing_fields": missing},
+        )
+    return await recipe_create(
+        RecipeCreateRequest(
+            title=draft["title"],
+            ingredients=draft["ingredients"],
+            instructions=draft["instructions"],
+            duration=draft["duration"],
+            serves=draft["serves"],
+            region=payload.region,
+            image_url=draft.get("image_url"),
+            url=draft["url"],
+        ),
+        caller,
+    )
+
 def _generate_user_recipe_id(title: str, ingredients: list[str]) -> str:
     """Generate a UUID for a newly created user recipe."""
     _ = (title, ingredients)  # keep signature compatibility for existing call sites
     return str(uuid4())
-
-
-def _project_to_recipes_v2(recipe_id: str) -> None:
-    """Refresh this recipe's catalog document from its owners.
-
-    Now goes through ``catalog.projection``, which builds the document with the
-    same ``Recipe.validate`` the corpus rebuild uses. The previous
-    implementation assembled a ``recipes_v2``-shaped document — flat
-    ``ingredients``, no ``urn`` — which the catalog index's strict mapping
-    rejects with a 400. Because it was best-effort it logged and returned
-    False, so every recipe created or edited after the read flip was silently
-    absent from search.
-
-    Failure is now raised and logged at ERROR rather than swallowed. It is
-    still caught here so a projection problem cannot fail a write that already
-    committed to Neo4j and Postgres — but it is loud, and the recipe id is in
-    the message so it can be re-projected.
-    """
-    from recipe_wrangler.catalog.projection import ProjectionError, project
-
-    try:
-        project(recipe_id)
-    except ProjectionError:
-        logger.error(
-            "catalog projection FAILED for %s — the recipe is saved in Neo4j and "
-            "Postgres but will not appear in search until it is re-projected",
-            recipe_id,
-            exc_info=True,
-        )
-
-
-def _index_recipe_to_elastic(
-    recipe_id: str,
-    title: str,
-    ingredient_names: list[str],
-    tags: list[str],
-    source: str,
-    source_id: str | None,
-) -> None:
-    """Index a single recipe document into Elasticsearch (best-effort)."""
-    settings = get_settings()
-    url = f"{settings.elastic_url}/{settings.elastic_index}/_doc/{recipe_id}"
-    doc = {
-        "id": recipe_id,
-        "title": title,
-        "title_normalized": normalize_recipe_title(title),
-        "source": source,
-        "source_id": resolve_collection_source_id(source, source_id),
-        "ingredients": ingredient_names,
-        "tags": tags,
-    }
-    get_http_session().put(url, json=doc, timeout=settings.elastic_timeout)
 
 
 @router.post(
@@ -2365,7 +2405,7 @@ async def recipe_create(
     region = str(payload.region or "IE").strip().upper()
     ingredient_names, measurements = split_ingredient_lines(payload.ingredients)
     recipe_id = _generate_user_recipe_id(payload.title, payload.ingredients)
-    nutrition_source = _nutrition_source_from_region(region) or "usda"
+    nutrition_source = _nutrition_source_from_region(region) or "irish"
 
     manual_nutrients: dict[str, float | None] = {
         "protein_g": payload.protein_g,
@@ -2423,8 +2463,7 @@ async def recipe_create(
                 extra={"title": "ProfilingPipelineError"},
             )
 
-        from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals, _resolve_fvl_usda_id
-        from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
+        from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals
 
         nutrition_source_key = profile_result.get("nutrition_source_key") or nutrition_source
         totals = profile_result.get("profiling_totals") or {}
@@ -2434,50 +2473,27 @@ async def recipe_create(
             if clean_totals else None
         )
 
-        # Compute nutri_score_breakdown immediately (same logic as backfill)
+        # Compute nutri_score_breakdown immediately (same logic as backfill).
         if clean_totals:
             try:
                 prof_ingredients = profile_result.get("ingredients") or []
-                score_ingredients = []
-                total_weight = 0.0
-                for ing in prof_ingredients:
-                    if not isinstance(ing, dict):
-                        continue
-                    w = ing.get("weight_g") or ing.get("weight_grams")
-                    if not w:
-                        continue
-                    total_weight += float(w)
-                    usda_id = _resolve_fvl_usda_id(ing.get("canonical_food_id"), ing.get("name"))
-                    entry = {"name": ing.get("name"), "weight_grams": float(w)}
-                    if usda_id:
-                        entry["usda_id"] = usda_id
-                    score_ingredients.append(entry)
-                fvl_pct = fruits_veg_legumes_percent(score_ingredients) if score_ingredients else 0.0
-                nutri_score_breakdown = compute_nutri_score_breakdown_from_values(
-                    protein_g=clean_totals["protein_g"],
-                    carbohydrate_g=clean_totals["carbohydrate_g"],
-                    fat_g=clean_totals["fat_g"],
-                    energy_kcal=clean_totals["energy_kcal"],
-                    sugar_g=clean_totals["sugar_g"],
-                    saturated_fat_g=clean_totals["saturated_fat_g"],
-                    sodium_mg=clean_totals["sodium_mg"],
-                    fibre_g=clean_totals["fibre_g"],
-                    fvl_percent=fvl_pct,
-                    total_weight_g=total_weight,
-                    ingredients_with_usda_id_count=sum(1 for e in score_ingredients if "usda_id" in e),
+                nutri_score_breakdown = _build_nutri_score_breakdown(
+                    clean_totals, prof_ingredients
                 )
             except Exception:
                 pass
 
-    # --- Allergen + tag resolution ---
+    # --- Allergen resolution ---
+    # Diet tags are not computed here: they depend on the *complete* allergen
+    # set (keyword + FoodOn), which is only known once upsert_recipe_to_neo4j
+    # has run its detection -- computing them from this pre-write guess would
+    # silently ignore anything FoodOn finds that the keyword scan misses.
     auto_allergens = detect_allergens_from_names(ingredient_names)
     merged_allergens: list[str] = sorted(set(auto_allergens) | set(payload.allergens))
-    auto_tags = infer_diet_tags(set(merged_allergens))
-    merged_tags: list[str] = sorted(set(auto_tags) | set(payload.tags))
 
     # --- Neo4j write ---
     try:
-        upsert_recipe_to_neo4j(
+        merged_allergens, merged_tags = upsert_recipe_to_neo4j(
             recipe_id=recipe_id,
             title=payload.title,
             ingredient_lines=payload.ingredients,
@@ -2487,14 +2503,16 @@ async def recipe_create(
             duration=float(payload.duration),
             serves=float(payload.serves),
             image_url=payload.image_url,
+            url=payload.url,
             allergens=merged_allergens,
-            tags=merged_tags,
+            user_tags=payload.tags,
             source="user",
             source_id=payload.source_id,
             expert_recipe=payload.expert_recipe,
             # Keycloak subject, established by wisefood-api. Set once and never
             # overwritten, and redacted from responses for non-expert callers.
             creator=caller.creator_id,
+            seasonality=payload.seasonality,
         )
     except Exception as exc:
         raise map_dependency_error("Neo4j", exc) from exc
@@ -2535,18 +2553,24 @@ async def recipe_create(
     except Exception:
         pass  # non-fatal — recipe is in Neo4j, postgres trace is best-effort
 
-    # --- Elasticsearch index ---
-    try:
-        _index_recipe_to_elastic(
-            recipe_id,
-            payload.title,
-            ingredient_names,
-            merged_tags,
-            "user",
-            payload.source_id,
+    # Nutrition claims are deterministic facets, not model annotations. They
+    # are written after the complete profile exists and before projection so a
+    # newly created recipe enters Elasticsearch with the same claim vocabulary
+    # as a corpus backfill. Manual totals have no recipe weight basis, so only a
+    # genuinely calculable profile can produce per-100g claims.
+    if profile_result:
+        claims = compute_nutrition_claim_tags(
+            clean_totals,
+            profile_result.get("ingredients"),
+            profile_result.get("nutri_score"),
+            physical_form=infer_physical_form(payload.title, payload.tags),
         )
-    except Exception:
-        pass  # non-fatal
+        try:
+            replace_recipe_nutrition_claims(recipe_id, claims)
+        except Exception:
+            logger.warning(
+                "could not persist nutrition claims for %s", recipe_id, exc_info=True
+            )
 
     # Commit: project into the catalog index, then annotate.
     #
@@ -2570,7 +2594,28 @@ async def recipe_create(
             commit_result.summary(),
         )
 
-    return RecipeCreateResponse(recipe_id=recipe_id)
+    projected: dict[str, Any] = {}
+    try:
+        projected = _catalog_recipe_by_id(recipe_id) or {}
+    except Exception:
+        logger.warning(
+            "could not read projected allergen evidence for %s",
+            recipe_id,
+            exc_info=True,
+        )
+    response_evidence = list(projected.get("allergen_evidence") or [])
+    response_allergens = list(projected.get("allergens") or [])
+    if not response_evidence:
+        response_evidence = detect_allergen_evidence_from_names(ingredient_names)
+    if not response_allergens:
+        response_allergens = sorted(
+            {row["allergen"] for row in response_evidence} | set(merged_allergens)
+        )
+    return RecipeCreateResponse(
+        recipe_id=recipe_id,
+        allergens=response_allergens,
+        allergen_evidence=response_evidence,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2597,14 +2642,14 @@ async def recipe_substitute(
     of the recipe after the swap.
     """
     region = str(payload.region or "IE").strip().upper()
-    if region not in {"IE", "US", "HU"}:
+    if region not in {"IE", "HU", "EU", "SI"}:
         region = "IE"
 
     # --- Fetch recipe ---
     try:
-        recipe = fetch_recipe_info_by_id(recipe_id)
+        recipe = _catalog_recipe_by_id(recipe_id)
     except Exception as exc:
-        raise map_dependency_error("Neo4j", exc) from exc
+        raise map_dependency_error("Elasticsearch", exc) from exc
 
     if not recipe:
         raise NotFoundError(detail=f"Recipe '{recipe_id}' not found")
@@ -2698,19 +2743,22 @@ async def recipe_substitute(
     "/{recipe_id}",
     response_model=RecipeUpdateResponse,
     tags=["recipes"],
-    summary="Update recipe instructions and/or image URL across all stores",
+    summary="Update mutable recipe fields across owner and search stores",
 )
 async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeUpdateResponse:
     """Patch mutable fields on an existing recipe.
 
-    - **Neo4j**: updates ``instructions`` and/or ``image_url`` on the Recipe node.
-    - **Elasticsearch**: updates the indexed document if ``image_url`` changes
-      (instructions are not indexed).
+    - **Neo4j**: updates the supplied owner fields on the Recipe node.
+    - **Elasticsearch**: fully reprojects the recipe, including deterministic
+      v4 facets such as convenience and source-provided seasonality.
     - **Postgres**: nutrition traces are not affected (they store nutrients, not content).
 
     Returns 404 if the recipe does not exist in Neo4j.
     """
-    patchable = ("instructions", "image_url", "source_id", "expert_recipe", "title", "allergens", "tags", "duration")
+    patchable = (
+        "instructions", "image_url", "source_id", "expert_recipe", "title",
+        "allergens", "tags", "duration", "seasonality",
+    )
     if all(getattr(payload, f) is None for f in patchable):
         raise NotFoundError(detail="No fields provided to update")
 
@@ -2728,6 +2776,7 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
             allergens=payload.allergens,
             tags=payload.tags,
             duration=payload.duration,
+            seasonality=payload.seasonality,
         )
     except Exception as exc:
         raise map_dependency_error("Neo4j", exc) from exc
@@ -2755,20 +2804,6 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
             cache_delete(resolved_cache_id)
     except Exception:
         pass
-
-    # --- Elasticsearch legacy index (image_url only — its docs carry no other
-    # patchable field the runtime serves) ---
-    if payload.image_url is not None:
-        try:
-            settings = get_settings()
-            url = f"{settings.elastic_url}/{settings.elastic_index}/_update/{recipe_id}"
-            get_http_session().post(
-                url,
-                json={"doc": {"image_url": payload.image_url}},
-                timeout=settings.elastic_timeout,
-            )
-        except Exception:
-            pass  # non-fatal
 
     # --- Full-doc reprojection so title/tags/allergens/duration/expert_recipe
     # edits reach search instead of going stale until a rebuild.
@@ -2820,8 +2855,7 @@ _STATUS_RESPONSE_ID_CAP = 1000
 
 
 def _es_status_indices() -> tuple[str, list[str]]:
-    """Both indices that serve recipes: recipes_v2 (search) + the legacy
-    autocomplete/fallback index."""
+    """Return the single live recipe-catalog alias."""
     settings = get_settings()
     from recipe_wrangler.tools.es_recipe_search import ES_INDEX
     indices = list(dict.fromkeys([ES_INDEX, settings.elastic_index]))

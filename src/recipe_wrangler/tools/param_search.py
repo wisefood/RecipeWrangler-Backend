@@ -35,7 +35,6 @@ _STABLE_RECIPE_SORT_FIELDS = f"""
         WHEN {_CANONICAL_SOURCE_EXPR} = "foodhero" THEN 1
         WHEN {_CANONICAL_SOURCE_EXPR} = "myplate" THEN 2
         WHEN {_CANONICAL_SOURCE_EXPR} = "irish_safefood" THEN 3
-        WHEN {_CANONICAL_SOURCE_EXPR} = "recipe1m" THEN 5
         ELSE 4
       END AS _sort_source,
       CASE WHEN coalesce(r.has_profile, false) THEN 0 ELSE 1 END AS _sort_profile,
@@ -323,7 +322,7 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> dict[str, Any]:
         order_by_clause = _order_by_clause(filters.sort_by)
 
         # Unconstrained browse: stable, paginatable profile-first recipe catalog.
-        # Unprofiled recipe1m recipes are nearly unreachable via browse.
+        # Unprofiled recipes are intentionally omitted from unconstrained browse.
         result_query = _build_result_query(where_clause, order_by_clause)
         count_query = _build_count_query(where_clause)
         facet_query = _build_facet_query(where_clause) if filters.include_facets else None

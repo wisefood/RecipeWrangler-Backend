@@ -35,6 +35,7 @@ def suggestions(
         use_llm=payload.use_llm,
         mode=payload.mode,
         goal_nutrients=payload.goal_nutrients,
+        target_serves=payload.target_serves,
     )
     return SuggestionsResponse(**result)
 

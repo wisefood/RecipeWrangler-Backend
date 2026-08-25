@@ -202,7 +202,9 @@ class TestManifest:
     def test_lists_every_tool_with_an_endpoint(self):
         manifest = tool_manifest()
         names = {t["name"] for t in manifest["tools"]}
-        assert {"plan_meals", "find_recipes", "describe_options"} <= names
+        assert {
+            "plan_meals", "find_recipes", "describe_options", "food_safety"
+        } <= names
         for tool in manifest["tools"]:
             assert tool["endpoint"].split()[0] in {"GET", "POST"}
 
@@ -247,6 +249,12 @@ class TestManifest:
         text = " ".join(tool_manifest()["limitations"]).lower()
         assert "allergen" in text
         assert "unknown" in text
+
+    def test_describes_course_coverage_and_optional_abstentions(self):
+        note = tool_manifest()["corpus"]["coverage_note"].lower()
+        assert "classified course type" in note
+        assert "can be empty" in note
+        assert "no defensible value" in note
 
 
 class TestFindRecipesRequest:

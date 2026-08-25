@@ -7,22 +7,23 @@ Each subdirectory is one service. Currently:
 
 | Service | Status | Mounted on |
 |---|---|---|
-| [`adaptation/`](#adaptation) | in-test (v6) — nutrition / sustainability / reduce-quantity / vegan / vegetarian | Main API and standalone app on port 8101 |
+| [`adaptation/`](#adaptation) | in-test (v7) — nutrition / sustainability / portion / reduce-quantity / vegan / vegetarian | Main API and standalone app on port 8101 |
 
 ---
 
 ## adaptation
 
 Suggests how to improve a recipe for Nutri-Score, carbon footprint, vegan
-composition, or vegetarian composition by **swapping** an ingredient for a
-better one or **reducing** the worst offender's quantity. Candidate swaps come
+composition, or vegetarian composition by **swapping**
+an ingredient, **reducing** the worst offender's quantity, or scaling the
+profiled quantities to a requested serving count. Candidate swaps come
 from the recipe knowledge graph and Elasticsearch ingredient retrieval; Neo4j
 consumer suitability is the mandatory eligibility gate for vegan and
 vegetarian adaptation.
 
 ### Status
 
-**v5 — tracked in repo, standalone API, no UI.** Built up in layers, each traceable:
+**v7 — tracked in repo, standalone API, no UI.** Built up in layers, each traceable:
 
 - **v1** deterministic swap pipeline (target worst negative nutrient → rank offenders → graph substitutes → simulate + re-score).
 - **v2** token-based FCT→graph name resolver + strict grade-preservation gate.
@@ -32,6 +33,8 @@ vegetarian adaptation.
 - **v6** vegan/vegetarian adaptation: detect versioned recipe blockers, retrieve
   goal-aware alternatives from Elasticsearch plus the graph, hard-filter to
   explicit Neo4j `suitable`, and report the simulated whole-recipe status.
+- **v7** portion mode scales every profiled ingredient by the exact requested
+  serving ratio. Meal-plan cards link to the adaptation endpoint.
 
 The router is mounted by the main API and remains runnable independently with
 `app.py` on port 8101.
@@ -47,10 +50,12 @@ Request:
 ```json
 { "region": "IE", "mode": "nutrition", "max_swaps": 3, "use_llm": true }
 ```
-- `region`: `IE` / `US` / `HU` — selects the composition table.
+- `region`: `IE` / `HU` / `EU` / `SI` — selects the composition table.
 - `mode`:
   - `nutrition` — swap to improve the worst Nutri-Score negative nutrient.
   - `sustainability` — swap to cut the highest-CO2e ingredient (with a nutri-guard so the grade can't worsen).
+  - `portion` — scale profiled weights to `target_serves`; cookware and cooking
+    time may still need manual adjustment.
   - `reduce_quantity` — when no swap helps, recommend *using less* of the worst nutrient contributor (the smallest cut that still improves the grade). No LLM, no graph substitutes needed.
   - `vegan` — replace one known vegan-blocking ingredient with candidates
     explicitly classified vegan-suitable under `vegan-vegetarian-v1`.
@@ -59,6 +64,7 @@ Request:
     candidates.
 - `max_swaps`: 1–3, number of ranked suggestions to return after the LLM filter (if enabled).
 - `use_llm` (default `false`): when `true`, an LLM judge runs over the top-10 deterministic candidates, rejects culinary-nonsense swaps (e.g. swapping butter for salt in a butter sauce, or beef mince for offal in a burger), and reranks the survivors by recipe-aware sense. See *LLM judge* below. Ignored in `reduce_quantity` mode.
+- `target_serves`: required only for `portion`; must be greater than zero.
 
 Each suggestion carries an `action` field: `"swap"` (replace with `substitute_name`) or `"reduce"` (keep the ingredient, see the `reduced_*` fields).
 
@@ -67,6 +73,9 @@ Response — see `schemas.SuggestionsResponse`. The `mode` field on the response
 **Nutrition-mode fields:** `current_nutri_score`, `target_nutrient`, `target_nutrient_label`, `target_nutrient_points`, plus per suggestion: `simulated_nutri_score`, `nutri_score_points_saved`, `target_nutrient_per_100g`, `original_per_100g`, `nutrient_delta_per_serving`.
 
 **Sustainability-mode fields:** `current_co2e_per_serving_kg`, `current_co2e_total_kg`, plus per suggestion: `simulated_co2e_per_serving_kg`, `co2e_reduction_per_serving_kg`, `co2e_reduction_pct`, `original_cf_kg_co2e_per_kg`, `candidate_cf_kg_co2e_per_kg`.
+
+**Portion-mode fields:** one `action: "scale"` suggestion with the current and
+adjusted servings, scale factor, and scaled profiled ingredient weights.
 
 **Reduce-quantity-mode fields:** same context block as nutrition mode (`current_nutri_score`, `target_nutrient*`), plus per suggestion (`action: "reduce"`): `simulated_nutri_score`, `nutri_score_points_saved`, `reduced_from_weight_g`, `reduced_to_weight_g`, `reduction_pct`. `substitute_name` / `source` / `category_distance` are null.
 

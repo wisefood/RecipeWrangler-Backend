@@ -19,7 +19,10 @@ import pytest
 from recipe_wrangler.schemas.models import RecipeSearchFilters, RecipeSearchRequest
 from recipe_wrangler.tools.es_recipe_search import RecipeSearchConstraints, build_es_query
 
-FACETS = ("cuisines", "moods", "flavor_profiles", "food_groups")
+FACETS = (
+    "cuisines", "moods", "flavor_profiles", "food_groups",
+    "convenience", "nutrition_claims",
+)
 
 
 def _filters_of(query: dict) -> list[dict]:
@@ -66,6 +69,21 @@ class TestQueryConstruction:
         assert _terms_for(query, "cuisines") == ["italian"]
         assert _terms_for(query, "food_groups") == ["fish"]
 
+    def test_quick_and_high_protein_are_both_required(self):
+        query = build_es_query(
+            RecipeSearchConstraints(
+                convenience=["quick"], nutrition_claims=["high protein"]
+            )
+        )
+        assert _terms_for(query, "convenience") == ["quick"]
+        assert _terms_for(query, "nutrition_claims") == ["high_protein"]
+
+    def test_nutri_score_uses_selected_region(self):
+        query = build_es_query(
+            RecipeSearchConstraints(region="SI", nutri_scores=["a", "E"])
+        )
+        assert _terms_for(query, "nutri_score_slovenian") == ["A", "E"]
+
     @pytest.mark.parametrize("facet", FACETS)
     def test_values_are_normalized_to_index_spelling(self, facet):
         """The index stores `middle_eastern`; a UI may send `Middle Eastern`.
@@ -101,20 +119,30 @@ class TestParamSearchRequestModel:
             ("mood", "moods"),
             ("flavor_profile", "flavor_profiles"),
             ("food_group", "food_groups"),
+            ("convenience_tag", "convenience"),
+            ("nutrition_claim", "nutrition_claims"),
         ],
     )
     def test_singular_alias_and_bare_string(self, alias, facet):
         """`{"cuisine": "italian"}` means one cuisine, not a validation error."""
         assert getattr(RecipeSearchFilters(**{alias: "italian"}), facet) == ["italian"]
 
+    def test_nutri_score_alias_accepts_a_bare_grade(self):
+        assert RecipeSearchFilters(nutri_score="E").nutri_scores == ["E"]
+
 
 class TestNaturalLanguageRequestModel:
     """`RecipeSearchRequest` carries the sidebar alongside the question."""
 
-    @pytest.mark.parametrize("facet", (*FACETS, "dish_types", "sources"))
+    @pytest.mark.parametrize(
+        "facet", (*FACETS, "dish_types", "sources")
+    )
     def test_selection_is_accepted(self, facet):
         model = RecipeSearchRequest(question="pasta", **{facet: ["x"]})
         assert getattr(model, facet) == ["x"]
+
+    def test_nutri_score_selection_is_accepted(self):
+        assert RecipeSearchRequest(question="pasta", nutri_scores=["B"]).nutri_scores == ["B"]
 
     def test_require_diet_tags_is_separate_from_diet_tags(self):
         """The two mean opposite things and must not collapse into one field.

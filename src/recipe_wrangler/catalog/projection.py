@@ -117,6 +117,9 @@ RETURN
   r.source_id AS source_id,
   coalesce(r.duration_minutes, r.duration) AS duration,
   r.serves AS serves, r.cost_category AS cost_category,
+  r.cost_category_code AS cost_category_code,
+  r.cost_category_status AS cost_category_status,
+  r.cost_price_coverage AS cost_price_coverage,
   coalesce(r.expert_recipe, false) AS expert_recipe,
   coalesce(r.status, "active") AS status,
   toString(properties(r)['disabled_at']) AS disabled_at,
@@ -159,6 +162,11 @@ def _float(value: object) -> float | None:
         return float(value) if value is not None else None
     except (TypeError, ValueError):
         return None
+
+
+def _int(value: object) -> int | None:
+    number = _float(value)
+    return int(number) if number is not None else None
 
 
 def _clean_ingredients(values: object) -> list[dict[str, Any]]:
@@ -245,6 +253,9 @@ def build_document(
         "duration": _float(row.get("duration")),
         "serves": _float(row.get("serves")),
         "cost_category": _clean(row.get("cost_category")) or None,
+        "cost_category_code": _int(row.get("cost_category_code")),
+        "cost_category_status": _clean(row.get("cost_category_status")) or None,
+        "cost_price_coverage": _float(row.get("cost_price_coverage")),
         "expert_recipe": bool(row.get("expert_recipe")),
         "status": _clean(row.get("status")) or "active",
         # Read from Neo4j *and* listed in ES_OWNED_FIELDS. Not a contradiction:
@@ -295,6 +306,7 @@ def build_document(
 OWNER_PROJECTED_FIELDS: tuple[str, ...] = (
     "title", "description", "instructions", "url", "image_url",
     "source", "source_id", "duration", "serves", "cost_category",
+    "cost_category_code", "cost_category_status", "cost_price_coverage", "cost",
     "disabled_at", "ingredients", "ingredient_class_ancestors",
     "allergens", "allergen_evidence", "consumer_suitability",
     "suitable_for", "tags", "diet_tags", "nutrition_claims", "seasonality",

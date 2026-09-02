@@ -68,6 +68,7 @@ class RecipeState(BaseModel):
     profiling_totals: Dict[str, float] = Field(default_factory=dict)
     full_profile: Dict[str, Any] = Field(default_factory=dict)
     pipeline_trace: Dict[str, Any] = Field(default_factory=dict)
+    cost_profile: Dict[str, Any] = Field(default_factory=dict)
     nutri_score: Optional[Dict[str, Any]] = None
     nutri_score_breakdown: Optional[Dict[str, Any]] = None
     nutri_score_color: Optional[str] = None
@@ -596,6 +597,8 @@ class RecipeDetailResponse(BaseModel):
     sustainability_profiling_details: Optional[List[Dict[str, Any]]] = None
     sustainability_explanation: Optional[Dict[str, Any]] = None
     profiling_quality: Dict[str, Any] = Field(default_factory=dict)
+    # Public cost output intentionally excludes internal EUR calculations.
+    cost: Optional[List[Dict[str, Any]]] = None
     calculation_disclaimer: Optional[Dict[str, Any]] = None
     profiling_status: Optional[str] = None
 

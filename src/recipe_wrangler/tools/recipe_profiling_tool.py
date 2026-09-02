@@ -5,6 +5,8 @@
 import re
 from typing import Any, Dict
 
+from recipe_wrangler.pricing.cost_calculator import calculate_recipe_cost_profile
+from recipe_wrangler.pricing.recipe_cost_categories import load_recipe_cost_calibration
 from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_vector
 from recipe_wrangler.tools.sustainability_calculator import (
@@ -495,6 +497,43 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "sustainability_low_coverage": sustainability_low_coverage,
     }
 
+    cost_ingredients = []
+    for index, ingredient in enumerate(merged):
+        cost_ingredient = dict(ingredient)
+        if index < len(match_names):
+            cost_ingredient["canonical_name"] = match_names[index]
+        cost_ingredients.append(cost_ingredient)
+    try:
+        regional_estimates = {}
+        regional_facets = []
+        for cost_region in ("EU", "IE", "HU", "SI"):
+            try:
+                calibration = load_recipe_cost_calibration(cost_region)
+            except LookupError:
+                calibration = None
+            estimate = calculate_recipe_cost_profile(
+                cost_ingredients,
+                servings=serves,
+                country=cost_region,
+                calibration=calibration,
+            )
+            regional_estimates[cost_region] = estimate
+            if estimate.get("cost_facet"):
+                regional_facets.append(estimate["cost_facet"])
+        cost_profile = {
+            "regional_estimates": regional_estimates,
+            "cost_facet": regional_facets,
+        }
+    except FileNotFoundError:
+        # Deployments may intentionally omit operational price assets. Recipe
+        # nutrition and sustainability profiling must remain available there.
+        cost_profile = {
+            "status": "unavailable",
+            "country": region,
+            "reason": "cost_catalogue_not_installed",
+            "recipe_cost_tier": None,
+        }
+
     out = {
         "ingredients": merged,
 
@@ -508,6 +547,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "sustainability_coverage": sustainability_coverage,
         "sustainability_low_coverage": sustainability_low_coverage,
         "profiling_quality": quality_flags,
+        "cost_profile": cost_profile,
         "total_sustainability": total_sustainability,
         "total_sustainability_per_serving": total_sustainability_per_serving,
         "sustainability_per_kg": profile.get("sustainability_per_kg"),
@@ -532,6 +572,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
             "nutri_score_breakdown": nutri_score_breakdown,
             "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
             "profiling_quality": quality_flags,
+            "cost_profile": cost_profile,
             "sustainability_profiling_details": profile.get("sustainability_details"),
         },
     }
@@ -549,6 +590,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "nutri_score_breakdown": nutri_score_breakdown,
         "nutri_score_source": NUTRI_SCORE_SOURCE_URL,
         "sustainability_profiling_details": profile.get("sustainability_details"),
+        "cost_profile": cost_profile,
     }
     state.pipeline_trace = trace
     return state

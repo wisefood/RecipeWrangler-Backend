@@ -332,6 +332,36 @@ def recipe_index(dim: int = DEFAULT_DIM) -> dict[str, Any]:
         "duration": {"type": "float"},
         "serves": {"type": "float"},
         "cost_category": {"type": "keyword"},
+        "cost_category_code": {"type": "byte"},
+        "cost_category_status": {"type": "keyword"},
+        "cost_price_coverage": {"type": "float"},
+        # Canonical public recipe-cost facet. Exact monetary calculations stay
+        # in Postgres; Elasticsearch carries only filterable categories,
+        # numeric coverage, and the priced ingredients that explain the result.
+        "cost": {
+            "type": "nested",
+            "properties": {
+                "region": {"type": "keyword"},
+                "category": {"type": "keyword"},
+                "category_code": {"type": "byte"},
+                "status": {"type": "keyword"},
+                "priced_weight_coverage": {"type": "float"},
+                "priced_ingredient_coverage": {"type": "float"},
+                "priced_ingredient_count": {"type": "integer"},
+                "ingredient_count": {"type": "integer"},
+                "contributors": {
+                    "type": "nested",
+                    "properties": {
+                        "ingredient": {"type": "keyword"},
+                        "matched_product": {"type": "keyword"},
+                        "price_scope": {"type": "keyword"},
+                        "price_class": {"type": "keyword"},
+                        "cost_contribution_pct": {"type": "float"},
+                    },
+                },
+                "explanation": {"type": "text", "index": False},
+            }
+        },
         # denormalized profile summary (truth lives in recipe_profiles)
         "profiles": {
             "type": "nested",

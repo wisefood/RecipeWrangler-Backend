@@ -25,6 +25,67 @@ CLASSIFICATION_VERSION = "foodon-link-v1"
 DEFAULT_MAX_DISTANCE = 0.15
 DEFAULT_ANCESTOR_MAX_DISTANCE = 0.30
 
+# Reviewed aliases for common recipe concepts whose FoodOn labels use a
+# different, but equivalent, formulation. They are identity-preserving and are
+# deliberately much narrower than embedding matching.
+REVIEWED_EXACT_ALIASES: dict[str, str] = {
+    "firm tofu": "FOODON_00005540",
+    # `normalize_foodon_label` singularises a trailing "s".
+    "mixed vegetable": "FOODON_00002683",
+    "gluten free pad thai noodle": "FOODON_00005437",
+}
+
+# These are deliberately food-family mappings, rather than assertions about a
+# precise retail product. They let obvious variants contribute to a broad
+# FoodOn/cost group while the cost linker stays conservative about assigning a
+# specific CostProduct price.
+_REVIEWED_FAMILY_ALIASES: tuple[tuple[str, str], ...] = (
+    ("yogurt", "FOODON_00001014"),
+    ("yoghurt", "FOODON_00001014"),
+    ("feta", "FOODON_00001256"),
+    ("mozzarella", "FOODON_03303578"),
+    ("salad green", "FOODON_03310789"),
+    ("salad greens", "FOODON_03310789"),
+)
+_REVIEWED_VEGETABLE_TERMS = frozenset({
+    "arugula", "asparagus", "aubergine", "beetroot", "broccoli", "carrot",
+    "capsicum", "corn", "eggplant", "fennel", "greens", "jicama", "kale",
+    "kumara", "leek", "lettuce", "mushroom", "okra", "pea", "peas",
+    "potato", "radish", "rocket", "spinach", "squash", "sweetcorn", "turnip",
+    "vegetable", "vegetables", "vege", "veges",
+})
+_REVIEWED_ECONOMIC_GROUP_TERMS: tuple[tuple[str, frozenset[str]], ...] = (
+    ("FOODON_00001256", frozenset({
+        "buttermilk", "cheese", "cream", "parmesan", "yogurt", "yoghurt"
+    })),
+    ("FOODON_00001209", frozenset({"bean", "beans", "chickpea", "chickpeas", "lentil", "lentils"})),
+    ("FOODON_00001006", frozenset({"beef", "ham", "lamb", "pork", "steak", "veal"})),
+    ("FOODON_00001131", frozenset({"chicken", "turkey"})),
+    ("FOODON_00001248", frozenset({"fish", "salmon", "tuna"})),
+    ("FOODON_00001046", frozenset({"prawn", "prawns", "shrimp", "seafood"})),
+    ("FOODON_03315615", frozenset({
+        "apple", "apples", "apricot", "apricots", "banana", "bananas", "berry",
+        "berries", "cherry", "cherries", "fruit", "lemon", "lime", "mango",
+        "orange", "oranges", "peach", "peaches", "pear", "pears", "blueberry",
+        "blueberries", "blackberry", "blackberries", "gooseberry", "gooseberries",
+        "pomegranate", "raspberry", "raspberries", "strawberry", "strawberries",
+    })),
+    ("FOODON_00001172", frozenset({
+        "almond", "almonds", "cashew", "cashews", "coconut", "hazelnut",
+        "macadamia", "nut", "nuts", "peanut", "peanuts", "pecan", "pecans",
+        "pistachio", "seed", "seeds", "walnut", "walnuts"
+    })),
+    ("FOODON_00001087", frozenset({"oil"})),
+    ("FOODON_00001709", frozenset({
+        "amaranth", "bread", "breadcrumb", "breadcrumbs", "biscuit", "cornmeal",
+        "flour", "noodle", "noodles", "oat", "oats", "pasta", "pita", "popcorn",
+        "rice", "teff", "tortilla", "tortillas",
+    })),
+    ("FOODON_03420108", frozenset({"chocolate", "cocoa", "honey", "sugar", "syrup"})),
+)
+_COMPOUND_FAMILY_BLOCKERS = frozenset({"or", "with", "dip", "dressing"})
+_PLANT_MILK_TERMS = frozenset({"almond", "coconut", "oat", "rice", "soy"})
+
 UNIT_WORDS = {
     "teaspoon", "teaspoons", "tsp", "tablespoon", "tablespoons", "tbsp",
     "cup", "cups", "ounce", "ounces", "oz", "pound", "pounds", "lb", "lbs",
@@ -59,6 +120,8 @@ def normalize_foodon_label(name: str) -> str:
         n = n[:-3] + "y"
     elif n.endswith("oes") and len(n) > 4:
         n = n[:-2]
+    elif n.endswith("ches") and len(n) > 5:
+        n = n[:-2]
     elif n.endswith("s") and len(n) > 3 and not n.endswith("ss"):
         n = n[:-1]
     return n
@@ -81,6 +144,31 @@ def fetch_label_index(session) -> dict[str, str]:
 
 def match_exact(name: str, label_index: dict[str, str]) -> str | None:
     return label_index.get(normalize_foodon_label(name))
+
+
+def match_reviewed_alias(name: str) -> tuple[str, str, float, bool] | None:
+    """Return a narrowly reviewed FoodOn alias without vector search."""
+    normalized_name = normalize_foodon_label(name)
+    reviewed_foodon_id = REVIEWED_EXACT_ALIASES.get(normalized_name)
+    if reviewed_foodon_id:
+        return reviewed_foodon_id, "reviewed_exact_alias", 1.0, False
+
+    words = set(re.findall(r"[a-z]+", normalized_name))
+    # Avoid classifying alternatives and parser failures simply because they
+    # mention a dairy or vegetable word. Simple qualified food names are safe.
+    simple_product = len(words) <= 8 and not (words & _COMPOUND_FAMILY_BLOCKERS)
+    if simple_product:
+        if "milk" in words and not (words & _PLANT_MILK_TERMS):
+            return "FOODON_00001256", "reviewed_food_family_alias", 0.95, True
+        for term, foodon_id in _REVIEWED_FAMILY_ALIASES:
+            if term in normalized_name:
+                return foodon_id, "reviewed_food_family_alias", 0.95, True
+        if words & _REVIEWED_VEGETABLE_TERMS:
+            return "FOODON_00001261", "reviewed_broad_group_alias", 0.9, True
+        for foodon_id, terms in _REVIEWED_ECONOMIC_GROUP_TERMS:
+            if words & terms:
+                return foodon_id, "reviewed_broad_group_alias", 0.9, True
+    return None
 
 
 def match_embedding(name: str, *, max_distance: float) -> tuple[str, float] | None:
@@ -152,9 +240,16 @@ def match_ingredient_to_foodon(
     Returns (foodon_id, method, confidence, approximate) or None if nothing
     cleared even the loosened ancestor-level threshold.
     """
+    reviewed_alias = match_reviewed_alias(name)
+    if reviewed_alias and reviewed_alias[1] == "reviewed_exact_alias":
+        return reviewed_alias
+
     foodon_id = match_exact(name, label_index)
     if foodon_id:
         return foodon_id, "exact_label", 1.0, False
+
+    if reviewed_alias:
+        return reviewed_alias
 
     hit = match_embedding(name, max_distance=max_distance)
     if hit:

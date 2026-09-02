@@ -854,6 +854,35 @@ def _extract_profiling_quality(stored_trace: dict[str, Any] | None) -> dict[str,
     return _as_dict(profiling.get("quality")) or {}
 
 
+def _extract_cost_profile(stored_trace: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Read the calculator result from current or future trace layouts."""
+
+    if not isinstance(stored_trace, dict):
+        return None
+    direct = _as_dict(stored_trace.get("cost_profile"))
+    if direct:
+        return direct
+    debug = _as_dict(stored_trace.get("nutrition_profiling_debug")) or {}
+    direct = _as_dict(debug.get("cost_profile"))
+    if direct:
+        return direct
+    profiling = _as_dict(debug.get("profiling")) or {}
+    return _as_dict(profiling.get("cost_profile"))
+
+
+def _extract_cost_facet(stored_trace: dict[str, Any] | None) -> list[dict[str, Any]] | None:
+    """Return only the non-monetary public regional cost facets."""
+
+    profile = _extract_cost_profile(stored_trace)
+    if not profile:
+        return None
+    raw = profile.get("cost_facet")
+    if isinstance(raw, list):
+        return [dict(value) for value in raw if isinstance(value, dict)] or None
+    facet = _as_dict(raw)
+    return [facet] if facet else None
+
+
 def _calculation_disclaimer(
     quality: dict[str, Any],
     profile_details: list[dict[str, Any]],
@@ -1300,6 +1329,7 @@ def get_recipe(
     )
     profiling_quality = _extract_profiling_quality(stored_trace)
     payload["profiling_quality"] = profiling_quality
+    payload["cost"] = _extract_cost_facet(stored_trace)
     payload["calculation_disclaimer"] = _calculation_disclaimer(
         profiling_quality, profile_details
     )

@@ -1,0 +1,120 @@
+{
+  "anchor_version": "cost-foodon-anchor-v2",
+  "description": "Reviewed FoodOn anchors for cost products. Extend through the one-off script's anchor review output.",
+  "anchors": [
+    {
+      "product_id": "base__beef",
+      "foodon_id": "FOODON_00001134",
+      "foodon_label": "bovine meat food product",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__beef",
+      "foodon_id": "FOODON_00004478",
+      "foodon_label": "beef retail cut",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "detail__beef_minced_meat",
+      "foodon_id": "FOODON_00001282",
+      "foodon_label": "beef (ground)",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__chicken",
+      "foodon_id": "FOODON_00001040",
+      "foodon_label": "chicken meat food product",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "detail__chicken_breast_fillet",
+      "foodon_id": "FOODON_00002703",
+      "foodon_label": "chicken breast",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__lamb",
+      "foodon_id": "FOODON_00001992",
+      "foodon_label": "lamb meat food product",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__lamb",
+      "foodon_id": "FOODON_02021241",
+      "foodon_label": "lamb retail cut",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__pork",
+      "foodon_id": "FOODON_00001038",
+      "foodon_label": "pork meat food product",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__pork",
+      "foodon_id": "FOODON_00004488",
+      "foodon_label": "pork retail cut",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "detail__pork_minced_meat",
+      "foodon_id": "FOODON_02021726",
+      "foodon_label": "pork meat (minced)",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__butter",
+      "foodon_id": "FOODON_03310351",
+      "foodon_label": "butter",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__cherry",
+      "foodon_id": "FOODON_00003478",
+      "foodon_label": "cherry",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__melon",
+      "foodon_id": "FOODON_00003597",
+      "foodon_label": "melon",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__olive_oil",
+      "foodon_id": "FOODON_03301826",
+      "foodon_label": "olive oil",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__onion",
+      "foodon_id": "FOODON_03316347",
+      "foodon_label": "onion",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__pear",
+      "foodon_id": "FOODON_00003041",
+      "foodon_label": "pear",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__potato",
+      "foodon_id": "FOODON_03315354",
+      "foodon_label": "potato",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__sugar",
+      "foodon_id": "FOODON_03420108",
+      "foodon_label": "sugar",
+      "review_status": "approved"
+    },
+    {
+      "product_id": "base__tomato",
+      "foodon_id": "FOODON_03301453",
+      "foodon_label": "tomato",
+      "review_status": "approved"
+    }
+  ]
+}

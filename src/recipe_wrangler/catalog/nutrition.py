@@ -15,6 +15,7 @@ and unprofiled everywhere anyone could see.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from recipe_wrangler.catalog import sources as S
@@ -44,13 +45,78 @@ def _float(value: object) -> float | None:
         return None
 
 
+def _public_cost_facet(debug: object) -> list[dict[str, Any]] | None:
+    """Read the safe regional public facets from the detailed cost trace."""
+
+    if not isinstance(debug, Mapping):
+        return None
+    cost_profile = debug.get("cost_profile")
+    if not isinstance(cost_profile, Mapping):
+        return None
+    raw = cost_profile.get("cost_facet")
+    raw_facets = raw if isinstance(raw, list) else [raw]
+    if not raw_facets:
+        return None
+
+    def contributor(value: object) -> dict[str, Any] | None:
+        if not isinstance(value, Mapping):
+            return None
+        ingredient = _clean(value.get("ingredient"))
+        if not ingredient:
+            return None
+        item = {
+            "ingredient": ingredient,
+            "matched_product": _clean(value.get("matched_product")) or None,
+            "price_scope": _clean(value.get("price_scope")) or None,
+            "price_class": _clean(value.get("price_class")) or None,
+            "cost_contribution_pct": _float(value.get("cost_contribution_pct")),
+        }
+        return {key: item_value for key, item_value in item.items() if item_value is not None}
+
+    facets: list[dict[str, Any]] = []
+    for value in raw_facets:
+        if not isinstance(value, Mapping):
+            continue
+        contributors = [
+            item
+            for item_value in value.get("contributors") or []
+            if (item := contributor(item_value)) is not None
+        ]
+        facet = {
+            # Read old persisted EU facets during the migration, but always
+            # project the new region-array shape.
+            "region": _clean(value.get("region") or value.get("reference_region")) or "EU",
+            "category": _clean(value.get("category")) or None,
+            "category_code": (
+                int(value["category_code"])
+                if value.get("category_code") is not None else None
+            ),
+            "status": _clean(value.get("status")) or None,
+            "priced_weight_coverage": _float(
+                value.get("priced_weight_coverage", value.get("price_coverage"))
+            ),
+            "priced_ingredient_coverage": _float(
+                value.get(
+                    "priced_ingredient_coverage",
+                    value.get("ingredient_price_coverage"),
+                )
+            ),
+            "priced_ingredient_count": int(value.get("priced_ingredient_count") or 0),
+            "ingredient_count": int(value.get("ingredient_count") or 0),
+            "contributors": contributors,
+            "explanation": _clean(value.get("explanation")) or None,
+        }
+        facets.append({key: item for key, item in facet.items() if item is not None})
+    return facets or None
+
+
 def profile_summary(row: Any, *, nutri_label) -> dict[str, Any]:
     """Shape one Postgres profile row into a `profiles[]` entry."""
     score = row["nutri_score"] if isinstance(row["nutri_score"], dict) else {}
     label = nutri_label(score.get("nutri_score") or score.get("label"))
     source = S.resolve(row["source"])
     nutrition_source = _clean(row["nutrition_source"])
-    return {
+    summary = {
         "nutrition_source": nutrition_source,
         "region": nutrition_source,
         "nutri_score": label,
@@ -65,6 +131,13 @@ def profile_summary(row: Any, *, nutri_label) -> dict[str, Any]:
             source and nutrition_source in source.ground_truth_nutrition_sources
         ),
     }
+    debug = row.get("nutrition_profiling_debug") if hasattr(row, "get") else None
+    cost = _public_cost_facet(debug)
+    if cost:
+        # Private transport key: apply_profiles lifts this once to doc.cost and
+        # removes it from the public profiles[] array.
+        summary["_cost"] = cost
+    return summary
 
 
 def apply_profiles(doc: dict[str, Any], profiles: list[dict[str, Any]]) -> None:
@@ -79,7 +152,17 @@ def apply_profiles(doc: dict[str, Any], profiles: list[dict[str, Any]]) -> None:
 
     from recipe_wrangler.catalog.entities import NUTRI_RANKS
 
-    doc["profiles"] = profiles
+    ordered = sorted(
+        profiles,
+        key=lambda profile: (profile.get("nutrition_source") != "eu",),
+    )
+    cost = next((profile.get("_cost") for profile in ordered if profile.get("_cost")), None)
+    doc["profiles"] = [
+        {key: value for key, value in profile.items() if key != "_cost"}
+        for profile in profiles
+    ]
+    if cost:
+        doc["cost"] = cost
     doc["nutrition_sources"] = sorted(
         {p["nutrition_source"] for p in profiles if p["nutrition_source"]}
     )
@@ -110,7 +193,8 @@ def apply_profiles(doc: dict[str, Any], profiles: list[dict[str, Any]]) -> None:
 
 PROFILE_COLUMNS = (
     "recipe_id, nutrition_source, source, nutri_score, "
-    "total_sustainability_per_serving, pipeline_version, computed_at"
+    "total_sustainability_per_serving, pipeline_version, computed_at, "
+    "nutrition_profiling_debug"
 )
 
 
@@ -214,5 +298,3 @@ def within_targets(macros: dict[str, float | None] | None, profile: Any) -> bool
         if high is not None and value > high:
             return False
     return True
-
-

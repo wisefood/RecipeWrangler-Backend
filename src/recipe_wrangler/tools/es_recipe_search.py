@@ -18,6 +18,7 @@ from typing import Any
 
 from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.catalog import diets as D
+from recipe_wrangler.catalog.sources import SOURCES as _REGISTERED_SOURCES
 from recipe_wrangler.catalog.sources import canonical_course_type
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
@@ -129,26 +130,46 @@ class ResultWindowExceededError(Exception):
 
 
 # Canonical source slugs (the API/UI filter contract, matching the Neo4j
-# canonicalization) mapped to the raw `source` keyword values in recipes_v2.
-_SOURCE_SLUG_TO_RAW: dict[str, list[str]] = {
-    "healthyfoods": ["HealthyFoods"],
-    "foodhero": ["FoodHero"],
-    "myplate": ["MyPlate"],
-    "irish_safefood": ["Curated Irish Recipes"],
-    "safefood": ["Curated Irish Recipes"],
-    "irish safefood": ["Curated Irish Recipes"],
-    "hungarian": ["Curated Hungarian Recipes"],
-    "slovenian": ["Curated Slovenian Recipes"],
-}
+# canonicalization) mapped to the raw `source` keyword values in the index.
+#
+# Derived from the `catalog.sources` registry rather than written out here.
+# These two dicts were hand-maintained and fell five sources behind it: the
+# registry gained Slovenian Kitchen, Irish Heart Foundation, Best of Hungary,
+# SuperValu and The Hungary Soul, the maps did not, and because an unmapped
+# slug falls through to itself the filter became `source: ["slovenian_kitchen"]`
+# against an index storing "Slovenian Kitchen". `source` is a keyword field, so
+# that is an exact-match miss — the UI offered five filters that returned zero
+# recipes and no error. Deriving both directions means adding a source to the
+# registry is now the only step.
+def _build_source_slug_to_raw() -> dict[str, list[str]]:
+    mapping: dict[str, list[str]] = {}
+    for source in _REGISTERED_SOURCES:
+        mapping[source.slug] = [source.raw]
+        # Alternative spellings the filter contract has always accepted
+        # ("safefood" for irish_safefood). `_norm` lowercases the incoming
+        # value, so every key must be lowercase to be reachable.
+        for alias in source.aliases:
+            key = str(alias).strip().lower()
+            if key:
+                mapping.setdefault(key, [source.raw])
+    return mapping
 
-_RAW_SOURCE_TO_SLUG: dict[str, str] = {
-    "healthyfoods": "healthyfoods",
-    "foodhero": "foodhero",
-    "myplate": "myplate",
-    "curated irish recipes": "irish_safefood",
-    "curated hungarian recipes": "hungarian",
-    "curated slovenian recipes": "slovenian",
-}
+
+def _build_raw_source_to_slug() -> dict[str, str]:
+    """Reverse direction, for folding facet buckets back onto slugs.
+
+    Keyed on the lowercased raw value because the facet path lowercases the
+    bucket key before looking it up.
+    """
+    return {
+        str(source.raw).strip().lower(): source.slug
+        for source in _REGISTERED_SOURCES
+    }
+
+
+_SOURCE_SLUG_TO_RAW: dict[str, list[str]] = _build_source_slug_to_raw()
+
+_RAW_SOURCE_TO_SLUG: dict[str, str] = _build_raw_source_to_slug()
 
 # The index carries spelling variants per dish type (main-dish/main_dish,
 # desserts/dessert, snacks/snack). Filters expand the canonical value to all

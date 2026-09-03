@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import pytest
 
-from recipe_wrangler.catalog.sources import canonical_course_type
+from recipe_wrangler.catalog.sources import SOURCES, canonical_course_type
 from recipe_wrangler.tools.es_recipe_search import (
+    _RAW_SOURCE_TO_SLUG,
+    _SOURCE_SLUG_TO_RAW,
     RecipeSearchConstraints,
     _ingredient_clause,
     _norm,
@@ -113,6 +115,61 @@ class TestCourseTypeFilterSurvivesTheReadFlip:
             for field in sub.get("terms", {})
         }
         assert fields == {"dish_types", "course_types"}
+
+
+class TestSourceFilterTracksTheRegistry:
+    """The source maps used to be written out by hand and fell five sources
+    behind `catalog.sources`. An unmapped slug falls through to itself, so the
+    filter became `source: ["slovenian_kitchen"]` against an index storing
+    "Slovenian Kitchen" — a keyword miss, zero hits, no error. The UI shipped
+    five filters that silently matched nothing."""
+
+    def _filtered_sources(self, slug: str) -> set[str]:
+        body = build_es_query(RecipeSearchConstraints(sources=[slug]))
+        return {
+            value
+            for clause in body["query"]["bool"]["filter"]
+            for value in clause.get("terms", {}).get("source", [])
+        }
+
+    @pytest.mark.parametrize("source", [s for s in SOURCES], ids=lambda s: s.slug)
+    def test_every_registered_slug_maps_to_its_indexed_raw_value(self, source):
+        assert _SOURCE_SLUG_TO_RAW.get(source.slug) == [source.raw]
+
+    @pytest.mark.parametrize("source", [s for s in SOURCES], ids=lambda s: s.slug)
+    def test_every_registered_slug_reaches_the_query(self, source):
+        # The end-to-end shape: what the UI sends must become the raw value
+        # the index actually stores, never the slug itself.
+        assert self._filtered_sources(source.slug) == {source.raw}
+
+    @pytest.mark.parametrize(
+        "slug,raw",
+        [
+            ("slovenian_kitchen", "Slovenian Kitchen"),
+            ("irish_heart_foundation", "Irish Heart Foundation"),
+            ("best_of_hungary", "Best of Hungary"),
+            ("supervalu", "SuperValu"),
+            ("the_hungary_soul", "The Hungary Soul"),
+        ],
+    )
+    def test_the_five_sources_that_were_missing(self, slug, raw):
+        assert self._filtered_sources(slug) == {raw}
+
+    def test_a_slug_never_leaks_through_as_its_own_raw_value(self):
+        for source in SOURCES:
+            assert source.slug not in self._filtered_sources(source.slug) or (
+                source.slug == source.raw  # `user`/`recipe1m` store the slug verbatim
+            )
+
+    @pytest.mark.parametrize("alias", ["safefood", "irish safefood", "irish-safefood"])
+    def test_registry_aliases_are_accepted_spellings(self, alias):
+        assert self._filtered_sources(alias) == {"Curated Irish Recipes"}
+
+    @pytest.mark.parametrize("source", [s for s in SOURCES], ids=lambda s: s.slug)
+    def test_facet_buckets_fold_back_onto_slugs(self, source):
+        # The facet path lowercases the bucket key before the lookup, so the
+        # reverse map must be keyed on the lowercased raw value.
+        assert _RAW_SOURCE_TO_SLUG.get(source.raw.strip().lower()) == source.slug
 
 
 class TestIngredientClauseShape:

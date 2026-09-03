@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from recipe_wrangler.catalog import sources as S
+from recipe_wrangler.catalog import vocabularies as V
 
 
 class TestSourceResolution:
@@ -157,3 +158,40 @@ class TestCourseTypeCanonicalization:
     def test_collection_canonicalization_handles_empty(self):
         assert S.canonical_course_types([]) == []
         assert S.canonical_course_types(None) == []
+
+
+class TestSourceCuisinePrior:
+    """The prior is keyed on the raw source value and fed to the annotator.
+
+    A key that matches no registered source is dead config that looks live, and
+    a value outside the cuisine vocabulary would be discarded downstream after
+    having already anchored the model.
+    """
+
+    def test_every_key_is_a_registered_raw_source(self):
+        known = {source.raw for source in S.SOURCES}
+        unknown = set(V.SOURCE_CUISINE_PRIOR) - known
+        assert not unknown, f"prior set for unregistered sources: {sorted(unknown)}"
+
+    def test_every_value_is_in_the_cuisine_vocabulary(self):
+        for raw, cuisine in V.SOURCE_CUISINE_PRIOR.items():
+            assert cuisine in V.CUISINES, f"{raw} -> {cuisine!r} is not a cuisine"
+
+    @pytest.mark.parametrize(
+        "raw,cuisine",
+        [
+            ("Slovenian Kitchen", "slovenian"),
+            ("Best of Hungary", "hungarian"),
+            ("The Hungary Soul", "hungarian"),
+        ],
+    )
+    def test_sources_whose_corpus_is_dominated_by_one_cuisine(self, raw, cuisine):
+        assert V.SOURCE_CUISINE_PRIOR[raw] == cuisine
+
+    @pytest.mark.parametrize("raw", ["Irish Heart Foundation", "SuperValu"])
+    def test_nationally_named_sources_without_a_dominant_cuisine_are_excluded(self, raw):
+        # Both read as Irish and are not: the charity's corpus is 6% irish and
+        # the retailer's has no dominant cuisine. Guarded so a future reader
+        # does not "complete the set" from the names.
+        assert raw not in V.SOURCE_CUISINE_PRIOR
+        assert S.by_raw(raw) is not None  # but they ARE registered sources

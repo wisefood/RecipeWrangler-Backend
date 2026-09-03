@@ -254,11 +254,31 @@ PLANNING_TAGS: tuple[str, ...] = (
 )
 
 
+# Keyed on the raw `source` value. Offered to the annotator as a prior, never
+# an answer, so a source only belongs here when its corpus is *actually*
+# dominated by one cuisine. Percentages are the share of that source's already
+# annotated recipes carrying the cuisine, measured against the corpus:
 SOURCE_CUISINE_PRIOR: dict[str, str] = {
-    "Curated Irish Recipes": "irish",
-    "Curated Hungarian Recipes": "hungarian",
-    "Curated Slovenian Recipes": "slovenian",
+    "Curated Irish Recipes": "irish",           # 266/334, 79%
+    "Curated Hungarian Recipes": "hungarian",   # 121/149, 81%
+    "Curated Slovenian Recipes": "slovenian",   #  97/100, 97%
+    "Slovenian Kitchen": "slovenian",           # 115/123, 93%
+    "Best of Hungary": "hungarian",             #  59/74,  80%
+    "The Hungary Soul": "hungarian",            #  23/25,  92%
 }
+
+# Deliberately absent, despite their names reading as national:
+#
+# "Irish Heart Foundation" — 7/117 (6%) of its recipes are annotated `irish`.
+#   Its top cuisines are italian (16), british (11), american (9) and
+#   mediterranean (9). It is a health charity publishing international recipes,
+#   so an `irish` prior would push the model toward the wrong answer on 94% of
+#   them.
+# "SuperValu" — a retailer, with no dominant cuisine at all: mediterranean
+#   leads on 11/68 (16%) and `irish` does not reach its top six.
+#
+# Both are the mistake the annotation prompt warns about in the ingredient
+# case — inferring a cuisine from one suggestive signal, here the brand name.
 
 FACETS: dict[str, dict[str, Any]] = {
     "food_groups": {

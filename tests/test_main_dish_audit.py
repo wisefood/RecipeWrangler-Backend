@@ -101,6 +101,81 @@ class ResolveChangeTests(unittest.TestCase):
         self.assertIsNone(audit.resolve_change(doc("Roasted Potatoes", ("side",)), verdict))
 
 
+class IngredientCorroborationTests(unittest.TestCase):
+    """The Irish Heart Foundation import truncated ingredient lists, so a model
+    shown only ["butter"] correctly calls "Roast Chicken Breasts with Spicy Red
+    Chilli Butter" an accompaniment. Demoting on that would turn a broken
+    ingredient list into a broken course type."""
+
+    def test_truncated_list_that_drops_the_titles_protein(self):
+        self.assertFalse(audit.ingredients_corroborate_title(
+            doc("Roast Chicken Breasts with Spicy Red Chilli Butter",
+                ingredient_names=["butter"])))
+
+    def test_wrong_ingredient_entirely(self):
+        self.assertFalse(audit.ingredients_corroborate_title(
+            doc("Orange Chicken Stir-Fry", ingredient_names=["oranges"])))
+
+    def test_ingredients_belonging_to_another_recipe(self):
+        self.assertFalse(audit.ingredients_corroborate_title(
+            doc("Creamy pesto ravioli",
+                ingredient_names=["baby rocket arugula", "cheese feta", "cucumber"])))
+
+    def test_empty_ingredient_list_cannot_corroborate(self):
+        self.assertFalse(audit.ingredients_corroborate_title(
+            doc("Lamb Chops with Garlic and Lemon", ingredient_names=[])))
+
+    def test_a_real_main_dish_corroborates(self):
+        self.assertTrue(audit.ingredients_corroborate_title(
+            doc("Chicken in barbecue sauce",
+                ingredient_names=["chicken thighs", "tomato", "brown sugar"])))
+
+    def test_a_single_ingredient_is_never_enough(self):
+        # Catches the truncations whose titles name no listed component.
+        self.assertFalse(audit.ingredients_corroborate_title(
+            doc("15 Minute Satay Stir-Fry",
+                ingredient_names=["nut butter of your choice"])))
+        self.assertFalse(audit.ingredients_corroborate_title(
+            doc("Focaccia Pizza", ingredient_names=["yeast"])))
+
+    def test_a_title_naming_what_it_produces_neednt_contain_it(self):
+        # The demotion targets we most want. A pasta sauce has no pasta and a
+        # corn bread no bread; withholding these would defeat the audit.
+        for title, names in [
+            ("Pasta sauce", ["tomato", "red wine", "rosemary", "sugar"]),
+            ("Corn Bread", ["cornmeal", "egg", "flour", "milk"]),
+            ("Vegetarian Spaghetti Sauce", ["basil", "garlic", "onion"]),
+            ("Pepper steak gravy", ["beef stock", "cornflour", "pepper"]),
+            ("Chapatis Flatbread", ["flour", "salt", "vegetable oil"]),
+        ]:
+            self.assertTrue(
+                audit.ingredients_corroborate_title(
+                    doc(title, ingredient_names=names)), title)
+
+    def test_a_title_promising_nothing_specific_is_judgeable(self):
+        # "Spicy rub" and "Passata" name no component, so a thin ingredient
+        # list is honest rather than broken — these must stay demotable.
+        for title in ("Spicy rub", "Passata", "Bolognese sauce"):
+            self.assertTrue(audit.ingredients_corroborate_title(
+                doc(title, ingredient_names=["paprika", "cumin"])), title)
+
+    def test_suspect_recipes_are_reported_not_demoted(self):
+        verdict = {"standalone_main_dish": False, "course_types": ["side"],
+                   "confidence": 0.9, "reason": ""}
+        change = audit.resolve_change(
+            doc("Lamb Chops with Garlic and Lemon", ingredient_names=["olive oil"]),
+            verdict)
+        self.assertEqual(change[1], "data_suspect")
+
+    def test_corroborated_recipes_still_demote(self):
+        verdict = {"standalone_main_dish": False, "course_types": ["side"],
+                   "confidence": 0.9, "reason": ""}
+        change = audit.resolve_change(
+            doc("Bolognese sauce", ingredient_names=["tomato", "onion", "carrot"]),
+            verdict)
+        self.assertEqual(change[1], "demoted")
+
+
 class CandidateQueryTests(unittest.TestCase):
     def test_default_set_is_a_recall_net_over_main_dish_only(self):
         q = audit.candidate_query(double_tagged_only=False, audit_all=False)["bool"]

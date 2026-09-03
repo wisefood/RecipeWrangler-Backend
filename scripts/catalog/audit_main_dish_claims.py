@@ -104,6 +104,37 @@ ACCOMPANIMENT_WORDS: tuple[str, ...] = (
 # A main dish built from three ingredients is unusual enough to be worth a look.
 THIN_INGREDIENT_COUNT = 4
 
+# Substantive components a title can promise. If a title names one and the
+# ingredient list corroborates none of them, the stored ingredients cannot
+# support ANY verdict about the dish — so the recipe is reported for repair
+# rather than demoted.
+#
+# This is not a hypothetical. The Irish Heart Foundation import truncated its
+# ingredient lists (avg 3.7 vs 8-11 corpus-wide, 69% at <=2), so "Roast Chicken
+# Breasts with Spicy Red Chilli Butter" is stored as ["butter"] and "Lamb Chops
+# with Garlic and Lemon" as ["olive oil"]. A model shown only that correctly
+# answers "this is an accompaniment" — and demoting on that answer would turn a
+# broken ingredient list into a broken course type, in a field that had been
+# right. The data has to be fixed, not classified.
+# Words that, as the *head* of a title, mean the recipe yields that thing. A
+# "Pasta sauce" contains no pasta and a "Corn Bread" contains no bread — both
+# are correct demotions, so the component check below must not fire on them.
+PRODUCT_HEADS: tuple[str, ...] = (
+    "sauce", "sauces", "gravy", "marinade", "dressing", "dip", "pesto",
+    "salsa", "chutney", "relish", "rub", "seasoning", "glaze", "bread",
+    "flatbread", "loaf", "mash", "pilaf", "butter", "spread", "paste",
+    "stock", "broth", "jam", "pickle", "syrup", "mix", "passata",
+)
+
+TITLE_COMPONENTS: tuple[str, ...] = (
+    "chicken", "beef", "lamb", "pork", "bacon", "ham", "sausage", "steak",
+    "mince", "turkey", "duck", "fish", "salmon", "tuna", "cod", "haddock",
+    "prawn", "shrimp", "fishcake", "egg", "tofu", "paneer", "halloumi",
+    "lentil", "chickpea", "bean", "pasta", "spaghetti", "noodle", "ravioli",
+    "gnocchi", "rice", "risotto", "couscous", "quinoa", "potato", "pizza",
+    "burger", "pie", "tart", "bread", "cheese",
+)
+
 SYSTEM_PROMPT = f"""You decide whether a recipe can stand on its own as a main dish.
 
 A main dish is the centre of a meal: someone eats a plate of it and that is
@@ -265,6 +296,37 @@ def verdict_for(doc: dict[str, Any], *, llm) -> dict[str, Any]:
     }
 
 
+def ingredients_corroborate_title(doc: dict[str, Any]) -> bool:
+    """Whether the stored ingredients can support a verdict about this recipe.
+
+    True when the title promises no specific component, or when at least one
+    component it promises is actually present. False only in the case that
+    matters: a title naming real food and an ingredient list that mentions none
+    of it — which means the list is truncated or belongs to another recipe.
+    """
+    title = str(doc.get("title") or "").lower()
+    names = [str(n).lower() for n in (doc.get("ingredient_names") or [])]
+
+    # One ingredient is not data. Every recipe this rule rejects in the current
+    # corpus is a truncation ("Lamb Chops with Garlic and Lemon" stored as
+    # ["olive oil"]), and no correct demotion in the corpus has a list this
+    # short — the real accompaniments being demoted all carry several.
+    if len(names) <= 1:
+        return False
+
+    # A recipe whose title *names what it produces* needn't contain it.
+    head = title.split()[-1] if title.split() else ""
+    if head.strip(":,!") in PRODUCT_HEADS:
+        return True
+
+    promised = [word for word in TITLE_COMPONENTS if word in title]
+    if not promised:
+        return True
+
+    stored = " ".join(names)
+    return any(word in stored for word in promised)
+
+
 def resolve_change(
     doc: dict[str, Any], verdict: dict[str, Any]
 ) -> tuple[list[str], str] | None:
@@ -275,7 +337,9 @@ def resolve_change(
       - a rejection with no valid replacement is dropped, because writing an
         empty ``course_types`` would make the recipe unreachable by every
         planner slot instead of merely miscategorised;
-      - a no-op change is reported as unchanged rather than written.
+      - a no-op change is reported as unchanged rather than written;
+      - a demotion the stored ingredients cannot corroborate is returned as
+        ``data_suspect`` so the caller reports it and writes nothing.
     """
     current = list(doc.get("course_types") or [])
     if verdict["standalone_main_dish"]:
@@ -285,6 +349,8 @@ def resolve_change(
         return None
     if sorted(proposed) == sorted(current):
         return None
+    if not ingredients_corroborate_title(doc):
+        return proposed, "data_suspect"
     return proposed, "demoted"
 
 
@@ -379,6 +445,7 @@ def main() -> None:
     run_id = f"main-dish-audit-{int(time.time())}"
     stats: Counter[str] = Counter()
     rows: list[dict[str, Any]] = []
+    suspect_rows: list[dict[str, Any]] = []
 
     model = args.model or DEFAULT_MODEL
     llm = make_llm(
@@ -413,10 +480,33 @@ def main() -> None:
                 stats["confirmed" if verdict["standalone_main_dish"] else "no_valid_replacement"] += 1
                 continue
 
-            new_courses, _ = change
+            new_courses, outcome = change
             confidence = verdict["confidence"]
             if confidence is not None and confidence < args.min_confidence:
                 stats["below_min_confidence"] += 1
+                continue
+
+            if outcome == "data_suspect":
+                # The verdict may well be right about what the stored
+                # ingredients describe, and that is the problem: they do not
+                # describe this recipe. Report for repair, write nothing.
+                stats["data_suspect"] += 1
+                suspect_rows.append({
+                    "recipe_id": doc.get("recipe_id"),
+                    "title": doc.get("title"),
+                    "source": doc.get("source"),
+                    "course_types": "+".join(current),
+                    "would_have_become": "+".join(new_courses),
+                    "ingredient_count": doc.get("ingredient_count"),
+                    "ingredient_names": "; ".join(doc.get("ingredient_names") or []),
+                    "reason": verdict["reason"],
+                })
+                logger.warning(
+                    "%s  %r  ingredients do not corroborate the title "
+                    "(%s) — NOT demoting, flagged for repair",
+                    doc.get("recipe_id"), doc.get("title"),
+                    doc.get("ingredient_names"),
+                )
                 continue
 
             stats["demoted"] += 1
@@ -461,9 +551,26 @@ def main() -> None:
                 handle.write(json.dumps(row) + "\n")
         logger.info("report: %s (+ .jsonl)", report)
 
+    if suspect_rows:
+        suspect = Path(args.report).with_name(
+            Path(args.report).stem + "_data_suspect.csv"
+        )
+        with suspect.open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(suspect_rows[0]))
+            writer.writeheader()
+            writer.writerows(suspect_rows)
+        logger.warning(
+            "%d recipes flagged as having ingredient data that cannot support a "
+            "verdict: %s", len(suspect_rows), suspect,
+        )
+        by_source: dict[str, int] = {}
+        for row in suspect_rows:
+            by_source[row["source"]] = by_source.get(row["source"], 0) + 1
+        logger.warning("data-suspect by source: %s", by_source)
+
     logger.info("--- summary (%s) ---", "applied" if args.apply else "dry run")
     logger.info("candidates          : %d", len(targets))
-    for key in ("confirmed", "demoted", "no_valid_replacement",
+    for key in ("confirmed", "demoted", "data_suspect", "no_valid_replacement",
                 "below_min_confidence", "errors", "write_errors"):
         logger.info("%-20s: %d", key, stats[key])
     after = Counter(r["after"] for r in rows)

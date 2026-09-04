@@ -16,8 +16,13 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
+from recipe_wrangler.utils.env_loader import load_runtime_env  # noqa: E402
+
+load_runtime_env()
 DUMPS_ROOT = REPO_ROOT / "dumps" / "sent"
 DEFAULT_COMPONENTS = ["neo4j", "postgres", "elasticsearch", "assets"]
 
@@ -130,8 +135,10 @@ def export_postgres(bundle_dir: Path) -> dict[str, Any]:
         "UNION ALL SELECT 'nutrients-ingredients-irish', count(*) FROM \"nutrients-ingredients-irish\" "
         "UNION ALL SELECT 'nutrients-recipe-profiles', count(*) FROM \"nutrients-recipe-profiles\" "
         "UNION ALL SELECT 'pipeline_static_data', count(*) FROM pipeline_static_data "
-        "UNION ALL SELECT 'structured_table_schemas', count(*) FROM structured_table_schemas "
-        "UNION ALL SELECT 'structured_tables', count(*) FROM structured_tables "
+        "UNION ALL SELECT 'cost_products', count(*) FROM cost_products "
+        "UNION ALL SELECT 'cost_prices', count(*) FROM cost_prices "
+        "UNION ALL SELECT 'cost_aliases', count(*) FROM cost_aliases "
+        "UNION ALL SELECT 'cost_recipe_calibrations', count(*) FROM cost_recipe_calibrations "
         "ORDER BY 1;"
     )
     result = _run(
@@ -240,7 +247,7 @@ def export_assets(bundle_dir: Path) -> dict[str, Any]:
     target = bundle_dir / "assets"
     target.mkdir(parents=True, exist_ok=True)
 
-    source_dir = REPO_ROOT / "data" / "Curated Irish Recipes" / "images"
+    source_dir = REPO_ROOT / "data" / "Irish_SafeFood" / "images"
     out_path = target / f"irish_safefood_images_{bundle_dir.name}.tar.gz"
 
     with tarfile.open(out_path, "w:gz") as tar:

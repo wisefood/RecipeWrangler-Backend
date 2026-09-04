@@ -11,8 +11,10 @@ import pandas as pd
 
 
 REPO = Path(__file__).resolve().parents[1]
-OUT = REPO / "section5_outputs"
-INPUT = OUT / "descriptive_nutriscore_distribution.csv"
+SECTION5 = REPO / "section5_outputs"
+OUT = SECTION5 / "assets"
+DATA = SECTION5 / "data"
+INPUT = DATA / "descriptive_nutriscore_distribution.csv"
 OUTPUT = OUT / "fig_phase1_reference_nutriscore_distributions.png"
 
 GRADES = ["A", "B", "C", "D", "E"]

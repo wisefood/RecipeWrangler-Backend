@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Run regional nutrition profiling for Slovenian recipes.
 
-For each recipe x region (irish, hungarian, eu) this script:
+For each recipe x region (irish, hungarian, eu, slovenian) this script:
   1. calls nutritional_tool_vector (Elasticsearch match -> Postgres per-100g -> scale -> aggregate),
   2. computes a per-100g Nutri-Score,
   3. upserts a profiling trace row into Postgres
      (source="Curated Slovenian Recipes", nutrition_source=region,
       pipeline_version="opkp_direct_weight_known"),
-  4. patches the recipe's recipes_v2 Elasticsearch doc with the per-region
-     Nutri-Score grade and color.
+  4. reprojects the recipe through the protected catalog writer.
 
 Dry-run by default. Pass --write to enable Postgres + Elasticsearch writes.
 
@@ -25,8 +24,6 @@ import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-
-import requests
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -48,8 +45,7 @@ from recipe_wrangler.utils.nutrition_postgres import (  # noqa: E402
 
 SOURCE = "Curated Slovenian Recipes"
 PIPELINE_VERSION = "opkp_direct_weight_known"
-REGIONS = ["irish", "hungarian", "eu"]
-ES_REGION_CODE = {"irish": "ie", "hungarian": "hu", "eu": "eu"}
+REGIONS = ["irish", "hungarian", "eu", "slovenian"]
 
 XLSX_FILE = REPO_ROOT / "data" / "Slovenia" / "Slovenian_Recipes.xlsx"
 CHECKPOINT_PATH = REPO_ROOT / "scripts" / "profile_slovenian_regions.checkpoint.json"
@@ -142,17 +138,9 @@ def _compute_nutri_score_per100g(totals: dict, total_weight_g: float) -> dict | 
 
 
 def _patch_elasticsearch(settings, recipe_id: str, region: str, breakdown: dict) -> None:
-    code = ES_REGION_CODE[region]
-    requests.post(
-        f"{settings.elastic_url}/recipes_v2/_update/{recipe_id}",
-        json={
-            "doc": {
-                f"nutri_score_{code}": breakdown.get("nutri_score"),
-                f"nutri_color_{code}": breakdown.get("color"),
-            }
-        },
-        timeout=5,
-    ).raise_for_status()
+    from recipe_wrangler.catalog.projection import project
+
+    project(recipe_id)
 
 
 # ---------------------------------------------------------------------------

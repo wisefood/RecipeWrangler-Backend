@@ -11,7 +11,7 @@ import requests
 
 
 DEFAULT_ES_URL = "http://localhost:9200"
-DEFAULT_INDEX = "recipes_v2"
+DEFAULT_INDEX = "recipes_restore"
 
 
 def _load_mapping(mapping_path: Path, index: str) -> dict:

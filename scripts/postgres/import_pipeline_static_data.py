@@ -32,16 +32,6 @@ from recipe_wrangler.utils.nutrition_postgres import _get_config  # noqa: E402
 # ---------------------------------------------------------------------------
 FILES = [
     (
-        "recipe1m-usda-links-canonical",
-        REPO_ROOT / "data/mappings/recipe1m-usda-links-canonical.json",
-        "json",
-    ),
-    (
-        "usda-nutrients-v1",
-        REPO_ROOT / "data/processed/usda/usda-nutrients-v1.json",
-        "json",
-    ),
-    (
         "usda-weights-v2",
         REPO_ROOT / "data/processed/usda/usda-weights-v2.json",
         "json",
@@ -62,23 +52,8 @@ FILES = [
         "csv",
     ),
     (
-        "recipe1m_unmatched_ingredient_weights_llm",
-        REPO_ROOT / "data/processed/recipe1m/recipe1m-unmatched-ingredient-weights-llm.csv",
-        "csv",
-    ),
-    (
-        "food_weights_updated",
-        REPO_ROOT / "data/processed/recipe1m/food_weights_updated.csv",
-        "csv",
-    ),
-    (
         "ingredient_unit_reference_dataset",
         REPO_ROOT / "data/processed/weight_reference/ingredient_unit_reference_dataset.csv",
-        "csv",
-    ),
-    (
-        "ingredient_nutrition_aliases",
-        REPO_ROOT / "data/processed/fallbacks/ingredient_nutrition_aliases.csv",
         "csv",
     ),
 ]

@@ -255,7 +255,7 @@ def main() -> None:
     ap.add_argument(
         "--es-url", default=os.getenv("ELASTIC_URL", "http://localhost:9200")
     )
-    ap.add_argument("--index", default=os.getenv("ELASTIC_INDEX", "recipes_v2"))
+    ap.add_argument("--index", default=os.getenv("ELASTIC_INDEX", "recipes"))
     ap.add_argument(
         "--require-dump",
         metavar="PATH",

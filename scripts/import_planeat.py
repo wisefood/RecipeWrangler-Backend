@@ -27,8 +27,7 @@ import os
 os.environ["LANGCHAIN_TRACING_V2"] = "false"
 os.environ["LANGSMITH_TRACING"] = "false"
 
-import requests
-from recipe_wrangler.api.config import get_settings
+from recipe_wrangler.catalog.projection import project
 from recipe_wrangler.repositories.neo4j_recipes import (
     detect_allergens_from_names,
     driver as neo4j_driver,
@@ -137,40 +136,7 @@ def _set_planeat_properties(recipe_id: str, rec: dict) -> None:
 def _index_elastic(recipe_id: str, rec: dict, allergens: list[str],
                    breakdown: dict | None) -> None:
     try:
-        settings = get_settings()
-        nutri_score = None
-        nutri_color = None
-        if breakdown:
-            nutri_score = breakdown.get("nutri_score")
-            nutri_color = breakdown.get("color")
-
-        ingredient_names = [i if isinstance(i, str) else i["name"] for i in (rec.get("ingredients") or [])]
-        doc = {
-            "id": recipe_id,
-            "title": rec["title"],
-            "source": SOURCE,
-            "source_id": SOURCE,
-            "url": rec.get("url") or None,
-            "image_url": rec.get("image_url") or None,
-            "ingredients": ingredient_names,
-            "tags": rec.get("tags") or [],
-            "dish_types": rec.get("dish_types") or [],
-            "allergens": allergens,
-            "duration": rec.get("duration") or None,
-            "serves": rec.get("serves") or 1.0,
-            "expert_recipe": True,
-            "has_profile": True,
-            "has_planeat_nutrition": True,
-            "ground_truth_nutrition_source": NUTRITION_SOURCE,
-            "nutri_score_planeat": nutri_score,
-            "nutri_color_planeat": nutri_color,
-            "cost_category": None,
-        }
-        requests.put(
-            f"{settings.elastic_url}/recipes_v2/_doc/{recipe_id}",
-            json=doc,
-            timeout=5,
-        ).raise_for_status()
+        project(recipe_id)
     except Exception as exc:
         print(f"    [ES] WARN {exc}", flush=True)
 
@@ -292,7 +258,7 @@ def process_recipe(rec: dict, write: bool) -> str:
         serves=serves,
         image_url=None,
         allergens=allergens,
-        tags=rec.get("tags") or [],
+        user_tags=rec.get("tags") or [],
         source=SOURCE,
         source_id=str(rec.get("source_id") or recipe_id),
         expert_recipe=True,

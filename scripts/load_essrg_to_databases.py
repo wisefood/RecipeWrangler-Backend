@@ -21,9 +21,9 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 # ── config ────────────────────────────────────────────────────────────────────
-PROFILES_JSON = Path("output/ESSRG/recipes_with_profiles.json")
+PROFILES_JSON = Path("data/processed/essrg/recipes_with_profiles.json")
 RECIPES_JSON = Path("data/ESSRG/ESSRG_recipes_clean.json")
-OUTPUT_DIR = Path("output/ESSRG")
+OUTPUT_DIR = Path("data/processed/essrg")
 
 NEO4J_RECIPES_CSV = OUTPUT_DIR / "neo4j_recipes_import.csv"
 NEO4J_INGREDIENTS_CSV = OUTPUT_DIR / "neo4j_ingredients_import.csv"

@@ -2,7 +2,7 @@
 """Audit the recipe-ingredient -> composition-table (Elasticsearch) matches.
 
 Samples Ingredient names from Neo4j, runs them through the same Elasticsearch lookup
-the profiling pipeline uses (Irish + USDA candidate collections), records the
+the profiling pipeline uses (Irish with EU fallback), records the
 chosen match and similarity, and flags ones that look wrong. Read-only.
 
     python3 scripts/audit_nutrition_matches.py --sample 400
@@ -25,15 +25,6 @@ from recipe_wrangler.utils.env_loader import load_runtime_env  # noqa: E402
 load_runtime_env()
 
 from recipe_wrangler.utils.neo4j_utils import driver  # noqa: E402
-from recipe_wrangler.repositories.vector_matchers import (  # noqa: E402
-    query_irish_nutrition_candidates,
-    query_usda_nutrition_candidates,
-)
-from recipe_wrangler.tools.nutritional_calculator import (  # noqa: E402
-    _candidate_name,
-    _select_usda_match,
-    _tokenize,
-)
 from recipe_wrangler.tools.nutrition_match import best_nutrition_match  # noqa: E402
 
 DEFAULT_OUTPUT = REPO_ROOT / "data/processed/nutrition_match_audit.csv"
@@ -70,8 +61,8 @@ def _sim(match: dict | None) -> float | None:
 def _flag(query: str, matched: str, sim: float | None) -> str | None:
     q_words = set(_WORD_RE.findall(query.lower()))
     m_words = set(_WORD_RE.findall(matched.lower()))
-    q_tok = _tokenize(query)
-    m_tok = _tokenize(matched)
+    q_tok = set(_WORD_RE.findall(query.lower()))
+    m_tok = set(_WORD_RE.findall(matched.lower()))
     # A query word that appears in the match only *inside a longer word*
     # (egg -> eggplant, butter -> buttermilk, cream -> creamer, flour -> cauliflower).
     for w in q_words:
@@ -96,22 +87,11 @@ RETURN i.name AS name, freq
 """
 
 
-def _old_match(q: str):
-    irish_top = _top_by_distance(query_irish_nutrition_candidates(q))
-    usda_pick = _select_usda_match(q, query_usda_nutrition_candidates(q))
-    cands = [c for c in (irish_top, usda_pick) if c]
-    if not cands:
-        return None, None, None
-    best = min(cands, key=lambda c: float(c.get("distance") if c.get("distance") is not None else 9))
-    return _candidate_name(best), _sim(best), ("irish" if best is irish_top else "usda")
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sample", type=int, default=400)
     parser.add_argument("--min-freq", type=int, default=2)
     parser.add_argument("--seed", type=int, default=13)
-    parser.add_argument("--matcher", choices=["new", "old"], default="new")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
@@ -120,22 +100,17 @@ def main() -> None:
     rng = random.Random(args.seed)
     if 0 < args.sample < len(pool):
         pool = rng.sample(pool, args.sample)
-    print(f"sampled ingredient names: {len(pool)}  matcher={args.matcher}")
+    print(f"sampled ingredient names: {len(pool)}")
 
     rows = []
     flagged = 0
     for raw_name, freq in pool:
         try:
-            if args.matcher == "new":
-                m = best_nutrition_match(raw_name, "irish")
-                cleaned, matched, sim, source, conf = (
-                    m["cleaned_query"], m.get("matched_name") or "", m.get("similarity"),
-                    m.get("source_key") or "", m.get("confidence"),
-                )
-            else:
-                cleaned = _clean(raw_name) or raw_name.lower()
-                matched_, sim_, source_ = _old_match(cleaned)
-                matched, sim, source, conf = (matched_ or ""), sim_, (source_ or ""), ""
+            m = best_nutrition_match(raw_name, "irish")
+            cleaned, matched, sim, source, conf = (
+                m["cleaned_query"], m.get("matched_name") or "", m.get("similarity"),
+                m.get("source_key") or "", m.get("confidence"),
+            )
         except Exception as exc:  # pragma: no cover
             rows.append({"ingredient": raw_name, "freq": freq, "cleaned_query": "", "source": "ERROR",
                          "matched_name": str(exc), "similarity": "", "confidence": "", "flag": "lookup_error"})

@@ -11,7 +11,7 @@ Usage:
         [--pipeline-version recompute_2026-05-11] [--limit N] [--no-resume]
 
 Default is a dry run. Resumable via
-data_to_send/backfill_nutri_score_breakdown.checkpoint.json.
+backups/backfill_nutri_score_breakdown.checkpoint.json.
 """
 
 from __future__ import annotations
@@ -34,11 +34,11 @@ from sqlalchemy import text  # noqa: E402
 from recipe_wrangler.utils.nutri_score import (  # noqa: E402
     compute_nutri_score_breakdown_from_values,
 )
-from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent  # noqa: E402
+from recipe_wrangler.utils.fruit_vegetable_content import fruits_veg_legumes_percent  # noqa: E402
 from recipe_wrangler.utils.nutrition_postgres import get_engine, _get_config  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-OUT_DIR = REPO_ROOT / "data_to_send"
+OUT_DIR = REPO_ROOT / "backups"
 CKPT_FILE = OUT_DIR / "backfill_nutri_score_breakdown.checkpoint.json"
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
 
@@ -94,15 +94,10 @@ def _build_breakdown(total_nutrients, details) -> dict | None:
             continue
         total_weight_g += w
         name = row.get("name") or row.get("ingredient") or ""
-        cfid = row.get("canonical_food_id")
-        usda_id = None
-        if cfid is not None:
-            s = str(cfid)
-            if len(s) >= 2 and s[:2].isdigit():
-                usda_id = s
         entry = {"name": name, "weight_grams": w}
-        if usda_id:
-            entry["usda_id"] = usda_id
+        for key in ("food_groups", "ingredient_class_ancestors"):
+            if row.get(key):
+                entry[key] = row[key]
         fvl.append(entry)
 
     if total_weight_g <= 0:
@@ -123,7 +118,7 @@ def _build_breakdown(total_nutrients, details) -> dict | None:
         return {"error": f"breakdown_exception:{type(exc).__name__}"}
     bd["inputs"] = {
         "total_weight_g": round(total_weight_g, 2),
-        "ingredients_with_usda_id_count": sum(1 for e in fvl if "usda_id" in e),
+        "ingredients_evaluated_for_fvln_count": len(fvl),
     }
     return bd
 

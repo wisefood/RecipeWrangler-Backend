@@ -489,7 +489,10 @@ def main() -> None:
                 cleared = _clear_generated_suitability(session)
                 print(f"cleared_previous_suitability={cleared}")
 
-            for group in CONSUMER_GROUP_IRIS:
+            # Only these three groups have composition rules. The remaining
+            # FATO vocabulary nodes are created above but deliberately stay
+            # unknown until certification/profile evidence exists.
+            for group in GROUP_RULES:
                 params = _rule_params(group)
                 negative = _scalar(
                     session,

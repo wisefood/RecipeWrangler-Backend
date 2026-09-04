@@ -38,7 +38,7 @@ from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals  #
 from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace  # noqa: E402
 
 DEFAULT_INPUT = REPO_ROOT / "data" / "FoodHero" / "foodhero_recipes_clean.json"
-DEFAULT_REGION = "US"
+DEFAULT_REGION = "IE"
 DEFAULT_SOURCE_LABEL = "FoodHero"
 DEFAULT_FAILURES_OUT = REPO_ROOT / "backups" / "foodhero_profile_failures.json"
 
@@ -130,11 +130,13 @@ def _source_from_region(region: str) -> str:
     region_norm = (region or DEFAULT_REGION).strip().upper()
     if region_norm == "IE":
         return "irish"
-    if region_norm == "US":
-        return "usda"
     if region_norm == "HU":
         return "hungarian"
-    raise ValueError(f"Unsupported region '{region}'. Supported: IE, US, HU")
+    if region_norm == "EU":
+        return "eu"
+    if region_norm == "SI":
+        return "slovenian"
+    raise ValueError(f"Unsupported region '{region}'. Supported: IE, HU, EU, SI")
 
 
 def _profile_meta() -> str:
@@ -278,7 +280,7 @@ def run_foodhero_import(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT, help="FoodHero clean JSON path")
-    parser.add_argument("--region", default=DEFAULT_REGION, choices=["US", "IE", "HU"])
+    parser.add_argument("--region", default=DEFAULT_REGION, choices=["IE", "HU", "EU", "SI"])
     parser.add_argument("--source-label", default=DEFAULT_SOURCE_LABEL)
     parser.add_argument("--limit", type=int, default=None, help="Optional cap of recipes to process")
     parser.add_argument(

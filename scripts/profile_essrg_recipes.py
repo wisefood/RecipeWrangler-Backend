@@ -37,7 +37,7 @@ except ImportError:
 # ── config ────────────────────────────────────────────────────────────────────
 RECIPES_FILE = Path("data/ESSRG/ESSRG_recipes_clean.json")
 EXCEL_FILE = Path("PLANEAT T442 MEAL DB LL ESSRG.xlsx")
-OUTPUT_DIR = Path("output/ESSRG")
+OUTPUT_DIR = Path("data/processed/essrg")
 PROFILES_CSV = OUTPUT_DIR / "nutrition_profiles.csv"
 COVERAGE_CSV = OUTPUT_DIR / "nutrition_coverage.csv"
 LOW_COVERAGE_CSV = OUTPUT_DIR / "low_coverage_recipes.csv"

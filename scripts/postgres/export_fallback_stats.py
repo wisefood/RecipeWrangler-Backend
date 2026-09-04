@@ -21,7 +21,7 @@ For each (dataset_source, profile_region) over the active pipeline version
 - regional_recipes — recipes with >=1 ingredient from the regional table
 - coverage_recipe_pct — regional_recipes / total_recipes
 
-Output: ``data_to_send/viz/coverage_stats_per_source.csv``.
+Output: ``artifacts/viz/coverage_stats_per_source.csv``.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ from recipe_wrangler.utils.nutrition_postgres import _get_config, get_connection
 load_runtime_env()
 
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
-DEFAULT_OUT = REPO_ROOT / "data_to_send" / "viz" / "coverage_stats_per_source.csv"
+DEFAULT_OUT = REPO_ROOT / "artifacts" / "viz" / "coverage_stats_per_source.csv"
 SOURCES = ("HealthyFoods", "MyPlate", "FoodHero", "Curated Irish Recipes", "recipe1m")
 
 # Region -> the per-ingredient `source` label of that region's own table.

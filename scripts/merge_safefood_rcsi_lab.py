@@ -74,7 +74,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write", action="store_true", help="Write Postgres rows and Neo4j metadata.")
     parser.add_argument("--lab-xlsx", type=Path, default=DEFAULT_LAB_XLSX)
-    parser.add_argument("--report", type=Path, default=REPO_ROOT / "exports" / "safefood_rcsi_merge_report.json")
+    parser.add_argument("--report", type=Path, default=REPO_ROOT / "data" / "SafeFood_web" / "safefood_rcsi_merge_report.json")
     parser.add_argument("--fuzzy-cutoff", type=float, default=0.88)
     args = parser.parse_args()
 

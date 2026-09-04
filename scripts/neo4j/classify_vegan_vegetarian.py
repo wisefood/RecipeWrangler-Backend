@@ -310,9 +310,20 @@ def _aggregate_recipe_batch(
              count(DISTINCT CASE
                 WHEN ingredient_rel.status = "suitable"
                 THEN i END) AS suitable_count
-        WITH r, g, blocking_ingredients, unknown_ingredients,
+        // The title names the dish, so "Bacon and sweetcorn baked potato"
+        // must block regardless of ingredient-level evidence -- an
+        // ingredient like "rashers" can have no FoodOn class link and match
+        // no keyword, and the title is real evidence that scan misses.
+        WITH r, g, blocking_ingredients, unknown_ingredients, ingredient_count,
+             suitable_count,
+             any(pattern IN $blocking_keyword_regexes
+                 WHERE toLower(coalesce(r.title, '')) =~ pattern)
+             AND none(pattern IN $negative_exclusions
+                      WHERE toLower(coalesce(r.title, '')) =~ pattern)
+             AS title_blocked
+        WITH r, g, blocking_ingredients, unknown_ingredients, title_blocked,
              CASE
-               WHEN size(blocking_ingredients) > 0 THEN "not_suitable"
+               WHEN size(blocking_ingredients) > 0 OR title_blocked THEN "not_suitable"
                WHEN ingredient_count > 0
                  AND suitable_count = ingredient_count THEN "suitable"
                ELSE "unknown"
@@ -323,7 +334,9 @@ def _aggregate_recipe_batch(
             rel.blocking_ingredients = blocking_ingredients,
             rel.unknown_ingredients = unknown_ingredients,
             rel.reason_codes = CASE status
-              WHEN "not_suitable" THEN ["blocking_ingredient"]
+              WHEN "not_suitable" THEN
+                CASE WHEN size(blocking_ingredients) = 0 AND title_blocked
+                     THEN ["blocking_title"] ELSE ["blocking_ingredient"] END
               WHEN "suitable" THEN ["all_ingredients_suitable"]
               ELSE ["incomplete_ingredient_evidence"] END,
             rel.sources = ["ingredient_suitability"],

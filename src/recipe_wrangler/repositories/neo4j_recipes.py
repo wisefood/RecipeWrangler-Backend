@@ -27,6 +27,7 @@ from recipe_wrangler.utils.foodon_matching import (
     match_ingredient_to_foodon,
     write_link as write_foodon_link,
 )
+from recipe_wrangler.utils.non_food_ingredients import is_unambiguous_non_food_ingredient
 from recipe_wrangler.utils.neo4j_utils import driver, run_query
 from recipe_wrangler.utils.nutrition_claims import NUTRITION_CLAIM_TAG_NAMES
 from recipe_wrangler.utils.recipe_status import NEO4J_NOT_DISABLED, STATUS_DISABLED
@@ -485,10 +486,35 @@ def upsert_recipe_to_neo4j(
             },
         )
 
-        # 2. Upsert each ingredient
+        # 2. Replace the recipe-owned ingredient projection. MERGE alone is not
+        # sufficient for edits: removed ingredients would otherwise remain linked,
+        # and position-based Ingredients_original nodes could retain stale MAPS_TO
+        # relationships when their text changes.
+        session.run(
+            """
+            MATCH (r:Recipe {recipe_id: $recipe_id})
+            OPTIONAL MATCH (r)-[rel:HAS_INGREDIENT|HAS_INGREDIENT_ORIGINAL]->()
+            DELETE rel
+            """,
+            {"recipe_id": recipe_id},
+        )
+        session.run(
+            """
+            MATCH (o:Ingredients_original)
+            WHERE o.original_id STARTS WITH $original_prefix
+              AND NOT EXISTS {
+                  MATCH (:Recipe)-[:HAS_INGREDIENT_ORIGINAL]->(o)
+              }
+            DETACH DELETE o
+            """,
+            {"original_prefix": f"{recipe_id}:"},
+        )
+
+        # 2a. Upsert each ingredient
         for position, (line, name, measurement) in enumerate(
             zip(ingredient_lines, ingredient_names, measurements)
         ):
+            non_food = is_unambiguous_non_food_ingredient(name)
             session.run(
                 """
                 MATCH (r:Recipe {recipe_id: $recipe_id})
@@ -504,17 +530,21 @@ def upsert_recipe_to_neo4j(
                 ON CREATE SET
                     i.canonical_id = randomUUID(),
                     i.source       = $source,
-                    i.status       = 'resolved'
+                    i.status       = 'resolved',
+                    i.non_food     = $non_food
                 ON MATCH SET
                     i.canonical_id = coalesce(i.canonical_id, randomUUID()),
                     i.source       = coalesce(i.source, $source),
-                    i.status       = coalesce(i.status, 'resolved')
+                    i.status       = coalesce(i.status, 'resolved'),
+                    i.non_food     = coalesce(i.non_food, false) OR $non_food
 
                 MERGE (o)-[:MAPS_TO]->(i)
-                MERGE (r)-[hi:HAS_INGREDIENT]->(i)
-                SET hi.measurement = $measurement,
-                    hi.position = $position,
-                    hi.unit = null
+                FOREACH (_ IN CASE WHEN $non_food THEN [] ELSE [1] END |
+                    MERGE (r)-[hi:HAS_INGREDIENT]->(i)
+                    SET hi.measurement = $measurement,
+                        hi.position = $position,
+                        hi.unit = null
+                )
                 """,
                 {
                     "recipe_id": recipe_id,
@@ -524,6 +554,7 @@ def upsert_recipe_to_neo4j(
                     "name": name,
                     "measurement": measurement,
                     "source": source,
+                    "non_food": non_food,
                 },
             )
 

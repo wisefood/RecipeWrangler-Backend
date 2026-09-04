@@ -25,7 +25,7 @@ Usage:
         [--limit N] [--no-resume]
 
 Default is a dry run. Resumable via
-data_to_send/backfill_weight_trace.checkpoint.json (one entry per recipe_id).
+backups/backfill_weight_trace.checkpoint.json (one entry per recipe_id).
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ from recipe_wrangler.tools.ingredient_weight_tool import (  # noqa: E402
 from recipe_wrangler.utils.nutrition_postgres import get_engine, _get_config  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-OUT_DIR = REPO_ROOT / "data_to_send"
+OUT_DIR = REPO_ROOT / "backups"
 CKPT_FILE = OUT_DIR / "backfill_weight_trace.checkpoint.json"
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
 NEO4J_SOURCES = ("HealthyFoods", "MyPlate", "FoodHero", "Curated Irish Recipes")

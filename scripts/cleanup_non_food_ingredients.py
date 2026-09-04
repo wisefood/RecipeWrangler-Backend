@@ -179,6 +179,12 @@ RETURN count(hi) AS deleted_edges
 DELETE_ORPHAN_INGREDIENTS_QUERY = """
 MATCH (i:Ingredient)
 WHERE i.name IN $names AND NOT (:Recipe)-[:HAS_INGREDIENT]->(i)
+OPTIONAL MATCH (i)-[:HAS_DECLARATION]->(d:AllergenDeclaration)
+OPTIONAL MATCH (d)-[declaration_rel]-()
+WITH i, collect(DISTINCT declaration_rel) AS declaration_rels,
+     collect(DISTINCT d) AS declarations
+FOREACH (rel IN declaration_rels | DELETE rel)
+FOREACH (declaration IN declarations | DELETE declaration)
 DETACH DELETE i
 RETURN count(i) AS deleted_ingredients
 """

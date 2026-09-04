@@ -15,7 +15,7 @@ from recipe_wrangler.utils.nutrition_postgres import get_engine
 SCHEMA = os.getenv("NUTRITION_SCHEMA", "public")
 TABLE = os.getenv("NUTRITION_PROFILES_TABLE", "nutrients-recipe-profiles")
 REPO_ROOT = Path(__file__).resolve().parents[1]
-OUT_DIR = REPO_ROOT / "data_to_send" / "viz"
+OUT_DIR = REPO_ROOT / "artifacts" / "viz"
 FLAT = OUT_DIR / "co2e_per_serving_per_recipe.csv"
 SUMMARY = OUT_DIR / "co2e_per_serving_summary_per_source.csv"
 
@@ -23,7 +23,7 @@ SUMMARY = OUT_DIR / "co2e_per_serving_summary_per_source.csv"
 QUERY = f'''
     SELECT recipe_id, source, total_sustainability_per_serving AS co2e_per_serving_kg
     FROM "{SCHEMA}"."{TABLE}"
-    WHERE nutrition_source = 'usda'
+    WHERE nutrition_source = 'eu'
       AND total_sustainability_per_serving IS NOT NULL
     ORDER BY source, recipe_id
 '''

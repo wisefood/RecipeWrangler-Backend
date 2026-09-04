@@ -101,7 +101,10 @@ _SLASHLESS_RANGE_FRACTION_MASS_RE = re.compile(
     re.IGNORECASE,
 )
 _INGREDIENT_BOUNDARY_RE = re.compile(
-    r"(?<=[a-z\)])(?=(?:\d+(?:\s+[½⅓⅔¼¾⅛⅜⅝⅞]|\s+\d+/\d+)?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*"
+    # Do not split package multipliers (``2x400g``) or parenthetical
+    # alternatives (``or1 cup``). The boundary repair is only for genuinely
+    # concatenated source rows such as ``oil2 tablespoons lemon juice``.
+    r"(?<=[a-z\)])(?<!x)(?<!or)(?=(?:\d+(?:\s+[½⅓⅔¼¾⅛⅜⅝⅞]|\s+\d+/\d+)?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*"
     r"(?:cup|cups|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lb|lbs|pounds?|g|grams?|kg|ml|l|"
     r"can|cans|clove|cloves|slice|slices|stalk|stalks|sprig|sprigs|teaspoon|tablespoon)\b)",
     re.IGNORECASE,
@@ -145,7 +148,14 @@ def _split_ingredient_line(line: str) -> tuple[str, str]:
     multiplier = _MULTIPLIER_MASS_RE.match(line)
     if multiplier:
         total = float(multiplier.group("count")) * float(multiplier.group("size"))
-        return (f"{total:g} {multiplier.group('unit')}", multiplier.group("name").strip())
+        name = re.sub(
+            r"^(?:can|cans|package|packages|packet|packets|box|boxes|jar|jars|"
+            r"container|containers|carton|cartons)\s+",
+            "",
+            multiplier.group("name").strip(),
+            flags=re.IGNORECASE,
+        )
+        return (f"{total:g} {multiplier.group('unit')}", name)
 
     package_after_mass = _PACKAGE_AFTER_MASS_RE.match(line)
     if package_after_mass:

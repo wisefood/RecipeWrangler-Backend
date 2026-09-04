@@ -5,13 +5,14 @@ Target schema after migration::
 
     (Recipe)-[:HAS_INGREDIENT {measurement, unit, quantity, weight_grams}]->(Ingredient {name, canonical_id})
 
-The canonical clean name comes from Postgres
-``nutrition_profiling_details[].matched_sustainability_ingredient`` for the
-57,919 recipes profiled under ``pipeline_version='recompute_2026-05-11'``.
-Unprofiled Recipe1M recipes (~753k) are out of scope of this script — handle
-separately. FoodHero is also skipped in the write phase because its raw input
-already concatenated multiple ingredients into single strings (re-import
-required).
+The canonical ingredient identity comes from the parsed source ingredient name
+in ``nutrition_profiling_details[].name``. Nutrition and sustainability matches
+are reference records only and must never replace that identity. An older
+version of this migration made that mistake; existing projections produced by
+it are repaired by ``scripts/one_off/repair_sustainability_canonicalization.py``.
+Retired Recipe1M recipes are out of scope. FoodHero is also skipped in the
+write phase because its raw input already concatenated multiple ingredients
+into single strings (re-import required).
 
 Phases (each is independent and read-only unless ``--write`` is passed)::
 
@@ -21,7 +22,7 @@ Phases (each is independent and read-only unless ``--write`` is passed)::
     --phase verify     post-migration top-N + counts
 
 Default is dry-run. Resumable via per-source checkpoint files under
-``data_to_send/migration/``.
+``backups/migration/``.
 """
 
 from __future__ import annotations
@@ -49,9 +50,9 @@ load_runtime_env()
 from neo4j import GraphDatabase  # noqa: E402
 
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
-SOURCES_PROFILED = ("HealthyFoods", "MyPlate", "Curated Irish Recipes", "recipe1m")
+SOURCES_PROFILED = ("HealthyFoods", "MyPlate", "Curated Irish Recipes")
 SOURCES_SKIP_WRITE = ("FoodHero",)  # see module docstring
-OUT_DIR = REPO_ROOT / "data_to_send" / "migration"
+OUT_DIR = REPO_ROOT / "backups" / "migration"
 SAMPLE_SIZE = 200
 DEFAULT_BATCH = 500
 
@@ -105,7 +106,7 @@ def _iter_plan_rows(
         FROM "{cfg['schema']}"."{cfg['profiles_table']}"
         WHERE pipeline_version = :pv
           AND source = :s
-          AND nutrition_source = 'usda'
+          AND nutrition_source = 'eu'
           AND nutrition_profiling_details IS NOT NULL
         ORDER BY recipe_id
         {f'LIMIT {int(limit)}' if limit else ''}
@@ -119,13 +120,16 @@ def _iter_plan_rows(
                 if not isinstance(entry, dict):
                     continue
                 raw = _norm_name(entry.get("name"))
-                clean = _norm_name(entry.get("matched_sustainability_ingredient"))
+                # The parsed source name owns ingredient identity. A nearest
+                # sustainability/nutrition row can support a calculation but
+                # is not necessarily the same food (for example firm tofu was
+                # once rewritten as "vegetable cube"). Keep it only as
+                # provenance for review.
+                clean = raw
+                sustainability_reference = _norm_name(
+                    entry.get("matched_sustainability_ingredient")
+                )
                 if not raw:
-                    continue
-                if not clean:
-                    # fall back to matched_nutritional_ingredient as a secondary signal
-                    clean = _norm_name(entry.get("matched_nutritional_ingredient"))
-                if not clean:
                     continue
                 seen_raw_in_recipe[raw] += 1
                 meas = entry.get("measurement")
@@ -135,6 +139,7 @@ def _iter_plan_rows(
                     "raw_name": raw,
                     "raw_occurrence": seen_raw_in_recipe[raw],
                     "clean_name": clean,
+                    "sustainability_reference": sustainability_reference,
                     "measurement": meas,
                     "quantity": qty,
                     "unit": unit,
@@ -255,6 +260,12 @@ WHERE NOT (:Recipe)-[:HAS_INGREDIENT]->(i)
   AND NOT (i)-[:HAS_SUBSTITUTION]-()
   AND NOT (i)-[:FLAVORDB_EQUIVALENT]-()
 WITH i LIMIT $batch
+OPTIONAL MATCH (i)-[:HAS_DECLARATION]->(d:AllergenDeclaration)
+OPTIONAL MATCH (d)-[declaration_rel]-()
+WITH i, collect(DISTINCT declaration_rel) AS declaration_rels,
+     collect(DISTINCT d) AS declarations
+FOREACH (rel IN declaration_rels | DELETE rel)
+FOREACH (declaration IN declarations | DELETE declaration)
 DETACH DELETE i
 RETURN count(*) AS deleted
 """

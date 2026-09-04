@@ -62,6 +62,22 @@ class IngredientLineSplitterTests(unittest.TestCase):
         self.assertEqual(names, ["salmon fillets"])
         self.assertEqual(measurements, ["240 g"])
 
+    def test_multiplier_without_spaces_is_not_treated_as_concatenated_lines(self):
+        names, measurements = split_ingredient_lines(
+            ["2x400g cans no-added-salt chopped tomatoes"]
+        )
+
+        self.assertEqual(names, ["no-added-salt chopped tomatoes"])
+        self.assertEqual(measurements, ["800 g"])
+
+    def test_parenthetical_or_quantity_is_not_split_into_another_ingredient(self):
+        names, measurements = split_ingredient_lines(
+            ["1 cup canned peaches (or1 cup sliced fresh peaches)"]
+        )
+
+        self.assertEqual(names, ["canned peaches (or1 cup sliced fresh peaches)"])
+        self.assertEqual(measurements, ["1 cup"])
+
     def test_concatenated_source_line_splits_before_next_quantity(self):
         names, measurements = split_ingredient_lines(
             ["1 teaspoon vegetable oil2 Tablespoons lemon juice"]

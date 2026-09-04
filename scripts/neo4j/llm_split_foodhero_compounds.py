@@ -40,7 +40,7 @@ from neo4j import GraphDatabase  # noqa: E402
 
 DEFAULT_BATCH = 20
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
-CKPT = REPO_ROOT / "data_to_send" / "migration" / "foodhero_split_checkpoint.json"
+CKPT = REPO_ROOT / "backups" / "migration" / "foodhero_split_checkpoint.json"
 
 CANDIDATES_CYPHER = """
 MATCH (rec:Recipe {source:'FoodHero'})-[:HAS_INGREDIENT]->(i:Ingredient)
@@ -85,6 +85,12 @@ WHERE NOT (:Recipe)-[:HAS_INGREDIENT]->(i)
   AND NOT (i)-[:HAS_SUBSTITUTION]-()
   AND NOT (i)-[:FLAVORDB_EQUIVALENT]-()
 WITH i LIMIT 5000
+OPTIONAL MATCH (i)-[:HAS_DECLARATION]->(d:AllergenDeclaration)
+OPTIONAL MATCH (d)-[declaration_rel]-()
+WITH i, collect(DISTINCT declaration_rel) AS declaration_rels,
+     collect(DISTINCT d) AS declarations
+FOREACH (rel IN declaration_rels | DELETE rel)
+FOREACH (declaration IN declarations | DELETE declaration)
 DETACH DELETE i
 RETURN count(*) AS deleted
 """

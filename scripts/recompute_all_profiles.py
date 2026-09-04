@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
 """Recompute nutrition + sustainability for selected recipes across all 3 regions
-(IE / HU / US) and upsert them into the ``nutrients-recipe-profiles`` Postgres table.
+(IE / HU / EU / SI) and upsert them into the ``nutrients-recipe-profiles`` Postgres table.
 
-Scope (default = all of the below):
+Scope:
   * HealthyFoods, MyPlate, FoodHero, Irish_SafeFood  -> ingredients pulled from Neo4j
     (name + HAS_INGREDIENT.measurement), profiled through the full structured pipeline
     (weight tool runs, vLLM as last-resort fallback).
-  * recipe1m recipes that have nutrition  -> the ``recipes_with_nutritional_info.json``
-    set (~51k). Their pre-computed ``weight_per_ingr`` is fed straight into
-    Recipe_Profiling_Node (weight tool skipped) so this is an apples-to-apples
-    recompute against the ``recipe1m_original`` ground-truth rows.
-
-It never touches ``nutrition_source = 'recipe1m_original'`` rows (those stay as the
-ground-truth baseline).
-
 Resumable: a checkpoint of done ``(recipe_id, region)`` pairs is written next to the
 output. Per-recipe try/except — one failure does not kill the run; failures are
 collected to a JSON file.
@@ -61,8 +53,8 @@ from recipe_wrangler.tools.recipe_profiling_tool import (  # noqa: E402
 from recipe_wrangler.utils.neo4j_utils import run_query  # noqa: E402
 from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace  # noqa: E402
 
-REGIONS = ["IE", "HU", "US", "EU"]
-REGION_TO_SOURCE = {"IE": "irish", "HU": "hungarian", "US": "usda", "EU": "eu"}
+REGIONS = ["IE", "HU", "EU", "SI"]
+REGION_TO_SOURCE = {"IE": "irish", "HU": "hungarian", "EU": "eu", "SI": "slovenian"}
 PIPELINE_VERSION = "recompute_2026-05-11"
 
 NEO4J_SOURCES = {
@@ -71,11 +63,9 @@ NEO4J_SOURCES = {
     "foodhero": "FoodHero",
     "irish_safefood": "Curated Irish Recipes",
 }
-ALL_SOURCES = list(NEO4J_SOURCES.keys()) + ["recipe1m"]
+ALL_SOURCES = list(NEO4J_SOURCES.keys())
 
-RECIPE1M_NUTR_JSON = REPO_ROOT / "data" / "processed" / "recipe1m" / "recipes_with_nutritional_info.json"
-
-OUT_DIR = REPO_ROOT / "data_to_send"
+OUT_DIR = REPO_ROOT / "backups"
 CKPT_FILE = OUT_DIR / "recompute_all_profiles.checkpoint.json"
 FAIL_FILE = OUT_DIR / "recompute_all_profiles.failures.jsonl"
 
@@ -180,6 +170,7 @@ def _build_record(recipe_id: str, title: str, source_label: str, region: str, re
         or (ns.get("breakdown") if isinstance(ns, dict) else None),
         "nutrition_profiling_details": r.get("ingredients"),
         "nutrition_profiling_debug": None,  # skip the big debug blob on purpose
+        "profiling_quality": quality,
         "trace": {
             "profiling_quality": quality,
             "serves": serves,
@@ -264,54 +255,14 @@ def collect_neo4j_source(src_lower: str, source_label: str, limit: int | None) -
     return out
 
 
-def collect_recipe1m(limit: int | None) -> list[dict]:
-    if not RECIPE1M_NUTR_JSON.exists():
-        print(f"[recompute] WARNING: {RECIPE1M_NUTR_JSON} not found — skipping recipe1m.", flush=True)
-        return []
-    with open(RECIPE1M_NUTR_JSON) as f:
-        data = json.load(f)
-    if limit:
-        data = data[: int(limit)]
-    out: list[dict] = []
-    for r in data:
-        try:
-            names = [str(i["text"]) for i in r["ingredients"]]
-            meas = [
-                f"{q.get('text', '')} {u.get('text', '')}".strip()
-                for q, u in zip(r.get("quantity", []), r.get("unit", []))
-            ]
-            weights = [float(w) if w else 0.0 for w in r.get("weight_per_ingr", [])]
-        except Exception:
-            continue
-        if not names or not weights:
-            continue
-        out.append(
-            {
-                "recipe_id": r["id"],
-                "title": r.get("title") or "Untitled Recipe",
-                "source_label": "recipe1m",
-                "ingredient_names": names,
-                "measurements": meas,
-                "weights": weights,
-                "instructions": _as_list_of_str(r.get("instructions")),
-                "serves": None,  # recipe1m has no serves -> pipeline estimates
-            }
-        )
-    return out
-
-
 def collect_recipes(sources: Iterable[str], limit: int | None) -> list[dict]:
     recipes: list[dict] = []
     for src in sources:
-        if src == "recipe1m":
-            print("[recompute] collecting recipe1m (with-nutrition set)…", flush=True)
-            got = collect_recipe1m(limit)
-        elif src in NEO4J_SOURCES:
+        if src in NEO4J_SOURCES:
             print(f"[recompute] collecting {NEO4J_SOURCES[src]} from Neo4j…", flush=True)
-            got = collect_neo4j_source(src, NEO4J_SOURCES[src], limit)
+            got = collect_neo4j_source(NEO4J_SOURCES[src].lower(), NEO4J_SOURCES[src], limit)
         else:
-            print(f"[recompute] unknown source '{src}' — skipping.", flush=True)
-            continue
+            raise ValueError(f"unknown or retired recipe source: {src}")
         print(f"            -> {len(got)} recipes", flush=True)
         recipes.extend(got)
     return recipes
@@ -333,13 +284,25 @@ def main() -> None:
     parser.add_argument(
         "--checkpoint-every", type=int, default=200, help="Flush checkpoint every N profiling calls"
     )
+    parser.add_argument(
+        "--regions",
+        default=None,
+        help=f"Comma-separated subset of {REGIONS} (default: all)",
+    )
     args = parser.parse_args()
 
     sources = [s.strip().lower() for s in args.sources.split(",") if s.strip()]
-    print(f"[recompute] sources={sources} regions={REGIONS} write={args.write} limit={args.limit}", flush=True)
+    regions = REGIONS
+    if args.regions:
+        requested = [r.strip().upper() for r in args.regions.split(",") if r.strip()]
+        unknown = [r for r in requested if r not in REGIONS]
+        if unknown:
+            raise SystemExit(f"Unknown region(s) {unknown}. Valid: {REGIONS}")
+        regions = [r for r in REGIONS if r in requested]
+    print(f"[recompute] sources={sources} regions={regions} write={args.write} limit={args.limit}", flush=True)
 
     recipes = collect_recipes(sources, args.limit)
-    print(f"[recompute] total recipes to process: {len(recipes)} (×{len(REGIONS)} regions)", flush=True)
+    print(f"[recompute] total recipes to process: {len(recipes)} (×{len(regions)} regions)", flush=True)
 
     done = set() if (args.no_resume or not args.write) else load_checkpoint()
     if done:
@@ -351,13 +314,13 @@ def main() -> None:
     n_fail = 0
     n_skip = 0
     n_calls = 0
-    total_calls = len(recipes) * len(REGIONS)
+    total_calls = len(recipes) * len(regions)
 
     for rec in recipes:
         if _stop:
             break
         rid = rec["recipe_id"]
-        for region in REGIONS:
+        for region in regions:
             if _stop:
                 break
             key = f"{rid}|{region}"

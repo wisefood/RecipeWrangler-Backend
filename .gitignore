@@ -33,7 +33,17 @@ recipe-kg.md
 .vscode/
 /preprocessing/one_off/
 /scripts/one_off/
-/scripts/neo4j/tag_dish_types_vllm.py
+
+# One-shot data-quality fix scripts, already applied -- not reusable
+# pipeline infra, kept out of history like /scripts/one_off/ above.
+/scripts/facets/fix_ingredient_typos.py
+/scripts/facets/clean_x_alias_ingredients.py
+/scripts/facets/clean_nutrient_db_descriptions.py
+/scripts/facets/clean_prep_comma_ingredients.py
+/scripts/facets/split_manual_ingredient_blobs.py
+/scripts/facets/split_concatenated_ingredients.py
+/scripts/facets/report_ingredient_reparse_diff.py
+/scripts/facets/report_concatenated_ingredients.py
 /postgresql-docker/nutrients.dump
 /notebooks/test_tools.ipynb
 /preprocessing/neo4j
@@ -50,7 +60,6 @@ tmp_*.sqlite
 /alembic.ini
 
 /backups
-/data_to_send
 
 logs/
 *.log
@@ -65,6 +74,8 @@ CLAUDE.md
 # Per-machine memory index (not project state)
 /MEMORY.md
 /PROGRESS.md
+# Dated progress_*.md files get merged into PROGRESS.md, not kept standalone
+/progress_*.md
 
 # Local agent skills, plans, and scratch instructions
 /.superpowers/
@@ -96,12 +107,8 @@ CLAUDE.md
 # Loose presentation/screenshot artifacts in docs/
 /docs/image.png
 
-# One-off analysis reports that scripts write to repo root
-/nutritional_outlier_report.md
-/removed_outliers_detailed_report.md
-/removed_outliers_strict_report.md
-/revised_outlier_analysis.md
-/revised_outlier_report_per_serving.md
+# One-off analysis reports that scripts write to repo root — merged into one file
+/OUTLIER_REPORTS.md
 
 # Resume-state files written by long-running import scripts
 /scripts/*.checkpoint*.json
@@ -143,3 +150,6 @@ CLAUDE.md
 
 # Local safety dumps taken during migrations
 /dumps/
+
+# Personal terminal cheatsheet, not project docs
+/INSPECT_DATABASES.md

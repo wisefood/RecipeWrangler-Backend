@@ -18,7 +18,7 @@ import pandas as pd
 
 # ── config ────────────────────────────────────────────────────────────────────
 RECIPES_FILE = Path("data/ESSRG/ESSRG_recipes_clean.json")
-OUTPUT_DIR = Path("output/ESSRG")
+OUTPUT_DIR = Path("data/processed/essrg")
 COMPLETENESS_FILE = OUTPUT_DIR / "recipe_schema_completeness.csv"
 SUMMARY_FILE = OUTPUT_DIR / "recipe_completeness_summary.txt"
 LOW_COVERAGE_FILE = OUTPUT_DIR / "low_coverage_recipes.txt"

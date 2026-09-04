@@ -5,7 +5,7 @@ Replaces the legacy 46 Irish_SafeFood spreadsheet recipes with the recipes
 scraped from https://www.safefood.net/recipes (see scrape_safefood_recipes.py).
 
 Per recipe:
-  1. Profile US / IE / HU / EU via Recipe_Profiling_Chain (Groq parse + weight,
+  1. Profile IE / HU / EU / SI via Recipe_Profiling_Chain (Groq parse + weight,
      reusing the parsed ingredients across regions).
   2. Upsert to Neo4j with source='Curated Irish Recipes', the real recipe URL, and the
      real safefood image URL (no FLUX generation).
@@ -64,9 +64,9 @@ from safefood_rcsi import (  # noqa: E402
 )
 
 SOURCE = "Curated Irish Recipes"
-REGIONS = [("US", "usda"), ("IE", "irish"), ("HU", "hungarian"), ("EU", "eu")]
+REGIONS = [("IE", "irish"), ("HU", "hungarian"), ("EU", "eu"), ("SI", "slovenian")]
 SCRAPE_FILES = [
-    REPO_ROOT / "exports" / f"safefood_{c}_recipes.json"
+    REPO_ROOT / "data" / "SafeFood_web" / f"safefood_{c}_recipes.json"
     for c in ("breakfast", "lunch", "dinner", "snacks", "desserts")
 ]
 CHECKPOINT = REPO_ROOT / "scripts" / "import_safefood_web.checkpoint.json"
@@ -96,13 +96,28 @@ def parse_minutes(s: str | None) -> float:
     if not s:
         return 0.0
     s = str(s).lower()
-    hours = re.search(r"(\d+)\s*(?:hr|hour)", s)
-    mins = re.search(r"(\d+)\s*min", s)
+    fractions = {"¼": 0.25, "½": 0.5, "¾": 0.75}
+
+    def number(raw: str) -> float:
+        for symbol, value in fractions.items():
+            if symbol in raw:
+                whole = raw.replace(symbol, "").strip()
+                return (float(whole) if whole else 0.0) + value
+        return float(raw)
+
+    number_atom = r"\d+(?:\.\d+)?(?:[¼½¾])?|[¼½¾]"
+    number_pattern = rf"({number_atom})(?:\s*(?:/|–|-)\s*({number_atom}))?"
+    hours = re.search(number_pattern + r"\s*(?:hrs?|hours?)", s)
+    mins = re.search(number_pattern + r"\s*(?:mins?|minutes?)", s)
+
+    def upper(match: re.Match[str]) -> float:
+        return number(match.group(2) or match.group(1))
+
     total = 0.0
     if hours:
-        total += float(hours.group(1)) * 60
+        total += upper(hours) * 60
     if mins:
-        total += float(mins.group(1))
+        total += upper(mins)
     return total
 
 
@@ -197,19 +212,9 @@ def set_recipe_url(recipe_id: str, url: str | None) -> None:
 
 def index_elastic(recipe_id: str, title: str, ingredient_names: list, tags: list) -> None:
     try:
-        import requests
-        from recipe_wrangler.api.config import get_settings
-        from recipe_wrangler.repositories.neo4j_recipes import resolve_collection_source_id
-        settings = get_settings()
-        requests.put(
-            f"{settings.elastic_url}/{settings.elastic_index}/_doc/{recipe_id}",
-            json={
-                "id": recipe_id, "title": title, "source": SOURCE,
-                "source_id": resolve_collection_source_id(SOURCE),
-                "ingredients": ingredient_names, "tags": tags,
-            },
-            timeout=5,
-        )
+        from recipe_wrangler.catalog.projection import project
+
+        project(recipe_id)
     except Exception:
         pass
 
@@ -284,7 +289,7 @@ def process_recipe(rec: dict, write: bool) -> str:
         recipe_id=recipe_id, title=title, ingredient_lines=ingredient_lines,
         ingredient_names=ingredient_names, measurements=measurements,
         instructions=instructions, duration=duration, serves=serves,
-        image_url=image_url, allergens=allergens, tags=[],
+        image_url=image_url, allergens=allergens, user_tags=[],
         source=SOURCE, source_id=None, expert_recipe=True,
     )
     set_recipe_url(recipe_id, url)

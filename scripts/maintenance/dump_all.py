@@ -47,7 +47,6 @@ ES_INDICES = ("recipes", "ingredient_vectors")
 PG_TABLES = (
     "nutrients-recipe-profiles",
     "nutrients-ingredients-eu",
-    "nutrients-ingredients-usda",
     "nutrients-ingredients-irish",
     "nutrients-ingredients-hungarian",
     "pipeline_static_data",
@@ -207,7 +206,7 @@ def main() -> None:
     )
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out = Path(args.out) if args.out else REPO_ROOT / "dumps" / (
+    out = Path(args.out) if args.out else REPO_ROOT / "dumps" / "local" / (
         f"{stamp}{('-' + args.label) if args.label else ''}"
     )
     out.mkdir(parents=True, exist_ok=True)

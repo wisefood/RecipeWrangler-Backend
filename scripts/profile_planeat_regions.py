@@ -10,8 +10,7 @@ is needed. For each recipe and each region this script:
   2. computes a per-100g Nutri-Score,
   3. upserts a profiling trace row into Postgres
      (source="Curated Hungarian Recipes", nutrition_source=region),
-  4. patches the recipe's recipes_v2 Elasticsearch document with the per-region
-     Nutri-Score grade and color.
+  4. reprojects the recipe through the protected catalog writer.
 
 Dry-run by default. Pass --write to enable Postgres + Elasticsearch writes.
 """
@@ -22,8 +21,6 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-
-import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -38,8 +35,8 @@ from recipe_wrangler.utils.nutrition_postgres import (  # noqa: E402
     upsert_recipe_profiling_trace,
 )
 
-REGIONS = ["usda", "irish", "hungarian", "eu"]
-ES_REGION_CODE = {"usda": "us", "irish": "ie", "hungarian": "hu", "eu": "eu"}
+REGIONS = ["irish", "hungarian", "eu", "slovenian"]
+ES_REGION_CODE = {"irish": "ie", "hungarian": "hu", "eu": "eu", "slovenian": "slovenian"}
 
 DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "ESSRG" / "ESSRG_recipes_clean.json"
 CHECKPOINT_PATH = Path(__file__).resolve().parent / "profile_planeat_regions.checkpoint.json"
@@ -86,17 +83,9 @@ def _save_checkpoint(done: set[str]) -> None:
 
 
 def _patch_elasticsearch(settings, recipe_id: str, region: str, breakdown: dict) -> None:
-    code = ES_REGION_CODE[region]
-    requests.post(
-        f"{settings.elastic_url}/recipes_v2/_update/{recipe_id}",
-        json={
-            "doc": {
-                f"nutri_score_{code}": breakdown.get("nutri_score"),
-                f"nutri_color_{code}": breakdown.get("color"),
-            }
-        },
-        timeout=5,
-    ).raise_for_status()
+    from recipe_wrangler.catalog.projection import project
+
+    project(recipe_id)
 
 
 def _process_region(rec: dict, region: str, settings, write: bool) -> str:
@@ -179,7 +168,7 @@ def main() -> None:
     parser.add_argument("--write", action="store_true", help="enable DB + ES writes (default: dry-run)")
     parser.add_argument("--no-resume", action="store_true", help="ignore checkpoint, re-process all")
     parser.add_argument("--limit", type=int, default=None, help="stop after N recipes")
-    parser.add_argument("--regions", type=str, default=None, help="comma-separated subset, e.g. usda,irish")
+    parser.add_argument("--regions", type=str, default=None, help="comma-separated subset, e.g. irish,eu")
     args = parser.parse_args()
 
     regions = REGIONS

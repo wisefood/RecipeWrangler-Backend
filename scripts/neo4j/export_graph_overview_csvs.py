@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Export graph-level overview CSVs (top ingredients, allergens, tags) for infographics.
 
-Writes four CSVs into ``data_to_send/viz/``:
+Writes four CSVs into ``artifacts/viz/``:
 
 - ``top_ingredients_per_source.csv``  : top N ingredients by recipe count, overall and per source.
 - ``top_allergens_per_source.csv``    : recipe-count per allergen, overall and per source.
@@ -31,7 +31,7 @@ import os  # noqa: E402
 
 from neo4j import GraphDatabase  # noqa: E402
 
-OUT_DIR = REPO_ROOT / "data_to_send" / "viz"
+OUT_DIR = REPO_ROOT / "artifacts" / "viz"
 SOURCES = ("HealthyFoods", "MyPlate", "FoodHero", "Curated Irish Recipes", "recipe1m")
 DEFAULT_TOP_N = 30
 

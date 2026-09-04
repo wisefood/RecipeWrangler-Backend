@@ -57,12 +57,22 @@ experimental = [
     "ollama>=0.3.0",
     "qdrant-client>=1.7.0",
 ]
+pricing = [
+    "matplotlib>=3.9.0",
+    "openpyxl>=3.1.0",
+    "pyarrow>=17.0.0",
+    "scikit-learn>=1.5.0",
+    "scipy>=1.13.0",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"recipe_wrangler.pricing" = ["*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]

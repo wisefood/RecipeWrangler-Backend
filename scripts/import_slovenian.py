@@ -30,9 +30,7 @@ os.environ["LANGCHAIN_TRACING_V2"] = "false"
 os.environ["LANGSMITH_TRACING"] = "false"
 
 import openpyxl
-import requests
-
-from recipe_wrangler.api.config import get_settings
+from recipe_wrangler.catalog.projection import project
 from recipe_wrangler.repositories.neo4j_recipes import (
     detect_allergens_from_names,
     driver as neo4j_driver,
@@ -42,7 +40,7 @@ from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from
 from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace
 
 SOURCE = "Curated Slovenian Recipes"
-NUTRITION_SOURCE = "slovenian"
+NUTRITION_SOURCE = "slovenian_original"
 PIPELINE_VERSION = "opkp_direct"
 XLSX_FILE = REPO_ROOT / "data" / "Slovenia" / "Slovenian_Recipes.xlsx"
 CHECKPOINT_FILE = REPO_ROOT / "scripts" / "import_slovenian.checkpoint.json"
@@ -195,7 +193,7 @@ def _set_slovenian_properties(recipe_id: str, dish_type: str) -> None:
             SET r.description                   = null,
                 r.dish_type                     = $dish_type,
                 r.has_slovenian_nutrition       = true,
-                r.ground_truth_nutrition_source = 'slovenian',
+                r.ground_truth_nutrition_source = 'slovenian_original',
                 r.has_profile                   = true,
                 r.language                      = 'en'
             """,
@@ -210,30 +208,7 @@ def _set_slovenian_properties(recipe_id: str, dish_type: str) -> None:
 def _index_elastic(rec: dict, dish_type: str, allergens: list[str],
                    serves: int, breakdown: dict | None) -> None:
     try:
-        settings = get_settings()
-        doc = {
-            "recipe_id": rec["recipe_id"],
-            "title": rec["title"],
-            "source": SOURCE,
-            "source_id": rec["recipe_id"],
-            "serves": serves,
-            "duration": rec["total_time"],
-            "dish_types": [dish_type],
-            "tags": [],
-            "allergens": allergens,
-            "ingredients": [i["name"] for i in rec["ingredients"]],
-            "expert_recipe": True,
-            "has_profile": True,
-            "has_slovenian_nutrition": True,
-            "ground_truth_nutrition_source": NUTRITION_SOURCE,
-            "nutri_score_slovenian": breakdown.get("nutri_score") if breakdown else None,
-            "nutri_color_slovenian": breakdown.get("color") if breakdown else None,
-        }
-        requests.put(
-            f"{settings.elastic_url}/recipes_v2/_doc/{rec['recipe_id']}",
-            json=doc,
-            timeout=5,
-        ).raise_for_status()
+        project(rec["recipe_id"])
     except Exception as exc:
         print(f"    [ES] WARN {exc}", flush=True)
 
@@ -334,7 +309,7 @@ def process_recipe(rec: dict, write: bool) -> str:
         serves=float(serves),
         image_url=None,
         allergens=allergens,
-        tags=[],
+        user_tags=[],
         source=SOURCE,
         source_id=recipe_id,
         expert_recipe=True,

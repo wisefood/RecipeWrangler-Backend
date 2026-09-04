@@ -124,6 +124,9 @@ RETURN
   coalesce(r.status, "active") AS status,
   toString(properties(r)['disabled_at']) AS disabled_at,
   coalesce(r.has_profile, false) AS has_profile,
+  coalesce(r.has_rcsi_lab_nutrition, false) AS has_rcsi_nutrition,
+  coalesce(r.has_planeat_nutrition, false) AS has_planeat_nutrition,
+  r.ground_truth_nutrition_source AS ground_truth_nutrition_source,
   r.creator AS creator,
   r.meal_type AS meal_type, r.dish_type AS dish_type, r.seasonality AS seasonality,
   ingredients, allergens, ingredient_class_ancestors,
@@ -250,6 +253,7 @@ def build_document(
         "image_url": _clean(row.get("image_url")) or None,
         "source": _clean(row.get("source")),
         "source_id": _clean(row.get("source_id")) or None,
+        "external_id": _clean(row.get("source_id")) or None,
         "duration": _float(row.get("duration")),
         "serves": _float(row.get("serves")),
         "cost_category": _clean(row.get("cost_category")) or None,
@@ -267,6 +271,12 @@ def build_document(
         "creator": _clean(row.get("creator")) or None,
         "disabled_at": _clean(row.get("disabled_at")) or None,
         "has_profile": bool(profiles) or bool(row.get("has_profile")),
+        "has_rcsi_nutrition": bool(row.get("has_rcsi_nutrition")),
+        "has_planeat_nutrition": bool(row.get("has_planeat_nutrition")),
+        "ground_truth_nutrition_source": _clean(
+            row.get("ground_truth_nutrition_source")
+        )
+        or None,
         "ingredients": _clean_ingredients(row.get("ingredients")),
         "ingredient_class_ancestors": _clean_list(row.get("ingredient_class_ancestors")),
         "allergens": _clean_list(row.get("allergens")),
@@ -305,9 +315,10 @@ def build_document(
 # about whether it should still exist.
 OWNER_PROJECTED_FIELDS: tuple[str, ...] = (
     "title", "description", "instructions", "url", "image_url",
-    "source", "source_id", "duration", "serves", "cost_category",
+    "source", "source_id", "external_id", "duration", "serves", "cost_category",
     "cost_category_code", "cost_category_status", "cost_price_coverage", "cost",
-    "disabled_at", "ingredients", "ingredient_class_ancestors",
+    "disabled_at", "has_rcsi_nutrition", "has_planeat_nutrition",
+    "ground_truth_nutrition_source", "ingredients", "ingredient_class_ancestors",
     "allergens", "allergen_evidence", "consumer_suitability",
     "suitable_for", "tags", "diet_tags", "nutrition_claims", "seasonality",
 )

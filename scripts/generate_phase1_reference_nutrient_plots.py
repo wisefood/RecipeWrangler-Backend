@@ -13,8 +13,10 @@ import numpy as np
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[1]
-OUT = REPO / "section5_outputs"
-INPUT = OUT / "descriptive_nutriscore_input_stats.csv"
+SECTION5 = REPO / "section5_outputs"
+OUT = SECTION5 / "assets"
+DATA = SECTION5 / "data"
+INPUT = DATA / "descriptive_nutriscore_input_stats.csv"
 
 SOURCES = [
     ("RCSI SafeFood", "rcsi", "RCSI SafeFood"),
@@ -178,7 +180,7 @@ def write_plot_csv(frame: pd.DataFrame) -> None:
                 }
             )
     pd.DataFrame(rows).to_csv(
-        OUT / "reference_nutriscore_input_medians_for_plot.csv", index=False
+        DATA / "reference_nutriscore_input_medians_for_plot.csv", index=False
     )
 
 
@@ -202,7 +204,7 @@ These figures describe reference nutrient values only. They do not compare the r
 - **Main finding:** Recipe1M / HUMMUS has substantially higher median energy, sugars, saturated fat, sodium, and protein values than RCSI SafeFood and HealthyFoods, reflecting the broader and more heterogeneous web-recipe corpus.
 - **Caveat:** Fibre is unavailable in the HUMMUS reference metadata and is shown as N/A. It should not be interpreted as a Recipe1M / HUMMUS reproducibility target.
 """
-    (OUT / "phase1_reference_nutrient_plot_findings.md").write_text(text, encoding="utf-8")
+    (SECTION5 / "phase1_reference_nutrient_plot_findings.md").write_text(text, encoding="utf-8")
 
 
 def main() -> None:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create timestamped sync bundles under data_to_send/dumps/<timestamp>/."""
+"""Create timestamped sync bundles under dumps/sent/<timestamp>/."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from urllib.request import Request, urlopen
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DUMPS_ROOT = REPO_ROOT / "data_to_send" / "dumps"
+DUMPS_ROOT = REPO_ROOT / "dumps" / "sent"
 DEFAULT_COMPONENTS = ["neo4j", "postgres", "elasticsearch", "assets"]
 
 
@@ -128,7 +128,6 @@ def export_postgres(bundle_dir: Path) -> dict[str, Any]:
     counts_sql = (
         "SELECT 'nutrients-ingredients-hungarian', count(*) FROM \"nutrients-ingredients-hungarian\" "
         "UNION ALL SELECT 'nutrients-ingredients-irish', count(*) FROM \"nutrients-ingredients-irish\" "
-        "UNION ALL SELECT 'nutrients-ingredients-usda', count(*) FROM \"nutrients-ingredients-usda\" "
         "UNION ALL SELECT 'nutrients-recipe-profiles', count(*) FROM \"nutrients-recipe-profiles\" "
         "UNION ALL SELECT 'pipeline_static_data', count(*) FROM pipeline_static_data "
         "UNION ALL SELECT 'structured_table_schemas', count(*) FROM structured_table_schemas "
@@ -174,7 +173,7 @@ def export_elasticsearch(bundle_dir: Path) -> dict[str, Any]:
     target.mkdir(parents=True, exist_ok=True)
 
     base_url = os.getenv("ELASTIC_URL", "http://localhost:9200")
-    index = os.getenv("ELASTIC_INDEX", "recipes_v2")
+    index = os.getenv("ELASTIC_INDEX", "recipes")
 
     mapping_path = target / f"elasticsearch_{index}_mapping_{bundle_dir.name}.json"
     settings_path = target / f"elasticsearch_{index}_settings_{bundle_dir.name}.json"
@@ -499,7 +498,7 @@ def write_metadata(bundle_dir: Path, exported: dict[str, dict[str, Any]]) -> Non
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Export timestamped sync bundles under data_to_send/dumps/<timestamp>/")
+    parser = argparse.ArgumentParser(description="Export timestamped sync bundles under dumps/sent/<timestamp>/")
     parser.add_argument(
         "--components",
         nargs="+",

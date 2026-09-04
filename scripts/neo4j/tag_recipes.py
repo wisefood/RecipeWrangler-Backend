@@ -174,6 +174,18 @@ def _tag_foodon_free(
           AND none(pattern IN $exclude_name_regexes
                    WHERE toLower(i2.name) =~ pattern)
     }
+    // The title names the dish, so "Bacon and sweetcorn baked potato" must
+    // block "vegan"/"vegetarian" even if "rashers" (its actual ingredient)
+    // has no FoodOn class link and isn't a keyword match -- a title-level
+    // check catches what ingredient-only scanning cannot. Same exclusion
+    // regexes as the ingredient checks, so "Vegan bacon and eggs" stays
+    // eligible.
+    AND NOT (
+        any(pattern IN $forbidden_keyword_regexes
+            WHERE toLower(coalesce(r.title, '')) =~ pattern)
+        AND none(pattern IN $exclude_name_regexes
+                 WHERE toLower(coalesce(r.title, '')) =~ pattern)
+    )
     MERGE (t:Tag {name: $tag_name})
     SET t.category = "dietary"
     MERGE (r)-[:HAS_TAG]->(t)

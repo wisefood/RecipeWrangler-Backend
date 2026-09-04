@@ -60,9 +60,7 @@ from recipe_wrangler.utils.brand_normalization import (  # noqa: E402
     validate_brand_decision,
     validate_brand_review_decision,
 )
-from recipe_wrangler.utils.es_recipe_projection import (  # noqa: E402
-    project_recipe_to_es_v2,
-)
+from recipe_wrangler.catalog.projection import ProjectionError, project  # noqa: E402
 from recipe_wrangler.utils.neo4j_utils import driver  # noqa: E402
 from recipe_wrangler.utils.recipe_cache import cache_delete_many  # noqa: E402
 from recipe_wrangler.utils.recipe_status import (  # noqa: E402
@@ -765,20 +763,18 @@ def apply_reviewed(args: argparse.Namespace) -> int:
                 disabled_ids,
                 STATUS_DISABLED,
                 es_url=settings.elastic_url,
-                indices=list(dict.fromkeys([settings.elastic_index, "recipes_v2"])),
+                indices=[settings.elastic_index],
             )
         projected = 0
         for index, recipe_id in enumerate(
             sorted(affected_ids - set(disabled_ids)),
             start=1,
         ):
-            if project_recipe_to_es_v2(
-                recipe_id,
-                es_url=settings.elastic_url,
-                index="recipes_v2",
-                timeout=settings.elastic_timeout,
-            ):
+            try:
+                project(recipe_id)
                 projected += 1
+            except ProjectionError as exc:
+                print(f"Elasticsearch projection failed for {recipe_id}: {exc}")
             if index % 250 == 0:
                 print(f"Elasticsearch projection {index}/{len(affected_ids)}")
         print(f"Elasticsearch projected: {projected}")

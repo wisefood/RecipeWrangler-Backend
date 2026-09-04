@@ -238,7 +238,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         with (
             patch.object(mod, "canonical_name_to_usda", return_value=None),
             patch.object(mod, "_embedding_usda_link", return_value=None),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(
                 ["dried arbol peppers", "dried chipotle peppers"],
@@ -250,7 +250,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         with (
             patch.object(mod, "canonical_name_to_usda", return_value=None),
             patch.object(mod, "_embedding_usda_link", return_value=None),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(
                 ["French-trimmed lamb cutlets"],
@@ -405,7 +405,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
                     "food_group": mod.HERB_SPICE_FOOD_GROUP,
                 },
             ),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(["scallions"], [""])
 
@@ -419,7 +419,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         with (
             patch.object(mod, "canonical_name_to_usda", return_value=None),
             patch.object(mod, "_embedding_usda_link", return_value=None),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(
                 ["fresh scallions", "spinach", "fresh parsley"],
@@ -435,7 +435,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         with (
             patch.object(mod, "canonical_name_to_usda", return_value=None),
             patch.object(mod, "_embedding_usda_link", return_value=None),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(
                 [
@@ -467,7 +467,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         with (
             patch.object(mod, "canonical_name_to_usda", return_value=None),
             patch.object(mod, "_embedding_usda_link", return_value=None),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(
                 [
@@ -510,7 +510,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         with (
             patch.object(mod, "canonical_name_to_usda", return_value=None),
             patch.object(mod, "_embedding_usda_link", return_value=None),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(
                 [
@@ -542,7 +542,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
             patch.object(mod, "canonical_name_to_usda", return_value=None),
             patch.object(mod, "_embedding_usda_link", return_value=None),
             patch.object(mod, "_weight_name_usda_link", return_value=None),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(["medium shrimp"], ["1 lb"])
 
@@ -566,7 +566,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
                 },
             ),
             patch.object(mod, "_embedding_usda_link", side_effect=AssertionError),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(["sharp cheddar cheese"], ["2 cups"])
 
@@ -621,7 +621,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         with (
             patch.object(mod, "canonical_name_to_usda", return_value=None),
             patch.object(mod, "_embedding_usda_link", return_value=None),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(["Cool Whip"], ["1 8 oz package"])
 
@@ -658,7 +658,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
                     "sample_measurement": "1 whole",
                 },
             ),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(["whole duck"], ["1 whole"])
 
@@ -885,7 +885,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
             patch.object(mod, "_embedding_usda_link", return_value=None),
             patch.object(mod, "_weight_name_usda_link", return_value=None),
             patch.object(mod, "_lookup_recipe1m_llm_weight_fallback", return_value=None),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(["whole duck"], ["1 whole"])
 
@@ -909,7 +909,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
                     "signature": (1.0, "whole"),
                 },
             ),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(["whole duck"], ["1 whole"])
 
@@ -933,7 +933,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         ]
         weights = [0.3]
 
-        with patch.object(mod, "_live_llm_weight_fallback", return_value=(1.2, None)):
+        with patch.object(mod, "_live_llm_weight_fallback", return_value=(1.2, None, "pinch")):
             mod._apply_low_confidence_live_llm(details, weights)
 
         detail = details[0]
@@ -958,7 +958,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         ]
         weights = [0.3]
 
-        with patch.object(mod, "_live_llm_weight_fallback", return_value=(90.0, None)):
+        with patch.object(mod, "_live_llm_weight_fallback", return_value=(90.0, None, "pinch")):
             mod._apply_low_confidence_live_llm(details, weights)
 
         detail = details[0]
@@ -973,7 +973,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         with (
             patch.object(mod, "canonical_name_to_usda", return_value=None),
             patch.object(mod, "_embedding_usda_link", return_value=None),
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
             result = self.invoke_debug(
                 [
@@ -1001,7 +1001,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
 
     def test_package_size_prefix_fix_keeps_multiplier_and_explicit_count(self):
         with (
-            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled")),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
             patch.object(mod, "canonical_name_to_usda", return_value=None),
             patch.object(mod, "_embedding_usda_link", return_value=None),
             patch.object(mod, "_weight_name_usda_link", return_value=None),

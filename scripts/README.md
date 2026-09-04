@@ -16,9 +16,6 @@ Run in this order when initialising a fresh environment:
 ### 1. PostgreSQL — ingredient nutrition tables
 
 ```bash
-# USDA ingredient nutrition
-python scripts/postgres/import_usda_ingredients_nutrition_psql.py
-
 # Irish ingredient nutrition
 python scripts/postgres/import_irish_ingredients_nutrition_psql.py
 
@@ -26,20 +23,11 @@ python scripts/postgres/import_irish_ingredients_nutrition_psql.py
 python preprocessing/hungarian/export_hungarian_comp_table_csv.py
 python scripts/postgres/import_hungarian_ingredients_nutrition_psql.py
 
-# USDA recipe-level nutrition totals
-python scripts/postgres/import_usda_recipes_nutrition_psql.py
-
-# USDA ingredient weights
-python scripts/postgres/import_usda_weights.py
-
-# MyPlate profiling trace (pre-computed profiles)
-python scripts/postgres/import_myplate_profile_trace.py
-
 # FoodHero profiling trace (runs full profiling pipeline; skips recipes missing duration/serves)
 # Dry-run example:
-python scripts/postgres/import_foodhero_profile_trace.py --dry-run --limit 5 --region US
+python scripts/postgres/import_foodhero_profile_trace.py --dry-run --limit 5 --region IE
 # Write to Postgres:
-python scripts/postgres/import_foodhero_profile_trace.py --write --region US
+python scripts/postgres/import_foodhero_profile_trace.py --write --region IE
 
 # HealthyFoods profiling trace (runs full profiling pipeline with progress bar;
 # skips recipes missing duration/serves and ignores notes)
@@ -57,6 +45,10 @@ python scripts/neo4j/tag_recipes.py
 
 # Tag ingredients with allergen links
 python scripts/neo4j/tag_allergens.py
+
+# Audit inferred FATO declarations (dry-run); add --apply only after reviewing
+PYTHONPATH=src uv run python \
+  scripts/neo4j/cleanup_allergen_declarations.py
 
 # Build explicit vegan and vegetarian ingredient/recipe assessments
 # (omit --apply for a read-only preview)
@@ -90,17 +82,31 @@ indexes. `knn` enables approximate HNSW search; tune recall with
 ### 4. Elasticsearch — recipe search index
 
 ```bash
-# Rebuild the complete enriched recipe index from Neo4j + PostgreSQL
-python scripts/elasticsearch/index_recipes_v2.py --recreate
+# Refresh every recipe through the protected catalog projection. Elasticsearch-
+# owned annotations (course types, cuisines, moods, vibes, evidence) are kept.
+uv run python scripts/maintenance/reproject_all_recipes.py --no-resume
 
-# Refresh only selected Neo4j sources without dropping the index
-python scripts/elasticsearch/index_recipes_v2.py --sources FoodHero HealthyFoods
+# A versioned rebuild must use the catalog builder. Carry-over is enabled by
+# default and is required to preserve colleague-provided annotations.
+uv run python scripts/catalog/build_recipes.py \
+  --new-index recipes_vNEXT --apply
 
-# Update allergen evidence and consumer suitability in place, preserving vectors
-# (omit --apply for a read-only preview)
-PYTHONPATH=src uv run python \
-  scripts/elasticsearch/sync_recipe_evidence_to_es.py --apply
+# Add title-only semantic vectors after the final corpus is active. Re-running
+# skips unchanged titles; use --replace only when changing the model.
+uv run python scripts/catalog/embed_recipe_titles.py --apply
 ```
+
+### 5. Cross-store data-quality audit
+
+```bash
+uv run python scripts/maintenance/audit_data_quality.py \
+  --json-output artifacts/reports/data_quality.json \
+  --markdown-output artifacts/reports/data_quality.md
+```
+
+The report covers active EU/Irish/Hungarian/Slovenian ingredient tables,
+recipe-field completeness, the exact-four-profile invariant, and A–E/missing
+Nutri-Score distributions overall and by recipe source.
 
 ## Notes
 
@@ -109,6 +115,5 @@ PYTHONPATH=src uv run python \
 - Vector scripts expect Elasticsearch at `ELASTIC_URL`.
 - Vector exports are generated operational assets under `exports/` and are not
   committed to Git.
-- `index_recipes_v2.py` builds the canonical recipe search index from Neo4j and
-  enriches it with nutrition and sustainability scores from PostgreSQL.
+- `catalog/build_recipes.py` is the only full recipe-index builder.
 - If Postgres data is lost (e.g. Docker volume wiped), re-run steps 1 and 2 from the dump your colleague shared, or re-run these scripts.

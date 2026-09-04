@@ -1,7 +1,7 @@
 """Bulk disable/enable (soft-delete) recipes — the corpus-scale tool.
 
-Neo4j `r.status` is the source of truth; ES (recipes_v2 + the legacy index)
-is synced per batch right after each Neo4j batch commits. Missing status
+Neo4j `r.status` is the source of truth; the `recipes` catalog alias is synced
+per batch right after each Neo4j batch commits. Missing status
 means active, so the operation is safe to re-run until converged.
 
 Usage
@@ -17,8 +17,8 @@ Usage
   python scripts/disable_recipes.py --ids id1,id2,id3 --apply
   python scripts/disable_recipes.py --ids-file bad_ids.txt --apply
 
-  # Re-enable
-  python scripts/disable_recipes.py --source recipe1m --enable --apply
+  # Re-enable a non-retired source
+  python scripts/disable_recipes.py --source foodhero --enable --apply
 """
 
 from __future__ import annotations
@@ -102,6 +102,9 @@ def main() -> None:
     parser.add_argument("--apply", action="store_true",
                         help="Actually write. Default is dry-run.")
     args = parser.parse_args()
+
+    if args.enable and args.source and args.source.strip().lower() == "recipe1m":
+        parser.error("recipe1m is retired and cannot be re-enabled")
 
     from recipe_wrangler.api.config import get_settings
     from recipe_wrangler.tools.es_recipe_search import ES_INDEX

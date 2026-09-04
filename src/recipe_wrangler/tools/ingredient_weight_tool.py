@@ -12,6 +12,7 @@ import re
 from langchain.tools import tool
 
 from recipe_wrangler.tools.ingredient_weight_llm_tool import ingredient_weight_llm_tool
+from recipe_wrangler.utils.non_food_ingredients import is_unambiguous_non_food_ingredient
 from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.repositories.vector_matchers import VectorCollection
 from recipe_wrangler.utils.get_embeddings import get_embeddings
@@ -1050,10 +1051,58 @@ def _clean_unit(unit_part: str) -> Optional[str]:
     return first
 
 
+_GARBAGE_NAME_RE = re.compile(r"^[\W_]*$")
+# Bare connector words seen standalone as a scraped "ingredient" (split
+# artifacts of "X to Y" ranges, "2 x" multipliers) — never a real ingredient
+# on their own. Exact-match only, not a length cutoff, so short real foods
+# ("egg", "ice", "oil") are never touched.
+_GARBAGE_NAME_WORDS = {"x", "to", "and", "or"}
+
+
+def _is_garbage_ingredient_name(name: Any) -> bool:
+    """True for scrape artifacts, never a real (even oddly-named) ingredient.
+
+    Bare punctuation/underscore lines ("_", "...", ":", ".") and markdown-bold
+    section headings captured as an ingredient row ("**Other Necessary
+    Tools/Equipment**") are the two shapes seen in practice, plus a small
+    exact-match set of connector words split out on their own.
+    """
+    text = str(name or "").strip()
+    if not text:
+        return False
+    if _GARBAGE_NAME_RE.match(text):
+        return True
+    if text.startswith("**") and text.endswith("**") and len(text) > 4:
+        return True
+    if text.casefold() in _GARBAGE_NAME_WORDS:
+        return True
+    return False
+
+
+def _normalize_for_duplicate_check(value: Any) -> str:
+    text = str(value or "").strip().casefold()
+    text = re.sub(r"\([^)]*\)", "", text).strip()  # drop "(as needed)" etc.
+    text = re.sub(r"s$", "", text)  # crude singular/plural fold
+    return text
+
+
 def _is_zero_measurement(measurement: Any) -> bool:
     if measurement is None:
         return False
-    return bool(_ZERO_MEASUREMENT_RE.match(str(measurement).strip()))
+    text = str(measurement).strip()
+    if _ZERO_MEASUREMENT_RE.match(text):
+        return True
+    # Some scrapers encode "to taste"/optional as a literal "0" quantity
+    # ("0.0", "0 -", "0 tsp") rather than text — that parses as a real
+    # numeric zero and multiplies every downstream weight to 0 g, not a
+    # missing-quantity fallback. Treat a quantity that parses to exactly
+    # 0 the same as the text phrases above.
+    qty, _unit, _inferred = _split_measurement(measurement)
+    if qty is not None:
+        value = _parse_quantity_value(qty)
+        if value is not None and value == 0.0:
+            return True
+    return False
 
 
 def _strip_qualifiers(name: str) -> Optional[str]:
@@ -1112,9 +1161,15 @@ def _liquid_density_for_name(
     return None
 
 
+_DECIMAL_COMMA_RE = re.compile(r"(?<=\d),(?=\d)")
+
+
 def _normalize_fraction_text(text: str) -> str:
     for symbol, replacement in _UNICODE_FRACTIONS.items():
         text = text.replace(symbol, replacement)
+    # European decimal comma ("0,5 g") — recipe quantities are always small,
+    # so a digit-comma-digit is a decimal point, never a thousands separator.
+    text = _DECIMAL_COMMA_RE.sub(".", text)
     return text
 
 
@@ -2089,6 +2144,11 @@ def _load_llm_unit_grams_index() -> dict:
 
 
 def _lookup_llm_unit_grams(name: str, usda_id: Optional[str] = None) -> Optional[dict]:
+    for key in _lookup_name_variants(name):
+        found = _LIVE_LLM_WEIGHT_CACHE.get(key)
+        if found:
+            return found
+
     index = _load_llm_unit_grams_index()
     by_name = index.get("by_name", {})
     for key in _lookup_name_variants(name):
@@ -2102,6 +2162,50 @@ def _lookup_llm_unit_grams(name: str, usda_id: Optional[str] = None) -> Optional
         if found:
             return found
     return None
+
+
+# Live-learned live-LLM resolutions, keyed by normalized ingredient name.
+# Checked before both the persisted CSV/Postgres index and any new live-LLM
+# call, so the same ingredient+unit is never re-estimated twice in one run —
+# "garlic" pays for one LLM call, not one per occurrence. Also appended to
+# LLM_UNIT_GRAMS_CSV_PATH so a future run can pick it up permanently once
+# that CSV is re-imported into pipeline_static_data (same convention every
+# other static dataset in this pipeline already follows).
+_LIVE_LLM_WEIGHT_CACHE: dict[str, dict[str, Any]] = {}
+_live_llm_weight_csv_header_written = LLM_UNIT_GRAMS_CSV_PATH.exists()
+
+
+def _record_live_llm_resolution(
+    name: str, unit: Optional[str], grams_per_unit: float, usda_id: Optional[str] = None
+) -> None:
+    global _live_llm_weight_csv_header_written
+    if grams_per_unit <= 0:
+        return
+    payload = {
+        "ingredient": name,
+        "unit": unit or "",
+        "grams_per_unit": grams_per_unit,
+        "source": "live_llm",
+        "source_file": str(LLM_UNIT_GRAMS_CSV_PATH),
+        "usda_id": usda_id,
+    }
+    for key in _lookup_name_variants(name):
+        _LIVE_LLM_WEIGHT_CACHE.setdefault(key, payload)
+
+    try:
+        LLM_UNIT_GRAMS_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+        write_header = not _live_llm_weight_csv_header_written
+        with LLM_UNIT_GRAMS_CSV_PATH.open("a", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            if write_header:
+                # Match the existing file's 3-column shape exactly — it has
+                # no usda_id column, and mixing row widths under one header
+                # would misalign every DictReader consumer of this file.
+                writer.writerow(["ingredient", "unit", "grams"])
+                _live_llm_weight_csv_header_written = True
+            writer.writerow([name, unit or "", grams_per_unit])
+    except OSError:
+        pass
 
 
 @lru_cache(maxsize=1)
@@ -2482,12 +2586,19 @@ def _llm_portion_plausibility_error(
         return f"{unit_norm}_too_heavy"
     if grams_per_unit > LLM_IMPLAUSIBLE_PER_UNIT_WEIGHT_GRAMS:
         return "implausible_per_unit_weight"
-    for constant, ok_units in LLM_SUSPICIOUS_DEFAULT_WEIGHTS.items():
-        if (
-            abs(grams_per_unit - constant) <= max(0.5, constant * 0.002)
-            and unit_norm not in ok_units
-        ):
-            return f"suspicious_unit_conversion_default:{constant}"
+    # This guard exists to catch the LLM echoing a generic unit-conversion
+    # constant (1 lb -> 453.59g, 1 L -> 1000g) instead of actually reasoning
+    # about the food. "piece"/"whole"/"each" have no such conversion to
+    # confuse with, so a real per-item weight that happens to land near one
+    # of those constants (a ~1kg melon, a ~1lb loaf) is coincidence, not a
+    # hallucinated default — checking it here only produced false positives.
+    if unit_norm not in {"piece", "pieces", "whole", "each", "item", "items"}:
+        for constant, ok_units in LLM_SUSPICIOUS_DEFAULT_WEIGHTS.items():
+            if (
+                abs(grams_per_unit - constant) <= max(0.5, constant * 0.002)
+                and unit_norm not in ok_units
+            ):
+                return f"suspicious_unit_conversion_default:{constant}"
     return None
 
 
@@ -2509,18 +2620,52 @@ def _llm_weight_plausibility_error(
     )
 
 
+_POURABLE_CONDIMENT_TOKENS = {
+    "syrup", "oil", "sauce", "honey", "juice", "milk", "cream", "vinegar",
+    "dressing", "gravy", "stock", "broth", "puree", "paste", "jam", "jelly",
+    "yogurt", "yoghurt", "custard", "water", "extract", "essence",
+    "sugar", "flour", "rice", "wine", "linseed", "linseeds",
+}
+
+
+def _default_unit_for_unknown_ingredient(name: str) -> str:
+    """Last-resort unit when neither the measurement nor the name gives one.
+
+    "piece" is a reasonable default for a countable/solid item ("1 piece of
+    chicken") but nonsensical for a pourable ("1 piece of maple syrup") —
+    asking the LLM to weigh "1 piece" of a liquid reliably makes it return
+    0 rather than guess. Route those to "tablespoon" instead.
+    """
+    tokens = set(re.split(r"[\s,-]+", str(name).strip().lower()))
+    if tokens & _POURABLE_CONDIMENT_TOKENS:
+        return "tablespoon"
+    return "piece"
+
+
 def _live_llm_weight_fallback(
     name: str,
     qty: Optional[str],
     unit: Optional[str],
-) -> tuple[Optional[float], Optional[str]]:
+) -> tuple[Optional[float], Optional[str], str]:
+    """Returns (grams, error, unit_used).
+
+    ``unit_used`` is the unit actually sent to the LLM — it's ``unit`` when
+    given, otherwise a guessed one. Callers MUST use it (not the original,
+    possibly-``None`` ``unit``) for a follow-up plausibility check: checking
+    against the original unit made the plausibility gate see "missing_unit"
+    on every bare-count ingredient this fallback exists to rescue, silently
+    discarding a good estimate and falling through to a 0 g weight.
+    """
     qty_for_llm = qty
     if qty_for_llm is None or not str(qty_for_llm).strip():
         qty_for_llm = "1"
 
     unit_for_llm = unit
     if unit_for_llm is None or not str(unit_for_llm).strip():
-        unit_for_llm = _infer_unit_from_name(name) or "piece"
+        unit_for_llm = (
+            _infer_unit_from_name(name)
+            or _default_unit_for_unknown_ingredient(name)
+        )
     try:
         grams = ingredient_weight_llm_tool.invoke(
             {
@@ -2530,15 +2675,15 @@ def _live_llm_weight_fallback(
             }
         )
     except Exception as exc:
-        return None, f"live_llm_error:{exc}"
+        return None, f"live_llm_error:{exc}", unit_for_llm
 
     try:
         grams_f = float(grams)
     except (TypeError, ValueError):
-        return None, f"live_llm_non_numeric:{grams!r}"
+        return None, f"live_llm_non_numeric:{grams!r}", unit_for_llm
     if grams_f < 0:
-        return None, f"live_llm_negative:{grams_f}"
-    return grams_f, None
+        return None, f"live_llm_negative:{grams_f}", unit_for_llm
+    return grams_f, None, unit_for_llm
 
 
 def _weight_name_usda_link(name: str, unit: Optional[str]) -> Optional[dict]:
@@ -2612,6 +2757,9 @@ def _compute_confidence(detail: dict) -> tuple[float, str]:
     elif match_type_norm == "to_taste_min":
         base = 0.9
         reason = "deliberate minimal weight for optional/to-taste measurement"
+    elif match_type_norm == "non_food_ingredient_minimal":
+        base = 0.9
+        reason = "deliberate minimal weight for non-food equipment/supply"
     elif match_type_norm == OFFLINE_REFERENCE_MATCH_TYPE:
         # Vetted by the offline rebuild pipeline. Source distinguishes
         # accepted-deterministic (highest trust) from llm_rebuilt (LLM
@@ -2710,7 +2858,7 @@ def _apply_low_confidence_live_llm(details: list[dict], weights: list[float]) ->
         if detail.get("weight_grams") is None:
             continue
 
-        live_llm_grams, live_llm_error = _live_llm_weight_fallback(
+        live_llm_grams, live_llm_error, live_llm_unit = _live_llm_weight_fallback(
             name=str(detail.get("name") or ""),
             qty=detail.get("parsed_quantity"),
             unit=detail.get("parsed_unit"),
@@ -2722,11 +2870,14 @@ def _apply_low_confidence_live_llm(details: list[dict], weights: list[float]) ->
 
         # Verify the LLM estimate the same way the terminal live-LLM path does.
         # On rejection keep the (low-confidence but plausible) deterministic
-        # result rather than swapping in a bad LLM value.
+        # result rather than swapping in a bad LLM value. Checked against the
+        # unit the LLM actually used (live_llm_unit), not the original
+        # parsed_unit — that unit may be None, which always reads as
+        # "missing_unit" and would reject every successful estimate.
         plausibility_error = _llm_weight_plausibility_error(
             name=str(detail.get("name") or ""),
             qty=detail.get("parsed_quantity"),
-            unit=detail.get("parsed_unit"),
+            unit=live_llm_unit,
             grams=float(live_llm_grams),
             food_group=detail.get("food_group"),
         )
@@ -2752,6 +2903,14 @@ def _apply_low_confidence_live_llm(details: list[dict], weights: list[float]) ->
         detail["live_llm_reason"] = "low_confidence"
         detail["confidence"] = 0.70
         detail["confidence_reason"] = "live LLM fallback after low-confidence deterministic result"
+
+        qty_value = _parse_quantity_value(detail.get("parsed_quantity")) or 1.0
+        _record_live_llm_resolution(
+            name=str(detail.get("name") or ""),
+            unit=live_llm_unit,
+            grams_per_unit=float(live_llm_grams) / qty_value,
+            usda_id=detail.get("usda_id"),
+        )
         if idx < len(weights):
             weights[idx] = float(live_llm_grams)
 
@@ -2817,7 +2976,80 @@ def ingredient_weight_tool_usda(
                     qty_inferred = True
         unit_missing_from_measurement = unit is None
         unit_inferred = False
-        if _is_zero_measurement(measurement):
+        # Equipment/supplies (popsicle sticks, paper straws, ...) are not
+        # food. Guessing a gram weight for one — whether via a USDA/embedding
+        # mismatch or the live-LLM fallback — invents mass that dilutes the
+        # recipe's real nutrient concentration. Short-circuit here, before
+        # any resolution path runs, with the same negligible placeholder a
+        # to-taste seasoning gets.
+        if is_unambiguous_non_food_ingredient(name):
+            weights.append(TO_TASTE_MIN_GRAMS)
+            details.append({
+                "name": name,
+                "measurement_raw": measurement,
+                "parsed_quantity": qty,
+                "parsed_unit": unit,
+                "quantity_inferred": qty_inferred,
+                "unit_inferred": False,
+                "usda_id": None,
+                "food_group": None,
+                "usda_match_source": None,
+                "usda_match_similarity": None,
+                "usda_match_collection": None,
+                "usda_match_canonical": None,
+                "portion_match": {
+                    "portion_desc": "non-food ingredient minimal fallback",
+                    "grams_per_unit": TO_TASTE_MIN_GRAMS,
+                },
+                "match_type": "non_food_ingredient_minimal",
+                "weight_grams": TO_TASTE_MIN_GRAMS,
+                "error": None,
+                "fallback": True,
+            })
+            continue
+        # Scrape artifacts, not ingredients at all: bare punctuation ("_",
+        # "...", ":"), single-letter placeholders ("x"), or a markdown-bold
+        # section heading captured as a line item ("**Other Necessary
+        # Tools/Equipment**"). No amount of weight-estimation logic makes
+        # these into a real ingredient; asking the LLM to weigh "_" invents
+        # mass from nothing. Same minimal-placeholder treatment as non-food.
+        if _is_garbage_ingredient_name(name):
+            weights.append(TO_TASTE_MIN_GRAMS)
+            details.append({
+                "name": name,
+                "measurement_raw": measurement,
+                "parsed_quantity": qty,
+                "parsed_unit": unit,
+                "quantity_inferred": qty_inferred,
+                "unit_inferred": False,
+                "usda_id": None,
+                "food_group": None,
+                "usda_match_source": None,
+                "usda_match_similarity": None,
+                "usda_match_collection": None,
+                "usda_match_canonical": None,
+                "portion_match": {
+                    "portion_desc": "garbage/heading name minimal fallback",
+                    "grams_per_unit": TO_TASTE_MIN_GRAMS,
+                },
+                "match_type": "garbage_name_minimal",
+                "weight_grams": TO_TASTE_MIN_GRAMS,
+                "error": None,
+                "fallback": True,
+            })
+            continue
+        # A scraper that can't separate quantity from ingredient text often
+        # duplicates the name into the measurement field verbatim ("Fresh
+        # mint sprigs" / "Fresh mint sprigs") rather than leaving it blank —
+        # there is no real quantity signal there, same as an explicit
+        # to-taste/optional measurement. Normalize a trailing plural ("spoon"
+        # vs "spoons") and a trailing "(as needed)"/"(optional)" note before
+        # comparing, since those are the same near-duplicate, not a real
+        # measurement.
+        name_equals_measurement = bool(str(name or "").strip()) and (
+            _normalize_for_duplicate_check(name) == _normalize_for_duplicate_check(measurement)
+        )
+        if _is_zero_measurement(measurement) or name_equals_measurement:
             weights.append(TO_TASTE_MIN_GRAMS)
             details.append({
                 "name": name,
@@ -3200,16 +3432,28 @@ def ingredient_weight_tool_usda(
             live_llm_grams = None
             live_llm_error = None
             if error in {"missing_unit", "missing_usda_id", "missing_quantity"}:
-                live_llm_grams, live_llm_error = _live_llm_weight_fallback(
+                # A qty of None (not just an unknown unit) gives the LLM
+                # nothing to scale against — it reasonably returns 0 rather
+                # than guess a count, which then fails the non-positive-
+                # weight check below and falls through to a hard 0 g.
+                # Assume a single serving, same as the unit-inference
+                # default a few lines up (qty="1" when only a unit could be
+                # inferred).
+                live_llm_qty = qty if qty is not None else "1"
+                live_llm_grams, live_llm_error, live_llm_unit = _live_llm_weight_fallback(
                     name=name,
-                    qty=qty,
+                    qty=live_llm_qty,
                     unit=unit,
                 )
                 if live_llm_grams is not None:
+                    # Checked against live_llm_unit (what the LLM actually
+                    # used), not `unit` — `unit` is None here by definition
+                    # (that's why this branch was reached), which always
+                    # reads as "missing_unit" and rejected every estimate.
                     plausibility_error = _llm_weight_plausibility_error(
                         name=name,
                         qty=qty,
-                        unit=unit,
+                        unit=live_llm_unit,
                         grams=float(live_llm_grams),
                         food_group=food_group,
                     )
@@ -3255,6 +3499,13 @@ def ingredient_weight_tool_usda(
                         "live_llm_fallback": True,
                         "live_llm_reason": live_reason,
                     })
+                    qty_value = _parse_quantity_value(qty) or 1.0
+                    _record_live_llm_resolution(
+                        name=name,
+                        unit=live_llm_unit,
+                        grams_per_unit=float(live_llm_grams) / qty_value,
+                        usda_id=usda_id,
+                    )
                     continue
 
             weights.append(0.0)
@@ -3385,7 +3636,7 @@ def ingredient_weight_tool_usda(
                 error = "missing_portion_for_unit"
 
         if grams is None and error == "missing_portion_for_unit":
-            live_llm_grams, live_llm_error = _live_llm_weight_fallback(
+            live_llm_grams, live_llm_error, live_llm_unit = _live_llm_weight_fallback(
                 name=name,
                 qty=qty,
                 unit=unit,
@@ -3394,7 +3645,7 @@ def ingredient_weight_tool_usda(
                 plausibility_error = _llm_weight_plausibility_error(
                     name=name,
                     qty=qty,
-                    unit=unit,
+                    unit=live_llm_unit,
                     grams=float(live_llm_grams),
                     food_group=food_group,
                 )
@@ -3409,6 +3660,13 @@ def ingredient_weight_tool_usda(
                 }
                 match_type = "live_llm_missing_portion_fallback"
                 error = None
+                qty_value = _parse_quantity_value(qty) or 1.0
+                _record_live_llm_resolution(
+                    name=name,
+                    unit=live_llm_unit,
+                    grams_per_unit=grams / qty_value,
+                    usda_id=usda_id,
+                )
             else:
                 # Keep original error and expose why live fallback failed.
                 if live_llm_error:

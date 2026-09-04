@@ -6,10 +6,14 @@ from pathlib import Path
 
 from neo4j import GraphDatabase
 from recipe_wrangler.utils.food_ontology import (
+    ALLERGEN_DETECTION_RULES as ALLERGENS,
+    ALLERGEN_EXCLUSION_REGEXES,
     ALLERGEN_ONTOLOGY_MAPPINGS,
     CLASSIFICATION_VERSION,
     FATO_ALLERGEN_CLASS_IRI,
     FATO_ALLERGEN_DECLARATION_CLASS_IRI,
+    GLUTEN_SAFE_REGEXES,
+    MILK_PLANT_EXCLUSION_REGEXES,
 )
 try:
     from dotenv import load_dotenv
@@ -23,378 +27,6 @@ except Exception:  # pragma: no cover - optional dependency
 
 # Purpose: Tag ingredients with allergen evidence (FoodOn ancestry + keyword fallback).
 
-ALLERGENS = {
-    "milk": {
-        "roots": [
-            "FOODON_00001257",  # milk or milk based food product
-            "FOODON_00001256",  # dairy food product
-            "FOODON_00001771",  # cow milk based food product
-            "FOODON_00001118",  # cattle dairy food product
-        ],
-        "keywords": [
-            "milk",
-            "cheese",
-            "butter",
-            "cream",
-            "yogurt",
-            "whey",
-            "casein",
-            "lactose",
-            "ghee",
-            "curd",
-            "kefir",
-        ],
-    },
-    "egg": {
-        "roots": [
-            "FOODON_00001274",  # egg food product
-            "FOODON_00001105",  # avian egg food product
-            "FOODON_02010002",  # animal egg
-        ],
-        "keywords": [
-            "egg",
-            "egg white",
-            "egg yolk",
-            "omelet",
-            "mayonnaise",
-            "aioli",
-            "meringue",
-            "albumen",
-        ],
-    },
-    "peanut": {
-        "roots": [
-            "FOODON_00002099",  # peanut food product
-            "FOODON_00003206",  # peanut
-            "FOODON_00002098",  # peanut fat or oil refined food product
-            "FOODON_00005586",  # peanut flour
-        ],
-        "keywords": [
-            "peanut",
-            "peanut butter",
-            "groundnut",
-            "arachis",
-            # Satay/saté sauce is peanut-based; recipes often name the dish
-            # without ever listing "peanut" as an ingredient.
-            "satay",
-            "sate",
-            "saté",
-        ],
-    },
-    "tree_nut": {
-        "roots": [
-            "FOODON_00001587",  # almond food product
-            "FOODON_00002338",  # walnut food product
-            "FOODON_00002107",  # pecan nut food product
-            "FOODON_00001688",  # cashew nut food product
-            "FOODON_00003690",  # pistachio nut food product
-        ],
-        "keywords": [
-            "almond",
-            "walnut",
-            "pecan",
-            "cashew",
-            "pistachio",
-            "hazelnut",
-            "macadamia",
-            "brazil nut",
-            "pine nut",
-        ],
-    },
-    "wheat": {
-        "roots": [
-            "FOODON_00001141",  # wheat food product
-            "FOODON_00001210",  # wheat flour food product
-            "FOODON_00002347",  # wheat based bakery food product
-            "FOODON_00002349",  # wheat based gravy or sauce food product
-            "FOODON_00002351",  # wheat bread food product
-            "FOODON_00002354",  # wheat pasta
-            "FOODON_00001825",  # durum wheat food product
-        ],
-        "keywords": [
-            "wheat",
-            "whole wheat",
-            "durum",
-            "semolina",
-            "farina",
-            "graham",
-            "spelt",
-            "bulgur",
-            "couscous",
-            "seitan",
-            "gluten",
-            "flour",
-            "bread",
-            "breadcrumbs",
-            "breading",
-            "batter",
-            "roux",
-            "pasta",
-            "noodle",
-        ],
-    },
-    "soy": {
-        "roots": [
-            "FOODON_00002266",  # soybean food product
-            "FOODON_00001078",  # fermented soybean food product
-            "FOODON_00001235",  # soy sauce food product
-            "FOODON_03302389",  # soybean beverage
-            "FOODON_03302776",  # soybean oil
-            "FOODON_03310553",  # soy protein isolate
-            "FOODON_03310368",  # soy protein
-            "FOODON_03306653",  # soy lecithin spread
-            "FOODON_03305289",  # soybean milk
-            "FOODON_03310002",  # soybean paste
-        ],
-        "keywords": [
-            "soy",
-            "soya",
-            "soybean",
-            "edamame",
-            "tofu",
-            "tempeh",
-            "miso",
-            "soy sauce",
-            "tamari",
-            "shoyu",
-            "soy lecithin",
-            "lecithin (soy)",
-            "textured vegetable protein",
-            "tvp",
-            "soy protein",
-            "soy isolate",
-            "soy flour",
-            "soy oil",
-            "soy milk",
-            "soy yogurt",
-            "natto",
-        ],
-    },
-    "fish": {
-        "roots": [
-            "FOODON_00001248",  # fish food product
-            "FOODON_00001055",  # sea water fish food product
-            "FOODON_00001249",  # freshwater fish food product
-            "FOODON_03315173",  # fish product (unspecified species)
-            "FOODON_00001661",  # bony fish food product
-            "FOODON_00001054",  # fermented fish or seafood food product
-            "FOODON_03317197",  # fish sauce
-        ],
-        "keywords": [
-            "fish",
-            "cod",
-            "bass",
-            "flounder",
-            "salmon",
-            "tuna",
-            "haddock",
-            "tilapia",
-            "anchovy",
-            "sardine",
-            "trout",
-            "mackerel",
-            "halibut",
-            "pollock",
-            "catfish",
-            "swordfish",
-            "fish sauce",
-        ],
-    },
-    "crustacean_shellfish": {
-        "roots": [
-            "FOODON_00001792",  # crustacean food product
-            "FOODON_02021444",  # crab food product
-            "FOODON_00002007",  # lobster food product
-            "FOODON_00002239",  # shrimp food product
-        ],
-        "keywords": [
-            "crab",
-            "lobster",
-            "shrimp",
-            "prawn",
-            "crustacean",
-            "langostino",
-        ],
-    },
-    "sesame": {
-        "roots": [
-            "FOODON_00002232",  # sesame food product
-            "FOODON_03310306",  # sesame seed
-            "FOODON_03304152",  # sesame oil
-            "FOODON_00004525",  # sesame butter
-            "FOODON_00005500",  # sesame flour
-            "FOODON_03304154",  # sesame seed paste
-        ],
-        "keywords": [
-            "sesame",
-            "tahini",
-            "sesame oil",
-            "sesame seed",
-            "sesame paste",
-        ],
-    },
-    "gluten": {
-        "roots": [
-            "FOODON_03420177",  # gluten
-            "FOODON_00001907",  # gluten refined food product
-            "FOODON_03310809",  # wheat gluten
-            "FOODON_03310808",  # soy gluten
-            "FOODON_03302452",  # gluten bread
-            "FOODON_03302453",  # gluten flour
-            "FOODON_03306200",  # gluten noodle
-            "FOODON_00001275",  # wheat (big three)
-            "FOODON_00001217",  # barley (big three)
-            "FOODON_00001272",  # rye (big three)
-            "FOODON_00001254",  # oats (cross-contamination risk)
-        ],
-        "keywords": [
-            "gluten",
-            "wheat",
-            "barley",
-            "rye",
-            "spelt",
-            "kamut",
-            "farro",
-            "durum",
-            "bulgur",
-            "malt",
-            "soy sauce",
-            "seitan",
-            "brewer's yeast",
-            "modified food starch",
-            "roux",
-            "gravy",
-            "oats",
-        ],
-    },
-    "celery": {
-        "roots": [
-            "FOODON_00001704",  # celery food product
-            "FOODON_00001705",  # leaf celery food product
-        ],
-        "keywords": [
-            "celery",
-            "celeriac",
-            "celery seed",
-            "celery salt",
-        ],
-    },
-    "mustard": {
-        "roots": [
-            "FOODON_00002053",  # mustard food product
-        ],
-        "keywords": [
-            "mustard",
-            "mustard seed",
-            "mustard powder",
-            "mustard flour",
-        ],
-    },
-    "sulphites": {
-        # Sulphites are additives rather than a FoodOn food-product branch, so
-        # they are detected from explicit ingredient/additive names.
-        "roots": [],
-        "keywords": [
-            "sulphite",
-            "sulphites",
-            "sulfite",
-            "sulfites",
-            "sulphur dioxide",
-            "sulfur dioxide",
-            "metabisulphite",
-            "metabisulfite",
-            "bisulphite",
-            "bisulfite",
-            "sodium sulphite",
-            "sodium sulfite",
-            "potassium sulphite",
-            "potassium sulfite",
-            "e220",
-            "e221",
-            "e222",
-            "e223",
-            "e224",
-            "e225",
-            "e226",
-            "e227",
-            "e228",
-        ],
-    },
-    "lupin": {
-        "roots": [
-            "FOODON_00001206",  # lupin seed food product
-            "FOODON_00002012",  # lupine bean food product
-        ],
-        "keywords": [
-            "lupin",
-            "lupine",
-            "lupin bean",
-            "lupini",
-            "lupin flour",
-        ],
-    },
-    "molluscs": {
-        "roots": [
-            "FOODON_00002044",  # mollusc food product
-        ],
-        "keywords": [
-            "mollusc",
-            "mollusk",
-            "clam",
-            "mussel",
-            "oyster",
-            "scallop",
-            "squid",
-            "octopus",
-            "cuttlefish",
-            "whelk",
-            "cockle",
-            "abalone",
-            "snail",
-        ],
-    },
-}
-
-MILK_PLANT_EXCLUSION_REGEXES = [
-    r".*\b(coconut|soy|soya|almond|oat|rice|cashew|hazelnut|hemp|pea)"
-    r"([ -]+(flavoured|flavored))?[ -]+(milk|cream|yogurt|yoghurt)\b.*",
-    r".*\b(milk|cream|yogurt|yoghurt)[ -]+alternative\b.*",
-    r".*\bnon[ -]*dairy\b.*",
-    r".*\bdairy[ -]*free\b.*",
-    r".*\bplant[ -]*based\b.*",
-    r".*\bvegan\b.*",
-    r".*\b(peanut|almond|cashew|hazelnut|walnut|seed|nut)[ -]+butter\b.*",
-    r".*\bbutter[ -]*beans?\b.*",
-    r".*\bbeans?,[ -]*butter\b.*",
-    r".*\bbutternut\b.*",
-    r".*\bcream[ -]+substitute\b.*",
-    # Known lossy canonical forms produced from non-dairy source phrases.
-    r"^(powdered butter|cream rice|cream parsley|milk rice|coconut paste milk"
-    r"|butter almond|oil cocoa butter|butter paper)$",
-    r"^cream sherry$",
-]
-
-GLUTEN_SAFE_REGEXES = [
-    r".*\bgluten[ -]*free\b.*",
-    # HealthyFoods canonicalization removed "free" from these source terms.
-    r"^gluten[ -]+(baking flour|self raising flour|flour|soy sauce|bread|"
-    r"pasta|flour almond coconut|flour mix|bread mix)$",
-    r".*\bbuckwheat\b.*",
-    r".*\b(rice|tapioca|potato|almond|coconut|besan|chickpea|corn|maize|"
-    r"quinoa|cassava|arrowroot)[ -]+flour\b.*",
-    r".*\b(rice|pulse|chickpea|corn|maize|quinoa)[ -]+"
-    r"(noodles?|pasta|spaghetti)\b.*",
-    r".*\btamari\b.*",
-    r"^(ground|minced|fresh|crystallized|crystallised|pickled|glace)?"
-    r"[ -]*ginger$",
-    r".*\b(wine|vinegar|vinaigrette)\b.*",
-]
-
-ALLERGEN_EXCLUSION_REGEXES = {
-    "milk": MILK_PLANT_EXCLUSION_REGEXES,
-    "gluten": GLUTEN_SAFE_REGEXES,
-    "wheat": GLUTEN_SAFE_REGEXES,
-}
 
 
 def _keyword_regex(keyword: str) -> str:
@@ -602,16 +234,39 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
         return int(result.single()["tagged"])
 
 
-def _clear_allergen_edges(driver, allergen_names: set[str]) -> int:
-    query = """
-    MATCH (:Ingredient)-[r:HAS_ALLERGEN]->(a:Allergen)
-    WHERE a.name IN $allergen_names
-    DELETE r
-    RETURN count(r) AS deleted
-    """
+def _clear_allergen_edges(driver, allergen_names: set[str]) -> tuple[int, int]:
+    """Remove selected evidence and its inferred declarations atomically."""
+    names = sorted(allergen_names)
+
+    def clear(tx) -> tuple[int, int]:
+        declarations = tx.run(
+            """
+            MATCH (i:Ingredient)-[:HAS_DECLARATION]->
+                  (d:AllergenDeclaration)-[:CONCERNS]->(a:Allergen)
+            WHERE a.name IN $allergen_names
+              AND d.declaration_type = "inferred_ingredient_presence"
+            WITH DISTINCT d
+            DETACH DELETE d
+            RETURN count(*) AS deleted
+            """,
+            allergen_names=names,
+        ).single()
+        edges = tx.run(
+            """
+            MATCH (:Ingredient)-[r:HAS_ALLERGEN]->(a:Allergen)
+            WHERE a.name IN $allergen_names
+            DELETE r
+            RETURN count(r) AS deleted
+            """,
+            allergen_names=names,
+        ).single()
+        return (
+            int(edges["deleted"]) if edges else 0,
+            int(declarations["deleted"]) if declarations else 0,
+        )
+
     with driver.session() as session:
-        result = session.run(query, allergen_names=sorted(allergen_names))
-        return int(result.single()["deleted"])
+        return session.execute_write(clear)
 
 
 def main() -> None:
@@ -647,8 +302,9 @@ def main() -> None:
         _ensure_constraints(driver)
         selected = set(args.allergens or ALLERGENS)
         if args.replace:
-            deleted = _clear_allergen_edges(driver, selected)
+            deleted, declarations = _clear_allergen_edges(driver, selected)
             print(f"deleted existing edges: {deleted}")
+            print(f"deleted matching inferred declarations: {declarations}")
         items = [
             (name, config)
             for name, config in ALLERGENS.items()

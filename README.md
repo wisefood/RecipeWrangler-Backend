@@ -37,6 +37,90 @@ ingredient suitability is documented in
 
 ---
 
+## Economic cost coverage
+
+Current EU coverage was regenerated from the live Neo4j graph on 2026-09-01,
+after repairing the historical ingredient projection that had replaced recipe
+ingredients with sustainability reference products.
+An **approved direct match** means an Ingredient is linked to a priced
+`CostProduct`. A **FoodOn group fallback** identifies only a broad economic
+group such as cereals, meat or vegetables; it is useful for a general recipe
+cost category but is not an exact product price.
+
+| Coverage measure | Recipes | Coverage |
+| --- | ---: | ---: |
+| At least one approved direct product-price match | 6,855 / 7,628 | 89.87% |
+| No approved direct product-price match | 773 / 7,628 | 10.13% |
+| Direct match or provisional FoodOn group fallback | 7,617 / 7,628 | 99.86% |
+| No direct match and no FoodOn group fallback | 11 / 7,628 | 0.14% |
+
+There are 77,091 distinct edible recipe-ingredient occurrences. Direct product
+prices cover 20,040 (26.00%); direct matches plus broad FoodOn groups cover
+46,656 (60.52%). Direct matching covers every ingredient in 10 recipes, at
+least 80% of ingredients in 19 recipes, and at least 50% in 666 recipes. With
+broad groups included, those counts become 238, 1,000 and 6,186 respectively.
+
+### Recipe cost category
+
+The user-facing facet is deliberately a relative EU category (`low`, `medium`,
+`high`), not a euro estimate. The internal EU cost-per-serving calculation is
+used only to compare a recipe with a frozen reference corpus; its mandatory
+explanation identifies the ingredient cost drivers and their percentage
+contribution. The first cost calibration uses 2,922 recipes with at least 90%
+priced ingredient weight and fixes the internal Q33/Q67 thresholds at €0.6494
+and €1.3331 per serving. It currently classifies 7,596 recipes:
+3,393 low, 2,284 medium and 1,919 high. The remaining 32 recipes have no
+supported positive-weight contributor after detail, base-product and guarded
+FoodOn-group fallbacks; their status is `unavailable` rather than assigning a
+fabricated category. Coverage is reported numerically, without an arbitrary
+confidence label.
+
+Internal monetary calculations are stored with the recipe profile in
+PostgreSQL. Each Elasticsearch recipe document stores the canonical public
+facet as the top-level `cost` object. It contains category/status, numeric
+coverage, all and only the ingredients that contributed, their match scope and
+contribution percentages, the main drivers, and the explanation. The flat
+`cost_category` fields remain temporarily for backward-compatible filtering.
+Rebuild the calibration and current facets with:
+
+```bash
+uv run python scripts/one_off/backfill_recipe_cost_categories.py --apply
+```
+
+### Number of directly priced ingredients per recipe
+
+| Matched ingredients | Recipes | Matched ingredients | Recipes |
+| ---: | ---: | ---: | ---: |
+| 0 | 773 | 7 | 124 |
+| 1 | 1,427 | 8 | 47 |
+| 2 | 1,708 | 9 | 6 |
+| 3 | 1,508 | 10 | 5 |
+| 4 | 1,116 |  |  |
+| 5 | 623 |  |  |
+| 6 | 291 |  |  |
+
+### Recipes with no cost information
+
+The 11 recipes with no current cost signal are exported with their current
+canonical ingredients below. They are the priority list for expanding either
+the reviewed product catalogue or FoodOn economic-group anchors.
+
+The complete reproducible outputs are:
+
+- [`eu_cost_group_coverage_summary.json`](data/cost/processed/recipe_cost_coverage/eu_cost_group_coverage_summary.json)
+- [`eu_cost_group_coverage_audit.csv`](data/cost/processed/recipe_cost_coverage/eu_cost_group_coverage_audit.csv) — every recipe and its matched/group/unmatched ingredients
+- [`eu_no_cost_information_recipes.csv`](data/cost/processed/recipe_cost_coverage/eu_no_cost_information_recipes.csv) — the 11 unsupported recipes and full ingredient lists
+- [`eu_no_cost_information_ingredients.csv`](data/cost/processed/recipe_cost_coverage/eu_no_cost_information_ingredients.csv) — unsupported ingredient frequency and example recipes
+- [`eu_no_direct_cost_match_recipes.csv`](data/cost/processed/recipe_cost_coverage/eu_no_direct_cost_match_recipes.csv) — all 773 recipes without a direct product-price match
+
+Regenerate the report with:
+
+```bash
+uv run python scripts/one_off/audit_recipe_cost_coverage.py
+```
+
+---
+
 ## Endpoints
 
 ### GET /health

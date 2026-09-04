@@ -4,10 +4,10 @@ Import Irish SafeFood recipes into Neo4j + Postgres.
 For each of 47 recipes:
   1. Clean title (strip AP_ prefix, date suffixes)
   2. Parse duration from prep + cook time strings
-  3. Run Recipe_Profiling_Chain (Groq parse + weight + nutrition) for US region
+  3. Run Recipe_Profiling_Chain (Groq parse + weight + nutrition) for each supported region
   4. Reuse parsed ingredients for IE and HU regions (structured chain, no re-parse)
   5. Upsert to Neo4j with source='Curated Irish Recipes', portion_weight_g stored
-  6. Persist US / IE / HU pipeline nutrition profiles + SafeFood ground truth to Postgres
+  6. Persist IE / HU / EU / SI pipeline profiles + SafeFood ground truth to Postgres
   7. Generate FLUX.1-dev image via HuggingFace Inference API
   8. Update Neo4j image_url; index in Elasticsearch
 
@@ -53,7 +53,7 @@ IMAGE_URL_PREFIX = "/static/data/Irish_SafeFood/images"
 CHECKPOINT = Path("scripts/import_irish_safefood.checkpoint.json")
 SOURCE = "Curated Irish Recipes"
 LAB_NUTRITION_SOURCE = "safefood_rcsi"
-REGIONS = [("US", "usda"), ("IE", "irish"), ("HU", "hungarian")]
+REGIONS = [("IE", "irish"), ("HU", "hungarian"), ("EU", "eu"), ("SI", "slovenian")]
 
 _stop = False
 
@@ -160,22 +160,9 @@ def update_neo4j_image(recipe_id: str, image_url: str):
 
 def index_elastic(recipe_id: str, title: str, ingredient_names: list, tags: list):
     try:
-        import requests
-        from recipe_wrangler.api.config import get_settings
-        settings = get_settings()
-        url = f"{settings.elastic_url}/{settings.elastic_index}/_doc/{recipe_id}"
-        requests.put(
-            url,
-            json={
-                "id": recipe_id,
-                "title": title,
-                "source": SOURCE,
-                "source_id": resolve_collection_source_id(SOURCE),
-                "ingredients": ingredient_names,
-                "tags": tags,
-            },
-            timeout=5,
-        )
+        from recipe_wrangler.catalog.projection import project
+
+        project(recipe_id)
     except Exception:
         pass
 
@@ -301,7 +288,7 @@ def main():
                 serves=serves,
                 image_url=None,
                 allergens=sorted(auto_allergens),
-                tags=[],
+                user_tags=[],
                 source=SOURCE,
                 source_id=str(recipe_id_src) if recipe_id_src else None,
                 expert_recipe=True,

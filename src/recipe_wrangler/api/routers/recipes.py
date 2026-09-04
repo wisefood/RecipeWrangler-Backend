@@ -29,6 +29,7 @@ from recipe_wrangler.api.exceptions import (
 from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 
+from recipe_wrangler.api.activity import report_search
 from recipe_wrangler.api.identity import Caller, get_caller, redact
 from recipe_wrangler.catalog.sources import (
     canonical_course_type,
@@ -1004,10 +1005,12 @@ def _healthyfoods_ground_truth_nutrition(recipe: dict[str, Any]) -> dict[str, An
 def recipe_autocomplete(
     q: str = Query("", min_length=0, max_length=120),
     limit: int = Query(8, ge=1, le=20),
+    caller: Caller = Depends(get_caller),
 ) -> dict[str, Any]:
     query = q.strip()
     if len(query) < 2:
         return {"suggestions": {}}
+    autocomplete_started = time.perf_counter()
 
     settings = get_settings()
     search_payload = {
@@ -1118,6 +1121,16 @@ def recipe_autocomplete(
         seen.add(key)
         suggestions[rid] = normalized
 
+    # What people start typing, and whether anything came back — the earliest
+    # signal there is that the catalogue is missing something they want.
+    report_search(
+        surface="autocomplete",
+        raw_query=query,
+        first_pass=len(suggestions),
+        final=len(suggestions),
+        started=autocomplete_started,
+        caller=caller,
+    )
     return {"suggestions": suggestions}
 
 
@@ -1848,6 +1861,27 @@ def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetail
     return RecipeDetailsBatchResponse(results=results)
 
 
+def _report_failed_search(question, constraints, started, caller, exc) -> None:
+    """Record a search that raised, with no result counts to report.
+
+    `result_count_*` stay None rather than 0: "the search failed" and "the
+    search found nothing" are different facts, and a zero here would inflate
+    the zero-result rate with outages.
+    """
+    try:
+        report_search(
+            surface="recipes",
+            raw_query=question,
+            filters={**(constraints or {}), "error": exc.__class__.__name__},
+            first_pass=None,
+            final=None,
+            started=started,
+            caller=caller,
+        )
+    except Exception:  # pragma: no cover - never mask the real error
+        pass
+
+
 @router.post(
     "/search",
     response_model=None,
@@ -1856,6 +1890,7 @@ def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetail
 )
 async def recipe_search(
     payload: RecipeSearchRequest,
+    caller: Caller = Depends(get_caller),
 ) -> dict[str, Any]:
     """Interpret a recipe question and retrieve matching recipes."""
 
@@ -2095,10 +2130,16 @@ async def recipe_search(
 
     es_started = time.perf_counter()
     relaxed = False
+    # The count *before* the retries below. Without it the returned total hides
+    # the original miss, and "the corpus has nothing" cannot be told apart from
+    # "the extractor produced an unsatisfiable constraint set" — different
+    # problems with different fixes.
+    first_pass_count: int | None = None
     try:
         es_out = await run_in_threadpool(
             search_recipes_es, RecipeSearchConstraints(**base_constraints)
         )
+        first_pass_count = len(es_out["results"])
         if (
             not es_out["results"]
             and not title_query
@@ -2137,8 +2178,13 @@ async def recipe_search(
         # Deep paging past Elasticsearch's result window. A 400 telling the
         # client to narrow is honest; the alternative is a 503 blaming the
         # search cluster for a request it correctly refused.
+        _report_failed_search(question, base_constraints, es_started, caller, exc)
         raise InvalidError(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
+        # Recorded before it is re-raised: a search that failed is a search the
+        # user ran. Reporting only successes makes an Elasticsearch outage look
+        # like nobody searching, which is the opposite of the truth.
+        _report_failed_search(question, base_constraints, es_started, caller, exc)
         raise map_dependency_error("Elasticsearch", exc) from exc
     logger.info(
         "recipe_search question=%r extract=%.2fs es=%.2fs results=%d "
@@ -2157,6 +2203,25 @@ async def recipe_search(
             }
         ),
     )
+    # Everything a trending report needs was already computed above and, until
+    # now, formatted into the log line and thrown away.
+    report_search(
+        surface="recipes",
+        raw_query=question,
+        filters={
+            key: value
+            for key, value in base_constraints.items()
+            if value not in (None, [], "") and key not in ("limit", "offset")
+        },
+        first_pass=first_pass_count,
+        final=len(es_out["results"]),
+        relaxed=relaxed,
+        lexical_fallback=lexical_fallback,
+        # The whole search as the user experienced it, not just the ES leg:
+        # constraint extraction is an LLM call and usually the larger half.
+        latency_ms=(extract_seconds + (time.perf_counter() - es_started)) * 1000.0,
+        caller=caller,
+    )
     return {
         "results": [_es_card(card) for card in es_out["results"]],
         "total": es_out.get("total", 0),
@@ -2170,9 +2235,13 @@ async def recipe_search(
     tags=["recipes"],
     summary="Deterministic parameter-based Elasticsearch recipe search",
 )
-def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
+def param_search(
+    payload: RecipeSearchFilters,
+    caller: Caller = Depends(get_caller),
+) -> dict[str, Any]:
     """Run deterministic parameter-based recipe search and return results."""
 
+    param_started = time.perf_counter()
     try:
         es_out = search_recipes_es(
             RecipeSearchConstraints(
@@ -2202,6 +2271,23 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
         raise InvalidError(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Elasticsearch", exc) from exc
+    # No free text here: this is the filter panel, so the facets *are* the
+    # query. Recorded with a null raw_query so filter usage can be reported
+    # without pretending someone typed something.
+    report_search(
+        surface="param",
+        raw_query=None,
+        filters={
+            key: value
+            for key, value in payload.model_dump(exclude_none=True).items()
+            if value not in (None, [], "")
+            and key not in ("limit", "offset", "include_facets")
+        },
+        first_pass=len(es_out["results"]),
+        final=len(es_out["results"]),
+        started=param_started,
+        caller=caller,
+    )
     return {
         "results": [_es_card(card) for card in es_out["results"]],
         "total": es_out.get("total", 0),

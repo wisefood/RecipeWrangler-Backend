@@ -18,6 +18,8 @@ corpus. Here the caller states what it wants: ``q`` ranks, ``fq`` filters.
 
 from __future__ import annotations
 
+import time
+
 import logging
 from typing import Any
 
@@ -30,6 +32,7 @@ from recipe_wrangler.api.exceptions import NotFoundError as HTTPNotFound
 from recipe_wrangler.catalog.entity import NotFoundError, ValidationError
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
+from recipe_wrangler.api.activity import report_search
 from recipe_wrangler.api.identity import (
     Caller,
     get_caller,
@@ -104,6 +107,7 @@ def catalog_search(
     payload: CatalogSearchRequest, caller: Caller = Depends(get_caller)
 ) -> dict[str, Any]:
     """Search the catalog index. Returns {results, facets, total, max_result_window}."""
+    started = time.perf_counter()
     entity = recipe_entity()
     try:
         # Withdrawn recipes are visible to experts only, and `include_inactive`
@@ -123,6 +127,16 @@ def catalog_search(
         )
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Elasticsearch", exc) from exc
+    hits = result.get("results") or []
+    report_search(
+        surface="catalog",
+        raw_query=payload.q or None,
+        filters={"fq": payload.fq or [], "sort": payload.sort or []},
+        first_pass=len(hits),
+        final=len(hits),
+        started=started,
+        caller=caller,
+    )
     return redact(result, caller)
 
 
@@ -156,6 +170,7 @@ def catalog_browse(
     Filter values are canonicalized on the way in, so a caller asking for
     ``dessert`` and an index holding ``desserts`` still agree.
     """
+    started = time.perf_counter()
     entity = recipe_entity()
     try:
         result = entity.browse(
@@ -165,6 +180,24 @@ def catalog_browse(
             q=q,
             limit=limit,
             offset=offset,
+        )
+        hits = result.get("results") or []
+        report_search(
+            surface="browse",
+            raw_query=q or None,
+            filters={
+                key: value
+                for key, value in (
+                    ("course_type", course_type),
+                    ("cuisine", cuisine),
+                    ("source", source),
+                )
+                if value
+            },
+            first_pass=len(hits),
+            final=len(hits),
+            started=started,
+            caller=caller,
         )
         return redact(result, caller)
     except ValidationError as exc:

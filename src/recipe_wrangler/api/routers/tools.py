@@ -27,6 +27,8 @@ level, and if the result is empty the answer is genuinely empty.
 
 from __future__ import annotations
 
+import time
+
 import logging
 from typing import Any, Literal
 
@@ -34,6 +36,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
+from recipe_wrangler.api.activity import report_search
 from recipe_wrangler.api.identity import Caller, get_caller, redact
 from recipe_wrangler.catalog import diets as D
 from recipe_wrangler.catalog import foodchat as F
@@ -896,6 +899,7 @@ class FindRecipesRequest(MealPlanRequest):
 def find_recipes(
     payload: FindRecipesRequest, caller: Caller = Depends(get_caller)
 ) -> dict[str, Any]:
+    started = time.perf_counter()
     entity = recipe_entity()
     accepted, rejected = _validate_options(payload)
     course_types = tuple(S.canonical_course_types(payload.course_types))
@@ -937,4 +941,19 @@ def find_recipes(
 
     found["results"] = [_plan_card(r) for r in found.get("results", [])]
     found["rejected_options"] = rejected
+    # Recorded on its own surface, not merged with the human ones: this is the
+    # agent tool FoodChat calls while composing a plan, and letting it into
+    # "trending queries" would report the planner's vocabulary as the users'.
+    report_search(
+        surface="tools",
+        raw_query=payload.q or None,
+        filters={
+            "course_types": list(course_types),
+            "rejected_options": rejected,
+        },
+        first_pass=len(found["results"]),
+        final=len(found["results"]),
+        started=started,
+        caller=caller,
+    )
     return redact(found, caller)

@@ -1,4 +1,7 @@
 /data
+/docs
+/FATO_FOODON_NEO4J.md
+/VEGAN_VEGETARIAN_RULES.md
 /build
 /qdrant_storage
 /n8n-local

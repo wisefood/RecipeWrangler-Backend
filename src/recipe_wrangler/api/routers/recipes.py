@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from uuid import uuid4
 
 import re
@@ -1882,6 +1882,31 @@ def _report_failed_search(question, constraints, started, caller, exc) -> None:
         pass
 
 
+#: Fields that mean "the extractor, or the recovery passes, made something of
+#: the question". Deliberately excludes every field a caller can set from a
+#: facet chip (`sources`, `convenience`, `nutrition_claims`, `nutri_scores`,
+#: `flavor_profiles`) and `exclude_allergens`, which arrives pre-merged with the
+#: member's profile. Those narrow the corpus without saying anything about
+#: whether the question itself was understood.
+_QUESTION_SIGNAL_KEYS = (
+    "include_ingredients", "exclude_ingredients", "diet_tags", "dish_types",
+    "title_keywords", "title_query", "cuisines", "moods", "food_groups",
+    "max_duration_minutes", "min_servings", "sort_by",
+)
+
+
+def question_yielded_nothing(question_signals: Mapping[str, Any]) -> bool:
+    """Whether the question produced no constraint of any kind.
+
+    When it did not, the raw text has to be used as the title query or the
+    Elasticsearch query carries no lexical clause at all and matches the whole
+    corpus in a fixed order — which is the same list for every question asked.
+    """
+    return not any(
+        value not in (None, [], "") for value in question_signals.values()
+    )
+
+
 @router.post(
     "/search",
     response_model=None,
@@ -2065,6 +2090,25 @@ async def recipe_search(
             "recipe_search recovered food groups %s", base_constraints["food_groups"]
         )
 
+    # What the *question* yielded, captured before caller selections are merged
+    # in below.
+    #
+    # This is the input to the lexical fallback, and keeping the two apart is
+    # the whole point. A facet the caller clicked narrows the corpus; it says
+    # nothing about whether the question was understood. Counting it as a
+    # signal used to disable the fallback, so "pasta" with any chip active sent
+    # `rank_query` alone — which by design never filters — and the search
+    # returned the entire facet-filtered corpus in alphabetical order for every
+    # query anyone typed. Allergens are read from the extractor rather than
+    # from base_constraints for the same reason: that field already has the
+    # caller's profile allergens merged into it, so a member with a nut allergy
+    # would never have got the fallback either.
+    question_signals = {
+        key: base_constraints.get(key)
+        for key in _QUESTION_SIGNAL_KEYS
+    }
+    question_signals["allergens"] = constraints.get("allergens") or []
+
     # Explicit caller selections override everything inferred above.
     #
     # The recovery passes exist because the extractor drops course, mood and
@@ -2109,16 +2153,7 @@ async def recipe_search(
     # minutes" legitimately yields only a duration filter, and forcing the
     # question text in as a title query would add minimum_should_match=1 and
     # wrongly exclude everything that does not contain those words.
-    _signal_keys = (
-        "include_ingredients", "exclude_ingredients", "exclude_allergens",
-        "diet_tags", "dish_types", "sources", "title_keywords", "title_query",
-        "cuisines", "moods", "flavor_profiles", "food_groups", "convenience",
-        "nutrition_claims", "nutri_scores",
-        "max_duration_minutes", "min_servings", "sort_by",
-    )
-    lexical_fallback = not any(
-        base_constraints.get(key) not in (None, [], "") for key in _signal_keys
-    )
+    lexical_fallback = question_yielded_nothing(question_signals)
     if lexical_fallback:
         base_constraints["title_query"] = question
         title_query = question

@@ -1882,17 +1882,30 @@ def _report_failed_search(question, constraints, started, caller, exc) -> None:
         pass
 
 
-#: Fields that mean "the extractor, or the recovery passes, made something of
-#: the question". Deliberately excludes every field a caller can set from a
-#: facet chip (`sources`, `convenience`, `nutrition_claims`, `nutri_scores`,
-#: `flavor_profiles`) and `exclude_allergens`, which arrives pre-merged with the
-#: member's profile. Those narrow the corpus without saying anything about
-#: whether the question itself was understood.
-_QUESTION_SIGNAL_KEYS = (
-    "include_ingredients", "exclude_ingredients", "diet_tags", "dish_types",
-    "title_keywords", "title_query", "cuisines", "moods", "food_groups",
-    "max_duration_minutes", "min_servings", "sort_by",
-)
+#: Fields of `base_constraints` that say nothing about whether the *question*
+#: was understood, and so cannot count as signal for the lexical fallback.
+#:
+#: Stated as an exclusion list rather than an allow-list on purpose. It used to
+#: be an allow-list, and it silently went stale the moment the extractor
+#: learned to fill more facets: `sources`, `convenience`, `nutrition_claims`,
+#: `nutri_scores` and `flavor_profiles` became question-derived, the allow-list
+#: still ignored them, and a question the extractor had understood perfectly
+#: was treated as unparsed. That forced the raw text in as a mandatory title
+#: query and pushed searches like "quick recipes" — now convenience, not a
+#: mood — through the relaxation path to the whole corpus.
+#:
+#: Everything not named here counts. A facet the extractor gains tomorrow
+#: counts on the day it is added, with nothing to remember.
+_NOT_QUESTION_SIGNAL = frozenset({
+    # Always set to the question itself, so it is never evidence of anything.
+    "rank_query",
+    # The caller's, not the question's: profile allergens and preference
+    # boosts. Allergens the *question* stated are read from the extractor
+    # separately, so a "peanut-free" question still counts.
+    "exclude_allergens", "boost_tags", "boost_ingredients",
+    # Plumbing.
+    "limit", "offset", "region", "include_disabled", "include_facets",
+})
 
 
 def question_yielded_nothing(question_signals: Mapping[str, Any]) -> bool:
@@ -2116,8 +2129,9 @@ async def recipe_search(
     # caller's profile allergens merged into it, so a member with a nut allergy
     # would never have got the fallback either.
     question_signals = {
-        key: base_constraints.get(key)
-        for key in _QUESTION_SIGNAL_KEYS
+        key: value
+        for key, value in base_constraints.items()
+        if key not in _NOT_QUESTION_SIGNAL
     }
     question_signals["allergens"] = constraints.get("allergens") or []
 

@@ -2229,12 +2229,26 @@ async def recipe_search(
             # without excluding anything, so the user gets the vegetarian
             # curries they asked for rather than an empty page.
             relaxed = True
-            demoted = dict(base_constraints)
-            demoted["title_query"] = None
-            demoted["rank_query"] = question
+            # Any word rather than every word, before giving up on the title.
+            #
+            # Dropping the title outright stops constraining at all: the query
+            # keeps only the facet filters, matches everything that satisfies
+            # them, and reports it as the result count. "comforting dinners"
+            # came back as 7,628 recipes over 636 pages, two of them relevant,
+            # which reads as broken rather than as relaxed. Asking for either
+            # word first gives a set that is still about the question.
+            loosened = dict(base_constraints)
+            loosened["title_match_any"] = True
             es_out = await run_in_threadpool(
-                search_recipes_es, RecipeSearchConstraints(**demoted)
+                search_recipes_es, RecipeSearchConstraints(**loosened)
             )
+            if not es_out["results"]:
+                demoted = dict(base_constraints)
+                demoted["title_query"] = None
+                demoted["rank_query"] = question
+                es_out = await run_in_threadpool(
+                    search_recipes_es, RecipeSearchConstraints(**demoted)
+                )
     except ResultWindowExceededError as exc:
         # Deep paging past Elasticsearch's result window. A 400 telling the
         # client to narrow is honest; the alternative is a 503 blaming the

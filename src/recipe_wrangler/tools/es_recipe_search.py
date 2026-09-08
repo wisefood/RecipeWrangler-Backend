@@ -231,8 +231,20 @@ def normalize_recipe_title(value: object) -> str:
     return " ".join(words.split())
 
 
-def _title_should_queries(title_query: str) -> list[dict[str, Any]]:
-    """Build descending-confidence title clauses for a submitted search."""
+def _title_should_queries(
+    title_query: str, match_any: bool = False
+) -> list[dict[str, Any]]:
+    """Build descending-confidence title clauses for a submitted search.
+
+    With `match_any`, the word-level clauses ask for any word rather than all
+    of them. This is the middle rung of the relaxation ladder: the strict pass
+    requires every word in the title, and before this existed the only way
+    down from it was to drop the title entirely — which stops constraining at
+    all and returns the whole corpus. "comforting dinners" matched no title
+    containing both words, so it came back as 7,628 recipes over 636 pages
+    with two relevant ones on top. Asking for either word gives a set that is
+    actually about the question.
+    """
     normalized = normalize_recipe_title(title_query)
     clauses: list[dict[str, Any]] = []
     if normalized:
@@ -260,7 +272,7 @@ def _title_should_queries(title_query: str) -> list[dict[str, Any]]:
                 "match": {
                     "title": {
                         "query": title_query,
-                        "operator": "and",
+                        "operator": "or" if match_any else "and",
                         "boost": 5,
                     }
                 }
@@ -269,7 +281,7 @@ def _title_should_queries(title_query: str) -> list[dict[str, Any]]:
                 "match": {
                     "title": {
                         "query": title_query,
-                        "operator": "and",
+                        "operator": "or" if match_any else "and",
                         "fuzziness": "AUTO",
                         "prefix_length": 0,
                         "max_expansions": 50,
@@ -627,7 +639,7 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
 
     title_query = str(c.title_query or "").strip()
     if title_query:
-        should.extend(_title_should_queries(title_query))
+        should.extend(_title_should_queries(title_query, match_any=c.title_match_any))
 
     # Ranking-only text. Added when the caller supplied a question but the
     # extractor turned it into filters alone; contributes score without ever

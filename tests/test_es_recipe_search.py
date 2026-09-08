@@ -501,3 +501,57 @@ def test_natural_language_mixed_intent_combines_title_and_filters():
     assert constraints.exclude_ingredients == ["milk"]
     assert constraints.exclude_allergens == ["milk"]
     assert constraints.max_duration_minutes == 30
+
+
+class TestTitleRelaxationLadder:
+    """A strict title match relaxes to any-word before it gives up entirely.
+
+    Dropping the title outright leaves only the facet filters, which match
+    everything that satisfies them — so a question nothing matched exactly
+    came back as the whole corpus and reported it as the result count.
+    "comforting dinners" was 7,628 recipes over 636 pages with two relevant
+    ones on top, which reads as broken rather than as relaxed. Against the
+    live index the any-word rung returns 6.
+    """
+
+    @staticmethod
+    def _title_matches(query: dict) -> list[dict]:
+        clauses = query["query"]["bool"].get("should", [])
+        return [c["match"]["title"] for c in clauses if "match" in c and "title" in c["match"]]
+
+    def test_the_strict_pass_requires_every_word(self):
+        from recipe_wrangler.tools.es_recipe_search import (
+            RecipeSearchConstraints,
+            build_es_query,
+        )
+
+        query = build_es_query(RecipeSearchConstraints(title_query="comforting dinners"))
+        operators = {m.get("operator") for m in self._title_matches(query)}
+        assert operators == {"and"}
+
+    def test_match_any_asks_for_either_word(self):
+        from recipe_wrangler.tools.es_recipe_search import (
+            RecipeSearchConstraints,
+            build_es_query,
+        )
+
+        query = build_es_query(
+            RecipeSearchConstraints(title_query="comforting dinners", title_match_any=True)
+        )
+        operators = {m.get("operator") for m in self._title_matches(query)}
+        assert operators == {"or"}
+
+    def test_relaxing_still_constrains(self):
+        from recipe_wrangler.tools.es_recipe_search import (
+            RecipeSearchConstraints,
+            build_es_query,
+        )
+
+        # The point of the middle rung: the title clauses are still there and
+        # still mandatory at the bool level, so the result set is about the
+        # question. Dropping the title is what removes that guarantee.
+        query = build_es_query(
+            RecipeSearchConstraints(title_query="comforting dinners", title_match_any=True)
+        )
+        assert query["query"]["bool"]["minimum_should_match"] == 1
+        assert self._title_matches(query)

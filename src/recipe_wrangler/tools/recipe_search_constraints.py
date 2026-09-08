@@ -16,6 +16,37 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
+from recipe_wrangler.catalog.sources import COURSE_TYPES, active_sources
+from recipe_wrangler.catalog.vocabularies import (
+    CUISINES,
+    FLAVOR_PROFILES,
+    FOOD_GROUPS,
+    MOODS,
+)
+from recipe_wrangler.utils.convenience import CONVENIENCE_TAG_NAMES
+from recipe_wrangler.utils.diet_tags import DIET_TAG_NAMES
+from recipe_wrangler.utils.food_ontology import ALLERGEN_DETECTION_RULES
+from recipe_wrangler.utils.nutrition_claims import NUTRITION_CLAIM_TAG_NAMES
+
+
+SEARCH_FACET_VALUES: dict[str, tuple[str, ...]] = {
+    "allergens": tuple(ALLERGEN_DETECTION_RULES),
+    "diet": DIET_TAG_NAMES,
+    "dish_types": COURSE_TYPES,
+    "sources": tuple(source.slug for source in active_sources()),
+    "cuisines": CUISINES,
+    "moods": MOODS,
+    "flavor_profiles": FLAVOR_PROFILES,
+    "food_groups": FOOD_GROUPS,
+    "convenience": CONVENIENCE_TAG_NAMES,
+    "nutrition_claims": NUTRITION_CLAIM_TAG_NAMES,
+    "nutri_scores": ("A", "B", "C", "D", "E"),
+}
+
+
+def _allowed_values(field: str) -> str:
+    return ", ".join(SEARCH_FACET_VALUES[field])
+
 
 EXTRACT_CONSTRAINTS_SYSTEM_PROMPT = (
     "You classify recipe-search intent and extract structured constraints from "
@@ -52,7 +83,20 @@ Rules:
   allergens. For example, "recipes with peanut" means
   preferred_ingredients=["peanut"] and allergens=[], while "peanut-free
   recipes" means preferred_ingredients=[] and allergens=["peanut"].
-- Put dietary intents (vegan, keto, gluten free, etc.) into diet.
+- Use only the allowed canonical values shown in the schema for facet fields.
+- Put dietary requirements into diet. Never put nutrition claims such as
+  high-protein or low-fat into diet.
+- Put course words into dish_types and collection/provider requests into sources.
+- Put culinary tradition, occasion, taste, and ingredient-category requests into
+  cuisines, moods, flavor_profiles, and food_groups respectively.
+- Only use food_groups when the user names that category; do not infer a food
+  group from a specific ingredient (for example, chicken is an ingredient, not
+  a request for the meat or poultry food-group facet).
+- Put quick/simple preparation requests into convenience. Treat "quick" as
+  convenience, not as a mood or title keyword.
+- Put nutritional properties such as high-protein into nutrition_claims and
+  requested Nutri-Score grades into nutri_scores.
+- Do not repeat a recognized facet or ingredient value in title_keywords.
 - Use max_duration_minutes only when a max/prep/cook time limit is explicitly asked.
 - Use min_servings only when a lower-bound serving size is explicitly asked.
 - If the question is not about recipe retrieval, set unsupported_intent=true and explain why in unsupported_reason.
@@ -93,27 +137,33 @@ Return exactly one JSON object with these keys:
 - excluded_ingredients: string[]
 - allergens: string[]
 - diet: string[]
+- dish_types: string[]
+- sources: string[]
+- cuisines: string[]
+- moods: string[]
+- flavor_profiles: string[]
+- food_groups: string[]
+- convenience: string[]
+- nutrition_claims: string[]
+- nutri_scores: string[]
 - title_keywords: string[]
 - max_duration_minutes: integer|null
 - min_servings: integer|null
+- sort_by: "title_asc"|"title_desc"|"time_asc"|"time_desc"|"random"|null
 - limit: integer
 - unsupported_intent: boolean
 - unsupported_reason: string|null
 """
 
-EXTRACT_CONSTRAINTS_SCHEMA_CONTEXT = """Recipe search fields:
-Recipe {title: STRING, duration: FLOAT, serves: FLOAT, ingredients: TEXT, allergens: KEYWORD, tags: KEYWORD, dish_types: KEYWORD}
-
-Allowed diet tag values:
-- dairy_free, gluten-free, high-protein, low-carb, low-fat, nut_free, vegan, vegetarian
-
-Allowed dish type values:
-- beverages, breakfast, desserts, main-dish, snacks
-
-Allowed allergen values:
-- celery, crustacean_shellfish, egg, fish, gluten, lupin, milk, molluscs,
-  mustard, peanut, sesame, soy, sulphites, tree_nut, wheat
-"""
+EXTRACT_CONSTRAINTS_SCHEMA_CONTEXT = (
+    "Recipe search has open-text title and ingredient fields plus these "
+    "closed facets. Use only their canonical values:\n"
+    + "\n".join(
+        f"- {field}: {_allowed_values(field)}"
+        for field in SEARCH_FACET_VALUES
+    )
+    + "\nAllowed sort_by values: title_asc, title_desc, time_asc, time_desc, random."
+)
 
 
 class ExtractConstraintsOutput(BaseModel):
@@ -142,13 +192,56 @@ class ExtractConstraintsOutput(BaseModel):
         default_factory=list,
         description=(
             "Only allergens the user explicitly asked to avoid; never allergens "
-            "merely mentioned as requested ingredients."
+            "merely mentioned as requested ingredients. Allowed values: "
+            f"{_allowed_values('allergens')}."
         ),
     )
-    diet: list[str] = Field(default_factory=list)
+    diet: list[str] = Field(
+        default_factory=list,
+        description=f"Diet requirements. Allowed values: {_allowed_values('diet')}.",
+    )
+    dish_types: list[str] = Field(
+        default_factory=list,
+        description=f"Course types. Allowed values: {_allowed_values('dish_types')}.",
+    )
+    sources: list[str] = Field(
+        default_factory=list,
+        description=f"Recipe collections. Allowed values: {_allowed_values('sources')}.",
+    )
+    cuisines: list[str] = Field(
+        default_factory=list,
+        description=f"Culinary traditions. Allowed values: {_allowed_values('cuisines')}.",
+    )
+    moods: list[str] = Field(
+        default_factory=list,
+        description=f"Eating occasions. Allowed values: {_allowed_values('moods')}.",
+    )
+    flavor_profiles: list[str] = Field(
+        default_factory=list,
+        description=f"Dominant tastes. Allowed values: {_allowed_values('flavor_profiles')}.",
+    )
+    food_groups: list[str] = Field(
+        default_factory=list,
+        description=f"Ingredient categories. Allowed values: {_allowed_values('food_groups')}.",
+    )
+    convenience: list[str] = Field(
+        default_factory=list,
+        description=f"Preparation convenience. Allowed values: {_allowed_values('convenience')}.",
+    )
+    nutrition_claims: list[str] = Field(
+        default_factory=list,
+        description=f"Derived nutrition properties. Allowed values: {_allowed_values('nutrition_claims')}.",
+    )
+    nutri_scores: list[str] = Field(
+        default_factory=list,
+        description=f"Requested Nutri-Score grades. Allowed values: {_allowed_values('nutri_scores')}.",
+    )
     title_keywords: list[str] = Field(default_factory=list)
     max_duration_minutes: int | None = None
     min_servings: int | None = None
+    sort_by: Literal[
+        "title_asc", "title_desc", "time_asc", "time_desc", "random"
+    ] | None = None
     limit: int = 50
     unsupported_intent: bool = False
     unsupported_reason: str | None = None
@@ -182,6 +275,76 @@ def _constraint_key(value: object) -> str:
     ):
         words[-1] = last[:-1]
     return " ".join(words)
+
+
+def _facet_key(value: object) -> str:
+    return "_".join(re.findall(r"[a-z0-9]+", str(value or "").casefold()))
+
+
+def _question_mentions_value(question: str, value: str) -> bool:
+    words = re.findall(r"[a-z0-9]+", value.casefold())
+    if not words:
+        return False
+    pattern = r"\b" + r"[\s_-]+".join(map(re.escape, words)) + r"\b"
+    return bool(re.search(pattern, question.casefold()))
+
+
+def _normalize_extracted_facets(
+    question: str,
+    constraints: dict[str, Any],
+) -> None:
+    """Canonicalize closed facets and remove duplicated text constraints."""
+
+    claims = list(constraints.get("nutrition_claims") or [])
+    diet: list[str] = []
+    claim_keys = {_facet_key(value) for value in NUTRITION_CLAIM_TAG_NAMES}
+    for value in constraints.get("diet") or []:
+        if _facet_key(value) in claim_keys:
+            claims.append(value)
+        else:
+            diet.append(value)
+    constraints["diet"] = diet
+    constraints["nutrition_claims"] = claims
+
+    moods = list(constraints.get("moods") or [])
+    if any(_facet_key(value) == "quick" for value in moods):
+        constraints["convenience"] = [
+            *(constraints.get("convenience") or []),
+            "quick",
+        ]
+        constraints["moods"] = [
+            value for value in moods if _facet_key(value) != "quick"
+        ]
+
+    for field, values in SEARCH_FACET_VALUES.items():
+        allowed = {_facet_key(value): value for value in values}
+        canonical = [
+            allowed[key]
+            for value in constraints.get(field) or []
+            if (key := _facet_key(value)) in allowed
+        ]
+        constraints[field] = list(dict.fromkeys(canonical))
+
+    constraints["food_groups"] = [
+        value
+        for value in constraints["food_groups"]
+        if _question_mentions_value(question, value)
+    ]
+
+    recognized = {
+        _facet_key(value)
+        for field in (
+            "preferred_ingredients",
+            "excluded_ingredients",
+            *SEARCH_FACET_VALUES,
+        )
+        for value in constraints.get(field) or []
+    }
+    constraints["title_keywords"] = [
+        value
+        for value in constraints.get("title_keywords") or []
+        if _facet_key(value) not in recognized
+    ]
 
 
 def _food_phrase_pattern(value: object) -> str:
@@ -376,6 +539,15 @@ class RecipeConstraintExtractor:
             "excluded_ingredients",
             "allergens",
             "diet",
+            "dish_types",
+            "sources",
+            "cuisines",
+            "moods",
+            "flavor_profiles",
+            "food_groups",
+            "convenience",
+            "nutrition_claims",
+            "nutri_scores",
             "title_keywords",
         ]
         has_list_value = any(data.get(key) for key in list_keys)
@@ -545,6 +717,8 @@ class RecipeConstraintExtractor:
                 and heuristics.get("min_servings") is not None
             ):
                 constraints["min_servings"] = heuristics["min_servings"]
+
+        _normalize_extracted_facets(question, constraints)
 
         constraints["limit"] = self._clamp_limit(
             constraints.get("limit"),

@@ -1979,6 +1979,18 @@ async def recipe_search(
         ),
         diet_tags=[] if title_only else constraints.get("diet") or [],
         dish_types=[] if title_only else constraints.get("dish_types") or [],
+        sources=[] if title_only else constraints.get("sources") or [],
+        cuisines=[] if title_only else constraints.get("cuisines") or [],
+        moods=[] if title_only else constraints.get("moods") or [],
+        flavor_profiles=(
+            [] if title_only else constraints.get("flavor_profiles") or []
+        ),
+        food_groups=[] if title_only else constraints.get("food_groups") or [],
+        convenience=[] if title_only else constraints.get("convenience") or [],
+        nutrition_claims=(
+            [] if title_only else constraints.get("nutrition_claims") or []
+        ),
+        nutri_scores=[] if title_only else constraints.get("nutri_scores") or [],
         boost_tags=payload.diet_tags,
         boost_ingredients=payload.preferred_ingredients,
         title_keywords=(
@@ -2071,20 +2083,20 @@ async def recipe_search(
     # constraint the user did not express.
     from recipe_wrangler.catalog import vocabularies as _V
 
-    _mood_vocab = set(_V.MOODS)
+    _mood_vocab = set(_V.MOODS) - {"quick"}
     _cuisine_vocab = set(_V.CUISINES)
     _food_group_vocab = set(_V.FOOD_GROUPS)
 
     moods = [t for t in _question_tokens if t in _mood_vocab]
     cuisines = [t for t in _question_tokens if t in _cuisine_vocab]
     food_groups = [t for t in _question_tokens if t in _food_group_vocab]
-    if moods:
+    if moods and not base_constraints["moods"]:
         base_constraints["moods"] = list(dict.fromkeys(moods))
         logger.info("recipe_search recovered moods %s", base_constraints["moods"])
-    if cuisines:
+    if cuisines and not base_constraints["cuisines"]:
         base_constraints["cuisines"] = list(dict.fromkeys(cuisines))
         logger.info("recipe_search recovered cuisines %s", base_constraints["cuisines"])
-    if food_groups:
+    if food_groups and not base_constraints["food_groups"]:
         base_constraints["food_groups"] = list(dict.fromkeys(food_groups))
         logger.info(
             "recipe_search recovered food groups %s", base_constraints["food_groups"]

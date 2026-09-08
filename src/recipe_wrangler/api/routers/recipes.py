@@ -1896,6 +1896,28 @@ def _report_failed_search(question, constraints, started, caller, exc) -> None:
 #:
 #: Everything not named here counts. A facet the extractor gains tomorrow
 #: counts on the day it is added, with nothing to remember.
+#: Fields that make the result set smaller, other than the title.
+#:
+#: Used to decide whether abandoning the title is survivable. Dropping it
+#: leaves whatever else is filtering; if nothing else is, that is the entire
+#: corpus, and "zzzz qqqq" answered with 7,628 recipes is not a relaxed search
+#: but a broken one. Boosts are absent on purpose — they reorder without
+#: excluding, so they cannot rescue a query that has stopped constraining.
+_NARROWING_FIELDS = (
+    "include_ingredients", "exclude_ingredients", "exclude_allergens",
+    "diet_tags", "dish_types", "sources", "cuisines", "moods",
+    "flavor_profiles", "food_groups", "convenience", "nutrition_claims",
+    "nutri_scores", "title_keywords", "max_duration_minutes", "min_servings",
+)
+
+
+def _still_narrows(constraints: Mapping[str, Any]) -> bool:
+    """Whether anything besides the title would keep the result set bounded."""
+    return any(
+        constraints.get(field) not in (None, [], "") for field in _NARROWING_FIELDS
+    )
+
+
 _NOT_QUESTION_SIGNAL = frozenset({
     # Always set to the question itself, so it is never evidence of anything.
     "rank_query",
@@ -2242,7 +2264,13 @@ async def recipe_search(
             es_out = await run_in_threadpool(
                 search_recipes_es, RecipeSearchConstraints(**loosened)
             )
-            if not es_out["results"]:
+            # Last resort: give up on the title and keep whatever else
+            # filters. Only worth doing when something else does — otherwise
+            # this is not a relaxation but a reset to the whole catalogue,
+            # which answered "zzzz qqqq" with 7,628 recipes over 636 pages.
+            # An honest empty page is the better answer, and the caller can
+            # see from `relaxed` that we tried.
+            if not es_out["results"] and _still_narrows(base_constraints):
                 demoted = dict(base_constraints)
                 demoted["title_query"] = None
                 demoted["rank_query"] = question

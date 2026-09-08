@@ -185,3 +185,48 @@ class TestTheListCannotGoStaleAgain:
         fields = self._base_constraint_fields()
         stale = {name for name in _NOT_QUESTION_SIGNAL if name not in fields}
         assert not stale, f"excluded fields that no longer exist: {sorted(stale)}"
+
+
+class TestGivingUpOnTheTitle:
+    """Abandoning the title is only a relaxation if something else still filters.
+
+    Dropping it keeps whatever else narrows the corpus. When nothing else
+    does, that is the whole catalogue: "zzzz qqqq" came back as 7,628 recipes
+    across 636 pages, which is not a relaxed answer to a question but a reset
+    to browsing. An honest empty result is better, and `relaxed` already tells
+    the caller the search tried.
+    """
+
+    def test_a_bare_unmatched_question_does_not_reset_to_everything(self):
+        from recipe_wrangler.api.routers.recipes import _still_narrows
+
+        assert _still_narrows({"title_query": "zzzz qqqq", "rank_query": "zzzz qqqq"}) is False
+
+    @pytest.mark.parametrize("field,value", [
+        ("sources", ["supervalu"]),
+        ("cuisines", ["italian"]),
+        ("diet_tags", ["vegan"]),
+        ("include_ingredients", ["chicken"]),
+        ("exclude_allergens", ["peanut"]),
+        ("max_duration_minutes", 30),
+        ("min_servings", 4),
+        ("title_keywords", ["risotto"]),
+    ])
+    def test_anything_that_filters_makes_it_survivable(self, field, value):
+        from recipe_wrangler.api.routers.recipes import _still_narrows
+
+        assert _still_narrows({field: value}) is True
+
+    @pytest.mark.parametrize("field", ["boost_tags", "boost_ingredients"])
+    def test_boosts_do_not_count(self, field):
+        from recipe_wrangler.api.routers.recipes import _still_narrows
+
+        # They reorder without excluding, so they cannot keep a query bounded.
+        assert _still_narrows({field: ["vegan"]}) is False
+
+    def test_the_narrowing_fields_are_real_constraint_fields(self):
+        from recipe_wrangler.api.routers.recipes import _NARROWING_FIELDS
+
+        fields = TestTheListCannotGoStaleAgain._base_constraint_fields()
+        unknown = set(_NARROWING_FIELDS) - fields
+        assert not unknown, f"not fields of base_constraints: {sorted(unknown)}"

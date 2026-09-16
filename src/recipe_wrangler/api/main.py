@@ -39,7 +39,7 @@ def create_app() -> FastAPI:
     return app
 
 
-from .routers import catalog, health, recipes, tools
+from .routers import catalog, health, ingest, recipes, tools
 
 # Get settings
 settings = get_settings()
@@ -72,6 +72,7 @@ app.include_router(catalog.router)
 # capabilities for FoodChat and other LLM callers, rather than a query
 # language they would have to learn.
 app.include_router(tools.router)
+app.include_router(ingest.router)
 
 # Adaptation endpoints (adapt/suggestions, adapt/simulate). The router carries
 # its own /api/v1/recipes prefix; it also remains runnable standalone via

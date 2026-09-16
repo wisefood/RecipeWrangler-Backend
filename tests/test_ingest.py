@@ -278,3 +278,177 @@ class TestSourceLicensing:
         assert "healthyfoods" in undetermined
         assert "myplate" not in undetermined
         assert "recipe1m" not in undetermined, "retired sources are not exposure"
+
+
+# ------------------------------------------------- discovery → profiling --
+
+RECIPE_PAGE = """<html><head><script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Recipe","name":"Lentil Soup",
+ "recipeIngredient":["200g lentils","1 onion"],
+ "recipeInstructions":[{"@type":"HowToStep","text":"Simmer."}],
+ "totalTime":"PT30M","recipeYield":"4"}
+</script></head></html>"""
+
+BARE_PAGE = "<html><body>no structured data here</body></html>"
+
+
+class TestTheImportPipeline:
+    """The run that turns a sitemap into profiled recipes.
+
+    `recipe_create` is injected rather than imported: these assert the
+    pipeline's decisions — what it refuses, what it counts, what it reports —
+    not that the seven-step profiling chain works, which has its own tests and
+    needs Neo4j, Postgres and Elasticsearch to say anything.
+    """
+
+    @pytest.fixture(autouse=True)
+    def no_persistence(self, monkeypatch):
+        """The run store needs Postgres; these tests are about the logic."""
+        from recipe_wrangler.ingest import pipeline as pipe
+
+        saved = []
+        monkeypatch.setattr(pipe.runs, "save", lambda state, **kw: saved.append(
+            (state.status, state.imported, state.failed)))
+        return saved
+
+    @pytest.fixture
+    def site(self, monkeypatch):
+        from recipe_wrangler.ingest import pipeline as pipe
+
+        pages = {
+            "https://food.test/recipes/soup": RECIPE_PAGE,
+            "https://food.test/recipes/stew": RECIPE_PAGE,
+            "https://food.test/recipes/draft": BARE_PAGE,
+        }
+
+        def fake_discover(location, **kw):
+            return discovery.Discovered(
+                kind="sitemap", urls=list(pages), considered=len(pages))
+
+        def fake_fetch(url, **kw):
+            if url not in pages:
+                raise RecipeUrlError("Recipe URL did not return HTML")
+            return pages[url], url
+
+        monkeypatch.setattr(pipe.discovery, "discover", fake_discover)
+        monkeypatch.setattr(pipe, "fetch_bounded", fake_fetch)
+        monkeypatch.setattr(pipe, "_robots", lambda: None)
+        return pages
+
+    @pytest.mark.asyncio
+    async def test_a_dry_run_reads_without_writing(self, site):
+        """The setting to use first: it says how many of a source's pages
+        carry usable markup, which is what decides whether it is importable."""
+        from recipe_wrangler.ingest import pipeline as pipe
+
+        created = []
+        state = await pipe.run_import(
+            run_id="r1", location="https://food.test/sitemap.xml",
+            dry_run=True, delay=0,
+            create_recipe=lambda recipe, region: created.append(recipe),
+        )
+        assert state["status"] == "succeeded"
+        assert state["imported"] == 2
+        assert state["failed"] == 1, "the page with no markup"
+        assert created == [], "a dry run writes nothing"
+        assert state["detail"]["samples"], "and shows what it found"
+
+    @pytest.mark.asyncio
+    async def test_a_real_run_profiles_each_recipe(self, site):
+        from recipe_wrangler.ingest import pipeline as pipe
+
+        created = []
+
+        async def create(recipe, region):
+            created.append((recipe["title"], region))
+
+        state = await pipe.run_import(
+            run_id="r2", location="https://food.test/sitemap.xml",
+            dry_run=False, delay=0, region="HU", create_recipe=create)
+        assert state["imported"] == 2
+        assert created == [("Lentil Soup", "HU"), ("Lentil Soup", "HU")]
+
+    @pytest.mark.asyncio
+    async def test_a_page_missing_instructions_is_refused_not_profiled(self, monkeypatch):
+        """The same bar the single-URL import applies. A recipe with no
+        instructions is not one we can profile or show."""
+        from recipe_wrangler.ingest import pipeline as pipe
+
+        incomplete = RECIPE_PAGE.replace(
+            '"recipeInstructions":[{"@type":"HowToStep","text":"Simmer."}],', "")
+        monkeypatch.setattr(pipe.discovery, "discover", lambda location, **kw:
+                            discovery.Discovered(kind="sitemap",
+                                                 urls=["https://food.test/a"]))
+        monkeypatch.setattr(pipe, "fetch_bounded",
+                            lambda url, **kw: (incomplete, url))
+        monkeypatch.setattr(pipe, "_robots", lambda: None)
+
+        created = []
+        state = await pipe.run_import(
+            run_id="r3", location="x", dry_run=False, delay=0,
+            create_recipe=lambda r, region: created.append(r))
+        assert state["imported"] == 0 and state["failed"] == 1
+        assert created == []
+        assert any("missing" in key for key in state["detail"]["reasons"])
+
+    @pytest.mark.asyncio
+    async def test_one_failing_recipe_does_not_end_the_run(self, site):
+        from recipe_wrangler.ingest import pipeline as pipe
+
+        calls = {"n": 0}
+
+        async def flaky(recipe, region):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("Neo4j said no")
+
+        state = await pipe.run_import(
+            run_id="r4", location="x", dry_run=False, delay=0,
+            create_recipe=flaky)
+        assert state["status"] == "succeeded"
+        assert state["imported"] == 1 and state["failed"] == 2
+
+    @pytest.mark.asyncio
+    async def test_discovering_nothing_fails_with_advice(self, monkeypatch):
+        from recipe_wrangler.ingest import pipeline as pipe
+
+        monkeypatch.setattr(pipe.discovery, "discover", lambda location, **kw:
+                            discovery.Discovered(kind="sitemap", urls=[],
+                                                 considered=4000))
+        state = await pipe.run_import(run_id="r5", location="x", delay=0)
+        assert state["status"] == "failed"
+        assert "include pattern" in state["error"]
+        assert "4000" in state["error"], "and says what it did see"
+
+    @pytest.mark.asyncio
+    async def test_a_source_that_cannot_be_reached_fails_the_run_not_the_request(
+            self, monkeypatch):
+        from recipe_wrangler.ingest import pipeline as pipe
+
+        def boom(location, **kw):
+            raise RecipeUrlError("Recipe host could not be resolved")
+        monkeypatch.setattr(pipe.discovery, "discover", boom)
+        state = await pipe.run_import(run_id="r6", location="x", delay=0)
+        assert state["status"] == "failed"
+        assert "resolved" in state["error"]
+
+    @pytest.mark.asyncio
+    async def test_robots_is_counted_as_skipped_not_failed(self, site, monkeypatch):
+        """A page we were asked not to fetch is not a broken page."""
+        from recipe_wrangler.ingest import pipeline as pipe
+
+        class DenyAll:
+            def allows(self, url):
+                return False
+        monkeypatch.setattr(pipe, "_robots", lambda: DenyAll())
+
+        state = await pipe.run_import(
+            run_id="r7", location="x", dry_run=True, delay=0)
+        assert state["skipped"] == 3
+        assert state["failed"] == 0 and state["imported"] == 0
+
+    def test_an_unknown_source_slug_resolves_to_nothing(self):
+        from recipe_wrangler.ingest import pipeline as pipe
+
+        assert pipe.resolve_source("not-a-source") is None
+        assert pipe.resolve_source("myplate").slug == "myplate"

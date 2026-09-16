@@ -52,14 +52,32 @@ def _validate_public_url(url: str) -> str:
     return raw
 
 
-def fetch_recipe_html(url: str, *, timeout: float = 10.0) -> tuple[str, str]:
-    """Fetch bounded HTML, validating every redirect against SSRF targets."""
+#: Public name for the SSRF check, because bulk discovery needs the same one.
+#: Copying it would be the mistake — two copies of a security check drift, and
+#: the one that drifts is never the one anybody is looking at.
+validate_public_url = _validate_public_url
+
+
+def fetch_bounded(
+    url: str,
+    *,
+    timeout: float = 10.0,
+    accept: str = "text/html,application/xhtml+xml",
+    content_types: tuple[str, ...] = ("html",),
+    max_bytes: int = MAX_HTML_BYTES,
+) -> tuple[str, str]:
+    """Fetch a bounded document, validating every redirect against SSRF targets.
+
+    Generalised from `fetch_recipe_html` so sitemaps and feeds get the same
+    protection as recipe pages: same host validation on every hop, same byte
+    ceiling, same refusal to follow a redirect somewhere private.
+    """
     current = _validate_public_url(url)
     session = requests.Session()
     for _ in range(MAX_REDIRECTS + 1):
         response = session.get(
             current,
-            headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
+            headers={"User-Agent": USER_AGENT, "Accept": accept},
             timeout=timeout,
             allow_redirects=False,
             stream=True,
@@ -73,23 +91,30 @@ def fetch_recipe_html(url: str, *, timeout: float = 10.0) -> tuple[str, str]:
             continue
         response.raise_for_status()
         content_type = response.headers.get("Content-Type", "").lower()
-        if "html" not in content_type:
+        if content_types and not any(kind in content_type for kind in content_types):
             response.close()
-            raise RecipeUrlError("Recipe URL did not return HTML")
+            raise RecipeUrlError(
+                f"URL returned {content_type or 'no content type'}, expected "
+                f"{' or '.join(content_types)}")
         declared = response.headers.get("Content-Length")
-        if declared and int(declared) > MAX_HTML_BYTES:
+        if declared and int(declared) > max_bytes:
             response.close()
-            raise RecipeUrlError("Recipe page is too large")
+            raise RecipeUrlError("Page is too large")
         body = bytearray()
         for chunk in response.iter_content(65536):
             body.extend(chunk)
-            if len(body) > MAX_HTML_BYTES:
+            if len(body) > max_bytes:
                 response.close()
-                raise RecipeUrlError("Recipe page is too large")
+                raise RecipeUrlError("Page is too large")
         encoding = response.encoding or "utf-8"
         response.close()
         return body.decode(encoding, errors="replace"), current
-    raise RecipeUrlError("Recipe page redirected too many times")
+    raise RecipeUrlError("Page redirected too many times")
+
+
+def fetch_recipe_html(url: str, *, timeout: float = 10.0) -> tuple[str, str]:
+    """Fetch bounded HTML, validating every redirect against SSRF targets."""
+    return fetch_bounded(url, timeout=timeout)
 
 
 def _recipe_nodes(value: Any):

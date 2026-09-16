@@ -62,6 +62,27 @@ class Source:
     """No longer part of the corpus. Retained so historical profile rows and
     collection references still resolve."""
 
+    license: str | None = None
+    """What the source's own terms permit, as an SPDX-style identifier.
+
+    ``None`` means undetermined, which is not the same as permissive — it is
+    the honest state for a corpus assembled before anyone asked, and it is
+    what most of these are. It is recorded here rather than guessed at query
+    time because a licence is a fact about the source, and the platform has to
+    be able to answer a challenge about any recipe it shows years later.
+
+    The Source Integrator establishes this for new sources with evidence
+    attached; for the ones already in the corpus it has to be filled in by
+    someone who checks."""
+
+    license_url: str | None = None
+    """Where the terms were read. Evidence, not decoration — a licence with no
+    link is a claim somebody will have to re-verify from scratch."""
+
+    attribution: str | None = None
+    """How the source asks to be credited, where it says. Several of these
+    permit reuse only with attribution, and the wording is theirs to set."""
+
 
 SOURCES: tuple[Source, ...] = (
     Source(
@@ -85,6 +106,11 @@ SOURCES: tuple[Source, ...] = (
         slug="myplate",
         raw="MyPlate",
         display_name="MyPlate",
+        # A work of the US federal government (USDA), which 17 U.S.C. §105
+        # places outside copyright. One of the few licences here that is a
+        # matter of statute rather than of somebody's terms page.
+        license="public-domain",
+        license_url="https://www.myplate.gov/",
         # NOTE: nutrition_postgres resolves this to "urn:rcollection:myplate",
         # but no such document exists in the catalog's rcollections index (only
         # recipe1m, healthyfood, foodhero and rcsi-recipes do). Left as None
@@ -151,6 +177,10 @@ SOURCES: tuple[Source, ...] = (
         slug="user",
         raw="user",
         display_name="User-created",
+        # Not the platform's to license: these belong to the people who wrote
+        # them, and the terms they accepted govern. Named explicitly so it is
+        # never mistaken for "no licence recorded, probably fine".
+        license="user-owned",
     ),
     Source(
         slug="recipe1m",
@@ -195,6 +225,26 @@ def raw_for(value: object) -> str | None:
 def collection_urn_for(value: object) -> str | None:
     source = resolve(value)
     return source.collection_urn if source else None
+
+
+def license_for(value: object) -> str | None:
+    """The source's licence, or None where nobody has established it."""
+    source = resolve(value)
+    return source.license if source else None
+
+
+def attribution_for(value: object) -> str | None:
+    source = resolve(value)
+    return source.attribution if source else None
+
+
+def undetermined_licence_slugs() -> frozenset[str]:
+    """Active sources whose licence nobody has established yet.
+
+    Worth being able to list rather than leaving implicit: this is the corpus's
+    honest exposure, and it shrinks only when somebody checks a source and
+    writes down what they found."""
+    return frozenset(s.slug for s in active_sources() if not s.license)
 
 
 def ground_truth_nutrition_sources(value: object) -> tuple[str, ...]:

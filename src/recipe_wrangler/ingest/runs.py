@@ -22,11 +22,25 @@ from typing import Any
 
 from sqlalchemy import text
 
-from recipe_wrangler.utils.nutrition_postgres import get_engine
+from recipe_wrangler.utils.nutrition_postgres import _get_config, get_engine
 
 logger = logging.getLogger(__name__)
 
-TABLE = "recipe_source_import"
+
+def _qualified() -> str:
+    """The table, in the schema everything else in this service uses.
+
+    `NUTRITION_SCHEMA` is configurable and every other query here qualifies
+    its table with it. An unqualified name would land wherever `search_path`
+    happens to point — which is `public`, so it agrees with the default and
+    would have quietly disagreed with any deployment that set the schema to
+    something else.
+    """
+    schema = _get_config().get("schema") or "public"
+    return f'"{schema}"."recipe_source_import"'
+
+
+TABLE = _qualified()
 
 #: A run whose heartbeat stopped this long ago is not working, whatever its
 #: status column says. Generous, because a single recipe can take a while.
@@ -52,7 +66,8 @@ CREATE TABLE IF NOT EXISTS {TABLE} (
     heartbeat_at    TIMESTAMPTZ,
     finished_at     TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS {TABLE}_created_idx ON {TABLE} (created_at DESC);
+CREATE INDEX IF NOT EXISTS recipe_source_import_created_idx
+    ON {TABLE} (created_at DESC);
 """
 
 _ensured = False

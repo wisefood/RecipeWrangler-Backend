@@ -11,6 +11,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from recipe_wrangler.schemas import RecipeState
+from recipe_wrangler.utils.model_registry import from_env
 
 
 def _normalize_text(value: str) -> str:
@@ -207,11 +208,14 @@ def parse_recipe_tool(recipe: str) -> dict:
     # POST /recipes/profile and on any create that needed profiling — i.e.
     # recipe creation was broken, not merely degraded.
     #
-    # Verified working: llama-3.3-70b-versatile and openai/gpt-oss-20b.
-    model_name = (os.getenv("PARSE_LLM") or "llama-3.3-70b-versatile").strip()
+    # Verified working against the schema above: openai/gpt-oss-20b. The
+    # previous default, llama-3.3-70b-versatile, also satisfied it until Groq
+    # retired it on 2026-08-16 — after which every call to this tool returned
+    # a provider 404 and this endpoint answered 503.
+    model_name = from_env("PARSE_LLM", default="openai/gpt-oss-20b")
     if model_name == "meta-llama/llama-4-maverick-17b-128e-instruct":
         # Legacy value kept in some environments; remap to a model we can serve.
-        model_name = "llama-3.1-8b-instant"
+        model_name = "openai/gpt-oss-20b"
 
     class ParsedRecipe(BaseModel):
         title: str = Field(min_length=1)

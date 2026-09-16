@@ -9,6 +9,8 @@ from typing import List, Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from recipe_wrangler.utils.model_registry import resolve
+
 
 class Settings(BaseSettings):
     """Runtime configuration loaded from environment variables."""
@@ -22,8 +24,12 @@ class Settings(BaseSettings):
 
     neo4j_uri: str = Field(..., alias="NEO4J_URI")
     search_llm_source: str = Field("groq", alias="SEARCH_LLM_SOURCE")
-    search_main_model: str = Field("meta-llama/llama-4-scout-17b-16e-instruct", alias="SEARCH_MAIN_MODEL")
-    guardrails_model: str = Field("llama-3.1-8b-instant", alias="GUARDRAILS_MODEL")
+    # README has documented openai/gpt-oss-20b here for some time; this
+    # default had drifted to a model Groq no longer serves.
+    search_main_model: str = Field("openai/gpt-oss-20b", alias="SEARCH_MAIN_MODEL")
+    # Groq retired llama-3.1-8b-instant on 2026-08-16; see
+    # recipe_wrangler.utils.model_registry for the replacement table.
+    guardrails_model: str = Field("openai/gpt-oss-20b", alias="GUARDRAILS_MODEL")
     search_temperature: float = Field(0.0, alias="SEARCH_TEMPERATURE")
     elastic_url: str = Field("http://localhost:9200", alias="ELASTIC_URL")
     # The alias, never a concrete index: rebuild_index swaps it atomically, so
@@ -80,7 +86,11 @@ class Settings(BaseSettings):
     def _strip_models(cls, value: Optional[str]):  # noqa: N805
         if isinstance(value, str):
             value = value.strip()
-        return value
+        # Both model fields already funnel through here, which makes it the one
+        # place a retired id can be caught for either of them — including an id
+        # supplied by the environment, which is how a stale deployment value
+        # would otherwise reach the provider unchallenged.
+        return resolve(value)
 
     @field_validator("elastic_url")
     def _validate_elastic_url(cls, value: str) -> str:  # noqa: N805

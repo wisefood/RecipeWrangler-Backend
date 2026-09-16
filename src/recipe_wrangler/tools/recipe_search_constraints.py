@@ -446,7 +446,7 @@ def resolve_ingredient_allergen_conflicts(
 class RecipeConstraintExtractor:
     """Extract recipe-search constraints without initializing Neo4j."""
 
-    model: str = "llama-3.1-8b-instant"
+    model: str = "openai/gpt-oss-20b"
     temperature: float = 0.0
     source: str = "groq"
     structured_output_method: str = "function_calling"

@@ -84,12 +84,17 @@ load_runtime_env()
 from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog import vocabularies as V
 from recipe_wrangler.catalog.entities import recipe_entity
+from recipe_wrangler.utils.model_registry import resolve
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 AGENT = f"main-dish-auditor/{V.CLASSIFICATION_VERSION}"
-DEFAULT_MODEL = os.getenv("ANNOTATION_MODEL", "llama-3.3-70b-versatile")
+# Through the registry, not around it: Groq retired this id on 2026-08-16, so
+# the committed default would have failed on every call of the audit it exists
+# to run. `resolve` is the same table `api.config` uses, so the script and the
+# service cannot disagree about which model replaced it.
+DEFAULT_MODEL = resolve(os.getenv("ANNOTATION_MODEL", "llama-3.3-70b-versatile"))
 
 # Words that *nominate* a recipe for review, never demote it. Matched as a
 # phrase against the analysed title, so "sauce" also reaches "Pasta sauce" but

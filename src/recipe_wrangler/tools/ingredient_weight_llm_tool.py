@@ -8,10 +8,27 @@ from langchain.tools import tool
 from groq import Groq
 import openai
 from recipe_wrangler.utils.env_loader import load_runtime_env
+from recipe_wrangler.utils.model_registry import from_env
 
 load_runtime_env()
 
 _NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+# This prompt asks for a bare number, so 48 tokens was generous — for a model
+# that answers directly. Reasoning families (gpt-oss, qwen3) charge their hidden
+# reasoning against the SAME completion budget, spend all 48 thinking, and return
+# an EMPTY string. The caller then raises "Could not parse numeric grams from
+# response: ''", the profiler records weight_g = 0, and the recipe's nutrition and
+# CO2e are computed from whatever ingredients happened to survive.
+#
+# That is not hypothetical: it is why 57.7% of catalogue profiles carry at least
+# one zero-weight ingredient, and why a potato-leek soup was told its dominant
+# carbon source was black pepper — the pepper kept a nonsense 120 g while milk,
+# butter and leeks all went to 0. Measured on openai/gpt-oss-20b: 48 -> '',
+# 512 -> correct for every case tried. 2048 is the floor foodscholar measured for
+# this model family and what foodchat runs; max_tokens is a cap rather than a
+# charge, so matching them costs nothing and removes one way to differ.
+_MAX_TOKENS = int(os.getenv("WEIGHT_LLM_MAX_TOKENS", "2048"))
 
 _SYSTEM_PROMPT = (
     "You estimate the weight in grams of a cooking ingredient for a given quantity and unit. "
@@ -56,7 +73,7 @@ def _call_groq(model_name: str, ingredient: str, parsed_quantity: Any, parsed_un
     completion = client.chat.completions.create(
         model=model_name,
         temperature=0.0,
-        max_tokens=48,
+        max_tokens=_MAX_TOKENS,
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": _user_prompt(ingredient, parsed_quantity, parsed_unit)},
@@ -72,7 +89,7 @@ def _call_vllm(model_name: str, ingredient: str, parsed_quantity: Any, parsed_un
     completion = client.chat.completions.create(
         model=model_name,
         temperature=0.0,
-        max_tokens=48,
+        max_tokens=_MAX_TOKENS,
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": _user_prompt(ingredient, parsed_quantity, parsed_unit)},
@@ -100,7 +117,7 @@ def _call_openrouter(
     completion = client.chat.completions.create(
         model=model_name,
         temperature=0.0,
-        max_tokens=48,
+        max_tokens=_MAX_TOKENS,
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
             {
@@ -129,7 +146,7 @@ def ingredient_weight_llm_tool(
     LLM source is selected via WEIGHT_LLM_SOURCE: groq, openrouter, or vllm.
     vLLM endpoint is configured via VLLM_BASE_URL (default: http://localhost:8003/v1).
     """
-    model_name = os.getenv("WEIGHT_LLM", os.getenv("GUARDRAILS_MODEL", "llama-3.1-8b-instant"))
+    model_name = from_env("WEIGHT_LLM", "GUARDRAILS_MODEL", default="openai/gpt-oss-20b")
     if not model_name:
         raise ValueError("WEIGHT_LLM is not set and no fallback model is available.")
 

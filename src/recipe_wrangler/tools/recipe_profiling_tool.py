@@ -481,6 +481,24 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     )
     sustainability_coverage = round((_sus_matched_w / _total_w), 4) if _total_w else 0.0
     sustainability_low_coverage = sustainability_coverage < _LOW_COVERAGE_THRESHOLD
+
+    # How many ingredients actually got a weight — counted, not weighted.
+    #
+    # The two coverage ratios above are fractions of recipe WEIGHT, so an
+    # ingredient weighing 0 contributes nothing to either the numerator or the
+    # denominator and is therefore invisible to them. A recipe whose weight tool
+    # failed on seven of nine ingredients still reports nutrition_coverage 1.0,
+    # because the two that survived both matched. That is not a hypothetical:
+    # it is how 57.7% of the catalogue came to hold zero-weight ingredients
+    # without a single quality flag being raised, and why a potato-leek soup's
+    # totals were computed from its potatoes and its black pepper alone.
+    #
+    # A count-based ratio is the only one that can see a missing weight, so it
+    # is recorded alongside them rather than folded into them.
+    _n_ing = len(merged)
+    _n_weighed = sum(1 for p in merged if float(p.get("weight_g") or 0.0) > 0.0)
+    weight_coverage = round(_n_weighed / _n_ing, 4) if _n_ing else 0.0
+    weight_low_coverage = weight_coverage < _LOW_COVERAGE_THRESHOLD
     quality_flags = {
         "serves_source": serves_source,
         "serves": serves,
@@ -493,6 +511,10 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "nutrition_low_coverage": nutrition_low_coverage,
         "sustainability_coverage": sustainability_coverage,
         "sustainability_low_coverage": sustainability_low_coverage,
+        "ingredient_count": _n_ing,
+        "weighed_ingredient_count": _n_weighed,
+        "weight_coverage": weight_coverage,
+        "weight_low_coverage": weight_low_coverage,
     }
 
     out = {

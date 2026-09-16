@@ -18,7 +18,7 @@ Configuration (read at call time, not module import — env reloads cleanly):
     ADAPT_LLM_SOURCE   "vllm" | "groq"          default: vllm
     ADAPT_LLM_BASE_URL OpenAI-compatible URL    default: http://localhost:8005/v1
                                                 (or https://api.groq.com/openai/v1 for groq)
-    ADAPT_LLM_MODEL    Model ID                 default: qwen3-32b (vllm) or llama-3.1-8b-instant (groq)
+    ADAPT_LLM_MODEL    Model ID                 default: qwen3-32b (vllm) or openai/gpt-oss-20b (groq)
     ADAPT_LLM_API_KEY  Bearer token             default: none (vllm) or GROQ_API_KEY env (groq)
     ADAPT_LLM_TIMEOUT  HTTP timeout seconds     default: 30
 """
@@ -44,7 +44,7 @@ _DEFAULTS: dict[str, dict[str, str]] = {
     },
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
-        "model": "llama-3.1-8b-instant",
+        "model": "openai/gpt-oss-20b",
         "api_key_env": "GROQ_API_KEY",
     },
 }
@@ -250,8 +250,22 @@ def rerank_with_llm(
             target_points, offending_ingredient, offending_pct, candidates, mode,
         )
         # Qwen3 models emit <think> tokens by default, which eat the token budget
-        # before any JSON is produced. vLLM honours `chat_template_kwargs.enable_thinking=false`
-        # when passed via `extra_body`. Harmless for non-Qwen models that ignore the flag.
+        # before any JSON is produced. vLLM honours
+        # `chat_template_kwargs.enable_thinking=false` when passed via `extra_body`.
+        #
+        # Sent to vLLM ONLY. It was previously sent unconditionally, on the
+        # assumption that a backend which did not understand the flag would
+        # ignore it — Groq instead rejects the whole request with
+        # `400 property 'chat_template_kwargs' is unsupported`. Because this
+        # function returns None on any failure, that 400 was invisible: every
+        # Groq-backed call fell through to deterministic ranking, so the
+        # nutrition-aware judge never ran and substitution quality silently
+        # regressed to whatever the candidate ordering already was.
+        extra_body = (
+            {"chat_template_kwargs": {"enable_thinking": False}}
+            if cfg["source"] == "vllm"
+            else None
+        )
         resp = client.chat.completions.create(
             model=cfg["model"],
             messages=[
@@ -260,7 +274,7 @@ def rerank_with_llm(
             ],
             temperature=0.0,
             max_tokens=1024,
-            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+            extra_body=extra_body,
         )
         raw = resp.choices[0].message.content or ""
     except Exception as e:

@@ -195,3 +195,25 @@ class TestSourceCuisinePrior:
         # does not "complete the set" from the names.
         assert raw not in V.SOURCE_CUISINE_PRIOR
         assert S.by_raw(raw) is not None  # but they ARE registered sources
+
+
+def test_the_tools_manifest_publishes_the_source_registry():
+    """A planner that wants to prefer the living-lab collections has to be able
+    to ASK which are curated, and the manifest is the only place it can.
+
+    Derived from the registry rather than listed in the router: duplicating it
+    is what left Slovenian Kitchen, Irish Heart Foundation, Best of Hungary,
+    SuperValu and The Hungary Soul filterable in the UI and matching nothing.
+    """
+    from recipe_wrangler.api.routers.tools import tool_manifest
+    from recipe_wrangler.catalog import sources as S
+
+    published = tool_manifest()["vocabularies"]["sources"]
+    by_slug = {row["slug"]: row for row in published}
+
+    assert {s.slug for s in S.active_sources()} == set(by_slug)
+    for source in S.active_sources():
+        assert by_slug[source.slug]["curated"] == source.curated, source.slug
+    # The living-lab corpora, which is what the ask was about.
+    for slug in ("irish_safefood", "hungarian", "slovenian"):
+        assert by_slug[slug]["curated"] is True

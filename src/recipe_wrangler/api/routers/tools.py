@@ -445,6 +445,17 @@ def tool_manifest() -> dict[str, Any]:
         "vocabularies": {
             "meal_slots": sorted(SLOT_COURSE_TYPES),
             "course_types": list(S.COURSE_TYPES),
+            # Which corpora a plan is built from, and which of them are curated.
+            #
+            # Derived from `catalog.sources`, never listed here: duplicating
+            # that registry is what left five sources unfilterable for a
+            # release (see the source-filter fix). A planner that wants to
+            # prefer the living-lab collections has to be able to ASK which
+            # they are, and this is the only place it can.
+            "sources": [
+                {"slug": s.slug, "name": s.display_name, "curated": s.curated}
+                for s in S.active_sources()
+            ],
             "cuisines": list(V.CUISINES),
             "moods": list(V.MOODS),
             "flavor_profiles": list(V.FLAVOR_PROFILES),

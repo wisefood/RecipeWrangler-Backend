@@ -492,6 +492,12 @@ def tool_manifest() -> dict[str, Any]:
                 # hand-maintained list would drift from the model the first
                 # time someone added a field.
                 "accepts": sorted(MealPlanRequest.model_fields),
+                # The SLOT entry's fields, which `accepts` above cannot show:
+                # it lists the request's top level, and `food_groups` on a slot
+                # lives a level down. A caller has no safe way to try an
+                # optional field here — `extra="forbid"` makes a guess a 422 —
+                # so anything it might send has to be advertised somewhere.
+                "accepts_per_slot": sorted(MealSlotRequest.model_fields),
                 "description": (
                     "Fill named meal slots across one or more days, honouring "
                     "cuisine/mood/flavour preferences, dietary requirements and "

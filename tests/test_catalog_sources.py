@@ -217,3 +217,59 @@ def test_the_tools_manifest_publishes_the_source_registry():
     # The living-lab corpora, which is what the ask was about.
     for slug in ("irish_safefood", "hungarian", "slovenian"):
         assert by_slug[slug]["curated"] is True
+
+
+class TestPerSlotFoodGroups:
+    """"Fruit for the snack" is about ONE meal.
+
+    The plan-level `food_groups` applies to every slot, so expressing it there
+    asks for a fruit dinner as well. FoodChat had no way to say it at all, and a
+    member who asked got a kumara dip.
+    """
+
+    def test_the_slot_carries_its_own(self):
+        from recipe_wrangler.api.routers.tools import MealSlotRequest
+
+        slot = MealSlotRequest(slot="snack", count=3, food_groups=["fruit"])
+        assert slot.food_groups == ["fruit"]
+
+    def test_it_defaults_to_nothing(self):
+        from recipe_wrangler.api.routers.tools import MealSlotRequest
+
+        assert MealSlotRequest(slot="lunch").food_groups == []
+
+    def test_it_becomes_a_filter_for_that_slot_only(self):
+        from recipe_wrangler.api.routers.tools import (
+            MealPlanRequest, _filters, _validate_options,
+        )
+
+        payload = MealPlanRequest(slots=[{"slot": "snack"}])
+        accepted, _rejected = _validate_options(payload)
+        with_group = _filters(payload, accepted, ("snacks",), set(), ("fruit",))
+        without = _filters(payload, accepted, ("snacks",), set())
+
+        assert {"terms": {"food_groups": ["fruit"]}} in with_group
+        assert {"terms": {"food_groups": ["fruit"]}} not in without
+
+    def test_it_relaxes_with_the_plan_level_one(self):
+        """A soft preference: a snack with no fruit in the corpus must not
+        empty the slot."""
+        from recipe_wrangler.api.routers.tools import (
+            MealPlanRequest, _filters, _validate_options,
+        )
+
+        payload = MealPlanRequest(slots=[{"slot": "snack"}])
+        accepted, _rejected = _validate_options(payload)
+        relaxed = _filters(payload, accepted, ("snacks",), {"food_groups"}, ("fruit",))
+
+        assert {"terms": {"food_groups": ["fruit"]}} not in relaxed
+
+    def test_an_unknown_field_is_still_rejected(self):
+        """`extra="forbid"` is the contract; adding a field must not loosen it."""
+        import pytest
+        from pydantic import ValidationError
+
+        from recipe_wrangler.api.routers.tools import MealSlotRequest
+
+        with pytest.raises(ValidationError):
+            MealSlotRequest(slot="snack", foodgroups=["fruit"])

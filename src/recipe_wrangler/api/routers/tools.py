@@ -110,6 +110,14 @@ class MealSlotRequest(BaseModel):
         default_factory=list,
         description="Override the default course types for this slot.",
     )
+    food_groups: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Food groups this slot's recipes must contain, e.g. ['fruit'] for "
+            "a snack. Per slot on purpose: the plan-level `food_groups` applies "
+            "to every meal, which cannot express 'fruit for the snack'."
+        ),
+    )
 
 
 class MealPlanRequest(BaseModel):
@@ -223,12 +231,20 @@ def _filters(
     accepted: dict[str, list[str]],
     course_types: tuple[str, ...],
     dropped: set[str],
+    slot_food_groups: tuple[str, ...] = (),
 ) -> list[dict[str, Any]]:
     """Build the Elasticsearch filter list for one slot at one relaxation level."""
     filters: list[dict[str, Any]] = []
 
     if course_types:
         filters.append({"terms": {"course_types": list(course_types)}})
+
+    # This slot's own food groups, which the plan-level filter cannot express:
+    # "fruit for the snack" is about one meal, and applying it to all of them
+    # asks for a fruit dinner. Relaxed with the plan-level `food_groups`, in the
+    # same step, because it is the same kind of soft preference.
+    if slot_food_groups and "food_groups" not in dropped:
+        filters.append({"terms": {"food_groups": list(slot_food_groups)}})
 
     # Planning eligibility. A recipe can be perfectly findable by a person and
     # still be a poor thing to put in someone's week unattended — missing
@@ -631,7 +647,14 @@ def plan_meals(
                 # Relaxation ladder: try the full constraint set, then shed one
                 # soft preference at a time until something comes back.
                 for step in range(len(RELAXATION_ORDER) + 1):
-                    filters = _filters(payload, accepted, course_types, dropped)
+                    filters = _filters(
+                        payload, accepted, course_types, dropped,
+                        tuple(V.canonical_food_groups(slot_req.food_groups))
+                        if hasattr(V, "canonical_food_groups")
+                        else tuple(
+                            g for g in slot_req.food_groups if g in V.FOOD_GROUPS
+                        ),
+                    )
                     filters.append(
                         {"bool": {"must_not": [{"terms": {"recipe_id": sorted(used)}}]}}
                         if used

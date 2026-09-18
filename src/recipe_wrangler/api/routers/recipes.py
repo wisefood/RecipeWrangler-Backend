@@ -84,6 +84,7 @@ from recipe_wrangler.repositories.postgres_nutrition import (
     get_recipe_profile_traces,
     save_recipe_profile_trace,
 )
+from recipe_wrangler.utils.measurement_scaling import scale_measurement
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 from recipe_wrangler.utils.nutrition_claims import (
     compute_nutrition_claim_tags,
@@ -128,6 +129,8 @@ from recipe_wrangler.schemas import (
     RecipeDetailsBatchRequest,
     RecipeDetailsBatchResponse,
     RecipeProfileRequest,
+    RecipeScaleRequest,
+    RecipeScaleResponse,
     RecipeSearchFilters,
     RecipeSearchRequest,
     RecipeSubstituteRequest,
@@ -2598,6 +2601,38 @@ def _generate_user_recipe_id(title: str, ingredients: list[str]) -> str:
     """Generate a UUID for a newly created user recipe."""
     _ = (title, ingredients)  # keep signature compatibility for existing call sites
     return str(uuid4())
+
+
+@router.post(
+    "/scale",
+    response_model=RecipeScaleResponse,
+    tags=["recipes"],
+    summary="Rewrite measurements for a different serving count",
+)
+def recipe_scale(payload: RecipeScaleRequest) -> RecipeScaleResponse:
+    """Rewrite each measurement for ``to_serves`` instead of ``from_serves``.
+
+    A recipe serves what its author decided it serves, and a member cooking
+    for six had no way to ask for six (Round 2 row 10).
+
+    Stateless, and pure arithmetic over strings -- no catalog read, nothing
+    persisted, nothing re-profiled. A measurement that cannot be parsed comes
+    back unchanged, because "salt to taste" does not double and a wrong
+    quantity is worse than an unscaled one.
+
+    Nutrition is not part of the response. Per-serving values are unchanged by
+    definition -- scaling changes how many servings there are, not how big one
+    is -- and the totals are a linear multiply by ``factor``.
+    """
+    factor = float(payload.to_serves) / float(payload.from_serves)
+    return RecipeScaleResponse(
+        from_serves=payload.from_serves,
+        to_serves=payload.to_serves,
+        factor=factor,
+        measurements=[
+            scale_measurement(measurement, factor) for measurement in payload.measurements
+        ],
+    )
 
 
 @router.post(

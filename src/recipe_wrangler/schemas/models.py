@@ -319,6 +319,38 @@ class ParseRecipeResponse(BaseModel):
     total_time: Optional[float] = None
 
 
+class RecipeScaleRequest(BaseModel):
+    """Rewrite a recipe's measurements for a different serving count.
+
+    Stateless on purpose: it takes the measurements rather than a recipe id,
+    so a serving stepper never touches Elasticsearch or Neo4j and the caller
+    can hold the result. Nutrition is deliberately absent -- per-serving
+    values do not change when the serving count does (a serving is the same
+    size either way) and totals are a linear multiply the caller can do.
+    """
+
+    measurements: List[str] = Field(
+        ...,
+        max_length=200,
+        description="Measurement strings in recipe order, e.g. ['2 cups', '1 tbsp'].",
+    )
+    from_serves: float = Field(
+        ..., gt=0, le=1000, description="The serving count the measurements are written for."
+    )
+    to_serves: float = Field(
+        ..., gt=0, le=1000, description="The serving count to rewrite them for."
+    )
+
+
+class RecipeScaleResponse(BaseModel):
+    """Scaled measurements, index-aligned with the request."""
+
+    from_serves: float
+    to_serves: float
+    factor: float
+    measurements: List[str]
+
+
 class RecipeProfileRequest(BaseModel):
     """Incoming payload for the recipe profiling endpoint."""
 

@@ -604,6 +604,10 @@ class RecipeDetailResponse(BaseModel):
     # Approximate raw weight of one serving, in grams. None whenever any
     # ingredient weight is missing, rather than a total that silently omits it.
     serving_weight_g: Optional[float] = None
+    # "per_serving" when the per-serving figures are real; "unknown" when the
+    # serving count is missing, in which case they are absent rather than the
+    # whole recipe's totals wearing a per-serving label.
+    nutrition_basis: Optional[str] = None
     total_kcal_per_serving: Optional[float] = None
     total_protein_g_per_serving: Optional[float] = None
     total_carbs_g_per_serving: Optional[float] = None

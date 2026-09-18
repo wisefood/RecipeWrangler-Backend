@@ -62,6 +62,10 @@ _SOURCE_FIELDS = [
     "instructions",
     "course_types",
     "duration",
+    # Needed to turn a recipe's totals into one plate's macros when the
+    # nutrition row has no per-serving block of its own. Without it
+    # `per_serving` has to give up and the candidate arrives unprofiled.
+    "serves",
     "source",
 ]
 
@@ -513,6 +517,7 @@ def fetch_candidates_es(request: Any) -> dict[str, list[dict[str, Any]]]:
                     "ingredients": _flatten_ingredients(src.get("ingredients")),
                     "directions": _flatten_text(src.get("instructions")),
                     "dish_type": slot,
+                    "serves": src.get("serves"),
                 }
             )
             used.append(recipe_id)
@@ -564,7 +569,7 @@ def attach_nutrition(
     for slot, items in results.items():
         kept = []
         for item in items:
-            macros = per_serving(raw_by_id.get(item["recipe_id"]))
+            macros = per_serving(raw_by_id.get(item["recipe_id"]), item.get("serves"))
             if not within_targets(macros, nutrition_profile):
                 continue
             item["nutrition"] = macros

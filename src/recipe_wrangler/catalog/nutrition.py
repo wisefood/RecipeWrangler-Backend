@@ -163,22 +163,46 @@ NUTRIENT_KEYS: dict[str, tuple[str, ...]] = {
 }
 
 
-def per_serving(raw: dict[str, Any] | None) -> dict[str, float | None] | None:
-    """Per-serving macros from a Postgres nutrition row."""
+def per_serving(
+    raw: dict[str, Any] | None, serves: Any = None
+) -> dict[str, float | None] | None:
+    """Per-serving macros from a Postgres nutrition row.
+
+    The row stores ``total_nutrients`` for the whole recipe and, when the
+    profiler knew the serving count, ``total_nutrients_per_serving``. It does
+    NOT store the serving count it used, so a row missing the per-serving block
+    cannot be divided without one being supplied.
+
+    This used to fall back to ``total_nutrients`` and return it unchanged,
+    which handed the meal planner a whole recipe's macros as one plate's --
+    a loaf of bread arriving as 1,670 kcal instead of 240. Falling back is the
+    one thing it must not do: a macro that is wrong by the serving count is
+    worse than a macro nobody has.
+    """
     if not raw:
         return None
-    nutrients = (
-        raw.get("total_nutrients_per_serving") or raw.get("total_nutrients") or {}
-    )
-    if not isinstance(nutrients, dict):
-        return None
+
+    nutrients = raw.get("total_nutrients_per_serving")
+    divisor = 1.0
+    if not isinstance(nutrients, dict) or not nutrients:
+        totals = raw.get("total_nutrients")
+        if not isinstance(totals, dict) or not totals:
+            return None
+        try:
+            servings = float(serves)
+        except (TypeError, ValueError):
+            return None
+        if servings <= 0:
+            return None
+        nutrients = totals
+        divisor = servings
 
     def pick(*keys: str) -> float | None:
         for key in keys:
             value = nutrients.get(key)
             if value is not None:
                 try:
-                    return float(value)
+                    return float(value) / divisor
                 except (TypeError, ValueError):
                     pass
         return None

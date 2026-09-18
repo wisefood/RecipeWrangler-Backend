@@ -594,11 +594,23 @@ def _extract_nutrient_value(total_nutrients: object, names: list[str]) -> float 
 
 
 def _per_serving(value: float | None, serves: object) -> float | None:
+    """Divide a whole-recipe total by the serving count.
+
+    Returns None when the serving count is unknown. It used to return the
+    total unchanged, which published a whole recipe's nutrition under a "per
+    serving" label -- a 7-serving loaf reading 1,670 kcal where the regions
+    that did know its serving count read 240. That is also why the same recipe
+    could differ wildly between EU, IE, HU and SI: the profiles are stored one
+    row per region and only some of them carry a per-serving block.
+
+    A number that is wrong by a factor of the serving count is worse than no
+    number, so this declines rather than guesses.
+    """
     if value is None:
         return None
     servings = _coerce_float(serves)
     if servings is None or servings <= 0:
-        return value
+        return None
     return value / servings
 
 
@@ -1377,10 +1389,12 @@ def get_recipe(
         nutri_score_payload = _coerce_nutri_score_payload(nutrition.get("nutri_score"))
         total_nutrients = _as_dict(nutrition.get("total_nutrients"))
         total_nutrients_per_serving = _as_dict(nutrition.get("total_nutrients_per_serving"))
+        has_per_serving = (
+            isinstance(total_nutrients_per_serving, dict)
+            and bool(total_nutrients_per_serving)
+        )
         nutrient_basis = (
-            total_nutrients_per_serving
-            if isinstance(total_nutrients_per_serving, dict)
-            else total_nutrients
+            total_nutrients_per_serving if has_per_serving else total_nutrients
         )
         serves = payload.get("serves")
         payload.update(
@@ -1451,7 +1465,14 @@ def get_recipe(
                 ),
             }
         )
-        if not isinstance(total_nutrients_per_serving, dict):
+        # When the stored profile has no per-serving block, the basis above is
+        # the whole recipe and every field has to be divided down.
+        payload["nutrition_basis"] = (
+            "per_serving"
+            if has_per_serving or _coerce_float(serves) not in (None, 0)
+            else "unknown"
+        )
+        if not has_per_serving:
             payload["total_kcal_per_serving"] = _per_serving(
                 payload.get("total_kcal_per_serving"), serves
             )
@@ -1775,7 +1796,7 @@ def _build_card_nutrition(
         total_nutrients_per_serving = _as_dict(nutrition.get("total_nutrients_per_serving"))
         nutrient_basis = (
             total_nutrients_per_serving
-            if isinstance(total_nutrients_per_serving, dict)
+            if isinstance(total_nutrients_per_serving, dict) and total_nutrients_per_serving
             else total_nutrients
         )
         kcal = _extract_nutrient_value(
@@ -1791,7 +1812,7 @@ def _build_card_nutrition(
             nutrient_basis,
             ["Total lipid (fat)", "Fat", "Total fat"],
         )
-        if not isinstance(total_nutrients_per_serving, dict):
+        if not (isinstance(total_nutrients_per_serving, dict) and total_nutrients_per_serving):
             serves = recipe.get("serves")
             kcal = _per_serving(kcal, serves)
             protein = _per_serving(protein, serves)

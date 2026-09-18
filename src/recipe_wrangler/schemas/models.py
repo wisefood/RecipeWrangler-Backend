@@ -569,6 +569,9 @@ class RecipeDetailResponse(BaseModel):
     duration: Optional[float]
     serves: Optional[float]
     cost_category: Optional[str] = None
+    # Approximate raw weight of one serving, in grams. None whenever any
+    # ingredient weight is missing, rather than a total that silently omits it.
+    serving_weight_g: Optional[float] = None
     total_kcal_per_serving: Optional[float] = None
     total_protein_g_per_serving: Optional[float] = None
     total_carbs_g_per_serving: Optional[float] = None

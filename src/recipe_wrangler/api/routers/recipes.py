@@ -599,6 +599,37 @@ def _per_serving(value: float | None, serves: object) -> float | None:
     return value / servings
 
 
+def _serving_weight_g(
+    profile_details: list[dict[str, Any]] | None, serves: object
+) -> float | None:
+    """What one serving actually weighs, or None when we cannot say honestly.
+
+    Round 2 asked what "per serving" means. It is the profiled ingredient
+    weight divided by the serving count -- raw weight in, so it reads high for
+    anything that loses water in the pan, which is why it is published as an
+    approximation.
+
+    An ingredient the profiler failed to weigh comes back as 0 g, and summing
+    over it would quietly understate the serving instead of admitting the gap.
+    A partial answer here is worse than none, so any missing or zero weight
+    returns None and the UI says nothing at all.
+    """
+    if not profile_details:
+        return None
+    servings = _coerce_float(serves)
+    if servings is None or servings <= 0:
+        return None
+    total = 0.0
+    for detail in profile_details:
+        weight = _coerce_float(detail.get("weight_g"))
+        if weight is None or weight <= 0:
+            return None
+        total += weight
+    if total <= 0:
+        return None
+    return total / servings
+
+
 def _coerce_nutri_score(nutri_score: object) -> float | None:
     numeric = _coerce_float(nutri_score)
     if numeric is not None:
@@ -1315,6 +1346,9 @@ def get_recipe(
     payload["profiling_quality"] = profiling_quality
     payload["calculation_disclaimer"] = _calculation_disclaimer(
         profiling_quality, profile_details
+    )
+    payload["serving_weight_g"] = _serving_weight_g(
+        profile_details, payload.get("serves")
     )
 
     if profile_details:

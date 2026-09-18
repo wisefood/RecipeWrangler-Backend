@@ -20,6 +20,7 @@ from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.catalog import diets as D
 from recipe_wrangler.catalog.sources import SOURCES as _REGISTERED_SOURCES
 from recipe_wrangler.catalog.sources import canonical_course_type
+from recipe_wrangler.catalog.vocabularies import SOURCE_CUISINE_PRIOR
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
 
@@ -33,6 +34,26 @@ _REGION_ALIASES = {
     "hungarian": "hu",
     "si": "slovenian",
     "slovenian": "slovenian",
+}
+# The cuisine a region's members should meet first. Keyed on the resolved
+# region suffix, valued on the `cuisines` annotation as vocabularies.py writes
+# it. EU is deliberately absent -- it is not a cuisine and has nothing to
+# prefer.
+_REGION_CUISINE = {
+    "ie": "irish",
+    "hu": "hungarian",
+    "slovenian": "slovenian",
+}
+# The sources that carry each cuisine, inverted from SOURCE_CUISINE_PRIOR so
+# there is one list to maintain -- adding a regional source to the annotator's
+# priors makes it rank here too. It earns its keep by inheriting that map's
+# exclusions as well: Irish Heart Foundation sounds regional and is only 6%
+# `irish`, so it is deliberately not in either.
+_CUISINE_SOURCES: dict[str, list[str]] = {
+    cuisine: sorted(
+        source for source, c in SOURCE_CUISINE_PRIOR.items() if c == cuisine
+    )
+    for cuisine in sorted(set(SOURCE_CUISINE_PRIOR.values()))
 }
 # Deprecated compatibility name. Keep it on the live alias, never on a concrete
 # generation: recipes_v4 contains the annotation history that recipes_v2 lacks.
@@ -648,6 +669,24 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     apply_rank_query = bool(rank_query) and not title_query
     if apply_rank_query:
         should.extend(_rank_should_queries(_strip_rank_stopwords(rank_query)))
+
+    # Regional relevance. Searching "vegan meals" from Ireland buried the
+    # curated Irish recipes under the rest of the corpus and they had to be
+    # found by hand (Round 2 row 4). This boosts them, never filters: a recipe
+    # from any other cuisine still qualifies and still ranks on its merits.
+    #
+    # Only alongside a text search. On a plain browse the sort below already
+    # leads with source_rank, which puts curated sources first on its own, and
+    # a `should` clause there would switch branches and displace it.
+    region_cuisine = _REGION_CUISINE.get(region)
+    if region_cuisine and (title_query or apply_rank_query):
+        # Source outranks cuisine. `source` is exact ingest metadata; `cuisines`
+        # is a model annotation that covers 79-97% of those same sources, so on
+        # its own it misses roughly one curated Irish recipe in five.
+        regional_sources = _CUISINE_SOURCES.get(region_cuisine)
+        if regional_sources:
+            should.append({"terms": {"source": regional_sources, "boost": 12.0}})
+        should.append({"term": {"cuisines": {"value": region_cuisine, "boost": 8.0}}})
 
     limit = max(1, min(int(c.limit), 100))
     offset = max(0, int(c.offset))

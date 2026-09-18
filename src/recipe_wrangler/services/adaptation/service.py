@@ -1488,12 +1488,14 @@ def _evaluate_sustainability_candidate(
     # If the candidate has no composition match we can't judge nutrition — keep it
     # (the CO2e benefit is known; the LLM judge is a further backstop).
     cand_profile = _fetch_candidate_profile(candidate["name"], source)
+    delta_per_serving: dict[str, float] | None = None
     if cand_profile:
+        cand_per_100g = _candidate_per_100g_map(cand_profile)
         _t, guard_per_100g, _w = _recipe_per_100g(
             details,
             swap_original_name=offender["name"],
             swap_weight_g=offender["weight_g"],
-            swap_candidate_per_100g=_candidate_per_100g_map(cand_profile),
+            swap_candidate_per_100g=cand_per_100g,
         )
         try:
             guard_breakdown = compute_nutri_score_breakdown_from_values(
@@ -1503,6 +1505,15 @@ def _evaluate_sustainability_candidate(
                 return None
         except Exception:
             pass
+        # The grade guard only fires when a swap costs a whole letter. Condensed
+        # milk for milk keeps the letter and still adds ~12 g of sugar a serving,
+        # so carry the per-nutrient picture through to the judge as well.
+        scale = float(offender["weight_g"]) / 100.0
+        delta_per_serving = {}
+        for abs_k, per100g_k in ALL_INGREDIENT_KEYS:
+            original_contrib = float(offender["detail"].get(abs_k) or 0.0)
+            candidate_contrib = scale * float(cand_per_100g.get(per100g_k) or 0.0)
+            delta_per_serving[abs_k] = (candidate_contrib - original_contrib) / (serves or 1.0)
 
     # Recompute total CO2e with the swap applied at the same weight.
     orig_lower = offender["name"].strip().lower()
@@ -1535,6 +1546,7 @@ def _evaluate_sustainability_candidate(
         "new_per_serving_co2e_kg": new_total_co2e_kg / (serves or 1.0),
         "reduction_per_serving_kg": reduction_per_serving_kg,
         "reduction_total_kg": reduction_total_kg,
+        "delta_per_serving": delta_per_serving,
         "introduces_allergen": bool(new_allergens),
         "new_allergens": new_allergens,
     }
@@ -1667,6 +1679,7 @@ def _generate_sustainability_suggestions(
             "co2e_reduction_pct": e["reduction_pct"],
             "original_cf_kg_co2e_per_kg": e["original_cf"],
             "candidate_cf_kg_co2e_per_kg": e["candidate_cf"],
+            "nutrient_delta_per_serving": e.get("delta_per_serving"),
         })
 
     # Optional LLM filter+rerank, fail-open.

@@ -65,6 +65,15 @@ def _llm_config() -> dict[str, Any]:
     return {"source": source, "base_url": base_url, "model": model, "api_key": api_key, "timeout": timeout}
 
 
+def _format_deltas(deltas: dict[str, Any] | None) -> str:
+    """Per-serving nutrient deltas as one compact prompt line; "" when there are none."""
+    if not deltas:
+        return ""
+    return ", ".join(
+        f"{k}: {float(v):+.1f}" for k, v in deltas.items() if abs(float(v)) > 0.05
+    )
+
+
 def _build_prompt(
     recipe_title: str,
     recipe_ingredients: list[dict[str, Any]],
@@ -87,13 +96,19 @@ def _build_prompt(
                 f" (introduces allergens: {', '.join(c.get('new_allergens') or [])})"
                 if c.get("introduces_allergen") else ""
             )
+            delta_str = _format_deltas(c.get("nutrient_delta_per_serving"))
+            nutrition_line = (
+                f"\n     per-serving nutrition change: {delta_str}"
+                if delta_str
+                else "\n     per-serving nutrition change: (no composition match — unknown)"
+            )
             cand_lines.append(
                 f"  {c['rank']}. {c['substitute_name']}  "
                 f"[source: {c['source']}, "
                 f"CF {c['original_cf_kg_co2e_per_kg']:.2f} → {c['candidate_cf_kg_co2e_per_kg']:.2f} kg CO2e/kg, "
                 f"saves {c['co2e_reduction_per_serving_kg'] * 1000:.0f} g CO2e/serving "
                 f"({c['co2e_reduction_pct'] * 100:.0f}% lower CF)]"
-                f"{allergen_str}"
+                f"{allergen_str}{nutrition_line}"
             )
         target_block = (
             f"OFFENDING INGREDIENT: '{offending_ingredient}' "
@@ -123,10 +138,7 @@ def _build_prompt(
     else:
         cand_lines = []
         for c in candidates:
-            deltas = c.get("nutrient_delta_per_serving") or {}
-            delta_str = ", ".join(
-                f"{k}: {v:+.1f}" for k, v in deltas.items() if abs(v) > 0.05
-            )
+            delta_str = _format_deltas(c.get("nutrient_delta_per_serving"))
             allergen_str = (
                 f" (introduces allergens: {', '.join(c.get('new_allergens') or [])})"
                 if c.get("introduces_allergen") else ""
@@ -171,7 +183,14 @@ def _build_prompt(
         "  - is offal/organ meat when the dish calls for muscle meat,\n"
         "  - changes the dish's core identity (e.g. fruit replacing nut paste, sauce replacing fat),\n"
         "  - is a specialty/exotic ingredient when an everyday equivalent exists in the list,\n"
-        "  - would require a different cooking technique to work.\n\n"
+        "  - would require a different cooking technique to work,\n"
+        "  - is too vague to shop for — a category rather than a product a shop actually "
+        "sells (e.g. 'milk drink', 'vegetable fat', 'meat product'). Name the specific "
+        "product or reject the candidate,\n"
+        "  - is nutritionally worse in a way a dietitian would object to, when the "
+        "per-serving nutrition change is shown. A sweetened or concentrated form of the "
+        "same food (condensed milk for milk, syrup for fruit) is NOT an acceptable swap "
+        "however much CO2e it saves.\n\n"
         f"RECIPE: {recipe_title}\n"
         f"INGREDIENTS:\n{ing_lines}\n\n"
         f"{target_block}\n\n"

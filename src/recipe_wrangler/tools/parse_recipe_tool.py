@@ -1,6 +1,7 @@
 # Purpose: LLM-based parser from raw recipe text to structured fields.
 
 from typing import Any, List
+import logging
 import os
 import re
 
@@ -12,6 +13,8 @@ from pydantic import BaseModel, Field
 
 from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.utils.model_registry import from_env
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_text(value: str) -> str:
@@ -139,14 +142,51 @@ def _recover_measurements_from_source(
     return recovered
 
 
-def _parser_llm(model_name: str):
+def _is_budget_exhausted(exc: Exception) -> bool:
+    """Whether *exc* is the provider refusing a document it had no room to finish.
+
+    Matched on the message rather than the type: langchain wraps the provider
+    error, and the same condition reaches us as `BadRequestError` from Groq and
+    as a plain `ValueError` from an OpenAI-compatible server. The two markers
+    are the error code Groq returns and the text it puts in `failed_generation`.
+    """
+    text = str(exc).lower()
+    return (
+        "json_validate_failed" in text
+        or "max completion tokens reached" in text
+        or ("max_tokens" in text and "reached" in text)
+    )
+
+
+#: Completion budget for one parse.
+#
+# Groq's `json_schema` mode must emit the WHOLE document inside this budget, and
+# openai/gpt-oss-20b is a reasoning model whose thinking is charged against the
+# same allowance — the failure `ingredient_weight_llm_tool` documents for a
+# single number, here spread over three index-aligned lists plus directions.
+# With no cap set the provider applied its own, and a long recipe came back as
+#   400 json_validate_failed:
+#   "max completion tokens reached before generating a valid document"
+#
+# The Groq SDK does not retry that: `_should_retry` covers 408, 409, 429 and
+# 5xx only, so `max_retries=2` never applied and a single overflow was a hard
+# 503 from POST /recipes/profile — the third distinct cause of a 503 on this
+# endpoint, after the 8b model omitting `directions` and Groq retiring
+# llama-3.3-70b. max_tokens is a cap rather than a charge, so a generous value
+# costs nothing on the recipes that never approach it.
+_MAX_TOKENS = int(os.getenv("PARSE_LLM_MAX_TOKENS", "8192"))
+
+
+def _parser_llm(model_name: str, max_tokens: int | None = None):
     """Build the configured parser model and structured-output method."""
+    max_tokens = max_tokens or _MAX_TOKENS
     source = os.getenv("WEIGHT_LLM_SOURCE", "groq").strip().lower()
     if source == "vllm":
         llm = ChatOpenAI(
             model=model_name,
             temperature=0.0,
             max_retries=2,
+            max_tokens=max_tokens,
             base_url=os.getenv("VLLM_BASE_URL", "http://localhost:8007/v1"),
             api_key=os.getenv("VLLM_API_KEY", "none"),
         )
@@ -159,6 +199,7 @@ def _parser_llm(model_name: str):
             model=model_name,
             temperature=0.0,
             max_retries=2,
+            max_tokens=max_tokens,
             base_url=os.getenv(
                 "OPENROUTER_BASE_URL",
                 "https://openrouter.ai/api/v1",
@@ -167,7 +208,12 @@ def _parser_llm(model_name: str):
         )
         return llm, "function_calling"
     if source == "groq":
-        llm = ChatGroq(model=model_name, temperature=0.0, max_retries=2)
+        llm = ChatGroq(
+            model=model_name,
+            temperature=0.0,
+            max_retries=2,
+            max_tokens=max_tokens,
+        )
         method = (
             os.getenv("PARSE_LLM_STRUCTURED_METHOD", "json_schema").strip()
             or "json_schema"
@@ -288,6 +334,38 @@ def parse_recipe_tool(recipe: str) -> dict:
         if structured_method == "json_schema" and "response format `json_schema`" in str(exc):
             fallback_chain = prompt | llm.with_structured_output(ParsedRecipe, method="function_calling")
             result = fallback_chain.invoke({"recipe": recipe})
+        elif _is_budget_exhausted(exc):
+            # The document was still being written when the budget ran out. The
+            # provider returns 400, which its SDK does not retry, so without
+            # this the caller got a 503 for a recipe that is merely long.
+            #
+            # Retry once with room to finish, then once more with
+            # `function_calling`: that path streams arguments rather than
+            # validating one constrained document at the end, so a truncation
+            # that `json_schema` rejects outright can still come back usable.
+            logger.warning(
+                "parse hit the %d-token budget; retrying with %d",
+                _MAX_TOKENS, _MAX_TOKENS * 2,
+            )
+            wider, wider_method = _parser_llm(model_name, max_tokens=_MAX_TOKENS * 2)
+            try:
+                result = (
+                    prompt | wider.with_structured_output(
+                        ParsedRecipe, method=wider_method
+                    )
+                ).invoke({"recipe": recipe})
+            except Exception as retry_exc:
+                if not _is_budget_exhausted(retry_exc):
+                    raise
+                logger.warning(
+                    "parse still over budget at %d tokens; trying function_calling",
+                    _MAX_TOKENS * 2,
+                )
+                result = (
+                    prompt | wider.with_structured_output(
+                        ParsedRecipe, method="function_calling"
+                    )
+                ).invoke({"recipe": recipe})
         else:
             raise
     return result.model_dump()

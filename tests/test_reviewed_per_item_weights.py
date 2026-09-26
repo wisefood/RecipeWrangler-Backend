@@ -100,3 +100,7 @@ def test_cup_table_lookalikes_from_the_full_corpus_diff():
     assert round(grams("split peas", "1.0 cup"), 0) != 134
     assert round(grams("ricotta cheese", "1 cup"), 0) != 112
     assert round(grams("mustard greens", "1 cup"), 0) != 249
+
+
+def test_chicken_wing_uses_edible_weight_not_bone_in_piece():
+    assert grams("chicken wings", "10.0 medium") == 410

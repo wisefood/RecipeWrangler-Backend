@@ -125,7 +125,9 @@ _ROWS: tuple = (
     # ---- meat / fish -----------------------------------------------------------------
     (r"\bchicken thighs?\b", {"each": 193.0}, "USDA"),
     (r"\bchicken drumsticks?\b", {"each": 130.0}, "USDA"),
-    (r"\bchicken wings?\b", {"each": 107.0}, "USDA"),
+    # USDA 05105: wing bone-and-skin-removed = 29 g of meat, so the 107 g "piece" of 05100 includes bone. Edible meat+skin
+    # = 29 g x (276/197 whole-bird skin ratio) = 41 g.
+    (r"\bchicken wings?\b|\bwings\b", {"each": 41.0}, "USDA-derived edible meat+skin"),
     (r"\bsmoked chicken breast\b|\bturkey\b", {"slice": 20.0}, "convention"),
     (r"\blamb shanks?\b", {"each": 200.0}, "convention"),
     (r"\blamb steaks?\b", {"each": 200.0, "steak": 200.0}, "convention"),

@@ -2543,3 +2543,14 @@ Open: convention values need human review (chicken thigh/drumstick/wing use bone
 retail stock rows unverified, herbs-in-Nutri-Score check, 0.3 g salt pinch inside test noise.
 Working tree has many unrelated changes from other sessions: stage only weight-tool files, tests, scripts, handoff when committing.
 # claude — END
+
+# claude — BEGIN: end-to-end accuracy check (2026-09-26)
+`scripts/composition/evaluate_profile_accuracy.py`: per-serving nutrition recomputed with the new weights (EU profile) vs each recipe's
+published nutrition. SafeFood 324 recipes, HealthyFoods 1,500 (random sample). Reports in data/analysis/profile_accuracy/tables_{on,off}.
+Reviewed tables ON: median abs error kcal 14% (SafeFood) / 22% (HF); fat 33% / 29%; sat fat 38% / 38%; sugar 22% / 27%;
+sodium 38% / 42%. Within 25%: kcal 65% / 56%. Median calc/truth: kcal 0.98 / 0.93, sodium 0.96 / 0.77.
+Tables OFF: kcal 16% / 23%, sodium 37% / 43%: the reviewed tables are neutral to slightly better, never worse in aggregate.
+The remaining error is mostly not the weight tool (ingredient matching, cooking losses, serves, composition-table differences). Sodium is
+under-counted on HealthyFoods (0.77): missing salted products/seasoning. Chicken wings now 41 g edible (was 107 g bone-in piece).
+Thigh/drumstick USDA portions are edible weights (no clean bone-in yield available locally); turkey yield still missing.
+# claude — END

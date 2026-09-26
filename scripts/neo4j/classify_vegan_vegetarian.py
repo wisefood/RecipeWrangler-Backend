@@ -26,6 +26,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from recipe_wrangler.utils.consumer_suitability import (
     DEFINITION_SOURCES,
     GROUP_RULES,
+    PLANT_STAPLE_PATTERNS,
     POSITIVE_EVIDENCE_EXCLUSIONS,
     SUITABILITY_CLASSIFICATION_VERSION,
     SUPPORTED_CONSUMER_GROUPS,
@@ -132,6 +133,7 @@ def _group_params(group: str) -> dict[str, Any]:
             else VEGETARIAN_NAME_EXCLUSIONS
         ),
         "positive_exclusions": POSITIVE_EVIDENCE_EXCLUSIONS,
+        "plant_staple_regexes": PLANT_STAPLE_PATTERNS,
         "definition_sources": DEFINITION_SOURCES[group],
         "version": SUITABILITY_CLASSIFICATION_VERSION,
     }
@@ -235,7 +237,10 @@ def _classify_positive(session, group: str) -> int:
          [idx IN range(0, size($positive_keywords) - 1)
           WHERE toLower(coalesce(i.name, "")) =~
                 $positive_keyword_regexes[idx]
-          | $positive_keywords[idx]] AS keyword_hits
+          | $positive_keywords[idx]]
+         + CASE WHEN any(pattern IN $plant_staple_regexes
+                         WHERE toLower(coalesce(i.name, "")) =~ pattern)
+                THEN ["plant_staple_name"] ELSE [] END AS keyword_hits
     OPTIONAL MATCH (i)-[:HAS_ALLERGEN]->(allergen:Allergen)
     WITH i, suitable_origins, keyword_hits,
          [value IN collect(DISTINCT allergen.name)

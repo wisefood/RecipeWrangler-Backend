@@ -112,9 +112,12 @@ Known gaps after the sync:
 - 187 parsed recipes have no graph node and were not created (47 HealthyFoods, 33 MyPlate, 107 FoodHero). MyPlate has 14 parsed duplicates of one graph recipe.
 - `reconcile.py` still reports 4,528 "owners changed since projection" ("digest only") after `--apply`; it also flags ~1,500 recipes that were not
   synced at all, so it looks systemic (digest re-derivation vs stamp), not caused by the sync. Documents and Neo4j content agree; not investigated further.
-- Vegan/vegetarian tags dropped after the rebuild (diet_tags vegan 301 -> 201 recipes, vegetarian 724 -> 479): many new/renamed ingredient nodes have no FoodOn
-  class or keyword evidence, so the classifier marks them "unknown" (e.g. sugar, cherry tomatoes, spring onions, baking powder, vinegar, chopped tomatoes).
-  Needs plant-food keywords or FoodOn links for the top unknown names, then re-run `classify_vegan_vegetarian --apply` and `facets/tag_diet --apply --replace`.
+- Vegan/vegetarian diet tags: after the rebuild they dropped (diet_tags vegan 301 -> 201, vegetarian 724 -> 479) because many ingredient nodes have no FoodOn
+  class under a plant-origin root, so the classifier said "unknown". Fixed the same day: `PLANT_STAPLE_PATTERNS` (178 full-name patterns for plain plant
+  foods: sugar, tomatoes, onions, baking powder, vinegar, herbs, spices, flours, oils, fruit, vegetables, nuts, legumes) in
+  `utils/consumer_suitability.py` now count as positive evidence in `classify_vegan_vegetarian.py` (a blocking keyword/origin still wins; sugar counts as
+  suitable). Result: diet_tags vegan 434 recipes, vegetarian 1,086 (both above the pre-sync counts); Elasticsearch reprojected. Still "unknown":
+  7,676 ingredient nodes (vegan) that match no staple pattern (bread, pasta, sauces, mixtures...).
 - 13,401 `Ingredient` nodes no longer have any recipe (orphans); not deleted.
 - The data files (`data/`) are gitignored: snapshot, `excluded_recipes.json`, alias CSV and analysis reports exist only on this machine.
 

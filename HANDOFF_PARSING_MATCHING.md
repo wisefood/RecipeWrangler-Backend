@@ -110,15 +110,19 @@ Result: Neo4j 7,526 recipes = Elasticsearch 7,526 documents; 16,836 new-version 
 Known gaps after the sync:
 - ~3,300 recipes remain on the OLD parse (no corrected data exists): HealthyFoods 3,053, Curated Hungarian 149, Curated Slovenian 100, a few MyPlate.
 - 187 parsed recipes have no graph node and were not created (47 HealthyFoods, 33 MyPlate, 107 FoodHero). MyPlate has 14 parsed duplicates of one graph recipe.
-- `reconcile.py` still reports 4,528 "owners changed since projection" ("digest only") after `--apply`; it also flags ~1,500 recipes that were not
-  synced at all, so it looks systemic (digest re-derivation vs stamp), not caused by the sync. Documents and Neo4j content agree; not investigated further.
+- `reconcile.py` reported 4,528 "owners changed since projection" after the sync. Root cause was three stale queries in `reconcile.py` (not data drift):
+  `diet_tags` did not filter to `DIET_TAG_NAMES` like the projection (legacy tags such as vegetarian_or_vegan/pescatarian counted), `suitable_for` used the
+  retired `SUITABLE_FOR` relationship instead of `SUITABILITY_FOR` (status suitable, current version), and `duration` ignored `duration_minutes`.
+  Fixed; reconcile now reports 0 changed / 0 missing / 0 orphaned for all 7,526 recipes.
 - Vegan/vegetarian diet tags: after the rebuild they dropped (diet_tags vegan 301 -> 201, vegetarian 724 -> 479) because many ingredient nodes have no FoodOn
   class under a plant-origin root, so the classifier said "unknown". Fixed the same day: `PLANT_STAPLE_PATTERNS` (178 full-name patterns for plain plant
   foods: sugar, tomatoes, onions, baking powder, vinegar, herbs, spices, flours, oils, fruit, vegetables, nuts, legumes) in
   `utils/consumer_suitability.py` now count as positive evidence in `classify_vegan_vegetarian.py` (a blocking keyword/origin still wins; sugar counts as
   suitable). Result: diet_tags vegan 434 recipes, vegetarian 1,086 (both above the pre-sync counts); Elasticsearch reprojected. Still "unknown":
   7,676 ingredient nodes (vegan) that match no staple pattern (bread, pasta, sauces, mixtures...).
-- 13,401 `Ingredient` nodes no longer have any recipe (orphans); not deleted.
+- 13,401 `Ingredient` nodes no longer have any recipe. 11,680 of them (86 are retired Recipe1M) carry only derived tags (HAS_CLASS, SUITABILITY_FOR, HAS_ALLERGEN,
+  HAS_DECLARATION) and are safe to delete; ~1,700 also carry substitution / FlavorDB / cost-reference links and must stay. NOT deleted: the deletion was
+  refused by the session permission check (no explicit user authorization for that scope). Delete only after the user approves; query in this section's history.
 - The data files (`data/`) are gitignored: snapshot, `excluded_recipes.json`, alias CSV and analysis reports exist only on this machine.
 
 ## Reproduce

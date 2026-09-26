@@ -108,8 +108,19 @@ Backup first: `dumps/local/20260926T160306Z-pre_parse_sync` (Elasticsearch + Pos
 5. Elasticsearch: `reproject_all_recipes.py` (7,526 documents) then `reconcile.py --apply` (re-projected 4,528).
 Result: Neo4j 7,526 recipes = Elasticsearch 7,526 documents; 16,836 new-version profile rows.
 Known gaps after the sync:
-- ~3,300 recipes remain on the OLD parse (no corrected data exists): HealthyFoods 3,053, Curated Hungarian 149, Curated Slovenian 100, a few MyPlate.
-- 187 parsed recipes have no graph node and were not created (47 HealthyFoods, 33 MyPlate, 107 FoodHero). MyPlate has 14 parsed duplicates of one graph recipe.
+- Old-parse recipes still in the graph (no corrected parse exists), 2026-09-26 later: HealthyFoods 3,051 (2,107 of 5,158 are on the new parse), MyPlate 15,
+  Curated Hungarian 149 (ESSRG/PLANEAT, direct CoFID nutrition) and Curated Slovenian 100 (OPKP direct nutrition). The two curated sets have their own pipeline
+  and were never LLM-parsed by design. The HealthyFoods gap is real: the LLM parse run only covered titles from "o" to "w" (2,193 of 5,314 raw recipes);
+  titles a-n (3,121 raw / ~3,051 in the graph) were never parsed with the new parser. Closing it needs the paid parser (llama-3.3-70b via OpenRouter or the local
+  vLLM) over ~41k ingredient lines, then the same snapshot -> weights -> sync -> recompute path. Not started.
+- The 187 parsed recipes with no graph node were handled: 170 were created (HealthyFoods 32, MyPlate 31, FoodHero 107; ids by the importers' scheme:
+  sha1(url.lower()) mod 1e10, MyPlate keeps its scraped id), 3 same-title recipes with >=60% ingredient overlap were synced into the existing node, and 14
+  same-title variants (different page, different ingredients) were deliberately not created because the graph keeps one recipe per title.
+  `sync_parsed_snapshot_to_graph.py --create-missing` does this. New recipes got profiles (172 x 4 regions), tags and Elasticsearch documents.
+  Neo4j and Elasticsearch now both hold 7,696 recipes; reconcile reports 0 changed / 0 missing / 0 orphaned / 0 not landed.
+- Cost categories (cost_category, cost_price_coverage, cost_explanation on Recipe nodes) were last written 2026-09-03 by a process that is not in this repo
+  (the cost calculator's own recomputation reproduces only 68% of the stored categories). They are STALE for ~4,400 synced/new recipes and MISSING for the 170
+  new recipes (Elasticsearch cost facet null for them). Needs the original cost-stamping job or an agreed replacement; not touched.
 - `reconcile.py` reported 4,528 "owners changed since projection" after the sync. Root cause was three stale queries in `reconcile.py` (not data drift):
   `diet_tags` did not filter to `DIET_TAG_NAMES` like the projection (legacy tags such as vegetarian_or_vegan/pescatarian counted), `suitable_for` used the
   retired `SUITABLE_FOR` relationship instead of `SUITABILITY_FOR` (status suitable, current version), and `duration` ignored `duration_minutes`.
@@ -120,9 +131,9 @@ Known gaps after the sync:
   `utils/consumer_suitability.py` now count as positive evidence in `classify_vegan_vegetarian.py` (a blocking keyword/origin still wins; sugar counts as
   suitable). Result: diet_tags vegan 434 recipes, vegetarian 1,086 (both above the pre-sync counts); Elasticsearch reprojected. Still "unknown":
   7,676 ingredient nodes (vegan) that match no staple pattern (bread, pasta, sauces, mixtures...).
-- 13,401 `Ingredient` nodes no longer have any recipe. 11,680 of them (86 are retired Recipe1M) carry only derived tags (HAS_CLASS, SUITABILITY_FOR, HAS_ALLERGEN,
-  HAS_DECLARATION) and are safe to delete; ~1,700 also carry substitution / FlavorDB / cost-reference links and must stay. NOT deleted: the deletion was
-  refused by the session permission check (no explicit user authorization for that scope). Delete only after the user approves; query in this section's history.
+- Orphan `Ingredient` nodes: 11,594 nodes that carried only derived tags (HAS_CLASS, SUITABILITY_FOR, HAS_ALLERGEN, HAS_DECLARATION) plus their allergen declaration
+  nodes were deleted with the user's explicit approval (apoc.periodic.iterate, 0 failed batches). 1,807 orphans remain on purpose: they carry substitution,
+  FlavorDB or cost-reference links, or belong to the retired Recipe1M set. Recipes untouched. Restore path: the pre-sync Neo4j dump.
 - The data files (`data/`) are gitignored: snapshot, `excluded_recipes.json`, alias CSV and analysis reports exist only on this machine.
 
 ## Reproduce

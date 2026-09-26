@@ -28,6 +28,28 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         self.assertEqual(detail["match_type"], "to_taste_min")
         self.assertEqual(detail["confidence"], 0.9)
 
+    def test_blank_water_and_herbs_are_negligible_salt_is_a_pinch_and_oil_is_a_teaspoon(self):
+        with patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "pinch")):
+            names = ["water", "fresh parsley", "rosemary", "salt", "olive oil"]
+            result = self.invoke_debug(names, [""] * len(names))
+
+        self.assertEqual(result["weights"][:3], [mod.TO_TASTE_MIN_GRAMS] * 3)
+        self.assertEqual(result["weights"][3:], [0.3, mod.BLANK_OIL_GRAMS])
+
+    def test_blank_plain_salt_is_one_pinch_and_other_blank_lines_get_the_policy_default(self):
+        with patch.object(
+            mod,
+            "_live_llm_weight_fallback",
+            return_value=(None, "disabled", "pinch"),
+        ):
+            result = self.invoke_debug(["salt", "sea salt", "soy sauce", "olive oil"], ["", None, "", ""])
+
+        self.assertEqual(result["weights"][:2], [0.3, 0.3])
+        self.assertEqual(result["details"][0]["blank_quantity_policy"], "salt_pinch")
+        self.assertEqual(result["weights"][2:], [mod.BLANK_DEFAULT_GRAMS, mod.BLANK_OIL_GRAMS])
+        self.assertEqual(result["details"][2]["blank_quantity_policy"], "negligible_default")
+        self.assertEqual(result["details"][3]["blank_quantity_policy"], "oil_default")
+
     def test_liquid_density_for_olive_oil_ml(self):
         with patch.object(mod, "canonical_name_to_usda", return_value={"usda_id": "oil", "canonical": "olive oil"}):
             result = self.invoke_debug(["olive oil"], ["100ml"])
@@ -49,6 +71,17 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         self.assertAlmostEqual(result["weights"][0], 9.2)
         self.assertEqual(detail["parsed_unit"], "teaspoon")
         self.assertEqual(detail["match_type"], "liquid_density_volume_fallback")
+
+    def test_quart_and_decilitre_use_liquid_density(self):
+        with patch.object(
+            mod,
+            "canonical_name_to_usda",
+            return_value={"usda_id": "water", "canonical": "water"},
+        ):
+            result = self.invoke_debug(["water", "water"], ["2 quarts", "2 dl"])
+
+        self.assertAlmostEqual(result["weights"][0], 1892.705892)
+        self.assertAlmostEqual(result["weights"][1], 200.0)
 
     def test_informal_splash_uses_liquid_density(self):
         with patch.object(mod, "canonical_name_to_usda", return_value={"usda_id": "milk", "canonical": "milk"}):
@@ -89,6 +122,47 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         self.assertEqual(detail["parsed_unit"], "egg")
         self.assertTrue(detail["quantity_inferred"])
         self.assertTrue(detail["unit_inferred"])
+
+    def test_bare_egg_count_uses_ingredient_noun_as_unit(self):
+        with patch.object(
+            mod,
+            "canonical_name_to_usda",
+            return_value={"usda_id": "egg", "canonical": "egg"},
+        ):
+            result = self.invoke_debug(["eggs"], ["3.0"])
+
+        detail = result["details"][0]
+        self.assertEqual(result["weights"], [150.0])
+        self.assertEqual(detail["parsed_quantity"], "3.0")
+        self.assertEqual(detail["parsed_unit"], "egg")
+        self.assertTrue(detail["unit_inferred"])
+
+    def test_reviewed_common_count_and_portion_references(self):
+        cases = [
+            ("flour tortillas", "4.0", 200.0, "tortilla"),
+            ("limes", "2.0", 134.0, "lime"),
+            ("spring onions", "1.0 bunch", 100.0, "bunch"),
+            ("filo pastry", "6.0 sheets", 108.0, "sheet"),
+            ("bread", "4.0 slices", 120.0, "slice"),
+            ("rice papers", "12.0", 108.0, "sheet"),
+        ]
+
+        for name, measurement, expected, unit in cases:
+            with self.subTest(name=name, measurement=measurement):
+                result = self.invoke_debug([name], [measurement])
+                detail = result["details"][0]
+                self.assertEqual(result["weights"], [expected])
+                self.assertEqual(detail["parsed_unit"], unit)
+                self.assertEqual(detail["match_type"], "common_unit_reference_fallback")
+
+    def test_reviewed_kitchen_unit_aliases(self):
+        oil = self.invoke_debug(["vegetable oil"], ["1 dessertspoon"])
+        spice = self.invoke_debug(["chilli flakes"], ["1 pinch"])
+
+        self.assertAlmostEqual(oil["weights"][0], 9.2)
+        self.assertEqual(oil["details"][0]["parsed_unit"], "dessertspoon")
+        self.assertEqual(spice["weights"], [0.3])
+        self.assertEqual(spice["details"][0]["parsed_unit"], "pinch")
 
     def test_large_bare_number_is_inferred_as_grams_not_countable_unit(self):
         with patch.object(
@@ -338,6 +412,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
     def test_offline_reference_skips_low_confidence_llm_rebuilt(self):
         with (
             patch.object(mod, "OFFLINE_REFERENCE_DATASET_ENABLED", True),
+            patch.object(mod, "OFFLINE_LLM_REBUILT_ENABLED", True),
             patch.object(
                 mod,
                 "_csv_rows_from_path_or_pg",
@@ -410,9 +485,8 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
             result = self.invoke_debug(["scallions"], [""])
 
         detail = result["details"][0]
-        self.assertEqual(result["weights"], [0.0])
-        self.assertIsNone(detail["weight_grams"])
-        self.assertEqual(detail["error"], "missing_quantity")
+        self.assertEqual(result["weights"], [mod.BLANK_DEFAULT_GRAMS])
+        self.assertEqual(detail["match_type"], "blank_quantity_default")
         self.assertNotEqual(detail["match_type"], "pinch_default_missing_quantity_fallback")
 
     def test_common_count_unit_references_cover_produce_and_herbs(self):
@@ -554,6 +628,30 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
     def test_dry_bouillon_powder_does_not_use_water_like_density(self):
         self.assertIsNone(mod._liquid_density_for_name("chicken bouillon powder"))
 
+    def test_concentrated_stock_and_paste_do_not_use_liquid_density(self):
+        self.assertIsNone(mod._liquid_density_for_name("vegetable stock concentrate"))
+        self.assertIsNone(mod._liquid_density_for_name("tomato paste"))
+
+    def test_prepared_salads_do_not_use_loose_leaf_density(self):
+        for name in ("salad dressing", "potato salad", "fruit salad"):
+            with self.subTest(name=name):
+                self.assertNotEqual(
+                    mod._common_unit_reference_grams(name, "cup"),
+                    (40.0, "loose mixed salad cup"),
+                )
+
+    def test_fresh_herb_without_quantity_is_not_a_pinch(self):
+        with (
+            patch.object(mod, "canonical_name_to_usda", return_value=None),
+            patch.object(mod, "_embedding_usda_link", return_value=None),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
+        ):
+            result = self.invoke_debug(["fresh basil"], [None])
+
+        detail = result["details"][0]
+        self.assertEqual(result["weights"], [mod.TO_TASTE_MIN_GRAMS])
+        self.assertEqual(detail["match_type"], "to_taste_min")
+
     def test_hard_cheese_volume_uses_common_reference(self):
         with (
             patch.object(
@@ -641,7 +739,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
                 "canonical_name_to_usda",
                 return_value={
                     "usda_id": "01138",
-                    "canonical": "whole duck",
+                    "canonical": "whole goose",
                     "food_group": "Dairy and Egg Products",
                 },
             ),
@@ -652,7 +750,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
                 mod,
                 "_lookup_recipe1m_llm_portion_fallback",
                 return_value={
-                    "ingredient": "whole duck",
+                    "ingredient": "whole goose",
                     "unit": "whole",
                     "grams_per_unit": 150.0,
                     "sample_measurement": "1 whole",
@@ -660,7 +758,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
             ),
             patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
-            result = self.invoke_debug(["whole duck"], ["1 whole"])
+            result = self.invoke_debug(["whole goose"], ["1 whole"])
 
         detail = result["details"][0]
         self.assertEqual(result["weights"], [0.0])
@@ -852,6 +950,160 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         self.assertIsNotNone(hit)
         self.assertEqual(hit["usda_id"], "18000")
 
+    def test_embedding_usda_link_rejects_unit_compatible_unrelated_food(self):
+        class FakeCollection:
+            name = "fake_usda"
+
+            def query(self, **kwargs):
+                return {
+                    "documents": [["Triticale"]],
+                    "metadatas": [[{
+                        "usda_id": "20069",
+                        "canonical_id": "triticale",
+                        "usda_food_label": "Triticale",
+                    }]],
+                    "distances": [[0.05]],
+                }
+
+            def get(self, **kwargs):
+                return {"documents": [], "metadatas": []}
+
+        with (
+            patch.object(mod, "_get_usda_links_collections", return_value=[FakeCollection()]),
+            patch.object(mod, "get_embeddings", return_value=[0.0, 1.0]),
+        ):
+            hit = mod._embedding_usda_link("frisee", unit="cup")
+
+        self.assertIsNone(hit)
+
+    def test_usda_query_aliases_regional_ingredient_names(self):
+        self.assertEqual(mod._usda_query_alias("silverbeet"), "swiss chard")
+        self.assertEqual(mod._usda_query_alias("2 aubergines"), "2 eggplant")
+        self.assertEqual(mod._usda_query_alias("Greek yoghurt"), "greek yogurt")
+        self.assertEqual(mod._usda_query_alias("breadcrumbs"), "bread crumbs")
+        self.assertEqual(mod._usda_query_alias("linseeds"), "flaxseed")
+        self.assertEqual(mod._usda_query_alias("orzo"), "pasta")
+        self.assertEqual(mod._usda_query_alias("bok choy"), "chinese cabbage")
+        self.assertEqual(mod._usda_query_alias("bocconcini"), "mozzarella")
+        self.assertEqual(mod._usda_query_alias("kumara"), "sweet potato")
+
+    def test_yoghurt_volume_uses_density_not_unrelated_yogurt_portion(self):
+        self.assertEqual(
+            mod._liquid_density_for_name("Greek yoghurt"),
+            (1.03, "yogurt"),
+        )
+
+    def test_volume_fallback_scales_an_existing_usda_cup_weight(self):
+        cup_match = {
+            "food_name": "Blueberries, raw",
+            "portion": {"grams_per_unit": 150.0},
+        }
+        with patch.object(mod, "find_weight_match_by_name", return_value=cup_match):
+            result = mod._reference_weight_fallback("blueberries", "120", "ml")
+
+        self.assertIsNotNone(result)
+        self.assertAlmostEqual(result[0], 75.0)
+        self.assertEqual(result[2], "usda_cup_density_fallback")
+
+    def test_common_references_cover_leafy_green_parser_outliers(self):
+        self.assertEqual(
+            mod._common_unit_reference_grams("baby cos lettuce", "head"),
+            (163.0, "baby lettuce head"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("frisee", "cup"),
+            (50.0, "raw endive cup"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("silverbeet", "cup"),
+            (36.0, "raw swiss chard cup"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("microgreens", "cup"),
+            (20.0, "leafy microgreens cup"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("orecchiette", "cup"),
+            (90.0, "dry small pasta cup"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("courgette", "cup"),
+            (124.0, "raw zucchini cup"),
+        )
+
+    def test_common_references_cover_remaining_explicit_small_portions(self):
+        self.assertEqual(
+            mod._common_unit_reference_grams("cloves", "clove"),
+            (0.2, "whole spice clove"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("asparagus", "spear"),
+            (16.0, "asparagus spear"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("kaffir lime leaf", "leaf"),
+            (0.3, "makrut lime leaf"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("chilli flakes", "sprinkling"),
+            (0.5, "seasoning sprinkling"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("black pepper", "grind"),
+            (0.1, "pepper mill turn"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("butter", "knob"),
+            (10.0, "butter knob"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("lasagne sheets", "large"),
+            (21.0, "lasagna sheet"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("lettuce leaves", "large"),
+            (13.5, "large lettuce leaf"),
+        )
+
+    def test_narrow_count_references_do_not_expand_similar_foods(self):
+        self.assertIsNone(
+            mod._common_unit_reference_grams("squash blossoms", "whole")
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("arbol peppers", "whole"),
+            (2.0, "dried chile pepper"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("pineapple", "spear"),
+            (28.0, "pineapple spear"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("sun-dried tomatoes", "whole"),
+            (3.0, "USDA oil-packed sun-dried tomato"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("cucumber", "cm"),
+            (14.3, "USDA whole-cucumber length-derived centimetre"),
+        )
+
+    def test_cup_references_do_not_cross_food_or_preparation_types(self):
+        self.assertIsNone(mod._common_unit_reference_grams("ice water", "cup"))
+        self.assertEqual(
+            mod._common_unit_reference_grams("bread cubes", "cup"),
+            (35.0, "bread cubes cup"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("silver beet", "cup"),
+            (36.0, "raw swiss chard cup"),
+        )
+        self.assertEqual(
+            mod._common_unit_reference_grams("dark green leafy vegetables", "cup"),
+            (40.0, "loose leafy vegetables cup"),
+        )
+        self.assertIsNone(
+            mod._common_unit_reference_grams("vegetable stock", "cup")
+        )
+
     def test_common_reference_covers_gelatin_package(self):
         self.assertEqual(
             mod._common_unit_reference_grams("watermelon gelatin", "package"),
@@ -877,7 +1129,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
                 "canonical_name_to_usda",
                 return_value={
                     "usda_id": "01138",
-                    "canonical": "whole duck",
+                    "canonical": "whole goose",
                     "usda_food_label": "Egg, duck, whole",
                     "food_group": "Dairy and Egg Products",
                 },
@@ -887,7 +1139,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
             patch.object(mod, "_lookup_recipe1m_llm_weight_fallback", return_value=None),
             patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
-            result = self.invoke_debug(["whole duck"], ["1 whole"])
+            result = self.invoke_debug(["whole goose"], ["1 whole"])
 
         detail = result["details"][0]
         self.assertEqual(result["weights"], [0.0])
@@ -903,7 +1155,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
                 mod,
                 "_lookup_recipe1m_llm_weight_fallback",
                 return_value={
-                    "ingredient": "whole duck",
+                    "ingredient": "whole goose",
                     "sample_measurement": "1 whole",
                     "grams": 150.0,
                     "signature": (1.0, "whole"),
@@ -911,7 +1163,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
             ),
             patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "piece")),
         ):
-            result = self.invoke_debug(["whole duck"], ["1 whole"])
+            result = self.invoke_debug(["whole goose"], ["1 whole"])
 
         detail = result["details"][0]
         self.assertEqual(result["weights"], [0.0])
@@ -991,6 +1243,56 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
             all(d["match_type"] == "common_unit_reference_fallback" for d in result["details"])
         )
 
+    def test_common_references_prevent_large_wrong_portion_matches(self):
+        result = self.invoke_debug(
+            [
+                "king prawns",
+                "celery stalks",
+                "anchovy fillets",
+                "filo pastry sheets",
+                "large wraps",
+                "slaw",
+                "pumpkin puree",
+            ],
+            ["12 medium", "4 medium", "16", "5 large", "4 large", "4 cups", "1 can"],
+        )
+
+        self.assertEqual(result["weights"], [240.0, 160.0, 80.0, 90.0, 270.0, 280.0, 425.0])
+        self.assertTrue(
+            all(d["match_type"] == "common_unit_reference_fallback" for d in result["details"])
+        )
+
+    def test_common_references_cover_unambiguous_counts_and_volumes(self):
+        result = self.invoke_debug(
+            [
+                "garlic", "celery", "red chilli", "capsicum", "leek",
+                "mango", "eggplant", "beetroot", "parsnip", "mushrooms",
+                "fennel bulb", "courgette", "egg yolk", "fresh mint",
+                "sultanas", "olive oil", "tahini", "pesto", "sherry",
+            ],
+            [
+                "2", "2", "1", "1", "1", "1", "1 medium", "2",
+                "2", "5", "1 large", "2 medium", "1 medium", "1 cup",
+                "0.5 cup", "1 spray", "1 tablespoon", "2 tablespoons",
+                "0.25 cup",
+            ],
+        )
+
+        expected = [
+            6.0, 80.0, 14.0, 120.0, 89.0, 200.0, 458.0, 164.0,
+            240.0, 90.0, 315.9, 392.0, 18.0, 25.0, 82.5, 1.0,
+            16.5, 30.0, 60.0,
+        ]
+        for actual, target in zip(result["weights"], expected):
+            self.assertAlmostEqual(actual, target, places=3)
+        self.assertTrue(
+            all(
+                d["match_type"]
+                in {"common_unit_reference_fallback", "liquid_density_volume_fallback"}
+                for d in result["details"]
+            )
+        )
+
     def test_leading_name_unit_not_used_when_measurement_has_its_own_unit(self):
         # "cup" leads the name but the measurement already carries a unit —
         # the measurement wins, the name prefix is not lifted.
@@ -998,6 +1300,45 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         detail = result["details"][0]
         self.assertEqual(detail["parsed_unit"], "tablespoon")
         self.assertIsNone(detail["error"])
+
+    def test_large_bare_mass_is_not_reinterpreted_as_leading_name_unit(self):
+        with patch.object(mod, "canonical_name_to_usda", return_value=None):
+            result = self.invoke_debug(["can tomatoes"], ["400"])
+
+        detail = result["details"][0]
+        self.assertEqual(result["weights"], [400.0])
+        self.assertEqual(detail["parsed_unit"], "gram")
+        self.assertEqual(detail["match_type"], "direct_mass")
+
+    def test_inferred_leaf_does_not_use_food_id_head_reference(self):
+        self.assertEqual(mod._infer_unit_from_name("lettuce leaves"), "leaf")
+        with (
+            patch.object(
+                mod,
+                "canonical_name_to_usda",
+                return_value={"usda_id": "11109", "canonical": "cabbage"},
+            ),
+            patch.object(mod, "_embedding_usda_link", return_value=None),
+            patch.object(mod, "_weight_name_usda_link", return_value=None),
+            patch.object(
+                mod,
+                "_lookup_llm_unit_grams",
+                return_value={
+                    "grams_per_unit": 1008.0,
+                    "source": "fda",
+                    "lookup_basis": "usda_id",
+                },
+            ),
+            patch.object(mod, "_estimate_grams_from_usda_id", side_effect=ValueError),
+            patch.object(mod, "_estimate_grams_from_name_portion", side_effect=ValueError),
+            patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "leaf")),
+        ):
+            result = self.invoke_debug(["sour cabbage leaves"], ["8"])
+
+        detail = result["details"][0]
+        self.assertEqual(result["weights"], [0.0])
+        self.assertEqual(detail["parsed_unit"], "leaf")
+        self.assertNotEqual(detail["match_type"], mod.FDA_UNIT_GRAMS_MATCH_TYPE)
 
     def test_package_size_prefix_fix_keeps_multiplier_and_explicit_count(self):
         with (
@@ -1026,6 +1367,10 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         )
         self.assertIsNone(mod._lookup_recipe1m_llm_portion_fallback("nonexistent thing", "slice"))
 
+    def test_unverified_llm_reference_tables_are_gated_off_by_default(self):
+        self.assertFalse(mod.CACHED_LLM_UNIT_GRAMS_ENABLED)
+        self.assertFalse(mod.OFFLINE_LLM_REBUILT_ENABLED)
+
     def test_offline_reference_index_silently_empty_without_postgres(self):
         # The runtime reads the reference dataset from Postgres; if the entry is
         # missing the loader must no-op, never raise.
@@ -1039,3 +1384,25 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_greasing_oil_is_a_two_gram_policy_value():
+    from recipe_wrangler.tools import ingredient_weight_tool as tool
+
+    result = tool.ingredient_weight_tool_usda.invoke(
+        {"ingredient_names": ["olive oil"], "measurements": ["1 greasing"], "return_details": True, "debug": True}
+    )
+    assert result["weights"] == [tool.GREASING_OIL_GRAMS]
+
+
+def test_blank_line_with_unknown_food_still_gets_a_nonzero_default():
+    from unittest.mock import patch
+
+    from recipe_wrangler.tools import ingredient_weight_tool as tool
+
+    with patch.object(tool, "_live_llm_weight_fallback", return_value=(None, "disabled", None)):
+        result = tool.ingredient_weight_tool_usda.invoke(
+            {"ingredient_names": ["zzqx unknown paste"], "measurements": [""], "return_details": True, "debug": True}
+        )
+    assert result["weights"] == [tool.BLANK_DEFAULT_GRAMS]
+    assert result["details"][0]["blank_quantity_policy"] == "negligible_default"

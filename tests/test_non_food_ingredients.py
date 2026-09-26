@@ -2,7 +2,11 @@ from recipe_wrangler.utils.non_food_ingredients import is_unambiguous_non_food_i
 
 
 def test_unambiguous_equipment_is_detected() -> None:
-    for value in ("**aluminum foil**", "paper cups", "wooden sticks", "baking trays"):
+    for value in (
+        "**aluminum foil**", "paper cups", "wooden sticks", "baking trays",
+        "frying pan", "twine", "kitchen string", "string or twine",
+        "stainless steel turner",
+    ):
         assert is_unambiguous_non_food_ingredient(value)
 
 

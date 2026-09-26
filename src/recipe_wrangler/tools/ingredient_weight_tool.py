@@ -12,6 +12,7 @@ import re
 from langchain.tools import tool
 
 from recipe_wrangler.tools.ingredient_weight_llm_tool import ingredient_weight_llm_tool
+from recipe_wrangler.tools.reviewed_item_weights import reviewed_default_unit, reviewed_item_grams
 from recipe_wrangler.utils.non_food_ingredients import is_unambiguous_non_food_ingredient
 from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.repositories.vector_matchers import VectorCollection
@@ -139,6 +140,7 @@ _NAME_LEADING_UNIT_MAP = {
     "kg": "kg", "kgs": "kg", "kilogram": "kg", "kilograms": "kg",
     "g": "gram", "grams": "gram", "gram": "gram",
     "dash": "dash", "dashes": "dash", "pinch": "pinch", "pinches": "pinch",
+    "dstspn": "dessertspoon", "dsp": "dessertspoon", "dessertspn": "dessertspoon",
     "clove": "clove", "cloves": "clove", "slice": "slice", "slices": "slice",
     "stick": "stick", "sticks": "stick", "sheet": "sheet", "sheets": "sheet",
     "can": "can", "cans": "can", "jar": "jar", "jars": "jar",
@@ -228,6 +230,8 @@ _COUNTABLE_NOUNS = {
     "boxes": "box",
     "can": "can",
     "cans": "can",
+    "tin": "tin",
+    "tins": "tin",
     "container": "container",
     "containers": "container",
     "jar": "jar",
@@ -297,8 +301,122 @@ _COUNTABLE_NOUNS = {
     "orange": "orange",
     "oranges": "orange",
     "celery": "celery",
+    "garlic": "clove",
+    "chilli": "chile",
+    "chillies": "chile",
+    "chili": "chile",
+    "chilies": "chile",
+    "capsicum": "pepper",
+    "capsicums": "pepper",
+    "leek": "whole",
+    "leeks": "whole",
+    "mango": "whole",
+    "mangoes": "whole",
+    "mangos": "whole",
+    "eggplant": "whole",
+    "eggplants": "whole",
+    "aubergine": "whole",
+    "aubergines": "whole",
+    "beetroot": "whole",
+    "beetroots": "whole",
+    "parsnip": "whole",
+    "parsnips": "whole",
+    "mushroom": "whole",
+    "mushrooms": "whole",
     "sausage": "sausage",
     "sausages": "sausage",
+    "tortilla": "tortilla",
+    "tortillas": "tortilla",
+    "wrap": "wrap",
+    "wraps": "wrap",
+    "pita": "pita",
+    "pitas": "pita",
+    "pitta": "pita",
+    "pittas": "pita",
+    "roll": "roll",
+    "rolls": "roll",
+    "thigh": "thigh",
+    "thighs": "thigh",
+    "drumstick": "drumstick",
+    "drumsticks": "drumstick",
+    "shank": "shank",
+    "shanks": "shank",
+    "cutlet": "cutlet",
+    "cutlets": "cutlet",
+    "tenderloin": "tenderloin",
+    "tenderloins": "tenderloin",
+    "scallop": "scallop",
+    "scallops": "scallop",
+    "pear": "pear",
+    "pears": "pear",
+    "strawberry": "strawberry",
+    "strawberries": "strawberry",
+    "kiwi": "kiwi",
+    "kiwis": "kiwi",
+    "kiwifruit": "kiwi",
+    "plum": "plum",
+    "plums": "plum",
+    "apricot": "apricot",
+    "apricots": "apricot",
+    "prune": "prune",
+    "prunes": "prune",
+    "fig": "fig",
+    "figs": "fig",
+    "grapefruit": "grapefruit",
+    "grapefruits": "grapefruit",
+    "mandarin": "mandarin",
+    "mandarins": "mandarin",
+    "pomegranate": "pomegranate",
+    "pomegranates": "pomegranate",
+    "date": "date",
+    "dates": "date",
+    "olive": "olive",
+    "olives": "olive",
+    "grape": "grape",
+    "grapes": "grape",
+    "raisin": "raisin",
+    "raisins": "raisin",
+    "pod": "pod",
+    "pods": "pod",
+    "anchovy": "fillet",
+    "anchovies": "fillet",
+    "rasher": "rasher",
+    "rashers": "rasher",
+    "cob": "cob",
+    "cobs": "cob",
+    "base": "base",
+    "bases": "base",
+    "finger": "finger",
+    "fingers": "finger",
+    "biscuit": "biscuit",
+    "biscuits": "biscuit",
+    "scallion": "scallion",
+    "scallions": "scallion",
+    "passionfruit": "passionfruit",
+    "nectarine": "nectarine",
+    "nectarines": "nectarine",
+    "swede": "swede",
+    "swedes": "swede",
+    "kumara": "kumara",
+    "gherkin": "gherkin",
+    "gherkins": "gherkin",
+    "sweetcorn": "cob",
+    "pineapple": "whole",
+    "pineapples": "whole",
+    "cabbage": "whole",
+    "cabbages": "whole",
+    "papaya": "whole",
+    "papayas": "whole",
+    "pumpkin": "whole",
+    "pumpkins": "whole",
+    "melon": "whole",
+    "melons": "whole",
+    "naan": "naan",
+    "roti": "roti",
+    "cracker": "cracker",
+    "crackers": "cracker",
+    "oatcake": "oatcake",
+    "oatcakes": "oatcake",
 }
 
 _MASS_UNITS = {
@@ -327,6 +445,36 @@ _UNIT_ALIASES = {
     "teaspoons": "teaspoon",
     "tbsps": "tbsp",
     "tablespoons": "tablespoon",
+    "tbs": "tablespoon",
+    "dessertspoons": "dessertspoon",
+    "dsp": "dessertspoon",
+    "handfuls": "handful",
+    "handfull": "handful",
+    "pinches": "pinch",
+    "dashs": "dash",
+    "dashes": "dash",
+    "sprays": "spray",
+    "bunches": "bunch",
+    "small-sized": "small",
+    "medium-sized": "medium",
+    "large-sized": "large",
+    "springs": "sprig",
+    "wedges": "wedge",
+    "spears": "spear",
+    "trays": "tray",
+    "sprinkle": "sprinkling",
+    "sprinkles": "sprinkling",
+    "wholegrain": "whole",
+    "wholemeal": "whole",
+    "grainy": "whole",
+    "ripe": "whole",
+    "baby": "small",
+    "mini": "small",
+    "breads": "whole",
+    "darne": "fillet",
+    "darnes": "fillet",
+    "sachet": "packet",
+    "sachets": "packet",
 }
 
 _UNIT_STOPWORDS = {
@@ -340,8 +488,12 @@ _UNIT_STOPWORDS = {
 
 _SIZE_WORDS = {"small", "medium", "large"}
 _SIZE_FACTORS = {"small": 0.65, "medium": 1.0, "large": 1.35}
+_TURNIP_SIZE_GRAMS = {"small": 61.0, "medium": 122.0, "large": 183.0}
 _WATER_LIKE_TOKENS = {"water", "stock", "broth"}
-_DRY_VOLUME_EXCLUSION_TOKENS = {"powder", "granule", "granules", "cube", "cubes", "dry"}
+_DRY_VOLUME_EXCLUSION_TOKENS = {
+    "powder", "granule", "granules", "cube", "cubes", "dry", "paste",
+    "concentrate", "concentrated", "mix", "seasoning",
+}
 _LIQUID_DENSITY_BY_TOKEN = {
     "oil": 0.92,
     "milk": 1.03,
@@ -352,6 +504,20 @@ _LIQUID_DENSITY_BY_TOKEN = {
     "sauce": 1.19,
     "juice": 1.04,
     "wine": 0.99,
+    "cider": 1.0,
+    "beer": 1.0,
+    "verjus": 1.0,
+    "dressing": 1.0,
+    "skimmed": 1.03,
+    "semi-skimmed": 1.03,
+    "puree": 1.03,
+    "lager": 1.0,
+    "kirsch": 0.95,
+    "tokaji": 1.0,
+    "unicum": 1.0,
+    "antica": 1.0,
+    "liqueur": 1.0,
+    "marinade": 1.1,
 }
 _ML_UNITS = {"ml", "milliliter", "milliliters", "millilitre", "millilitres"}
 _L_UNITS = {"l", "liter", "liters", "litre", "litres"}
@@ -366,6 +532,19 @@ _VOLUME_UNIT_ML = {
     "liters": 1000.0,
     "litre": 1000.0,
     "litres": 1000.0,
+    "dl": 100.0,
+    "deciliter": 100.0,
+    "deciliters": 100.0,
+    "decilitre": 100.0,
+    "decilitres": 100.0,
+    "pint": 473.176473,
+    "pints": 473.176473,
+    "pt": 473.176473,
+    "pts": 473.176473,
+    "quart": 946.352946,
+    "quarts": 946.352946,
+    "qt": 946.352946,
+    "qts": 946.352946,
     "teaspoon": 5.0,
     "teaspoons": 5.0,
     "tsp": 5.0,
@@ -379,6 +558,9 @@ _VOLUME_UNIT_ML = {
     "fluid ounces": 29.5735,
     "dash": 0.5,
     "splash": 15.0,
+    "dessertspoon": 10.0,
+    "dstspn": 10.0,
+    "dsp": 10.0,
 }
 _ZERO_MEASUREMENT_RE = re.compile(
     r"^\s*(?:to taste|as needed|optional|garnish|to serve)\s*$",
@@ -407,14 +589,61 @@ _QUALIFIER_WORDS = {
     "grated",
     "peeled",
     "crushed",
+    # Manner adverbs that precede/follow a prep verb ("roughly chopped",
+    # "finely diced") — without these the adverb survives qualifier-stripping
+    # even though the verb itself was removed, leaving noise like "roughly"
+    # stuck to the ingredient name.
+    "roughly",
+    "finely",
+    "thinly",
+    "coarsely",
+    "lightly",
+    "thoroughly",
+    "loosely",
+    "gently",
+    "evenly",
+    "diced",
+    "minced",
+    "shredded",
+    "julienned",
+    "cubed",
+    "halved",
+    "quartered",
+    "trimmed",
+    "deveined",
+    "seeded",
+    "pitted",
+    "cored",
+    "zested",
+    "torn",
+    "shaved",
 }
 
 HERB_SPICE_FOOD_GROUP = "Spices and Herbs"
 HERB_MISSING_UNIT_FALLBACK_UNIT = "pinch"
 HERB_MISSING_UNIT_FALLBACK_GRAMS = 0.3
+_PREPARED_SALAD_TOKENS = {
+    "dressing", "fruit", "potato", "pasta", "tuna", "chicken", "egg",
+    "bean", "macaroni", "coleslaw",
+}
+_FRESH_HERB_TOKENS = {
+    "basil", "cilantro", "coriander", "dill", "mint", "parsley",
+    "oregano", "rosemary", "sage", "tarragon", "thyme",
+}
 # "to taste" / "as needed" / "optional" lines: a fixed, negligible-but-nonzero
 # weight so seasonings register a token contribution instead of vanishing to 0.
 TO_TASTE_MIN_GRAMS = 0.5
+GREASING_OIL_GRAMS = 2.0
+# Verification switch: "false" disables the reviewed cup/item tables and the generic spoon convention so a run can be
+# diffed against the audited behaviour. Production leaves it on.
+REVIEWED_TABLES_ENABLED = os.getenv("REVIEWED_TABLES_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
+# A recipe line with no amount must not show "0 g" to the end user (2026-09-25 product decision).
+# Blank-quantity oil is about a teaspoon. This is a policy placeholder, NOT calibrated: the source-truth
+# test had n=7 recipes with unspecified oil and error was flat from 0 to 40 g. Deep/pan-fried recipes absorb
+# far more, so they stay listed in the audit's `unquantified_oil_recipes`. Anything else gets the negligible
+# amount. Rows are flagged `blank_quantity_policy` and are not counted as measured coverage.
+BLANK_OIL_GRAMS = 5.0
+BLANK_DEFAULT_GRAMS = TO_TASTE_MIN_GRAMS
 LARGE_BARE_NUMBER_GRAMS_THRESHOLD = 50.0
 VEGETABLES_FOOD_GROUP = "Vegetables and Vegetable Products"
 LLM_UNIT_GRAMS_CSV_PATH = (
@@ -460,8 +689,20 @@ OFFLINE_REFERENCE_DATASET_CSV_PATH = (
     / "weight_reference"
     / "ingredient_unit_reference_dataset.csv"
 )
+REVIEWED_OPENROUTER_REFERENCE_CSV_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "data"
+    / "processed"
+    / "ingredient_parsing_final"
+    / "2026-09-24"
+    / "weight"
+    / "reviewed_openrouter_weight_references.csv"
+)
 OFFLINE_REFERENCE_DATASET_ENABLED = os.getenv(
     "OFFLINE_REFERENCE_DATASET_ENABLED", "true"
+).strip().lower() in {"1", "true", "yes", "on"}
+OFFLINE_LLM_REBUILT_ENABLED = os.getenv(
+    "OFFLINE_LLM_REBUILT_ENABLED", "false"
 ).strip().lower() in {"1", "true", "yes", "on"}
 OFFLINE_REFERENCE_MIN_CONFIDENCE = float(
     os.getenv("OFFLINE_REFERENCE_MIN_CONFIDENCE", "0.7")
@@ -476,6 +717,14 @@ OFFLINE_REFERENCE_NOTE = (
 # env flag back on only after a verified rebuild lands.
 RECIPE1M_LLM_FALLBACK_ENABLED = os.getenv(
     "RECIPE1M_LLM_FALLBACK_ENABLED", "false"
+).strip().lower() in {"1", "true", "yes", "on"}
+CACHED_LLM_UNIT_GRAMS_ENABLED = os.getenv(
+    "CACHED_LLM_UNIT_GRAMS_ENABLED", "false"
+).strip().lower() in {"1", "true", "yes", "on"}
+# Off by default (2026-09-25): a live LLM estimate would replace any low-confidence reviewed/convention weight
+# with an unreviewed number. Set LIVE_WEIGHT_LLM_ENABLED=true to opt in.
+LIVE_WEIGHT_LLM_ENABLED = os.getenv(
+    "LIVE_WEIGHT_LLM_ENABLED", "false"
 ).strip().lower() in {"1", "true", "yes", "on"}
 # Verifier guards for live/cached LLM portion estimates. An 8B sometimes leaks a
 # unit-conversion constant when it should be estimating a portion (e.g. "28.35 g
@@ -516,6 +765,11 @@ HERB_SPICE_HINT_TOKENS = {
     "mint",
     "bay leaf",
     "cardamom",
+    "masala",
+    "sumac",
+    "dukkah",
+    "shichimi",
+    "zaatar",
 }
 PINCH_FALLBACK_EXCLUDED_TOKENS = {
     "scallion",
@@ -657,6 +911,128 @@ USDA_LINKS_EMBED_MAX_DISTANCE = float(
 USDA_LINKS_EMBED_MIN_CONFIDENCE = float(
     os.getenv("USDA_LINKS_EMBED_MIN_CONFIDENCE", "0.65")
 )
+USDA_QUERY_ALIASES = (
+    (re.compile(r"\byoghurts?\b"), "yogurt"),
+    (re.compile(r"\bbreadcrumbs?\b"), "bread crumbs"),
+    (re.compile(r"\baubergines?\b"), "eggplant"),
+    (re.compile(r"\bcourgettes?\b"), "zucchini"),
+    (re.compile(r"\bsilverbeet\b"), "swiss chard"),
+    (re.compile(r"\bfris[eé]e\b"), "endive"),
+    (re.compile(r"\brockmelon\b"), "cantaloupe"),
+    (re.compile(r"\bprawns?\b"), "shrimp"),
+    (re.compile(r"\bcornflour\b"), "cornstarch"),
+    (re.compile(r"\bpepitas?\b"), "pumpkin seeds"),
+    (re.compile(r"\bcraisins?\b"), "dried cranberries"),
+    (re.compile(r"\blinseeds?\b"), "flaxseed"),
+    (re.compile(r"\b(?:orzo|risoni)\b"), "pasta"),
+    (re.compile(r"\bbroccolini\b"), "broccoli"),
+    (re.compile(r"\b(?:bok\s+choy|pak\s+choi)\b"), "chinese cabbage"),
+    (re.compile(r"\bgai\s+lan\b"), "chinese broccoli"),
+    (re.compile(r"\bcapsicums?\b"), "bell pepper"),
+    (re.compile(r"\bbocconcini\b"), "mozzarella"),
+    (re.compile(r"\bkumara\b"), "sweet potato"),
+    (re.compile(r"\bcavolo\s+nero\b"), "kale"),
+    (re.compile(r"\bscallions?\b"), "green onion"),
+    (re.compile(r"\bbeansprouts?\b"), "bean sprouts"),
+    (re.compile(r"\bgelatine\b"), "gelatin"),
+    (re.compile(r"\bgingerroot\b"), "ginger"),
+    (re.compile(r"\bbranzino\b"), "sea bass"),
+    (re.compile(r"\bpaw\s*paw\b"), "papaya"),
+)
+# Grams per US cup (240 ml) for volume measures of common foods. Values are from the local USDA SR
+# portion table (data/processed/usda/usda-weights.json) except rows marked "convention". The
+# generic USDA name lookup misses many of these (caster/icing sugar, rolled oats, tomato paste...),
+# which left 100+ volume rows unresolved.
+_REVIEWED_CUP_GRAMS = (
+    (re.compile(r"\b(?:icing|powdered|confectioners?|frosting)\s+sugar\b|\bicing\b"), 120.0, "powdered sugar (USDA unsifted)"),
+    (re.compile(r"\b(?:caster|castor|granulated|golden caster|white)\s+sugar\b|\bsugar\b(?!.*(?:brown|icing|powdered|snap))"), 200.0, "granulated sugar (USDA)"),
+    (re.compile(r"\b(?:self[- ]raising|self[- ]rising|plain|all[- ]purpose|white|baking)\s+flour\b|\bflour\b(?!.*whole)"), 125.0, "white flour (USDA)"),
+    (re.compile(r"\b(?:wholemeal|whole[- ]?wheat|whole grain)\b.*\bflour\b|\bflour\b.*\bwhole"), 120.0, "whole-grain flour (USDA)"),
+    (re.compile(r"\b(?:biscuit|baking|bread|pancake)\s+mix\b"), 125.0, "flour-based mix (convention: white flour)"),
+    (re.compile(r"\bwheat[- ]?germ\b"), 115.0, "wheat germ (USDA)"),
+    (re.compile(r"\b(?:rolled|porridge|jumbo|old[- ]fashioned)?\s*oats?\b|\boatmeal\b"), 81.0, "rolled oats (USDA regular, dry)"),
+    (re.compile(r"\btomato\s+(?:paste|pur[eé]e)\b|\bsun[- ]?dried tomato paste\b"), 262.0, "tomato paste (USDA canned)"),
+    (re.compile(r"\bchia\b"), 192.0, "chia seeds (convention: 12 g/tbsp)"),
+    (re.compile(r"\b(?:flax(?:seed)?|linseed|lsa)\b"), 112.0, "ground flaxseed (USDA 7 g/tbsp)"),
+    (re.compile(r"\bblackcurrants?\b|\bcurrants?\b"), 112.0, "currants (USDA)"),
+    (re.compile(r"\b(?:freekeh|farro|spelt|wheat berries)\b"), 184.0, "whole wheat grain (convention)"),
+    (re.compile(r"\bsago\b|\btapioca\b"), 152.0, "tapioca pearls (USDA)"),
+    (re.compile(r"\b(?:penne|rigatoni|fusilli|macaroni|pasta)\b"), 100.0, "dry short pasta (USDA penne 95, elbows 122)"),
+    (re.compile(r"\bcorn ?flakes\b"), 28.0, "corn flakes cereal (convention)"),
+    (re.compile(r"\bchana dhal\b|\bsplit chickpeas\b"), 200.0, "split chickpeas dry (convention)"),
+    (re.compile(r"\bbroccoslaw\b|\bslaw\b"), 90.0, "broccoli slaw (convention)"),
+    (re.compile(r"\bedamame\b"), 155.0, "edamame (USDA)"),
+    (re.compile(r"\bsun[- ]?dried tomatoes\b"), 54.0, "sun-dried tomatoes (USDA)"),
+    (re.compile(r"\bpassion ?fruit\b"), 236.0, "passion fruit pulp (USDA)"),
+    (re.compile(r"\bhummus\b"), 246.0, "hummus (USDA)"),
+    (re.compile(r"\bspring onions?\b|\bscallions?\b"), 100.0, "spring onion chopped (USDA)"),
+    (re.compile(r"\bribbons\b"), 100.0, "vegetable ribbons (convention)"),
+    (re.compile(r"\bcorn ?flour\b|\bcorn ?starch\b"), 128.0, "cornstarch (USDA)"),
+    (re.compile(r"\bgravy\b"), 128.0, "gravy granules (convention)"),
+    (re.compile(r"\bbread ?crumbs\b"), 45.0, "fresh breadcrumbs (matches the existing lookup)"),
+    (re.compile(r"\bsplenda\b"), 24.0, "granulated sucralose (convention)"),
+    (re.compile(r"\bnatvia\b|\berythritol\b"), 190.0, "erythritol sweetener (convention)"),
+    (re.compile(r"\bconserve\b"), 320.0, "jam (USDA)"),
+    (re.compile(r"\bbaking soda\b|\bbicarbonate\b"), 220.0, "baking soda (USDA 4.6 g/tsp)"),
+    (re.compile(r"\b(?:lemon|lime|orange)\s+(?:zest|peel|rind)\b|\bzest\b"), 96.0, "citrus zest (USDA lemon peel 6 g/tbsp)"),
+    (re.compile(r"\b(?:curry|tandoori|laksa|chipotle|lemongrass|wasabi|tamarind|korma|sambal|gochujang)\b.*\b(?:paste|oelek)\b|\bgochujang\b|\bsambal oelek\b|\bmiso\b|\bpaste\b"), 275.0, "paste (USDA miso 275 g/cup)"),
+    (re.compile(r"\b(?:active )?(?:dried )?yeast\b(?!.*extract)"), 135.0, "dry yeast (convention)"),
+    (re.compile(r"\bnutritional yeast\b"), 80.0, "nutritional yeast flakes (convention)"),
+    (re.compile(r"\b(?:fennel|mustard|poppy|sesame|caraway|cumin|coriander|celery|nigella) seeds?\b|\bpomegranate seeds\b"), 140.0, "seeds (convention ~3 g/tsp)"),
+    (re.compile(r"\bflaked almonds\b|\bsliced almonds\b"), 92.0, "sliced almonds (USDA)"),
+    (re.compile(r"\bpistachios?\b"), 123.0, "pistachios (USDA)"),
+    (re.compile(r"\bpecans?\b|\bwalnuts?\b"), 100.0, "chopped nuts (USDA pecan halves 99)"),
+    (re.compile(r"\b(?:red |green |sweet |white |brown |spring )?onions?\b(?!.*(?:powder|salt|flakes|soup))"), 160.0, "onion chopped (USDA)"),
+    (re.compile(r"\bonion flakes\b"), 55.0, "dried onion flakes (convention)"),
+    (re.compile(r"\bdry mustard\b|\bmustard powder\b"), 87.0, "dry mustard (convention)"),
+    (re.compile(r"\b(?:prepared|dijon|wholegrain|yellow|brown)?\s*mustard\b(?!.*(?:seed|greens))"), 249.0, "prepared mustard (USDA)"),
+    (re.compile(r"\bhorseradish\b"), 240.0, "prepared horseradish (convention)"),
+    (re.compile(r"\b(?:kosher|flaky)\s+salt\b"), 190.0, "kosher salt (convention)"),
+    (re.compile(r"\b(?:sea|himalayan|celery|table|pink)\s+salt\b|\bsalt\b"), 292.0, "salt (USDA table salt)"),
+    (re.compile(r"\b(?:tzatziki|raita)\b|\bcream\b"), 245.0, "yogurt-based (USDA yogurt)"),
+    (re.compile(r"\b(?:tomato relish|chutney|marmalade|redcurrant jelly|jelly)\b|\bcurrant jelly\b"), 320.0, "jam-like (USDA jam)"),
+    (re.compile(r"\bunsalted butter\b|\bbutter\b"), 227.0, "butter (USDA)"),
+    (re.compile(r"\bdark chocolate\b|\bchocolate\b"), 170.0, "chopped chocolate (convention)"),
+    (re.compile(r"\bmuesli\b|\bgranola\b"), 85.0, "muesli (convention)"),
+    (re.compile(r"\bgoji\b|\bdried fruit\b|\braisins?\b|\bsultanas?\b"), 150.0, "dried fruit (USDA raisins 145)"),
+    (re.compile(r"\bdry milk\b|\bmilk powder\b|\bnonfat dry milk\b"), 120.0, "dry milk (USDA)"),
+    (re.compile(r"\b(?:fresh )?chives\b"), 48.0, "chopped chives (USDA 3 g/tbsp)"),
+    (re.compile(r"\bmarjoram\b|\boregano\b|\bthyme\b|\brosemary\b|\bsage\b|\bdried herbs?\b"), 30.0, "dried herb (USDA)"),
+    (re.compile(r"\bextract\b|\bessence\b"), 208.0, "extract (USDA vanilla)"),
+    (re.compile(r"\bbouillon granules\b|\bstock granules\b"), 160.0, "bouillon granules (convention)"),
+    (re.compile(r"\barmagnac\b|\bbrandy\b|\brum\b|\bvodka\b|\bwhisk(?:e)?y\b|\bgin\b|\bsherry\b"), 228.0, "spirit (density ~0.95)"),
+    (re.compile(r"\bhoney\b"), 339.0, "honey (USDA)"),
+    (re.compile(r"\bmaple syrup\b"), 315.0, "maple syrup (USDA)"),
+    (re.compile(r"\bgolden syrup\b|\bcorn syrup\b|\bsyrup\b"), 340.0, "syrup (convention)"),
+    (re.compile(r"\bcooked chicken\b|\bchicken breast\b|\bbarbecue chicken\b"), 140.0, "cooked diced chicken (USDA)"),
+    (re.compile(r"\bground (?:turkey|beef|pork)\b|\bmince\b"), 225.0, "raw ground meat (convention)"),
+    (re.compile(r"\bcapers?\b"), 138.0, "capers (USDA 8.6 g/tbsp drained)"),
+    (re.compile(r"\bolives?\b"), 134.0, "olives (USDA 8.4 g/tbsp)"),
+    (re.compile(r"\b(?:baby\s+)?spinach\b"), 30.0, "spinach (USDA raw)"),
+    (re.compile(r"\b(?:rocket|arugula)\b"), 20.0, "arugula (USDA raw)"),
+    (re.compile(r"\b(?:salad|mesclun|lettuce|mixed)\s+(?:greens|leaves)\b|\bmixed salad\b|\bsalad (?:mix|bag)\b|\bmesclun\b"), 28.0, "salad leaves (USDA lettuce)"),
+    (re.compile(r"(?<!split )(?<!black-eyed )(?<!black eyed )\b(?:frozen\s+)?peas\b"), 134.0, "frozen peas (USDA)"),
+    (re.compile(r"(?<!cream )(?<!cottage )(?<!ricotta )(?<!mascarpone )\bcheese\b(?!\s*sauce)|\bcheddar\b|\bmozzarella\b"), 112.0, "shredded cheese (USDA mozzarella)"),
+    (re.compile(r"\bpumpkin seeds?\b"), 129.0, "pumpkin seeds (USDA)"),
+    (re.compile(r"\bsunflower seeds?\b"), 140.0, "sunflower seeds (USDA)"),
+    (re.compile(r"\bcashews?\b"), 137.0, "cashews (USDA dry roasted)"),
+    (re.compile(r"\b(?:peanut|nut|seed)\s+butter\b|\bsunflower seed butter\b"), 258.0, "nut butter (USDA peanut butter)"),
+    (re.compile(r"\bred cabbage\b|\bcabbage\b"), 89.0, "cabbage chopped (USDA)"),
+    (re.compile(r"\bcapsicum\b|\bbell pepper\b"), 149.0, "sweet pepper chopped (USDA)"),
+    (re.compile(r"\bpineapple\b"), 165.0, "pineapple chunks (USDA)"),
+    (re.compile(r"\b(?:banana|mango)\b"), 150.0, "sliced banana (USDA)"),
+    (re.compile(r"\bapple\s+pur[eé]e\b|\bapplesauce\b"), 244.0, "applesauce (USDA)"),
+    (re.compile(r"\b(?:black\s+)?treacle\b|\bmolasses\b"), 337.0, "molasses (USDA)"),
+    (re.compile(r"\bjam\b|\bpreserves?\b"), 320.0, "jam (USDA 20 g/tbsp)"),
+    (re.compile(r"\bvanilla\s+(?:essence|extract|paste|bean paste)\b"), 208.0, "vanilla extract (USDA)"),
+    (re.compile(r"\b(?:dairy[- ]free\s+)?spread\b|\bmargarine\b"), 232.0, "margarine spread (USDA tub)"),
+    (re.compile(r"\b(?:ground\s+)?(?:cookies|gingersnaps?|biscuits)\b"), 108.0, "cookie crumbs (convention: bread crumbs)"),
+    (re.compile(r"\bgreen vegetables\b|\bvegetables\b"), 100.0, "chopped vegetables (convention)"),
+    (re.compile(r"cr[eè]me fra[iî]che"), 240.0, "creme fraiche (USDA sour cream 230)"),
+    (re.compile(r"\b(?:ground )?(?:caraway|cumin|paprika|cinnamon|nutmeg|turmeric|allspice|ginger)\b"), 120.0, "ground spice (USDA cinnamon 2.6 g/tsp)"),
+)
+# Unknown solid measured with a spoon: small amounts, so a rough convention beats "not converted".
+_GENERIC_SPOON_GRAMS = {"teaspoon": 4.0, "tsp": 4.0, "dessertspoon": 8.0, "tablespoon": 12.0, "tbsp": 12.0}
 LIVE_LLM_CONFIDENCE_THRESHOLD = float(
     os.getenv("LIVE_LLM_CONFIDENCE_THRESHOLD", "0.45")
 )
@@ -688,6 +1064,22 @@ def _candidate_label(candidate: dict) -> str:
         or candidate.get("name")
         or candidate.get("document")
         or ""
+    )
+
+
+def _usda_query_alias(name: str) -> str:
+    """Translate reviewed regional names before USDA retrieval."""
+    query = str(name or "").strip().lower()
+    for pattern, replacement in USDA_QUERY_ALIASES:
+        query = pattern.sub(replacement, query)
+    return re.sub(r"\s+", " ", query).strip()
+
+
+def _candidate_has_lexical_identity(query: str, candidate: dict) -> bool:
+    """Reject embedding-only food identities that merely share a portion unit."""
+    return any(
+        _lexical_overlap_score(query, text) > 0.0
+        for text in (_candidate_label(candidate), str(candidate.get("document") or ""))
     )
 
 
@@ -885,7 +1277,8 @@ def _hybrid_usda_candidate_score(candidate: dict, query: str) -> float:
 
 @lru_cache(maxsize=2048)
 def _embedding_usda_link(name: str, unit: Optional[str] = None) -> Optional[dict]:
-    query = str(name or "").strip()
+    original_query = str(name or "").strip()
+    query = _usda_query_alias(original_query)
     if not query:
         return None
 
@@ -950,6 +1343,8 @@ def _embedding_usda_link(name: str, unit: Optional[str] = None) -> Optional[dict
             mismatch_reason = _usda_link_mismatch_reason(query, candidate)
             if mismatch_reason is not None:
                 continue
+            if not _candidate_has_lexical_identity(query, candidate):
+                continue
 
             # Prefer candidates that can support the parsed non-mass unit,
             # then rank by minimum distance.
@@ -963,6 +1358,8 @@ def _embedding_usda_link(name: str, unit: Optional[str] = None) -> Optional[dict
 
     for candidate in _lexical_usda_link_candidates(query):
         if _usda_link_mismatch_reason(query, candidate) is not None:
+            continue
+        if not _candidate_has_lexical_identity(query, candidate):
             continue
         supports_unit = True
         usda_id = str(candidate.get("usda_id") or "").strip()
@@ -1010,6 +1407,9 @@ def _embedding_usda_link(name: str, unit: Optional[str] = None) -> Optional[dict
 
     best = dict(all_candidates[0])
     best.pop("_supports_unit", None)
+    if query != original_query.lower():
+        best["original_query"] = original_query
+        best["aliased_query"] = query
     if str(best.get("match_source") or "") in {"embedding", "hybrid_lexical", "lexical"}:
         best["match_source"] = "hybrid"
     return best
@@ -1030,6 +1430,11 @@ def _clean_unit(unit_part: str) -> Optional[str]:
         normalized = _UNIT_ALIASES.get(token, token)
         if normalized in _COUNTABLE_NOUNS:
             return _COUNTABLE_NOUNS[normalized]
+        if normalized in _VOLUME_UNIT_ML or normalized in {
+            "pinch", "handful", "spray", "bunch", "sprig", "dash",
+            "squeeze", "zest", "portion", "punnet", "cm", "inch",
+        }:
+            return normalized
 
     if len(tokens) >= 2:
         first_two = " ".join(tokens[:2])
@@ -1084,6 +1489,35 @@ def _normalize_for_duplicate_check(value: Any) -> str:
     text = re.sub(r"\([^)]*\)", "", text).strip()  # drop "(as needed)" etc.
     text = re.sub(r"s$", "", text)  # crude singular/plural fold
     return text
+
+
+_BLANK_NEGLIGIBLE_WORDS = {"water", "ice", "leaf", "leaves", "sprig", "sprigs"} | _FRESH_HERB_TOKENS
+
+
+def _is_blank_negligible_ingredient(name: Any, measurement: Any) -> bool:
+    # Water and garnish herbs with no quantity: nutrient contribution is nil at
+    # any plausible amount, so the negligible placeholder is safe. Salt and oil
+    # are deliberately excluded (sodium / kcal matter) and stay unresolved.
+    if str(measurement or "").strip():
+        return False
+    words = [w for w in re.findall(r"[a-z]+", str(name or "").lower()) if w not in _QUALIFIER_WORDS]
+    return bool(words) and all(w in _BLANK_NEGLIGIBLE_WORDS for w in words)
+
+
+_SALT_NAME_WORDS = {
+    "salt", "sea", "kosher", "table", "himalayan", "pink", "flaky", "rock", "fine", "coarse",
+    "maldon", "celtic", "iodised", "iodized", "black", "smoked",
+}
+
+
+def _is_blank_salt(name: Any, measurement: Any) -> bool:
+    # Product decision (2026-09-25): plain salt with no amount is one pinch. Sodium drives
+    # Nutri-Score, so this is deliberately a policy value, flagged on the detail.
+    text = str(measurement or "").strip()
+    if text and not re.fullmatch(r"\d+(?:\.\d+)?", text):  # blank, or a bare number with no unit
+        return False
+    words = re.findall(r"[a-z]+", str(name or "").lower())
+    return "salt" in words and all(w in _SALT_NAME_WORDS for w in words) and "black" not in words
 
 
 def _is_zero_measurement(measurement: Any) -> bool:
@@ -1155,6 +1589,28 @@ def _liquid_density_for_name(
         "spread",
     }:
         return 1.10, "nut/seed butter"
+    if "tahini" in name_tokens:
+        return 1.10, "tahini"
+    if "pesto" in name_tokens:
+        return 1.00, "pesto"
+    if name_tokens & {"ketchup", "harissa", "mayonnaise", "vegannaise"}:
+        return 1.10, "thick condiment"
+    if "kecap" in name_tokens and "manis" in name_tokens:
+        return 1.20, "kecap manis"
+    if "creme" in name_tokens and "fraiche" in name_tokens:
+        return 1.00, "creme fraiche"
+    if "quark" in name_tokens:
+        return 1.00, "quark"
+    if name_tokens & ALCOHOL_TOKENS:
+        return 0.95, "alcoholic beverage"
+    if name_tokens & {"yogurt", "yoghurt"}:
+        return 1.03, "yogurt"
+    if name_tokens & {"passata", "sherry", "beer", "stout", "mirin", "vinaigrette"}:
+        return 1.00, "pourable food"
+    if name_tokens & {"cider", "lager", "kirsch", "tokaji", "unicum", "antica", "liqueur"}:
+        return 1.0, "alcoholic beverage"  # "dry cider" is a drink, not a dry ingredient
+    if name_tokens & {"paste", "concentrate", "concentrated", "powder", "dry"}:
+        return None
     for token, density in _LIQUID_DENSITY_BY_TOKEN.items():
         if token in name_tokens:
             return density, token
@@ -1353,9 +1809,48 @@ def _split_measurement(measurement: Any) -> Tuple[Optional[str], Optional[str], 
     return qty, unit, False
 
 
-def _infer_unit_from_name(name: str) -> Optional[str]:
-    tokens = re.split(r"[\s,-]+", str(name).strip().lower())
+def _infer_unit_from_name(name: str, bare_count: bool = True) -> Optional[str]:
+    """``bare_count`` is False for a line with NO amount: only a bare count ("4 baguettes") may take a reviewed default unit."""
+    name_norm = str(name).strip().lower()
+    tokens = re.split(r"[\s,-]+", name_norm)
+    if "rice paper" in name_norm:
+        return "sheet"
+    if "spray" in tokens and ("oil" in tokens or "cooking" in tokens):
+        return "spray"
+    if "oil" in tokens:
+        # "olive oil" / "sesame oil": the countable noun is a modifier, not the item.
+        return None
+    if bare_count and "whole" in tokens and set(tokens) & {"chicken", "duck"} and not set(tokens) & _BIRD_PART_TOKENS:
+        return "whole"
+    if bare_count and set(tokens) & {"lettuce", "lettuces"} and set(tokens) & {"iceberg", "cos", "romaine"} and not set(tokens) & {"leaf", "leaves", "cup", "cups"}:
+        return "head"
+    if bare_count and set(tokens) & {"turnip", "turnips"}:
+        return "whole"
+    if bare_count and set(tokens) & {"brussels", "brussel"} and set(tokens) & {"sprout", "sprouts"}:
+        return "sprout"
+    if bare_count and set(tokens) & {"portobello", "portabella", "portabello"}:
+        return "piece"
+    if "fennel" in tokens:
+        return "bulb"
+    if "lettuce" in tokens and set(tokens) & {"leaf", "leaves", "cup", "cups"}:
+        return "leaf"
+    if "star" in tokens and "anise" in tokens:
+        return "whole"
+    if "vanilla" in tokens and ("bean" in tokens or "pod" in tokens):
+        return "pod"
+    if "weet-bix" in name_norm or "weet bix" in name_norm:
+        return "whole"
+    if "bouquet garni" in name_norm:
+        return "whole"
+    if "ginger" in tokens:
+        return "piece"
+    if "lemongrass" in tokens or "lemon grass" in name_norm:
+        return "stalk"
+    if "cinnamon" in tokens:
+        return "stick"
     preferred_units = {
+        "leaf",
+        "leaves",
         "stalk",
         "stalks",
         "slice",
@@ -1389,9 +1884,9 @@ def _infer_unit_from_name(name: str) -> Optional[str]:
         if token in preferred_units and token in _COUNTABLE_NOUNS:
             return _COUNTABLE_NOUNS[token]
     for token in tokens:
-        if token in _COUNTABLE_NOUNS:
+        if token in _COUNTABLE_NOUNS and token not in {"whole", "wholes"}:
             return _COUNTABLE_NOUNS[token]
-    return None
+    return reviewed_default_unit(name_norm) if bare_count and REVIEWED_TABLES_ENABLED else None
 
 
 def _parse_quantity_value(value: Optional[str]) -> Optional[float]:
@@ -1436,6 +1931,10 @@ def _common_unit_reference_grams(
     name_norm = _normalize_lookup_ingredient(name)
     tokens = _name_tokens(name_norm)
     tokens = tokens | {_singularize_token(token) for token in tokens}
+    if unit_norm in set(_COUNTABLE_NOUNS.values()):
+        # The parsed count noun is often more reliably singular than the
+        # lightweight name singularizer (for example limes -> lime).
+        tokens.add(unit_norm)
     measurement_tokens = _name_tokens(str(measurement or ""))
     size_hint = next(
         (size for size in ("small", "medium", "large") if size in measurement_tokens or size in tokens),
@@ -1444,6 +1943,12 @@ def _common_unit_reference_grams(
 
     if unit_norm == "stick" and "butter" in tokens:
         return 113.0, "butter stick"
+    if unit_norm == "clove" and "garlic" in tokens:
+        return 3.0, "garlic clove"
+    if unit_norm == "clove" and tokens & {"clove", "cloves"}:
+        return 0.2, "whole spice clove"
+    if unit_norm == "celery" and "celery" in tokens:
+        return 40.0, "celery stalk"
     if unit_norm == "egg" and ("egg" in tokens or "eggs" in tokens):
         if "white" in tokens or "whites" in tokens:
             return 33.0, "large egg white"
@@ -1454,7 +1959,11 @@ def _common_unit_reference_grams(
         return 33.0, "large egg white"
     if unit_norm == "egg_yolk" and ("egg" in tokens or "yolk" in tokens or "yolks" in tokens):
         return 18.0, "large egg yolk"
-    if unit_norm == "pinch" and (tokens & PEPPER_PINCH_TOKENS or _is_pinch_default_candidate(name, None, False)):
+    if unit_norm == "pinch" and (
+        tokens & PEPPER_PINCH_TOKENS
+        or _is_pinch_default_candidate(name, None, _has_herb_spice_hint(name))
+        or tokens & {"sugar", "salt"}
+    ):
         return HERB_MISSING_UNIT_FALLBACK_GRAMS, "pinch"
     if unit_norm == "dash" and _is_pinch_default_candidate(name, None, False):
         return _VOLUME_UNIT_ML["dash"], "seasoning dash"
@@ -1466,18 +1975,22 @@ def _common_unit_reference_grams(
         return 2.0, "tea bag"
     if unit_norm == "cake" and "yeast" in tokens:
         return 18.0, "compressed yeast cake"
-    if unit_norm == "cup" and tokens & ICE_TOKENS:
+    if unit_norm == "cup" and "ice" in tokens and "water" not in tokens:
         return 140.0, "ice cubes cup"
     if unit_norm in {"whole", "piece"} and "cube" in tokens and "ice" in tokens:
         return 22.0, "ice cube"
     if unit_norm == "leaf" and tokens & HERB_LEAF_TOKENS:
         return 0.5, "herb leaf"
+    if unit_norm == "leaf" and "lettuce" in tokens:
+        return 10.0, "lettuce leaf"
     if (
         unit_norm == "bunch"
         and (
             tokens & {"scallion", "scallions"}
             or "green onion" in name_norm
             or "green onions" in name_norm
+            or "spring onion" in name_norm
+            or "spring onions" in name_norm
         )
     ):
         return 100.0, "scallion/green onion bunch"
@@ -1487,6 +2000,8 @@ def _common_unit_reference_grams(
             tokens & {"scallion", "scallions"}
             or "green onion" in name_norm
             or "green onions" in name_norm
+            or "spring onion" in name_norm
+            or "spring onions" in name_norm
         )
     ):
         return 15.0, "scallion/green onion"
@@ -1496,6 +2011,20 @@ def _common_unit_reference_grams(
         return 60.0, "soft herb bunch"
     if unit_norm == "bunch" and tokens & SPRIG_HERB_TOKENS:
         return 30.0, "herb bunch"
+    if unit_norm == "bunch" and "asparagus" in tokens:
+        return 450.0, "asparagus bunch"
+    if unit_norm == "bunch" and "broccolini" in tokens:
+        return 200.0, "broccolini bunch"
+    if unit_norm == "bunch" and tokens & {"bok", "choi", "choy", "pak"}:
+        return 300.0, "Asian greens bunch"
+    if unit_norm == "bunch" and "watercress" in tokens:
+        return 250.0, "watercress bunch"
+    if unit_norm == "bunch" and "chives" in tokens:
+        return 50.0, "chives bunch"
+    if unit_norm == "bunch" and ("silver beet" in name_norm or "silverbeet" in tokens):
+        return 250.0, "silverbeet bunch"
+    if unit_norm == "bunch" and tokens & {"radish", "radishes"}:
+        return 200.0, "radish bunch"
     if unit_norm == "sprig" and tokens & SPRIG_HERB_TOKENS:
         return 1.0, "herb sprig"
     single_count_unit = (
@@ -1520,6 +2049,43 @@ def _common_unit_reference_grams(
             "shallot",
             "jalapeno",
             "chile",
+            "pear",
+            "strawberry",
+            "kiwi",
+            "plum",
+            "apricot",
+            "prune",
+            "fig",
+            "grapefruit",
+            "mandarin",
+            "pomegranate",
+            "date",
+            "olive",
+            "grape",
+            "raisin",
+            "tortilla",
+            "wrap",
+            "pita",
+            "roll",
+            "thigh",
+            "drumstick",
+            "shank",
+            "cutlet",
+            "tenderloin",
+            "scallop",
+            "base",
+            "finger",
+            "biscuit",
+            "scallion",
+            "passionfruit",
+            "nectarine",
+            "swede",
+            "kumara",
+            "gherkin",
+            "naan",
+            "roti",
+            "cracker",
+            "oatcake",
         }
     )
     size_factor = _SIZE_FACTORS.get(unit_norm, _SIZE_FACTORS.get(size_hint or "", 1.0))
@@ -1528,12 +2094,18 @@ def _common_unit_reference_grams(
             return grams * size_factor, f"{unit_norm} {label}"
         return grams, label
 
+    if unit_norm in {"whole", "piece", "stalk", "cap"} and tokens & {"portobello", "portabella", "portabello"}:
+        return 84.0, "portobello cap (USDA)"
+    if single_count_unit and "lettuce" in tokens and tokens & {"leaf", "leaves"}:
+        return sized(10.0, "lettuce leaf")
     if unit_norm in {"whole", "egg"} and "egg" in tokens:
         return 50.0, "large egg"
     if single_count_unit and "apple" in tokens:
         return sized(182.0, "apple")
     if single_count_unit and "banana" in tokens:
         return sized(118.0, "banana")
+    if single_count_unit and tokens & {"mango", "mangos", "mangoes"}:
+        return sized(200.0, "mango")
     if single_count_unit and "lemon" in tokens:
         return sized(58.0, "lemon")
     if single_count_unit and "lime" in tokens:
@@ -1560,15 +2132,96 @@ def _common_unit_reference_grams(
         return sized(17.0, "cherry/grape tomato")
     if single_count_unit and "tomato" in tokens and (tokens & {"plum", "roma"}):
         return sized(62.0, "plum tomato")
+    if single_count_unit and "tomato" in tokens and tokens & {"dried", "sundried"}:
+        return sized(3.0, "USDA oil-packed sun-dried tomato")
     if single_count_unit and "tomato" in tokens:
         return sized(123.0, "tomato")
     if single_count_unit and "peach" in tokens:
         return sized(150.0, "peach")
+    if single_count_unit and "pineapple" in tokens:
+        return sized(905.0, "pineapple edible portion")
+    if single_count_unit and "pear" in tokens:
+        return sized(178.0, "pear")
+    if single_count_unit and "strawberry" in tokens:
+        return sized(12.0, "strawberry")
+    if single_count_unit and "kiwi" in tokens:
+        return sized(69.0, "kiwifruit")
+    if single_count_unit and "plum" in tokens:
+        return sized(66.0, "plum")
+    if single_count_unit and "apricot" in tokens:
+        return sized(35.0, "apricot")
+    if single_count_unit and "prune" in tokens:
+        return sized(9.5, "prune")
+    if single_count_unit and "fig" in tokens:
+        return sized(50.0, "fig")
+    if single_count_unit and "grapefruit" in tokens:
+        return sized(230.0, "grapefruit")
+    if single_count_unit and "mandarin" in tokens:
+        return sized(88.0, "mandarin")
+    if single_count_unit and "pomegranate" in tokens:
+        return sized(282.0, "pomegranate")
+    if single_count_unit and "date" in tokens:
+        return sized(7.0, "date")
+    if single_count_unit and "olive" in tokens:
+        return sized(4.0, "olive")
+    if single_count_unit and "grape" in tokens:
+        return sized(5.0, "grape")
+    if single_count_unit and "raisin" in tokens:
+        return sized(0.5, "raisin")
+    if single_count_unit and "passionfruit" in tokens:
+        return sized(18.0, "passionfruit")
+    if single_count_unit and "nectarine" in tokens:
+        return sized(142.0, "nectarine")
+    if single_count_unit and "swede" in tokens:
+        return sized(800.0, "swede")
+    if single_count_unit and "kumara" in tokens:
+        return sized(200.0, "kumara")
+    if single_count_unit and "scallion" in tokens:
+        return sized(15.0, "scallion")
+    if single_count_unit and "gherkin" in tokens:
+        return sized(35.0, "gherkin")
     if single_count_unit and "shallot" in tokens:
         return sized(25.0, "shallot")
+    if single_count_unit and "garlic" in tokens:
+        return sized(3.0, "garlic clove")
+    if single_count_unit and "celery" in tokens:
+        return sized(40.0, "celery stalk")
+    if single_count_unit and "chicken" in tokens and tokens & {"breast", "fillet"}:
+        return sized(174.0, "chicken breast")
+    if single_count_unit and "cabbage" in tokens:
+        return sized(900.0, "cabbage head")
+    if single_count_unit and "cucumber" in tokens:
+        return sized(250.0, "cucumber")
+    if single_count_unit and tokens & {"radish", "radishes"}:
+        return sized(15.0, "radish")
+    if single_count_unit and "fennel" in tokens:
+        return sized(234.0, "fennel bulb")
+    if single_count_unit and "spinach" in tokens:
+        return sized(250.0, "spinach bunch")
+    if single_count_unit and "egg" in tokens and not tokens & {
+        "yolk",
+        "yolks",
+        "white",
+        "whites",
+    }:
+        return sized(50.0, "egg")
+    if single_count_unit and "papaya" in tokens:
+        return sized(500.0, "papaya edible portion")
+    if single_count_unit and "pumpkin" in tokens:
+        return sized(1000.0, "pumpkin")
+    if single_count_unit and "melon" in tokens:
+        return sized(1000.0, "melon")
+    if single_count_unit and tokens & {
+        "arbol", "morita", "chipotle", "guajillo", "ancho", "pasilla",
+    }:
+        return sized(2.0, "dried chile pepper")
     if single_count_unit and (tokens & {"jalapeno", "chile", "chilli", "chili"}):
         return sized(14.0, "jalapeno chile")
-    if single_count_unit and ("zucchini" in tokens or "squash" in tokens):
+    if (
+        single_count_unit
+        and ("zucchini" in tokens or "squash" in tokens)
+        and not tokens & {"blossom", "blossoms", "flower", "flowers"}
+    ):
         return sized(196.0, "summer squash")
     if (
         single_count_unit
@@ -1576,28 +2229,158 @@ def _common_unit_reference_grams(
         and tokens & {"pepper", "chile", "chilli", "chili"}
     ):
         return sized(2.0, "dried chile pepper")
-    if single_count_unit and "pepper" in tokens:
+    if single_count_unit and tokens & {"pepper", "capsicum"}:
         return sized(120.0, "bell pepper")
+    if single_count_unit and tokens & {"eggplant", "aubergine"}:
+        return sized(458.0, "eggplant/aubergine")
+    if single_count_unit and "beetroot" in tokens:
+        return sized(82.0, "beetroot")
+    if single_count_unit and "parsnip" in tokens:
+        return sized(120.0, "parsnip")
+    if single_count_unit and "mushroom" in tokens:
+        return sized(18.0, "mushroom")
+    if single_count_unit and "leek" in tokens:
+        return sized(89.0, "leek")
+    if single_count_unit and "fennel" in tokens and tokens & {"bulb", "bulbs"}:
+        return sized(234.0, "fennel bulb")
+    if single_count_unit and tokens & {"courgette", "courgettes"}:
+        return sized(196.0, "courgette")
+    if single_count_unit and "egg" in tokens and tokens & {"yolk", "yolks"}:
+        return sized(18.0, "egg yolk")
+    if single_count_unit and "egg" in tokens and tokens & {"white", "whites"}:
+        return sized(33.0, "egg white")
+    if single_count_unit and tokens & {"prawn", "prawns", "shrimp"}:
+        return sized(20.0, "large prawn")
+    if single_count_unit and "celery" in tokens and tokens & {"stalk", "stalks"}:
+        return sized(40.0, "celery stalk")
+    if single_count_unit and tokens & {"wrap", "wraps", "tortilla", "tortillas"}:
+        return sized(50.0, "tortilla/wrap")
+    if single_count_unit and tokens & {"pita", "pitta", "pitas", "pittas"}:
+        return sized(60.0, "pita bread")
+    if single_count_unit and "roll" in tokens:
+        return sized(60.0, "bread roll")
     if single_count_unit and "lamb" in tokens and tokens & {"cutlet", "chop"}:
         return sized(113.0, "lamb cutlet")
+    if unit_norm == "thigh" and "chicken" in tokens:
+        return 125.0, "chicken thigh"
+    if unit_norm == "drumstick" and "chicken" in tokens:
+        return 95.0, "chicken drumstick"
+    if unit_norm == "shank" and "lamb" in tokens:
+        return 340.0, "lamb shank"
+    if unit_norm == "cutlet" and "lamb" in tokens:
+        return 113.0, "lamb cutlet"
+    if unit_norm == "tenderloin" and "chicken" in tokens:
+        return 100.0, "chicken tenderloin"
+    if unit_norm == "scallop" and "scallop" in tokens:
+        return 30.0, "large scallop"
     if unit_norm == "cube" and "watermelon" in tokens:
         return 8.0, "2cm watermelon cube"
     if unit_norm == "cube" and ("honeydew" in tokens or "melon" in tokens):
         return 8.0, "2cm melon cube"
+    if unit_norm == "cube" and tokens & {"stock", "bouillon"}:
+        return 10.0, "stock cube"
     if unit_norm == "sheet" and "nori" in tokens:
         return 2.5, "nori sheet"
+    if unit_norm == "sheet" and "rice" in tokens and "paper" in tokens:
+        return 9.0, "rice-paper sheet"
+    if unit_norm == "sheet" and tokens & {"puff", "shortcrust", "brik"}:
+        return 150.0, "pastry sheet"
+    if unit_norm == "stick" and "celery" in tokens:
+        return 40.0, "celery stalk"
+    if unit_norm == "stick" and "cinnamon" in tokens:
+        return 3.0, "cinnamon stick"
+    if unit_norm in {"stick", "stalk"} and (
+        "lemongrass" in tokens or "lemon grass" in name_norm
+    ):
+        return 12.0, "lemongrass stalk"
     if unit_norm == "stalk" and "celery" in tokens:
         return 40.0, "celery stalk"
     if unit_norm == "stalk" and "broccoli" in tokens:
         return 151.0, "broccoli stalk"
     if unit_norm == "bulb" and "fennel" in tokens:
         return 234.0 * size_factor, f"{size_hint or 'medium'} fennel bulb"
-    if unit_norm == "head" and "cauliflower" in tokens:
+    if unit_norm in {"head", "whole"} and "cauliflower" in tokens:
         return 575.0 * size_factor, f"{size_hint or 'medium'} cauliflower head"
     if unit_norm == "head" and "broccoli" in tokens:
         return 608.0 * size_factor, f"{size_hint or 'medium'} broccoli head"
+    if unit_norm == "head" and "baby" in tokens and tokens & {"cos", "lettuce"}:
+        return 163.0, "baby lettuce head"
+    if unit_norm == "head" and "lettuce" in tokens and "iceberg" in tokens:
+        return 539.0, "iceberg lettuce head (USDA medium)"
+    if unit_norm == "head" and "lettuce" in tokens and tokens & {"cos", "romaine"}:
+        return 626.0, "cos/romaine lettuce head (USDA)"
+    if unit_norm == "head" and "lettuce" in tokens:
+        return 500.0, "lettuce head"
+    if unit_norm == "sprout" and tokens & {"brussels", "brussel"}:
+        return 19.0, "brussels sprout (USDA)"
+    if unit_norm in _TURNIP_SIZE_GRAMS and tokens & {"turnip", "turnips"}:
+        return _TURNIP_SIZE_GRAMS[unit_norm], f"{unit_norm} turnip (USDA)"
+    if single_count_unit and tokens & {"turnip", "turnips"}:
+        return 122.0, "medium turnip (USDA)"
+    if single_count_unit and "muffin" in tokens and "english" in tokens:
+        return 57.0, "English muffin (USDA)"
+    if unit_norm == "leaf" and "lettuce" in tokens:
+        return 15.0, "lettuce leaf"
+    if unit_norm == "bulb" and "garlic" in tokens:
+        return 50.0, "garlic bulb"
+    if unit_norm == "piece" and "ginger" in tokens:
+        return 15.0, "thumb-sized ginger piece"
+    if unit_norm == "thumb" and "ginger" in tokens:
+        return 15.0, "thumb-sized ginger piece"
+    if unit_norm == "inch" and "ginger" in tokens:
+        return 7.5, "ginger inch"
+    if unit_norm == "long" and tokens & {"chile", "chilli", "pepper"}:
+        return 20.0, "long chile"
+    if unit_norm == "rasher":
+        return 30.0, "bacon rasher"
+    if unit_norm == "cob" and tokens & {"corn", "sweetcorn"}:
+        return 90.0, "corn cob kernels"
+    if unit_norm == "cup" and tokens & {"frisee", "endive"}:
+        return 50.0, "raw endive cup"
+    if unit_norm == "cup" and (
+        tokens & {"silverbeet", "chard"} or "silver beet" in name_norm
+    ):
+        return 36.0, "raw swiss chard cup"
+    if unit_norm == "cup" and "microgreens" in tokens:
+        return 20.0, "leafy microgreens cup"
+    if unit_norm == "cup" and "orecchiette" in tokens:
+        return 90.0, "dry small pasta cup"
+    if unit_norm == "cup" and tokens & {"courgette", "zucchini"}:
+        return 124.0, "raw zucchini cup"
+    if unit_norm == "cup" and "rice" in tokens:
+        return 185.0, "rice cup"
+    if unit_norm == "cup" and "polenta" in tokens:
+        return 160.0, "dry polenta cup"
+    if unit_norm == "cup" and "mesclun" in tokens:
+        return 20.0, "mesclun cup"
+    if unit_norm == "cup" and "tzatziki" in tokens:
+        return 240.0, "tzatziki cup"
+    if unit_norm == "cup" and "broccolini" in tokens:
+        return 88.0, "chopped broccolini cup"
+    if unit_norm == "cup" and tokens & {"bok", "choi", "choy", "pak"}:
+        return 70.0, "chopped Asian greens cup"
+    if unit_norm == "cup" and "rocket" in tokens:
+        return 20.0, "rocket/arugula cup"
+    if unit_norm == "cup" and "bread" in tokens and tokens & {"cube", "cubes"}:
+        return 35.0, "bread cubes cup"
+    if unit_norm == "cup" and "apple" in tokens:
+        return 125.0, "chopped apple cup"
+    if unit_norm == "cup" and "pineapple" in tokens:
+        return 165.0, "pineapple chunks cup"
+    if (
+        unit_norm == "cup"
+        and "vegetable" in tokens
+        and not tokens & {"stock", "broth", "bouillon"}
+    ):
+        if "leafy" in tokens:
+            return 40.0, "loose leafy vegetables cup"
+        if "frozen" in tokens:
+            return 182.0, "frozen mixed vegetables cup"
+        return 150.0, "mixed vegetables cup"
     if unit_norm == "breast" and tokens & POULTRY_TOKENS:
         return 174.0, "boneless chicken breast"
+    if unit_norm == "fillet" and tokens & {"anchovy", "anchovies"}:
+        return 5.0, "anchovy fillet"
     if unit_norm == "fillet" and tokens & FISH_SHELLFISH_TOKENS:
         return 120.0, "fish fillet"
     if unit_norm == "prawn" and ("prawn" in tokens or "shrimp" in tokens):
@@ -1618,23 +2401,180 @@ def _common_unit_reference_grams(
         return 226.0, "cream cheese package"
     if unit_norm == "packet" and "yeast" in tokens:
         return 7.0, "yeast packet"
-    if unit_norm == "sheet" and "lasagna" in tokens:
+    if (
+        (unit_norm == "sheet" or single_count_unit)
+        and tokens & {"lasagna", "lasagne"}
+        and tokens & {"sheet", "sheets"}
+    ):
         return 21.0, "lasagna sheet"
+    if (
+        (unit_norm == "sheet" or single_count_unit)
+        and tokens & {"filo", "phyllo"}
+    ):
+        return 18.0, "filo/phyllo sheet"
     if unit_norm == "can" and "tomato" in tokens:
         return 411.0, "standard tomato can"
     if unit_norm == "can" and ("bean" in tokens or "beans" in tokens):
         return 425.0, "standard bean can"
+    if unit_norm == "can" and "pumpkin" in tokens and tokens & {"puree", "purée"}:
+        return 425.0, "standard pumpkin puree can"
     if unit_norm == "jar" and ("sauce" in tokens or "salsa" in tokens):
         return 454.0, "standard sauce jar"
     if unit_norm in {"whole", "piece", "shell"} and "pizza" in tokens and "shell" in tokens:
         return 142.0, "thin pizza shell"
+    if unit_norm == "shell" and "taco" in tokens:
+        return 12.0, "taco shell"
     if unit_norm == "slice" and "cheese" in tokens:
         return 20.0, "cheese slice"
-    if unit_norm == "cup" and "salad" in tokens:
+    if unit_norm == "slice" and tokens & {"bread", "toast", "sourdough"}:
+        return 30.0, "bread slice"
+    if unit_norm == "slice" and "cucumber" in tokens:
+        return 7.0, "cucumber slice"
+    if unit_norm == "slice" and "tomato" in tokens:
+        return 20.0, "tomato slice"
+    if unit_norm == "slice" and "ginger" in tokens:
+        return 5.0, "ginger slice"
+    if unit_norm == "slice" and tokens & {"prosciutto", "ham", "bacon"}:
+        return 15.0, "cured-meat slice"
+    if (
+        unit_norm == "cup"
+        and "salad" in tokens
+        and not tokens & _PREPARED_SALAD_TOKENS
+        and not {"dressing", "sauce"} & tokens
+    ):
         # One cup of loose mixed salad leaves is roughly 30--50 g. Without a
         # specific reference, vector lookup latched onto the word "dressing"
         # and treated eight cups of salad as 2.3 kg of mayonnaise.
         return 40.0, "loose mixed salad cup"
+    if unit_norm == "cup" and tokens & {"slaw", "coleslaw"}:
+        return 70.0, "shredded slaw cup"
+    if unit_norm in _VOLUME_UNIT_ML and tokens & _FRESH_HERB_TOKENS:
+        grams_per_cup = 25.0
+        return grams_per_cup * _VOLUME_UNIT_ML[unit_norm] / 240.0, "fresh herb volume"
+    if unit_norm in _VOLUME_UNIT_ML and _has_herb_spice_hint(name):
+        return 0.4 * _VOLUME_UNIT_ML[unit_norm], "dry seasoning volume"
+    if unit_norm in _VOLUME_UNIT_ML and "ginger" in tokens:
+        return 0.4 * _VOLUME_UNIT_ML[unit_norm], "minced ginger volume"
+    if unit_norm in _VOLUME_UNIT_ML and "garlic" in tokens:
+        return 0.6 * _VOLUME_UNIT_ML[unit_norm], "minced garlic volume"
+    if unit_norm in _VOLUME_UNIT_ML and "parmesan" in tokens:
+        return 0.47 * _VOLUME_UNIT_ML[unit_norm], "grated parmesan volume"
+    if unit_norm in _VOLUME_UNIT_ML and "rice" in tokens:
+        return (185.0 / 240.0) * _VOLUME_UNIT_ML[unit_norm], "rice volume"
+    if unit_norm in _VOLUME_UNIT_ML and "sweetcorn" in tokens:
+        return (164.0 / 240.0) * _VOLUME_UNIT_ML[unit_norm], "sweetcorn volume"
+    if unit_norm in _VOLUME_UNIT_ML and tokens & {"sultana", "sultanas", "raisin", "raisins"}:
+        grams_per_cup = 165.0
+        return grams_per_cup * _VOLUME_UNIT_ML[unit_norm] / 240.0, "dried fruit volume"
+    if unit_norm == "spray" and tokens & {"oil", "oils"}:
+        return 1.0, "oil spray"
+    if unit_norm == "spray" and tokens & {"cooking", "spray"}:
+        return 1.0, "cooking spray"
+    if unit_norm == "handful" and tokens & _FRESH_HERB_TOKENS:
+        return 15.0, "fresh-herb handful"
+    if unit_norm == "handful" and tokens & {"spinach", "rocket", "watercress", "greens"}:
+        return 30.0, "leafy-green handful"
+    if unit_norm == "handful" and tokens & {
+        "almond", "almonds", "cashew", "cashews", "peanut", "peanuts",
+        "walnut", "walnuts", "pinenut", "pinenuts", "nut", "nuts",
+        "seed", "seeds",
+    }:
+        return 30.0, "nuts/seeds handful"
+    if unit_norm == "handful" and tokens & {"raisin", "raisins", "sultana", "sultanas"}:
+        return 30.0, "dried-fruit handful"
+    if unit_norm == "handful" and tokens & {"berry", "berries", "blueberry", "blueberries"}:
+        return 80.0, "berry handful"
+    if unit_norm == "handful" and tokens & {"herb", "herbs", "curry", "sprout", "sprouts"}:
+        return 15.0, "loose herbs/sprouts handful"
+    if unit_norm == "spear" and "asparagus" in tokens:
+        return 16.0, "asparagus spear"
+    if unit_norm == "leaf" and tokens & {"kaffir", "makrut"}:
+        return 0.3, "makrut lime leaf"
+    if single_count_unit and "brussels" in tokens and tokens & {"sprout", "sprouts"}:
+        return sized(19.0, "Brussels sprout")
+    if unit_norm == "sprinkling" and (
+        _has_herb_spice_hint(name) or tokens & {"salt", "sugar", "seasoning"}
+    ):
+        return 0.5, "seasoning sprinkling"
+    if unit_norm in {"crack", "grind"} and tokens & {"pepper", "peppercorn", "peppercorns"}:
+        return 0.1, "pepper mill turn"
+    if unit_norm == "few" and tokens & {"peppercorn", "peppercorns"}:
+        return 0.3, "few peppercorns"
+    if unit_norm == "knob" and "butter" in tokens:
+        return 10.0, "butter knob"
+    if unit_norm == "squeeze" and tokens & {"lemon", "lime", "juice"}:
+        return 15.0, "citrus squeeze"
+    if unit_norm == "zest" and tokens & {"lemon", "lime", "orange"}:
+        return 6.0, "citrus zest"
+    if unit_norm == "cm" and "ginger" in tokens:
+        return 3.0, "ginger centimetre"
+    if unit_norm == "cm" and "cucumber" in tokens:
+        return 14.3, "USDA whole-cucumber length-derived centimetre"
+    if unit_norm == "punnet" and tokens & {"tomato", "strawberry", "berry"}:
+        return 250.0, "produce punnet"
+    if unit_norm == "pod" and "vanilla" in tokens:
+        return 5.0, "vanilla pod"
+    if unit_norm == "pod" and "cardamom" in tokens:
+        return 0.2, "cardamom pod"
+    if unit_norm == "wedge" and tokens & {"lemon", "lime", "orange"}:
+        return 7.0, "citrus wedge"
+    if unit_norm == "spear" and "pineapple" in tokens:
+        return 28.0, "pineapple spear"
+    if unit_norm == "wedge" and "pumpkin" in tokens:
+        return 200.0, "pumpkin wedge"
+    if unit_norm == "stalk" and "rhubarb" in tokens:
+        return 50.0, "rhubarb stalk"
+    if unit_norm == "tray" and "ice" in tokens:
+        return 300.0, "ice-cube tray"
+    if unit_norm == "bunch" and "grape" in tokens:
+        return 500.0, "grape bunch"
+    if unit_norm == "head" and "garlic" in tokens:
+        return 50.0, "garlic bulb"
+    if unit_norm in {"tablespoon", "tbsp"} and "lard" in tokens:
+        return 13.0, "lard tablespoon"
+    if unit_norm == "greasing" and "oil" in tokens:
+        # Greasing a tin/pan: almost none is eaten. Policy value; the sodium/kcal test showed the
+        # 0-10 g range changes recipe error by <1%, so 2 g is a flagged placeholder, not a calibrated number.
+        return GREASING_OIL_GRAMS, "oil for greasing (policy)"
+    if unit_norm == "pinch" and "saffron" in tokens:
+        return 0.1, "saffron pinch"
+    if unit_norm == "whole" and "star" in tokens and "anise" in tokens:
+        return 2.0, "star anise"
+    if unit_norm == "whole" and tokens & {"weet", "bix"}:
+        return 15.0, "Weet-Bix biscuit"
+    if unit_norm == "whole" and "bouquet" in tokens and "garni" in tokens:
+        return 5.0, "bouquet garni"
+    if unit_norm == "whole" and "duck" in tokens and not tokens & _BIRD_PART_TOKENS:
+        # USDA: 0.5 duck, bone removed = 634 g meat+skin at 0.633 yield -> ~2.0 kg ready-to-cook.
+        return 2000.0, "whole duck"
+    if unit_norm == "whole" and "chicken" in tokens and tokens & {"leg", "legs"}:
+        return 200.0, "chicken leg"
+    if (
+        unit_norm in {"whole", "size"}
+        and "chicken" in tokens
+        and not tokens & {"leg", "legs", "thigh", "thighs", "breast", "breasts"}
+    ):
+        if "size 16" in str(measurement or "").lower():
+            return 1600.0, "size-16 whole chicken"
+        return 1600.0, "whole chicken"
+    if unit_norm in {"teaspoon", "tsp"} and "bread" in tokens and "soda" in tokens:
+        return 4.6, "bread/baking soda teaspoon"
+    if single_count_unit and "pizza" in tokens and tokens & {"base", "bases"}:
+        return sized(200.0, "pizza base")
+    if single_count_unit and "sponge" in tokens and tokens & {"finger", "fingers"}:
+        return sized(10.0, "sponge finger")
+    if single_count_unit and "biscuit" in tokens:
+        return sized(12.0, "biscuit")
+    if single_count_unit and "naan" in tokens:
+        return sized(90.0, "naan bread")
+    if single_count_unit and "roti" in tokens:
+        return sized(60.0, "roti")
+    if single_count_unit and "cracker" in tokens:
+        return sized(15.0, "cracker")
+    if single_count_unit and "oatcake" in tokens:
+        return sized(15.0, "oatcake")
+    if unit_norm == "can" and "coconut" in tokens and "milk" in tokens:
+        return 400.0, "coconut-milk can"
     if (
         unit_norm == "cup"
         and "cheese" in tokens
@@ -1681,7 +2621,19 @@ def _reference_weight_fallback(
                 "explicit_package_size_fallback",
             )
 
+    reviewed = reviewed_item_grams(name, unit_norm, qty_value, measurement) if REVIEWED_TABLES_ENABLED else None
     common_reference = _common_unit_reference_grams(name, unit_norm, measurement=measurement)
+    if common_reference is None and reviewed is not None:
+        grams_per_unit, label = reviewed
+        return (
+            qty_value * grams_per_unit,
+            {
+                "portion_desc": f"{unit_norm or 'each'} ({label})",
+                "grams_per_unit": grams_per_unit,
+                "source": "reviewed_item_weight",
+            },
+            "reviewed_item_weight_fallback",
+        )
     if common_reference is not None:
         grams_per_unit, label = common_reference
         return (
@@ -1713,6 +2665,62 @@ def _reference_weight_fallback(
                 "unit_ml": unit_ml,
             },
             match_type,
+        )
+
+    # USDA often has a reviewed cup weight but no separate ml/tablespoon
+    # portion. Reuse that physical cup reference for foods without a more
+    # specific liquid density above.
+    if unit_norm in _VOLUME_UNIT_ML:
+        volume_reference = find_weight_match_by_name(name=name, unit="cup")
+        if volume_reference is None:
+            aliased_name = _usda_query_alias(name)
+            if aliased_name != str(name).strip().lower():
+                volume_reference = find_weight_match_by_name(
+                    name=aliased_name,
+                    unit="cup",
+                )
+        portion = (volume_reference or {}).get("portion") or {}
+        try:
+            grams_per_cup = float(portion["grams_per_unit"])
+        except (KeyError, TypeError, ValueError):
+            grams_per_cup = 0.0
+        if grams_per_cup > 0:
+            grams_per_unit = grams_per_cup * _VOLUME_UNIT_ML[unit_norm] / 240.0
+            return (
+                qty_value * grams_per_unit,
+                {
+                    "portion_desc": f"{unit_norm} (USDA cup-density fallback)",
+                    "grams_per_unit": grams_per_unit,
+                    "source_food_name": volume_reference.get("food_name"),
+                    "source": "usda_cup_density",
+                },
+                "usda_cup_density_fallback",
+            )
+
+    # Gap filler only: audited USDA cup weights above win over this reviewed table.
+    if REVIEWED_TABLES_ENABLED and unit_norm in _VOLUME_UNIT_ML:
+        for pattern, grams_per_cup, label in _REVIEWED_CUP_GRAMS:
+            if pattern.search(name_norm):
+                grams_per_unit = grams_per_cup * _VOLUME_UNIT_ML[unit_norm] / 240.0
+                return (
+                    qty_value * grams_per_unit,
+                    {
+                        "portion_desc": f"{unit_norm} ({label})",
+                        "grams_per_unit": grams_per_unit,
+                        "source": "reviewed_cup_density",
+                    },
+                    "reviewed_cup_density_fallback",
+                )
+
+    if REVIEWED_TABLES_ENABLED and unit_norm in _GENERIC_SPOON_GRAMS:
+        return (
+            qty_value * _GENERIC_SPOON_GRAMS[unit_norm],
+            {
+                "portion_desc": f"{unit_norm} (generic spoon convention)",
+                "grams_per_unit": _GENERIC_SPOON_GRAMS[unit_norm],
+                "source": "generic_spoon_convention",
+            },
+            "generic_spoon_convention",
         )
 
     if unit_norm in _SIZE_WORDS:
@@ -2034,6 +3042,9 @@ def _is_pinch_fallback_excluded(name: str) -> bool:
 def _is_pinch_default_candidate(name: str, food_group: Optional[str], herb_spice_hint: bool) -> bool:
     if _is_pinch_fallback_excluded(name):
         return False
+    name_tokens = _name_tokens(name)
+    if "fresh" in name_tokens and name_tokens & _FRESH_HERB_TOKENS:
+        return False
     if herb_spice_hint:
         return True
     group = str(food_group or "").strip().lower()
@@ -2050,6 +3061,8 @@ def _normalize_lookup_ingredient(name: str) -> str:
 
 
 def _singularize_token(token: str) -> str:
+    if token in {"aubergines", "courgettes"}:
+        return token[:-1]
     if len(token) <= 3:
         return token
     if token.endswith("ies") and len(token) > 4:
@@ -2106,10 +3119,9 @@ def _csv_rows_from_path_or_pg(path: Path, pg_name: str) -> list[dict]:
 def _load_llm_unit_grams_index() -> dict:
     index_by_name: dict[str, dict[str, Any]] = {}
     index_by_usda_id: dict[str, dict[str, Any]] = {}
-    sources = [
-        (FDA_UNIT_GRAMS_CSV_PATH, "fda", "ingredient_unit_grams_fda"),
-        (LLM_UNIT_GRAMS_CSV_PATH, "llm", "ingredient_unit_grams_llm"),
-    ]
+    sources = [(FDA_UNIT_GRAMS_CSV_PATH, "fda", "ingredient_unit_grams_fda")]
+    if CACHED_LLM_UNIT_GRAMS_ENABLED:
+        sources.append((LLM_UNIT_GRAMS_CSV_PATH, "llm", "ingredient_unit_grams_llm"))
     for path, source_tag, pg_name in sources:
         rows = _csv_rows_from_path_or_pg(path, pg_name)
         if not rows:
@@ -2144,23 +3156,24 @@ def _load_llm_unit_grams_index() -> dict:
 
 
 def _lookup_llm_unit_grams(name: str, usda_id: Optional[str] = None) -> Optional[dict]:
-    for key in _lookup_name_variants(name):
-        found = _LIVE_LLM_WEIGHT_CACHE.get(key)
-        if found:
-            return found
+    if CACHED_LLM_UNIT_GRAMS_ENABLED:
+        for key in _lookup_name_variants(name):
+            found = _LIVE_LLM_WEIGHT_CACHE.get(key)
+            if found:
+                return {**found, "lookup_basis": "name"}
 
     index = _load_llm_unit_grams_index()
     by_name = index.get("by_name", {})
     for key in _lookup_name_variants(name):
         found = by_name.get(key)
         if found:
-            return found
+            return {**found, "lookup_basis": "name"}
     usda_id_norm = str(usda_id or "").strip()
     if usda_id_norm:
         by_usda_id = index.get("by_usda_id", {})
         found = by_usda_id.get(usda_id_norm)
         if found:
-            return found
+            return {**found, "lookup_basis": "usda_id"}
     return None
 
 
@@ -2229,6 +3242,16 @@ def _load_offline_reference_dataset_index() -> dict:
         # Rebuild has not landed yet — silently no-op.
         return index
     if not rows:
+        rows = []
+    try:
+        with REVIEWED_OPENROUTER_REFERENCE_CSV_PATH.open(
+            "r", encoding="utf-8-sig", newline=""
+        ) as handle:
+            # Reviewed rows take precedence over the older bulk rebuild.
+            rows = list(csv.DictReader(handle)) + rows
+    except (FileNotFoundError, OSError, csv.Error):
+        pass
+    if not rows:
         return index
 
     for row in rows:
@@ -2239,6 +3262,8 @@ def _load_offline_reference_dataset_index() -> dict:
         if not ingredient or not unit_norm or not weight_raw:
             continue
         if source_type not in {"accepted_deterministic", "llm_rebuilt"}:
+            continue
+        if source_type == "llm_rebuilt" and not OFFLINE_LLM_REBUILT_ENABLED:
             continue
         try:
             weight = float(weight_raw)
@@ -2656,6 +3681,9 @@ def _live_llm_weight_fallback(
     on every bare-count ingredient this fallback exists to rescue, silently
     discarding a good estimate and falling through to a 0 g weight.
     """
+    if not LIVE_WEIGHT_LLM_ENABLED:
+        return None, "live_llm_disabled", unit or _default_unit_for_unknown_ingredient(name)
+
     qty_for_llm = qty
     if qty_for_llm is None or not str(qty_for_llm).strip():
         qty_for_llm = "1"
@@ -2751,9 +3779,12 @@ def _compute_confidence(detail: dict) -> tuple[float, str]:
     if error:
         base = 0.0
         reason = str(error)
-    elif match_type_norm == "direct_mass":
+    elif match_type_norm in {"direct_mass", "direct_mass_edible_yield"}:
         base = 1.0
         reason = "direct mass conversion"
+    elif match_type_norm == "blank_quantity_default":
+        base = 0.30
+        reason = "policy default for a line with no amount"
     elif match_type_norm == "to_taste_min":
         base = 0.9
         reason = "deliberate minimal weight for optional/to-taste measurement"
@@ -2796,8 +3827,22 @@ def _compute_confidence(detail: dict) -> tuple[float, str]:
         "liquid_density_volume_fallback",
         "explicit_package_size_fallback",
     }:
+        portion_desc = str((detail.get("portion_match") or {}).get("portion_desc") or "").lower()
+        generic_count = any(
+            marker in portion_desc
+            for marker in ("fish fillet", "meat chop", "chicken breast", "large prawn", "sausage link")
+        )
+        base = 0.45 if generic_count else 0.65
+        reason = "generic count reference" if generic_count else match_type
+    elif match_type_norm == "reviewed_cup_density_fallback":
         base = 0.65
-        reason = match_type
+        reason = "reviewed USDA cup density"
+    elif match_type_norm == "reviewed_item_weight_fallback":
+        base = 0.50
+        reason = "reviewed item/container weight (USDA or convention)"
+    elif match_type_norm == "generic_spoon_convention":
+        base = 0.35
+        reason = "generic spoon convention for a small amount"
     elif match_type_norm == "weight_name_portion_fallback":
         base = 0.60
         reason = "USDA name portion fallback"
@@ -2842,6 +3887,67 @@ def _annotate_confidence(detail: dict) -> dict:
     detail["confidence"] = confidence
     detail["confidence_reason"] = reason
     return detail
+
+
+# Edible yield of a whole ready-to-cook bird (USDA SR portions "yield from 1 lb
+# ready-to-cook": chicken 276 g meat+skin / 197 g meat only, duck 287 / 137 g,
+# per 453.59 g). The matched nutrient row is per 100 g of edible meat, so a bone-in
+# purchase weight must be scaled down. Triggered only by the word "whole" in the
+# name (the snapshot layer adds it from display/note evidence); bird parts are exempt.
+_WHOLE_BIRD_YIELD = {"chicken": (0.608, 0.434), "duck": (0.633, 0.302)}
+_BIRD_PART_TOKENS = {
+    "leg", "legs", "thigh", "thighs", "breast", "breasts", "wing", "wings",
+    "drumstick", "drumsticks", "fillet", "fillets", "liver", "stock", "broth",
+}
+
+
+def _whole_bird_edible_factor(name: str) -> Optional[float]:
+    tokens = set(re.findall(r"[a-z]+", str(name or "").lower()))
+    if "whole" not in tokens or tokens & _BIRD_PART_TOKENS:
+        return None
+    for bird, (with_skin, meat_only) in _WHOLE_BIRD_YIELD.items():
+        if bird in tokens:
+            return meat_only if tokens & {"skinless", "skinned"} else with_skin
+    return None
+
+
+def _apply_whole_bird_edible_yield(names: list[str], details: list[dict], weights: list[float]) -> None:
+    for index, (name, detail) in enumerate(zip(names, details)):
+        factor = _whole_bird_edible_factor(name)
+        purchased = weights[index]
+        match_type = detail.get("match_type")
+        if factor is None or purchased <= 0 or match_type not in {
+            "direct_mass", "common_unit_reference_fallback",
+        }:
+            continue
+        weights[index] = purchased * factor
+        detail["weight_grams"] = weights[index]
+        detail["purchased_grams"] = purchased
+        detail["edible_yield_factor"] = factor
+        if match_type == "direct_mass":
+            detail["match_type"] = "direct_mass_edible_yield"
+
+
+def _apply_blank_quantity_defaults(names: list[str], measures: list[Any], details: list[dict], weights: list[float]) -> None:
+    for index, (name, detail) in enumerate(zip(names, details)):
+        measurement = measures[index] if index < len(measures) else None
+        is_oil = bool(re.search(r"\boil\b", str(name), re.IGNORECASE)) and "spray" not in str(name).lower()
+        text = str(measurement or "").strip()
+        # A bare number with no unit on an oil ("1 olive oil") is a spoon-sized amount: same oil default.
+        bare_oil = is_oil and bool(re.fullmatch(r"\d+(?:\.\d+)?", text))
+        allowed = {"missing_quantity", "missing_usda_id"} | ({"missing_unit"} if bare_oil else set())
+        if (text and not bare_oil) or weights[index] > 0 or detail.get("error") not in allowed:
+            continue
+        grams = BLANK_OIL_GRAMS if is_oil else BLANK_DEFAULT_GRAMS
+        weights[index] = grams
+        detail.update({
+            "weight_grams": grams,
+            "error": None,
+            "match_type": "blank_quantity_default",
+            "blank_quantity_policy": "oil_default" if is_oil else "negligible_default",
+            "portion_match": {"portion_desc": "blank quantity policy default", "grams_per_unit": grams},
+        })
+        _annotate_confidence(detail)
 
 
 def _apply_low_confidence_live_llm(details: list[dict], weights: list[float]) -> None:
@@ -2937,6 +4043,9 @@ def _compact_detail(detail: dict) -> dict:
         "offline_reference": detail.get("offline_reference"),
         "offline_reference_source_type": detail.get("offline_reference_source_type"),
         "offline_reference_confidence": detail.get("offline_reference_confidence"),
+        "blank_quantity_policy": detail.get("blank_quantity_policy"),
+        "purchased_grams": detail.get("purchased_grams"),
+        "edible_yield_factor": detail.get("edible_yield_factor"),
     }
 
 
@@ -2955,8 +4064,12 @@ def ingredient_weight_tool_usda(
 
     weights: list[float] = []
     details: list[dict] = []
+    blank_salt_indexes: set[int] = set()
     for idx, name in enumerate(names_list):
         measurement = measures_list[idx] if idx < len(measures_list) else None
+        if _is_blank_salt(name, measurement):
+            measurement = "1 pinch"
+            blank_salt_indexes.add(idx)
         qty, unit, qty_inferred = _split_measurement(measurement)
         # Some source lines keep the authoritative total mass in the ingredient
         # name (for example measurement="4 medium", name="(600g) chicken
@@ -2966,7 +4079,7 @@ def ingredient_weight_tool_usda(
         if extracted is not None:
             qty, unit, name = extracted
             qty_inferred = False
-        elif unit is None:
+        elif unit is None and not _is_large_bare_number_quantity(qty):
             # Bare unit abbreviation fused into the name ("c. flour" + "1/3").
             lead_unit = _extract_leading_unit_from_name(name)
             if lead_unit is not None:
@@ -3049,7 +4162,11 @@ def ingredient_weight_tool_usda(
         name_equals_measurement = bool(str(name or "").strip()) and (
             _normalize_for_duplicate_check(name) == _normalize_for_duplicate_check(measurement)
         )
-        if _is_zero_measurement(measurement) or name_equals_measurement:
+        if (
+            _is_zero_measurement(measurement)
+            or name_equals_measurement
+            or _is_blank_negligible_ingredient(name, measurement)
+        ):
             weights.append(TO_TASTE_MIN_GRAMS)
             details.append({
                 "name": name,
@@ -3083,8 +4200,14 @@ def ingredient_weight_tool_usda(
                 unit = inferred_unit
                 unit_inferred = True
         elif qty is None:
-            inferred_unit = _infer_unit_from_name(name)
-            if inferred_unit:
+            inferred_unit = _infer_unit_from_name(name, bare_count=False)
+            # A plural scallion name is countable when a source quantity is
+            # present ("2 scallions"), but blank "scallions" does not imply
+            # one. Preserve the missing-quantity abstention.
+            if inferred_unit and not (
+                inferred_unit == "scallion"
+                and str(name or "").strip().lower().endswith("s")
+            ):
                 qty = "1"
                 unit = inferred_unit
                 qty_inferred = True
@@ -3239,38 +4362,6 @@ def ingredient_weight_tool_usda(
                 })
                 continue
 
-        # Missing qty for seasoning-like ingredients: force "1 pinch" fallback.
-        if qty is None and _is_pinch_default_candidate(name, food_group, herb_spice_hint):
-            grams = HERB_MISSING_UNIT_FALLBACK_GRAMS
-            qty = "1"
-            unit = HERB_MISSING_UNIT_FALLBACK_UNIT
-            qty_inferred = True
-            unit_inferred = True
-            portion_match = {
-                "portion_desc": f"{HERB_MISSING_UNIT_FALLBACK_UNIT} (fallback)",
-                "grams_per_unit": HERB_MISSING_UNIT_FALLBACK_GRAMS,
-            }
-            weights.append(float(grams))
-            details.append({
-                "name": name,
-                "measurement_raw": measurement,
-                "parsed_quantity": qty,
-                "parsed_unit": unit,
-                "quantity_inferred": qty_inferred,
-                "unit_inferred": unit_inferred,
-                "usda_id": usda_id,
-                "food_group": food_group,
-                "usda_match_source": usda_match_source,
-                "usda_match_similarity": usda_match_similarity,
-                "usda_match_collection": usda_match_collection,
-                "usda_match_canonical": None if not link else link.get("canonical"),
-                "portion_match": portion_match,
-                "match_type": "pinch_default_missing_quantity_fallback",
-                "weight_grams": float(grams),
-                "error": None,
-            })
-            continue
-
         # Herbs/spices fallback: if quantity exists but unit is missing, treat it as pinch.
         if (
             usda_id
@@ -3314,6 +4405,17 @@ def ingredient_weight_tool_usda(
         if usda_id and qty is not None and unit_missing_from_measurement:
             qty_value = _parse_quantity_value(qty)
             llm_fallback = _lookup_llm_unit_grams(name, usda_id=str(usda_id))
+            # A USDA/FDA row keyed only by food ID may describe a different
+            # portion from the noun in the source line. For example, eight
+            # "cabbage leaves" previously inherited the FDA weight for eight
+            # whole medium cabbage heads. An inferred leaf/slice/stalk unit
+            # must have a name-specific reference, not a food-ID-only one.
+            if (
+                llm_fallback is not None
+                and unit_inferred
+                and llm_fallback.get("lookup_basis") == "usda_id"
+            ):
+                llm_fallback = None
             if qty_value is not None and llm_fallback is not None:
                 grams_per_unit = float(llm_fallback["grams_per_unit"])
                 grams = qty_value * grams_per_unit
@@ -3692,7 +4794,11 @@ def ingredient_weight_tool_usda(
             "error": error,
             "live_llm_fallback": bool(match_type and str(match_type).startswith("live_llm_")),
         })
+    for idx in blank_salt_indexes:
+        details[idx]["blank_quantity_policy"] = "salt_pinch"
+    _apply_whole_bird_edible_yield(names_list, details, weights)
     _apply_low_confidence_live_llm(details, weights)
+    _apply_blank_quantity_defaults(names_list, measures_list, details, weights)
     if return_details:
         if debug:
             return {"weights": weights, "details": details}

@@ -4,8 +4,8 @@
 
 Everything below the summary is the chronological log (older sessions first; "codex" = an earlier agent, "claude" = this agent).
 This summary lists what was done in the three stages, the final state, the known limitations and how to reproduce.
-Branch `feat/recipe-v4-regional-api`; local commits `f7121a6`, `20dc868`, `b7c39f3` (NOT pushed). Databases (Neo4j, Postgres profiles,
-Elasticsearch recipes) have NOT been synced to the corrected snapshot.
+Branch `feat/recipe-v4-regional-api`; local commits `f7121a6`, `20dc868`, `b7c39f3`, `7fe5039`, `d1d1e57` (NOT pushed). The three stores WERE synced
+to the corrected snapshot on 2026-09-26 for 4,223 recipes (see "Database sync" below); ~3,300 recipes stay on the old parse.
 
 ## Final state
 - Corpus: 4,410 recipes / 42,607 ingredient uses in `data/processed/ingredient_parsing_final/2026-09-24/weight_ready_parsed/`
@@ -90,9 +90,32 @@ This session, in `ingredient_weight_tool.py`, `reviewed_item_weights.py`, `audit
 5. HealthyFoods recomputed sodium is about 23% below the published values (unquantified seasoning/salted products); the 0.3 g pinch is inside test noise.
 6. Also outside the weight tool: herbs-in-Nutri-Score check not done; ingredient matching/cooking losses/serving counts drive most remaining nutrition error.
 
-## Not done
-- Push of the branch; sync of Neo4j / Postgres profiles / Elasticsearch to the new snapshot (skip the 104 excluded recipes or hide live copies with
-  `scripts/disable_recipes.py`; take a backup first) and the profile recompute (`scripts/recompute_all_profiles.py`).
+## Database sync (2026-09-26) — what was written to the live stores
+Backup first: `dumps/local/20260926T160306Z-pre_parse_sync` (Elasticsearch + Postgres) and `dumps/local/20260926T160953Z-pre_parse_sync_neo4j`
+(179,141 nodes / 559,792 relationships; counts matched the live stores). Restore path: `scripts/maintenance/restore_all_lite.py` (wipes targets).
+1. Neo4j (`scripts/maintenance/sync_parsed_snapshot_to_graph.py`, dry-run by default): recipes joined to the graph by URL; for 4,223 recipes the
+   old `HAS_INGREDIENT` relationships were deleted and one relationship per parsed (post salt/pepper-split) row was created with `measurement`, `unit`,
+   `quantity`, `weight_grams` (the audited deterministic weight), `weight_match_type`, `blank_quantity_policy`, `display`, `note`, `position` (index of the raw
+   source line so `HAS_INGREDIENT_ORIGINAL` still joins), `projection_method=deterministic_weight_v3`, `projection_version=parsed-snapshot-2026-09-26`.
+   `MAPS_TO` edges of the recipes' `Ingredients_original` nodes were rebuilt. Shared `Ingredient` nodes are reused by name (case-insensitive); 951 new nodes were
+   created (`source=parsed_snapshot_2026-09`). `Ingredients_original` nodes were not modified. Pilot on SuperValu: graph weights == audited weights (0 differences).
+2. Deleted (user decision): the 102 excluded recipes that have a graph node (graph nodes + 1,102 original nodes, 428 profile rows, 102 Elasticsearch documents).
+   Two excluded titles had no unique graph match (HealthyFoods "Seafood and vege chowder", MyPlate "Chicken Club Salad"): nothing deleted for them.
+3. Tags rebuilt graph-wide: `enrich_fato_foodon --apply`, `tag_allergens`, `classify_vegan_vegetarian --apply`, `tag_recipes --replace-dietary`,
+   `facets/tag_diet --apply --replace`, `facets/tag_nutrition_claims --apply --replace`.
+4. Postgres: `recompute_all_profiles.py --ids-file` (new option) rewrote 16,836 profile rows (4,209 recipes x 4 regions, 0 failures) with
+   `pipeline_version=recompute_2026-09-26_parsed-snapshot`; matching ran on the new names + original-line context, weights reused from the graph.
+5. Elasticsearch: `reproject_all_recipes.py` (7,526 documents) then `reconcile.py --apply` (re-projected 4,528).
+Result: Neo4j 7,526 recipes = Elasticsearch 7,526 documents; 16,836 new-version profile rows.
+Known gaps after the sync:
+- ~3,300 recipes remain on the OLD parse (no corrected data exists): HealthyFoods 3,053, Curated Hungarian 149, Curated Slovenian 100, a few MyPlate.
+- 187 parsed recipes have no graph node and were not created (47 HealthyFoods, 33 MyPlate, 107 FoodHero). MyPlate has 14 parsed duplicates of one graph recipe.
+- `reconcile.py` still reports 4,528 "owners changed since projection" ("digest only") after `--apply`; it also flags ~1,500 recipes that were not
+  synced at all, so it looks systemic (digest re-derivation vs stamp), not caused by the sync. Documents and Neo4j content agree; not investigated further.
+- Vegan/vegetarian tags dropped after the rebuild (diet_tags vegan 301 -> 201 recipes, vegetarian 724 -> 479): many new/renamed ingredient nodes have no FoodOn
+  class or keyword evidence, so the classifier marks them "unknown" (e.g. sugar, cherry tomatoes, spring onions, baking powder, vinegar, chopped tomatoes).
+  Needs plant-food keywords or FoodOn links for the top unknown names, then re-run `classify_vegan_vegetarian --apply` and `facets/tag_diet --apply --replace`.
+- 13,401 `Ingredient` nodes no longer have any recipe (orphans); not deleted.
 - The data files (`data/`) are gitignored: snapshot, `excluded_recipes.json`, alias CSV and analysis reports exist only on this machine.
 
 ## Reproduce

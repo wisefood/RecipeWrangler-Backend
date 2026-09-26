@@ -2554,3 +2554,12 @@ The remaining error is mostly not the weight tool (ingredient matching, cooking 
 under-counted on HealthyFoods (0.77): missing salted products/seasoning. Chicken wings now 41 g edible (was 107 g bone-in piece).
 Thigh/drumstick USDA portions are edible weights (no clean bone-in yield available locally); turkey yield still missing.
 # claude — END
+
+# claude — BEGIN: closure (2026-09-26)
+User decision: the 4 whole-turkey/turkey-leg recipes (Parcel-baked roast turkey with cider glaze, Roast turkey with traditional herb stuffing,
+Roast turkey (dinner), Christmas turkey leg (dinner)) are excluded like the other unresolvable ones. excluded_recipes.json: 104 recipes.
+Corpus: 4,410 recipes. Known limitations left as stated: convention weights (6.3% of uses), bone-in parts by mass/count in ~10 recipes
+(Shorba lamb bones, Citrus Chicken, Chicken Curry, Chicken Paprikash, Roast Turkey Breast, lamb shanks 200 vs 340 g), chicken thigh/drumstick
+USDA weights unverified as edible, retail stock rows unverified (46 uses / 45 recipes), HealthyFoods sodium ~23% low.
+Committed locally, not pushed.
+# claude — END

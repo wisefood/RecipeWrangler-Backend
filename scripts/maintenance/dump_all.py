@@ -49,7 +49,15 @@ PG_TABLES = (
     "nutrients-ingredients-eu",
     "nutrients-ingredients-irish",
     "nutrients-ingredients-hungarian",
+    "nutrients-ingredients-slovenian",
+    "nutrients-ingredients-usda",
+    "nutrients-recipes-usda",
     "pipeline_static_data",
+    "cost_products",
+    "cost_prices",
+    "cost_aliases",
+    "cost_recipe_calibrations",
+    "alembic_version",
 )
 
 

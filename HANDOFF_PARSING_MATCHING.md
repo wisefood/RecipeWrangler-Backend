@@ -2708,3 +2708,594 @@ Corpus: 4,410 recipes. Known limitations left as stated: convention weights (6.3
 USDA weights unverified as edible, retail stock rows unverified (46 uses / 45 recipes), HealthyFoods sodium ~23% low.
 Committed locally, not pushed.
 # claude — END
+
+# claude — BEGIN: nutrition-vs-source eval + root-cause fixes (2026-09-28)
+Built `scripts/eval/evaluate_nutrition_vs_source.py`: compares computed (region-generated)
+nutrition against each dataset's own independent reference, one subfolder per dataset under
+`data/eval/nutrition_vs_source/` (deviation_details.csv, most_deviated.csv, summary.md, 2 charts
+in the wisefood purple/pink palette sampled from Figure_17). Only datasets with a genuine
+independent reference are covered: Curated Irish Recipes (safefood_rcsi lab values + safefood_web,
+423 recipes total), MyPlate (myplate, ~1025), Curated Hungarian Recipes (planeat/CoFID direct, 149),
+Curated Slovenian Recipes (slovenian_original/OPKP direct, 100). FoodHero, Best of Hungary, The
+Hungary Soul, Irish Heart Foundation, SuperValu, Slovenian Kitchen have no independent reference
+anywhere (checked raw source JSON + Postgres) — excluded, not a gap. HealthyFoods excluded, reparse
+was in progress.
+
+Investigated the worst-deviated recipes (advisor-reviewed, two rounds — first pass had errors:
+misread a CSV column, wrongly blamed a dry-milk density instead of the real matcher bug, and
+mischaracterized the Hungarian/Slovenian weight-fallback issue as "inherent ambiguity" when it was
+a real, fixable bug). Found and fixed 3 distinct root causes:
+
+1. **Bad matcher alias, not bad data.** `cucumber` was matching NEVO id 1876 "Salad cucumber" —
+   verified via `food_group` column ("Savoury bread spreads") that this is real data for an actual
+   cucumber-spread product, not corrupted; the matcher just picked the wrong sense of the word.
+   Same bug for `brewed coffee` -> ciqual:18003 "Coffee, ground" (dry grounds, ~338kcal/100g,
+   applied to a 248g cup of liquid coffee). Fixed via 6 new rows in
+   `data/processed/fallbacks/ingredient_composition_aliases.csv` (cucumber/cucumbers/cucumber
+   slices/baby cucumbers -> ciqual:20019 raw cucumber; brewed coffee/coffee -> cofid:17-153 coffee
+   infusion), imported via `scripts/postgres/import_pipeline_static_data.py`. Backups:
+   `backups/ingredient_composition_aliases_20260928_*.csv`,
+   `backups/pipeline_static_data_20260928_*.sql.gz`. A broader scan (matched name contains
+   salad/ground/powder/dried/concentrate but ingredient name doesn't) found ~40 more candidates
+   (apples->Apples dried, basil->Basil dried, etc.) — NOT fixed, many are legitimate (spices are
+   correctly matched to their dried/ground form by default); flagged for manual review, not
+   mass-edited.
+
+2. **Curated Hungarian/Slovenian Recipes' HAS_INGREDIENT edges never had weight_grams at all** —
+   both datasets bypass the parsed-snapshot/weight-tool pipeline entirely (their own direct-nutrition
+   importers never wrote it), so `recompute_all_profiles.py`'s "reuse stored weights" path always
+   fell through to blank-measurement re-derivation, producing 1000g/whole-item-guess fallbacks on
+   62% of Hungarian ingredient rows (630/1018) and leaving Slovenian edges (e.g. the goose itself in
+   "Martin's goose") completely unweighted. Fixed with new
+   `scripts/maintenance/backfill_essrg_slovenian_weights.py`: pulls exact per-ingredient gram
+   amounts straight from each dataset's own raw source (`data/ESSRG/ESSRG_recipes_clean.json`'s
+   `ingredient_details`, `data/Slovenia/Slovenian_Recipes.xlsx` sheet "Sestavine" keyed by RECID —
+   the 10-recipe `Slovenian_OPKP/*.json` files are NOT the real source, only an examples sample).
+   No `position` property exists on these edges (unlike the standard pipeline), so pairing is done
+   by matching the multiset of graph Ingredient short-names against the multiset of source
+   short-names per recipe (graph name is always a prefix of the source's full name up to the first
+   comma) — any recipe whose name multisets don't match exactly is skipped and logged, not guessed.
+   222/249 recipes written (124/149 Hungarian, 98/100 Slovenian); 27 skipped (source lists a merged
+   sub-recipe reference, or the graph consolidated duplicate ingredient rows the raw source didn't) —
+   logged in `data/processed/ingredient_parsing_final/2026-09-24/essrg_slovenian_weight_backfill_report.json`.
+   Backup before write: `dumps/local/20260928T094106Z-pre_essrg_slovenian_weight_backfill/`.
+
+3. Ran the full `recompute_all_profiles.py --write` over every non-HealthyFoods source (picks up
+   both fixes above) — 5,069 profile computations, 0 failures, backup
+   `backups/nutrients-recipe-profiles_20260928_124545_pre_alias_weight_fix_recompute.sql.gz`.
+   Reran `tag_nutrition_claims.py --apply`, `reproject_all_recipes.py --no-resume`, `reconcile.py`
+   (0 drift, 7,697 recipes, Neo4j = ES).
+
+Canary before/after (mean abs % error across nutrients, or per-nutrient where noted):
+  Vegetable Snake (MyPlate): 971% kcal -> <1% (28.3 vs truth 28)
+  Cafe Mocha (MyPlate): 674% kcal -> 35%
+  Watermelon (ESSRG_65): 1190% kcal -> 29% (residual: "Melon" still matches generic yellow melon,
+    not watermelon specifically — real remaining accuracy gap, not a pipeline bug)
+  Martin's goose (Slovenian): 491% kcal -> 98% (residual, likely genuine portion/recipe variance
+    vs the reference — not chased further)
+
+Aggregate median kcal error, before -> after fix:
+  Curated Hungarian Recipes: 46% -> 16%
+  Curated Slovenian Recipes: 37% -> 15%
+  Curated Irish Recipes (RCSI lab): 13% -> 12%
+  MyPlate: 21% -> 20%
+All 5 evaluated datasets now uniformly on pipeline_version recompute_2026-09-26_parsed-snapshot.
+Pre-fix eval snapshot kept at `data/eval/nutrition_vs_source_before_fixes/` for comparison.
+
+Also fixed the eval script itself: flat `MIN_TRUTH=0.5` was unit-blind and let sodium_mg's near-zero
+reference values dominate the "most deviated" ranking on metric noise, not real bugs — replaced with
+per-nutrient floors (sodium >= 20mg, grams >= 0.5). Added a second labeled Irish reference
+(safefood_web, 325 recipes) alongside the RCSI lab set (98). Restyled charts to grouped source-vs-
+calculated bars in the wisefood palette (purple #5F2C77 source, pink #D53F60 calculated), matching
+the layout of Figure_17_nutrient_medians_irish_curated.png.
+
+Not investigated further (flagged, not fixed): Sweet Potato Fries "1.0 g" weight for a whole sweet
+potato (Irish; needs checking whether the correction layer or the raw source introduced it), Chicken
+casserole's +176% protein error (weights and composition match both looked plausible on inspection —
+likely genuine recipe-to-recipe variance vs the reference, not a bug), the ~40-item alias-mismatch
+list from cause #1's broader scan, the 27 skipped ESSRG/Slovenian recipes (need manual review, not
+name-matchable), the 2 MyPlate recipes that dropped out of eval coverage after recompute (1027 -> 1025,
+not investigated).
+# claude — END
+
+# claude — BEGIN: fat/sodium investigation + outlier detection (2026-09-28, later)
+User pushed back on fat/sodium results being "not satisfying" and asked to investigate further,
+then "fix the fixable" and add outlier detection to the eval charts.
+
+**Two SafeFood reference-data errors found** (their published values, not ours): Green risotto
+(4 tsp olive oil / 2 servings implies ~9g fat/serving; published `fat_g: 3.1g`) and Cod tray bake
+(2 tbsp oil / 4 servings implies ~6g fat/serving; published `fat_g: 1.4g`). Cross-checked against a
+near-identical sister recipe on the same site ("Pea risotto", plausible `fat_g: 11g`) — these two
+look like isolated publishing errors, not systematic. Documented in
+`data/eval/nutrition_vs_source/README.md`.
+
+**Real sodium bug found and fixed**: any stock-cube ingredient whose source line carries a
+"reduced sodium"/"low-salt" qualifier hit a matcher guard (`_UNSUPPORTED_STOCK_QUALIFIER_RE`) that
+correctly refuses to substitute regular-sodium stock data, but then the alias lookup meant to
+provide the *correct* reduced-salt substitute was checking the raw ingredient name, not the
+qualifier-composed match name — so it silently returned 0mg sodium instead of ~12,000mg/100g real
+reduced-salt cube data. Fixed via 6 new alias rows mapping the composed "reduced-sodium X stock
+cube" strings to the existing retail reduced-salt cube rows (chicken exact match; vegetable used as
+proxy for beef/fish/generic, since no reduced-salt beef/fish cube exists in the table — flagged as
+approximate). Fixed 9/10 known cases; 1 remaining ("vegetable or chicken stock cube") hits a
+*different*, deeper bug: the "X or Y" alternative-ingredient recursion path
+(`best_nutrition_match`'s alternative-selection logic) drops the qualifier before recursing, so the
+alias never gets a chance to fire. That one needs a code fix, not a data fix — flagged, not fixed.
+
+**Added outlier detection to the eval** (`scripts/eval/evaluate_nutrition_vs_source.py`): per dataset,
+`outliers.csv` + `kcal_outliers.png` flag any recipe with kcal/serving outside 20-1200 on *either*
+side (source or calculated) — catches implausible values even when both sides happen to agree,
+which a %-error ranking alone would miss. This immediately surfaced a much bigger issue than the
+sodium one: **~50 MyPlate recipes computing near-zero total kcal** (e.g. "Beef Pot Roast": truth
+237kcal, calc was 2.1kcal) despite a completely plausible-looking published reference and completely
+plausible ingredient weights in the graph. Root cause: the recipe's *dominant* ingredient by mass
+was going completely unmatched (`match_confidence: none`, `canonical_food_id: null`), contributing
+zero nutrition, while a few trace seasonings contributed the tiny nonzero total. Two distinct causes
+found within this:
+  1. `beef chuck roast`/`chuck roast` were rejected by the matcher as `top_candidate_incompatible`
+     even though its own top embedding candidate ("Beef, chuck, raw", ciqual:6270) was the exactly
+     correct food — an over-strict guard, not a data or embedding problem. Fixed via alias (2
+     recipes affected, both confirmed: Beef Pot Roast 2.1 -> 206kcal against a 237kcal truth).
+  2. **Canned/dry legume ambiguity** (~20+ recipes) — black beans, kidney beans, lima beans, white
+     beans, great northern beans, black-eyed peas all deliberately abstain (`ambiguous_preparation_state`)
+     because dry vs. canned/cooked calorie density differs ~3x and the pipeline won't guess. This is
+     a legitimate, documented safety design — but the practical effect on these specific recipes is
+     the main ingredient silently contributing ~0 rather than an estimate, which is arguably worse
+     for a user-facing number than a bounded guess would be. NOT fixed today — needs a parser-level
+     fix (detect "canned"/"dry" from the ingredient line, not the composition matcher) or a
+     documented default assumption. Flagged for a decision, not silently patched.
+  3. The reduced-sodium/low-salt qualifier abstention (same class as the stock-cube bug above) also
+     hits non-stock ingredients (`low-sodium sweet potatoes`, `low-sodium tomatoes`, `low-sodium
+     chicken broth`, etc.) — not swept beyond the stock-cube cases already fixed.
+  4. Composition-table gap: `mirin` has no entry anywhere in the EU composite table at all (its top
+     embedding candidate was nonsensically "Kidney, calf, raw") — needs new reference data sourced,
+     not a code fix.
+Full list in `data/eval/nutrition_vs_source/myplate/outliers.csv`.
+
+Backups before each write: `backups/ingredient_composition_aliases_20260928_*_pre_reduced_sodium_stock_fix.csv`,
+`backups/ingredient_composition_aliases_20260928_*_pre_beef_chuck_fix.csv`,
+`backups/nutrients-recipe-profiles_20260928_*_pre_reduced_sodium_stock_recompute.sql.gz`.
+Also discovered and fixed a staleness bug in my own earlier recompute: running
+`recompute_all_profiles.py` WITHOUT `--no-resume` silently skips any recipe+region pair already in
+the checkpoint from a prior session, even after alias/matcher fixes land — meaning an "everything
+recomputed, 0 failures" run can still leave old data in place for anything already checkpointed.
+Always use `--no-resume` for a fix-verification recompute; only use resume for a genuine
+long-running batch job that needs to survive an interruption.
+# claude — END
+
+# claude — BEGIN: presentation-prep plan, overnight autonomous run (2026-09-28/29)
+User has a presentation tomorrow, asked for a detailed plan (via advisor) to address as much
+as possible of: HealthyFoods matching/weight gaps, generalized matcher improvements, remaining
+outliers, deviation-from-ground-truth justification. Advisor's 7-step plan (see conversation),
+executing autonomously overnight per explicit user request ("work autonomously, wake up and the
+plan to be completed").
+
+Corrections from advisor's review of tonight's earlier work (all applied):
+- The wrong soy-sauce alias (nevo:1214, kecap manis / sweet Ketjap — completely different product)
+  never actually got written to any recipe (0 recipes affected, confirmed by direct query) —
+  removed anyway before it could.
+- `hf_remaining_parsed.json` (3,077 recipes, ~20h GPU time) moved from ephemeral /tmp scratchpad
+  to `data/processed/ingredient_parsing_final/2026-09-28/parsed/healthyfoods_remaining_a-n_parsed.json`
+  (SHA b0ecb4b1e137f8b2a5981c6656af6c5c91bb5c9c71fdec97014bb2c6929f0856), also copied into the
+  active 2026-09-24 snapshot dir (registered in both RAW_SOURCE_PATHS and sync DATASETS) since
+  `prepare_weight_ready_parser_snapshot.py`'s INPUT_ROOT is hardcoded to that dir.
+- Hungarian/Slovenian ground-truth-only reference Nutri-Score write was flagged as biased
+  (fruit_percentage=0 for ground truth vs real FVL points on the calc side, causing a one-
+  directional skew) — written anyway per explicit user approval as an improvement over the
+  stale 2026-09-03 data, with the bias noted; `curated_recipe_fvln_percentages.csv` integration
+  for a truly fair comparison is a follow-up, not done tonight (its generator script was removed
+  in an earlier session and regeneration is separately flagged as broken in this file already).
+
+Step 2 (HealthyFoods merge) — DONE. Weight-ready snapshot regenerated (10 files, 7,487 recipes).
+Weight audit on the new chunk: 98.9% deterministic resolution, 359/32,866 unresolved (1.1%).
+Graph sync applied: 3,060 synced + 47 newly created + 17 title-duplicate skips = 3,077, 0
+unmatched, 0 ambiguous. Neo4j: 7,744 recipes total (was 7,697), HealthyFoods 5,205 (was 5,158).
+
+Step 1 (diagnostics) — DONE. `scripts/eval/diagnose_pipeline_failures.py`,
+outputs in `data/eval/pipeline_diagnostics/`. Mass-weighted unmatched coverage is much worse
+than count-based: MyPlate 21.1%, Slovenian 20.7%, HealthyFoods 16.4% of total ingredient MASS
+unmatched (vs 10.8%/13.2%/13.8% by count). Outlier attribution: 308/498 (62%) of outliers are
+matching failures, only 24 (5%) are scaling issues, 139 ambiguous, 27 unclear.
+
+Step 5 partial — serves-mismatch hypothesis checked and RULED OUT with real evidence: 0
+mismatches across 328 Irish SafeFood recipes (graph r.serves vs raw source `serves` field) and
+0 mismatches across 1,039 MyPlate recipes (graph r.serves vs raw `recipe_yield` field). Chicken
+casserole's earlier +112%/+176% deviation is NOT a serves bug -- confirms the earlier read that
+it's likely genuine recipe-to-recipe variance.
+
+Weight bugs found and fixed via `VERIFIED_REPAIRS` in `prepare_weight_ready_parser_snapshot.py`
+(source-verified against the raw SafeFood ingredient line in both cases):
+- Sweet Potato Fries (dinner): sweet potato "1.0 g" -> "130.0 g" (raw source states "1 sweet
+  potato / 130g / 4.5 oz", the LLM parse discarded the explicit weight).
+- Baked garlic lime chicken breasts (dinner): chicken breasts "4.0 g" -> "520.0 g" (raw: "4
+  skinless chicken breasts, 520g").
+Searched all 10 parsed files for the same bug signature (measurement numeric value == display's
+bare count, both parsed as literal grams) -- only these 2 true positives; everything else with a
+"g" measurement matching a small display count turned out to be a real total-weight estimate
+(e.g. "600g" for display "2" = a real per-item conversion), not the bug.
+
+Hungarian/Slovenian null-weight cleanup: 9 genuinely-blank ("None None") HAS_INGREDIENT edges
+fixed with the blank-quantity policy (salt/pepper -> 0.3g pinch, else 0.5g default,
+`blank_quantity_policy: true` flag set). Remaining ~35 Hungarian / 2 Slovenian recipes with some
+null-weight edges are NOT this pattern -- either the 25/27 recipes already-known-skipped from the
+earlier name-multiset backfill (need duplicate-row merging before that comparison, not done), or
+have a real measurement but still failed to get a weight (found comma-decimal formatting like
+"0,5 g" in some ESSRG source rows -- possible parsing gap, not investigated further, flagged).
+
+# claude — BEGIN: generalized qualifier-fallback matcher fix (2026-09-28, overnight)
+Implemented advisor's step 3a as one general fix in `src/recipe_wrangler/tools/nutrition_match.py`
+(`best_nutrition_match`): when a query has a reduced-sodium/no-added-salt/low-sodium/unsalted
+qualifier (any of the synonyms already recognized by `_LOW_SODIUM_RE`) and no verified exact
+alias exists for the qualified form, strip the qualifier, recursively match the BASE food, and
+return that match tagged `qualifier_proxy_sodium_unverified` instead of silently abstaining to
+zero (the old behavior via `unsupported_nutrition_variant`/`top_candidate_incompatible`). All
+nutrients except sodium are accurate; sodium is an approximation from the regular (non-reduced)
+product -- documented in `nutrition_match_note` on every such result.
+
+This replaced two separate special-cased guards (stock/broth/bouillon qualifier check, soy sauce
+qualifier check) plus ~30 per-phrasing alias rows added earlier tonight that turned out mostly
+inert (`_sodium_qualifiers_match` blocks even an alias hit when the target's own name doesn't
+contain qualifying wording -- most of tonight's earlier "proxy" aliases pointed to regular-named
+targets and never fired). Removed 25 inert alias rows; kept the ~10 that point to genuinely
+qualifying-named targets (verified exact matches, e.g. real retail reduced-salt stock cube data).
+Also removed the `reduced-sodium soy sauce`/`no-added-salt soy sauce` aliases entirely -- the
+only "low sodium" soy sauce row in the composition table is kecap manis (sweet Indonesian soy
+sauce, a different product), which would have inflated sugar/kcal; confirmed via direct query
+that this alias never actually got written to any recipe before removal (0 affected).
+
+Updated 2 existing unit tests (`test_reduced_salt_stock_does_not_use_regular_stock_alias`,
+`test_reduced_sodium_soy_does_not_use_regular_soy`) that explicitly asserted the old "must
+abstain" design -- intentional, reasoned architecture change, not an accidental regression.
+Added `SodiumQualifierGeneralFallbackTests` (4 new tests: strip-helper correctness, exact-alias-
+not-downgraded, no-fallback-when-base-also-fails). Full suite: 101 passed, 237 subtests.
+
+Regression harness (`scripts/eval/match_regression_harness.py`, new): dumps every distinct
+recovered ingredient match-name x region currently in Postgres (9,728 names x 4 regions = 38,912
+pairs), re-runs `best_nutrition_match`, diffs before/after. Result: **778 pairs changed
+canonical_food_id, all 778 tagged `qualifier_proxy_sodium_unverified`, zero regressions** (nothing
+that had a real match before changed to something else). Baseline/after CSVs in scratchpad
+(`match_baseline.csv`, `match_after.csv`) -- not copied to durable storage, regenerable from the
+harness script if needed.
+# claude — END
+
+# claude — BEGIN: overnight run complete, final results (2026-09-29)
+Full plan executed autonomously overnight per user's explicit request. Summary in
+`data/eval/nutrition_vs_source/PRESENTATION_SUMMARY.md` (written for the user's presentation).
+
+**Final recompute**: 30,972 recipe-region calls, 0 failures, ~1.4h. Covered all non-HealthyFoods
+sources plus HealthyFoods (now 5,205 recipes after the merge). Backup:
+`backups/nutrients-recipe-profiles_20260928_221117_pre_full_recompute_with_healthyfoods.sql.gz`.
+
+**Tags**: tag_recipes.py, classify_vegan_vegetarian.py, tag_diet.py, tag_nutrition_claims.py all
+reapplied cleanly. reproject_all_recipes.py: 7,744/7,744 ok. reconcile.py: 0 drift on first run.
+
+**Caught and fixed a real regression during this run**: `tag_gluten_free_options.py`'s predictions
+CSV used a different recipe_id scheme than the current graph (regenerated from a stale/different
+snapshot of `HealthyFood_recipes_clean.json` than what's actually synced). Its write step deletes
+all existing `gluten_free_option` tags unconditionally, then re-matches by recipe_id -- every match
+failed, silently dropping the tag from 2,092 recipes to 0. Caught by verifying the write count,
+fixed by rewriting the CSV's recipe_id column via a title-based lookup against the live graph
+(2,100/2,125 titles matched, 25 not found -- likely excluded/renamed recipes) and re-running just
+the write step with the corrected ids. Restored to 2,100 tagged, verified in Neo4j directly. Note
+for whoever touches this script next: it should match by title (stable) or a URL, not recipe_id
+regenerated fresh each run, since that id is derived from output that can drift from the graph.
+
+**Eval (Step 7)**: `scripts/eval/evaluate_nutrition_vs_source.py` now includes HealthyFoods
+(5,029 recipes matched, truth read directly from
+`data/HealthyFoods/HealthyFood_recipes_nutrition_clean.json`, title-joined -- no reference
+nutrition_source row exists for it in Postgres unlike the other 4 datasets, so `truth_override`
+was added to `_run_dataset` for this one case). Found and fixed a value-parsing bug en route: the
+raw JSON's nutrition values are strings like `"298 cal"`, `"6.9 g"` -- needed a regex to extract
+the leading number, not a bare float() cast.
+
+**Final numbers** (median kcal error / ingredient-mass-unmatched):
+- Irish RCSI: 12% / 7.4% (was 13% / 8.8% at session start)
+- MyPlate: 19% / 11.1% (was 21% / 21.1% at start of tonight -- nearly halved by the qualifier fix)
+- Hungarian: 15% / 2.3% (was 46% / -- earlier this session, from the weight backfill)
+- Slovenian: 15% / 20.7% (was 37% / 20.7% -- kcal improved from other fixes, but mass-unmatched
+  UNCHANGED -- confirmed this is a different failure class, OPKP's verbose naming convention
+  doesn't phrase-match our composition table, not the qualifier issue tonight's fix addressed)
+- HealthyFoods: 20% / 9.9% (newly added to eval; was 16.4% mass-unmatched before tonight's fixes)
+
+**Outlier attribution** (2,126 outliers, `data/eval/pipeline_diagnostics/outlier_attribution.csv`):
+61% matching failures, 27% ambiguous (matching-or-reference), 6% unclear, 5% scaling. Serves-
+scaling checked directly and ruled out as a systemic issue: 0 mismatches across 328 Irish + 1,039
+MyPlate recipes (graph r.serves vs each source's own stated serving count).
+
+**Not done (documented cut line, per user's "ok if we don't fix EVERYTHING")**:
+- Slovenian's OPKP naming-mismatch class -- needs sub-phrase/fuzzy matching tuned to OPKP's style,
+  a different fix than tonight's qualifier-fallback.
+- Canned-vs-dry legume ambiguity (~20+ recipes) -- deliberate abstention, needs a product decision,
+  not a code fix.
+- Bulk alias sourcing for remaining composition gaps (mirin-class) -- not started, advisor's step 4.
+- The 25/27 ESSRG/Slovenian recipes skipped by the earlier name-multiset weight backfill (need
+  duplicate-row merging) and the comma-decimal ("0,5 g") parsing gap found in some ESSRG rows --
+  both flagged, neither fixed.
+- MyPlate/Irish-web reference Nutri-Score still uses our own computed weight (no independent gram
+  weight exists in either source) -- approved and correct given the constraint, just noting it's
+  not "ground-truth only" the way Hungarian/Slovenian's now is.
+# claude — END
+
+# claude — BEGIN: correctness fixes + Slovenian investigation, second advisor pass (2026-09-29)
+User asked what else could improve things overnight, specifically suggesting a Slovenian database
+search, and to ask advisor again. Advisor's review caught two real problems with the *previous*
+entry in this file before allowing anything new:
+
+**Bug 1 (real, fixed)**: the qualifier-fallback matcher fix (previous entry) had an ordering bug
+-- it never tried matching the QUALIFIED name before falling back to the base food, so genuine
+correct matches (e.g. "unsalted butter" has real unsalted-butter composition data) were being
+wrongly downgraded. Root cause: `if not _qualifier_retry and _curated_alias_lookup(...) is None:`
+only checked the curated ALIAS table for an exact match, never the full normal matching path.
+Fixed by trying the qualified name through normal matching first (a recursive call with
+`_qualifier_retry=True`); only falls back to the stripped base name if that genuinely fails.
+Regression harness re-run properly this time (previous run had excluded every `qualifier_proxy`-
+tagged change from the regression check, which hid exactly the bug it should have caught): 22,708
+overlapping name×region pairs, 409 net new matches, 0 regressions, confirmed correct. Found 37
+ingredient names / 21 recipes that had been wrongly downgraded by the buggy version already
+written to Postgres in the earlier full recompute -- backed up, scoped recompute (84 calls),
+verified fixed live (`unsalted butter` -> `nevo:310`, "strong" confidence, no longer a proxy).
+
+**Bug 2 (real, fixed)**: `scripts/eval/diagnose_pipeline_failures.py` measured every dataset's
+mass-weighted unmatched coverage on the `eu` composition region, including Irish/Hungarian/
+Slovenian which the actual eval (`evaluate_nutrition_vs_source.py`) compares on `irish`/
+`hungarian`/`slovenian` respectively -- meaning the earlier "Slovenian didn't move" claim and the
+20.7% figure were both measured on the wrong region. Underlying per-recipe DATA was scoped
+correctly (a `region` variable was correctly used inside the query loop); only a SECOND loop that
+printed the terminal summary had a classic Python loop-variable-leak bug (reused the same
+variable name after the first loop had already exited, so it always printed the last source's
+region for every line). Fixed by adding `SOURCE_REGION`/`SLUG_REGION` maps in both functions and
+recomputing the print-time value locally instead of relying on the leaked loop variable.
+
+**Slovenian investigation** (per user's specific ask: search Slovenian databases): checked the
+local `nutrients-ingredients-slovenian` Postgres table directly (320 rows, OPKP-derived,
+`slovenian_plant:*`/`slovenian_meat:*`). Confirmed the root cause holds even on the correct
+region: OPKP's verbose English naming ("Broth or stock, beef, dehydrated and reconstituted") does
+not phrase-match our matcher, even against the SAME source's own composition table. Found and
+fixed the 2 highest-mass exact matches hiding behind naming differences:
+  - `Wheat white flour, T500` = existing `slovenian_plant:34` "Wheat white flour, type 500"
+    (OPKP abbreviates "type" as "T")
+  - `Potato with coat cooked` = existing `slovenian_plant:140` "Potato, boiled" (with skin)
+A third candidate (`BEANS`, bare all-caps generic) hits an earlier guard
+(`ambiguous_food_identity`) that runs before alias lookup at all -- not fixed, same class of
+"guard fires before alias check" issue found repeatedly tonight, needs a code change not a data
+fix. Both alias rows initially failed silently: the CSV loader requires a non-empty `eu_food_id`
+(region-only aliases with just `slovenian_food_id` populated get skipped from the index entirely)
+-- fixed by also populating a reasonable EU equivalent for each. Also found and fixed a CSV
+corruption from an unquoted comma inside one alias value ("Wheat white flour, T500" itself,
+ironically) that had silently misaligned that one row's columns since it was first added.
+Recomputed 38 affected recipes (152 calls).
+
+**Result**: Curated Slovenian Recipes kcal error 15% -> **11%**, mass-unmatched 18.4% -> **12.7%**,
+Nutri-Score agreement 61% -> **66%**, outliers 76 -> 54 -- from two alias rows.
+
+Full recompute NOT rerun end-to-end again (would be a 3rd 1.4h+ pass for a total delta of 21+38=59
+recipes) -- both fix batches were applied via scoped `--ids-file` recomputes instead, verified
+correct, then tags/reproject/reconcile rerun on the full graph (cheap, ~2min) to pick up the
+combined state. reconcile: 0 drift. Full pytest: 1,078 passed, 1 pre-existing unrelated failure
+(unchanged from session start).
+
+Final, corrected numbers written to `data/eval/nutrition_vs_source/PRESENTATION_SUMMARY.md`,
+including an explicit "corrections made along the way" section (the bugs above, the tag-wipe
+regression from the previous entry) -- the earlier version of this summary is superseded, do not
+use the numbers from the previous HANDOFF entry's "final results" section, they were measured
+before these two bugs were caught.
+# claude — END
+
+# claude — BEGIN: quick-reference summary (2026-09-29) — the 4 deviation causes
+For quick lookup: this session's investigation found deviations from ground truth come from 4
+categories, in order of impact:
+
+1. **Unmatched ingredients (dominant cause, ~61% of outliers)** — a food that doesn't resolve
+   against our composition database contributes ZERO nutrition instead of an estimate. If it's
+   the main ingredient, the whole recipe collapses. See "unmatched ingredient investigation"
+   entry below for concrete root causes and fixes.
+2. **Genuine cross-database differences** — our EU-wide composition data vs a country-specific
+   source will legitimately disagree somewhat; small gaps here are expected, not bugs.
+3. **Reference-data errors** — the PUBLISHED source is sometimes wrong, not us. Confirmed cases:
+   SafeFood's "Green risotto" (published `fat_g: 3.1g` for a recipe with 4 tsp olive oil across
+   2 servings — physically inconsistent with its own ingredient list) and "Cod tray bake"
+   (published `fat_g: 1.4g` for 2 tbsp oil across 4 servings). Cross-checked against a
+   near-identical sister recipe on the same site with a sane value — isolated publishing errors,
+   not a pattern across the whole site.
+4. **Serving-size scaling — RULED OUT, not a cause.** Checked directly, not assumed: 0 mismatches
+   across 328 Irish SafeFood recipes and 0 mismatches across 1,039 MyPlate recipes (our stored
+   `serves` vs each site's own stated serving count, from the raw scrape).
+# claude — END
+
+# claude — BEGIN: investigating cause #1 (unmatched ingredients) with concrete examples (2026-09-29)
+User asked to investigate the dominant deviation cause directly, using real examples (green beans,
+tomato sauce, pumpkin, broth, stewed tomatoes, cherry tomatoes, lamb shanks, stock, coconut milk).
+
+**Finding 1**: most of these (green beans, tomato sauce plain, pumpkin, stewed tomatoes, cherry
+tomatoes, coconut milk) actually match FINE when tested live -- the "unmatched" data visible in
+Postgres for these was stale, not a live bug, left over from before this session's fixes reached
+those specific recipes (they weren't in any of the scoped `--ids-file` recompute batches run so
+far, only in the one big overnight recompute which itself predates some smaller fixes).
+
+**Finding 2, real gaps found and fixed** (3 new alias rows, each verified against a real recipe's
+original ingredient line before writing):
+- `canned green beans` -> no canned-green-bean row exists in the table at all; the embedding
+  search's top candidate ("Beans brown canned", wrong species) was being correctly rejected, but
+  nothing else was tried. Aliased to "French bean, canned, drained" (same vegetable).
+- `canned tomato sauce` -> no plain tomato-sauce row exists in the table (confirmed earlier
+  tonight too); aliased to "Tomato puree, canned" (closer match than plain canned tomatoes for
+  US-style tomato sauce).
+- `lamb shanks` -> no lamb shank entry exists anywhere in the table; top candidate "Lamb,
+  shoulder, raw" was being correctly rejected (wrong cut). Aliased to shoulder as the closest
+  available proxy (flagged as an approximation, not exact -- shank and shoulder have somewhat
+  different fat content).
+
+Verified all 3 resolve correctly both plain and with a sodium qualifier (the new general fallback
+correctly picks up the new base aliases for "reduced-sodium canned tomato sauce" etc. too, no
+extra work needed). Found 53 affected recipes, recomputed (212 calls, 0 failures), tags/reproject/
+reconcile rerun, 0 drift.
+
+**Result**: MyPlate mass-unmatched 11.1% -> 10.5%, HealthyFoods 9.9% -> 9.7%, Irish Heart
+Foundation 7.6% -> 6.8% (these 3 items recur across multiple datasets' recipe lists).
+
+**Finding 3, a deeper unfixed gap confirmed**: `broth`/`stock` (bare, generic terms) hit an early
+guard (`ambiguous_food_identity`) regardless of qualifiers -- genuinely ambiguous with no stated
+type, correctly abstains, not a bug. But compound forms like "reduced-salt vegetable or chicken
+stock" and "salt-reduced stock or miso" hit the SAME "X or Y" alternative-selection recursion
+issue flagged earlier this session (the alternative-picker strips qualifier context before the
+new general fallback or any alias check runs). This is the single largest remaining code-level
+gap identified across tonight's investigation -- affects every qualified "X or Y" compound
+ingredient line, not just stock. Not fixed (needs a deeper change to how alternatives are
+selected, threading the qualifier through), flagged clearly for next time.
+# claude — END
+
+# claude — BEGIN: answering "why haven't we recomputed matching for every recipe?" + 3 more real gaps found (2026-09-29)
+
+## Why some recipes were on stale data (the real answer)
+
+One full recompute across every recipe (all sources x all 4 regions, ~31k calls) ran during
+the overnight session -- *before* the qualifier-ordering bug fix and *before* every alias added
+since (beans/tomato-sauce/lamb-shanks/Slovenian-flour/potato/pumpkin/stewed-tomatoes/coconut-milk).
+Each fix after that recompute only got a *scoped* recompute (`--ids-file` of the specific
+recipes using that exact ingredient), not a fresh full pass, because a full recompute costs
+~1.4h and re-running it after every single alias addition would have eaten the whole night on
+that alone rather than finding more fixes. Consequence: any recipe using a fixed ingredient that
+wasn't specifically identified and included in a scoped id-list stays on pre-fix data until
+either it's found or a fresh full recompute runs. This is expected behavior of the strategy, not
+a missed step -- but it does mean "unmatched in Postgres right now" is not reliable evidence of
+"still broken in the code" without checking live first.
+
+## Self-caught testing error, then 3 more real fixes
+
+Directly checking that claim: when I said pumpkin/stewed-tomatoes/cherry-tomatoes/coconut-milk
+"already match fine," I had only tested the *bare ingredient word*, not the actual composed
+match string built from real recipe text (`recover_nutrition_match_name`). That's exactly the
+mistake that hid the real green-beans/tomato-sauce/lamb-shanks bugs earlier. Redid it properly
+against real Neo4j original_text for all 4:
+
+- `cherry tomatoes` (no qualifier in any real recipe line) -- genuinely fine, cofid:13-519, strong.
+- `coconut milk` plain (no "canned"/"light" in the composed name) -- genuinely fine, ciqual:18041, strong.
+- `canned pumpkin` -- **broken**, top_candidate_incompatible against "Pumpkin, cooked" (species/form
+  mismatch guard). Fixed: alias -> ciqual:20096 "Pumpkin, cooked" (no canned-pumpkin row exists;
+  cooked flesh is nutritionally close to canned/drained -- reasonable proxy).
+- `canned stewed tomatoes` -- **broken**, same guard against "Tomatoes, canned, whole contents".
+  Fixed: alias -> cofid:13-530 "Tomatoes, canned, whole contents" (no stewed-tomato row exists;
+  approximation -- stewed tomatoes often carry added seasoning/sugar this doesn't capture).
+  Verified the sodium-qualifier fallback chains correctly on top of this new alias
+  ("reduced-sodium canned stewed tomatoes" -> same alias, tagged `qualifier_proxy_sodium_unverified`).
+- `canned coconut milk` -- **broken**, top candidate was "Jackfruit in water canned" (nonsense).
+  Fixed: alias -> cofid:14-889 "Coconut milk, retail" (generic retail can, not the reduced-fat
+  variant -- documented as the default; "light"/"lite" phrasing isn't separately distinguished).
+
+All 3 verified live before writing. Backed up `ingredient_composition_aliases.csv` and Postgres
+`nutrients-recipe-profiles` (`backups/nutrients-recipe-profiles_20260929_103315_pre_pumpkin_tomato_coconut.sql.gz`)
+first. Found 114 affected recipes (ILIKE match on ingredient text containing pumpkin/stewed
+tomato/coconut milk with `match_confidence='none'`), scoped recompute: 456/456 calls ok, 0 fail.
+Reran `tag_nutrition_claims.py --apply`, `reproject_all_recipes.py --no-resume` (7744/7744 ok),
+`reconcile.py` (0 drift, all clean).
+
+## Updated numbers after this round
+
+| Dataset | Before this round | After |
+|---|---:|---:|
+| MyPlate mass-unmatched | 10.46% | **9.78%** |
+| HealthyFoods mass-unmatched | 9.71% | **9.59%** |
+| Irish (unaffected, unchanged) | 7.35% | 7.18%* |
+
+\* small change is noise from the recompute re-touching shared totals denominators, not a new fix.
+
+outlier_attribution: matching 1274->1257, matching_or_reference 589->595, unclear 135->136,
+scaling 114->114 (no change, as expected -- confirms scaling was never the issue here).
+
+## Recommendation on the recompute-everything question
+
+Given the presentation is imminent and multiple rounds of scoped recomputes have now stacked up,
+the clean way to guarantee full consistency (every fix applied to every recipe, no more
+"was this one actually touched?" uncertainty) is one more full recompute across all sources and
+regions before final numbers are pulled for the deck. Not run yet -- pending explicit go-ahead
+given it takes ~1.4h and the presentation timeline should dictate whether that time is available.
+# claude — END
+
+# claude — BEGIN: stock/broth generic default + canned-form fixes + full unmatched sweep (2026-09-29, second round)
+
+## What changed this round
+
+1. **`_AMBIGUOUS_GENERIC_IDENTITIES` alias-override** (`nutrition_match.py`): bare
+   `stock`/`broth` (and 12 other identities like `bean`, `noodles`, `meatballs`) were
+   deliberately hard-blocked earlier this session -- "no defensible generic row exists,
+   don't guess." Surfaced this to the user as a real policy conflict before overriding it
+   (not a silent decision). User chose: find a genuine external value rather than either
+   abstaining or silently reusing an internal type-specific row. Added a narrow escape
+   hatch: the block now checks `_curated_alias_lookup` first, so only identities with a
+   deliberately-added, reviewed alias bypass it -- `bean`/`noodles`/`meatballs`/etc. remain
+   blocked exactly as before (verified via regression harness).
+2. **Generic stock/broth composition row**: first version used USDA FDC data (174536
+   chicken broth + 171583 vegetable broth, averaged) -- user correctly pushed back that
+   this table (`nutrients-ingredients-eu`) should stay European-sourced like every other
+   row in it. Replaced with an average of Frida (Denmark) food 277 "Bouillon, chicken,
+   prepared" and Fineli (Finland) food 29026 "Vegetable bouillon, dissolved" -- both
+   ready-to-drink forms, matching the "chicken or vegetable" ambiguity in source text.
+   New id `eu:generic-broth-stock-avg`, added to `SUPPLEMENTAL_FOODS` in
+   `scripts/build_eu_global_dataset.py` (same pattern as the existing Knorr `retail:` rows),
+   upserted to Postgres, and indexed into Elasticsearch via
+   `scripts/elasticsearch/add_supplemental_vectors.py --ids eu:generic-broth-stock-avg`
+   (composition rows live in Postgres but are matched against a separate ES vector index --
+   a Postgres-only insert is invisible to the matcher until this reindex step runs; learned
+   this the hard way when the first insert silently did nothing).
+3. **Canned-form composition gaps** (verified live against real recipe text, not bare
+   words -- same lesson as the pumpkin/stewed-tomatoes/coconut-milk fixes earlier today):
+   `canned cherry tomatoes` -> cofid:13-530, `canned four-bean mix in water` -> nevo:3184
+   (kidney bean proxy), `canned borlotti beans` / `no-added-salt canned borlotti beans` ->
+   nevo:3184 / nevo:5431 (kidney bean proxy, borlotti/cranberry bean has no row in the
+   table). All documented as approximations in the alias CSV notes.
+4. **`recover_nutrition_match_name` code change** (`recipe_profiling_chain.py`): "drained
+   and rinsed" (with no "can"/"tin" word) now triggers the same "canned" context-recovery
+   as an explicit can/tin mention -- in practice this phrasing is reliably a canned-product
+   signal in recipe text and was previously invisible to the composer, causing e.g.
+   "800 g Chickpeas (drained and rinsed)" to compose to bare "chickpeas" and hit
+   `ambiguous_preparation_state` instead of resolving as canned.
+
+## Verification before writing
+
+Full test suite: 1075/1075 pass (both before and after the USDA->EU source swap).
+Regression harness (`match_regression_harness.py`, 25,140 name×region pairs): re-run twice
+(once against the USDA version, discarded; once against the corrected EU version) --
+**0 regressions** both times. Spot-checked that unrelated `_AMBIGUOUS_GENERIC_IDENTITIES`
+entries (`bean`, `grain`, `grains`, `meatballs`, `noodles`, `topping`, `toppings`) are
+still blocked exactly as before; only `stock`/`broth`/`low-sodium broth` (which now have
+curated aliases) resolve.
+
+## The staleness question, resolved
+
+Earlier today the user asked why matching wasn't recomputed for every recipe. Answer given
+then: scoped recomputes only touch recipes specifically identified per fix, so anything not
+searched for stays stale. Acted on that directly: ran two full sweeps of every recipe with
+*any* currently-unmatched ingredient (not everything -- just the genuinely-affected set):
+- Round 1 (before this round's fixes): 4072 recipes, 16288 calls, 0 fail.
+- Round 2 (after this round's fixes): 4070 recipes, 16280 calls, 0 fail.
+Both backed up Postgres first, both followed by `tag_nutrition_claims.py --apply`,
+`reproject_all_recipes.py --no-resume` (7744/7744 ok), `reconcile.py` (0 drift each time).
+
+## Numbers, full before/after across both rounds today
+
+| Dataset | Start of today | After round 1 (canned pumpkin/tomato/coconut) | After round 2 (stock/broth + more canned fixes) |
+|---|---:|---:|---:|
+| HealthyFoods | 9.71% | 9.59% | **9.0%** |
+| MyPlate | 10.46% | 9.78% | **9.21%** |
+| Curated Irish | 7.35% | 7.18% | **6.11%** |
+| Curated Hungarian | 2.3% | 2.3% | **1.11%** |
+| Curated Slovenian | 12.68% | 12.68% | **10.65%** |
+| FoodHero (no reference eval, diagnostic only) | 15.84% | 15.84% | **10.55%** |
+
+outlier_attribution: matching 1274->1258->**1224**, matching_or_reference 589->597->**602**,
+unclear 135->136->**140**, scaling 114->115->**117** (scaling count essentially flat all day,
+confirms serves/weight was never the real issue -- consistent with earlier direct checks).
+
+## Still open
+
+- The broader "X or Y" alternative-selection recursion gap beyond stock/broth specifically
+  (any other qualified alternative ingredient still loses its qualifier context) --
+  not fixed, same flag as earlier today.
+- Remaining Slovenian OPKP naming mismatches beyond the 2 fixed earlier.
+- Canned-vs-dry legume ambiguity (~20+ recipes) -- deliberate abstention, product decision.
+- `mirin`-class zero-entry composition gaps.
+- `tag_gluten_free_options.py`'s fragile id-matching (documented, not patched).
+- One remaining full recompute (all ~7744 recipes x 4 regions, ~1.4h) would guarantee zero
+  staleness anywhere, superseding the two targeted sweeps above. Not run -- pending the
+  user's call given the presentation timeline.
+# claude — END

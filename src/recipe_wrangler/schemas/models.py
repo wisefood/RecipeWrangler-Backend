@@ -8,6 +8,16 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
 class IngredientProfile(BaseModel):
+    # extra="allow": this model silently dropped every field the nutrition
+    # calculator added after it was written (sodium/sugar/saturated-fat/fibre/
+    # energy, per-100g variants, weight_capped/original_weight_g, ...) because
+    # validate_assignment on RecipeState.ingredients coerces each dict through
+    # this schema on model_dump(). Explicitly listing fields here just repeats
+    # the mistake for the next one added to nutritional_calculator.py's detail
+    # dict. Found 2026-09-17: recompute_all_profiles.py wrote 6,972 recipes'
+    # nutrition_profiling_details missing exactly those fields.
+    model_config = ConfigDict(extra="allow")
+
     name: Optional[str] = None
     measurement: Optional[str] = None
     weight_g: float = 0.0

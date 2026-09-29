@@ -278,6 +278,108 @@ def split_ingredient_lines(lines: List[str]) -> tuple[List[str], List[str]]:
     return names, measurements
 
 
+_NUTRITION_STATE_CONTEXT = (
+    (re.compile(r"\b(?:reduced|low)[ -]sodium\b|\b(?:reduced|low)[ -]salt\b", re.I), "reduced-sodium"),
+    (re.compile(r"\bno[ -]added[ -]salt\b", re.I), "no-added-salt"),
+    (
+        re.compile(
+            r"\b(?:canned|tinned|tins?|drained\s+and\s+rinsed|drained,\s*rinsed|"
+            r"(?:\d[\d./]*|[½⅓⅔¼¾⅛⅜⅝⅞]|one|two|three|four)"
+            r"(?:\s*x\s*\d[\d.]*\s*(?:g|kg|oz|ml|l))?"
+            r"(?:\s*(?:g|kg|oz|ml|l))?\s+cans?)\b",
+            re.I,
+        ),
+        "canned",
+    ),
+    (re.compile(r"\bsmoked\b", re.I), "smoked"),
+    (re.compile(r"\bpickled\b", re.I), "pickled"),
+    (re.compile(r"\bfrozen\b", re.I), "frozen"),
+    (re.compile(r"\bdried\b", re.I), "dried"),
+    (re.compile(r"\b(?:cooked|boiled)\b", re.I), "cooked"),
+    (re.compile(r"\braw\b", re.I), "raw"),
+)
+
+_SOURCE_CONTEXT_STOPWORDS = {
+    "and", "or", "of", "in", "with", "for", "to", "taste", "fresh",
+    "such", "as", "other", "about", "from", "use", "using", "have",
+    "just", "optional", "ideally", "roughly", "approximately",
+    "small", "medium", "large", "cup", "cups", "tbsp", "tablespoon",
+    "tablespoons", "tsp", "teaspoon", "teaspoons", "g", "kg", "oz",
+    "ml", "l", "lb", "x",
+}
+
+
+def _source_context_identity_tokens(value: str) -> set[str]:
+    tokens: set[str] = set()
+    aliases = {
+        "chickpeas": "chickpea", "garbanzo": "chickpea",
+        "garbanzos": "chickpea", "maize": "corn",
+    }
+    for raw in re.findall(r"[a-z]+", value.casefold()):
+        token = aliases.get(raw, raw)
+        if token.endswith("ies") and len(token) > 4:
+            token = token[:-3] + "y"
+        elif token.endswith("s") and not token.endswith("ss") and len(token) > 4:
+            token = token[:-1]
+        if token not in _SOURCE_CONTEXT_STOPWORDS:
+            tokens.add(token)
+    return tokens
+
+
+def recover_nutrition_match_name(name: str, original_line: str) -> str:
+    """Restore nutrition-relevant source details lost from a canonical name.
+
+    This is deliberately a small allowlist. Preparation-only prose such as
+    chopped or rinsed stays out; preservation, cooking, and reduced-sodium
+    states materially select a different composition row and are retained.
+    """
+    base = re.sub(r"\s+", " ", str(name or "").strip())
+    source = re.sub(r"\s+", " ", str(original_line or "").strip())
+    if not base or not source:
+        return base
+
+    # Recipe alternatives are handled elsewhere by choosing one branch. Do
+    # not combine mutually exclusive states here ("canned or frozen",
+    # "fresh or dried") into a food identity that cannot exist.
+    context_source = re.split(r"\bor\b", source, maxsplit=1, flags=re.I)[0]
+
+    # Some legacy reparses changed row counts, so numeric relationship
+    # positions are not universally aligned with the original array. Never
+    # borrow a state word from a neighbouring ingredient unless the two texts
+    # still share an ingredient-identity token.
+    if not (
+        _source_context_identity_tokens(base)
+        & _source_context_identity_tokens(context_source)
+    ):
+        return base
+
+    base_folded = base.casefold()
+    recovered: List[str] = []
+    for pattern, label in _NUTRITION_STATE_CONTEXT:
+        if pattern.search(context_source) and not pattern.search(base):
+            recovered.append(label)
+
+    # Grain identity is essential for tortillas: corn and wheat products are
+    # different foods, while the canonical parser may retain only "tortilla".
+    if re.search(r"\btortillas?\b", base_folded):
+        if re.search(r"\b(?:corn|maize)\b", context_source, re.I) and not re.search(
+            r"\b(?:corn|maize)\b", base, re.I
+        ):
+            recovered.append("corn")
+        elif re.search(r"\b(?:flour|wheat)\b", context_source, re.I) and not re.search(
+            r"\b(?:flour|wheat)\b", base, re.I
+        ):
+            recovered.append("wheat")
+
+    packing = re.search(r"\bin\s+(?:spring\s+)?(water|brine|oil)\b", context_source, re.I)
+    suffix = ""
+    if packing and not re.search(r"\bin\s+(?:spring\s+)?(?:water|brine|oil)\b", base, re.I):
+        suffix = f" in {packing.group(1).casefold()}"
+
+    recovered = list(dict.fromkeys(recovered))
+    return " ".join([*recovered, base]).strip() + suffix
+
+
 # ---------------------------------------------------------------------------
 # Pipeline builders
 # ---------------------------------------------------------------------------
@@ -389,6 +491,7 @@ def Recipe_Profiling_Chain_Structured(
     ingredient_names: List[str],
     measurements: List[str],
     serves: float,
+    ingredient_match_names: Optional[List[str]] = None,
     total_time: Optional[float] = None,
     directions: Optional[List[str]] = None,
     region: str = "IE",
@@ -427,7 +530,12 @@ def Recipe_Profiling_Chain_Structured(
     initial_state = RecipeState(
         title=title,
         ingredient_names=ingredient_names,
-        ingredient_match_names=ingredient_names,
+        ingredient_match_names=(
+            ingredient_match_names
+            if ingredient_match_names is not None
+            and len(ingredient_match_names) == len(ingredient_names)
+            else ingredient_names
+        ),
         measurements=measurements,
         weights=list(weights) if weights else [],
         serves=float(serves),

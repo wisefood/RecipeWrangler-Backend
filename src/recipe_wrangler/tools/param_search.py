@@ -37,7 +37,6 @@ _STABLE_RECIPE_SORT_FIELDS = f"""
         WHEN {_CANONICAL_SOURCE_EXPR} = "irish_safefood" THEN 3
         ELSE 4
       END AS _sort_source,
-      CASE WHEN coalesce(r.has_profile, false) THEN 0 ELSE 1 END AS _sort_profile,
       CASE WHEN r.duration IS NOT NULL AND r.serves IS NOT NULL THEN 0 ELSE 1 END AS _sort_complete,
       coalesce(toLower(r.title), "") AS _sort_title,
       coalesce(toString(r.recipe_id), toString(r.id), "") AS _sort_id,
@@ -47,7 +46,7 @@ _STABLE_RECIPE_SORT_FIELDS = f"""
 """
 
 _STABLE_RECIPE_ORDER_BY = """
-    ORDER BY _sort_expert, _sort_source, _sort_profile, _sort_complete,
+    ORDER BY _sort_expert, _sort_source, _sort_complete,
              _sort_title, _sort_id, _sort_source_name, _sort_source_id, _sort_element_id
 """
 
@@ -189,7 +188,6 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
       r.image_url AS image_url,
       r.duration AS duration,
       r.serves AS serves,
-      coalesce(r.nutriscore, null) AS nutri_score,
       coalesce(r.totalsustainabilityperserving, null) AS sust_score,
       coalesce(r.expert_recipe, false) AS expert_recipe,
       coalesce(r.status, 'active') AS status,
@@ -200,7 +198,7 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
     OPTIONAL MATCH (r)-[:HAS_TAG]->(dt:Tag)
       WHERE dt.category = 'dish-type'
     WITH recipe_id, title, source, source_id, image_url, duration, serves,
-         nutri_score, sust_score, expert_recipe, status,
+         sust_score, expert_recipe, status,
          [n IN collect(DISTINCT dt.name) WHERE n IS NOT NULL AND trim(toString(n)) <> ""] AS dish_types
     RETURN
       recipe_id,
@@ -210,7 +208,6 @@ def _build_result_query(where_clause: str, order_by_clause: str) -> str:
       image_url,
       duration,
       serves,
-      nutri_score,
       sust_score,
       expert_recipe,
       status,
@@ -315,14 +312,12 @@ def search_recipes_by_params(filters: RecipeSearchFilters) -> dict[str, Any]:
     """Execute parameter-based recipe search."""
 
     if _has_no_constraints(filters):
-        where_clause, params = _build_where_clause(
-            filters,
-            extra_predicates=["coalesce(r.has_profile, false) = true"],
-        )
+        where_clause, params = _build_where_clause(filters)
         order_by_clause = _order_by_clause(filters.sort_by)
 
-        # Unconstrained browse: stable, paginatable profile-first recipe catalog.
-        # Unprofiled recipes are intentionally omitted from unconstrained browse.
+        # Legacy graph browse retained for maintenance callers. The public
+        # endpoint uses Elasticsearch, where profile availability is projected
+        # from PostgreSQL rather than duplicated on Recipe nodes.
         result_query = _build_result_query(where_clause, order_by_clause)
         count_query = _build_count_query(where_clause)
         facet_query = _build_facet_query(where_clause) if filters.include_facets else None
@@ -367,10 +362,7 @@ def warmup() -> None:
     (~30ms) cost.
     """
     filters = RecipeSearchFilters(limit=1, offset=0, include_facets=True)
-    where_clause, params = _build_where_clause(
-        filters,
-        extra_predicates=["coalesce(r.has_profile, false) = true"],
-    )
+    where_clause, params = _build_where_clause(filters)
     order_by_clause = _order_by_clause(None)
     run_query(_build_result_query(where_clause, order_by_clause), params)
     run_query(_build_facet_query(where_clause), params)

@@ -80,9 +80,11 @@ class ParamSearchTests(unittest.TestCase):
         self.assertEqual(result["facets"]["source"]["healthyfoods"], 3)
         self.assertEqual(result["facets"]["dish-type"]["breakfast"], 2)
         self.assertEqual(result["total"], 1)
-        # Every call must have passed through the unconstrained-browse predicate.
+        # Neo4j does not own nutrition profile existence; this legacy helper
+        # must not query the stale graph-level materialization.
         for call in mock_run.call_args_list:
-            self.assertIn("coalesce(r.has_profile, false) = true", call.args[0])
+            self.assertNotIn("has_profile", call.args[0])
+            self.assertNotIn("nutriscore", call.args[0])
 
 
 if __name__ == "__main__":

@@ -56,6 +56,11 @@ FILES = [
         REPO_ROOT / "data/processed/weight_reference/ingredient_unit_reference_dataset.csv",
         "csv",
     ),
+    (
+        "ingredient_composition_aliases",
+        REPO_ROOT / "data/processed/fallbacks/ingredient_composition_aliases.csv",
+        "csv",
+    ),
 ]
 
 CREATE_TABLE_SQL = """

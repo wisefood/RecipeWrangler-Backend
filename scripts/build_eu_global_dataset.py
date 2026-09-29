@@ -319,6 +319,26 @@ SUPPLEMENTAL_FOODS = (
         ),
     },
     {
+        "id": "eu:generic-broth-stock-avg",
+        "food_name": "Broth or stock, chicken or vegetable, prepared (average, generic)",
+        "source": "frida+fineli",
+        "country": "EU",
+        "food_group": "Concentrated stock and bouillon",
+        "source_url": "https://frida.fooddata.dk/food/277?lang=en"
+        " ; https://fineli.fi/fineli/en/elintarvikkeet/29026",
+        "nutrients": _supplemental_nutrients(
+            energy_kj=28.5, protein_g=0.3, carbohydrate_g=0.35, fat_g=0.45,
+            sugars_g=0.15, saturated_fat_g=0.177, sodium_mg=428.4,
+            fibre_g=0.05,
+            source_code=(
+                "Average of Frida (Denmark) food 277 (Bouillon, chicken, prepared) and "
+                "Fineli (Finland) food 29026 (Vegetable bouillon, dissolved); used only "
+                "when the parsed recipe text has an unresolved 'X or Y' stock/broth "
+                "alternative and no specific type is recoverable"
+            ),
+        ),
+    },
+    {
         "id": "retail:knorr-be-finesse-fish-bouillon-cube",
         "food_name": "Bouillon cube, fish",
         "source": "retail",

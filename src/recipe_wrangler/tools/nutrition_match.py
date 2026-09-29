@@ -1796,11 +1796,22 @@ def _curated_alias_lookup(raw_name: str, cleaned: str) -> dict | None:
     return None
 
 
+def _strip_low_sodium_qualifier(text: str) -> str | None:
+    """Remove a matched low-sodium/reduced-salt/no-added-salt qualifier phrase from
+    text, returning the cleaned string, or None if no qualifier was present."""
+    if not _LOW_SODIUM_RE.search(text):
+        return None
+    stripped = _LOW_SODIUM_RE.sub(" ", text)
+    stripped = re.sub(r"\s+", " ", stripped).strip()
+    return stripped or None
+
+
 def best_nutrition_match(
     name: str,
     source: str = "irish",
     min_similarity: float = 0.7,
     identity_name: str | None = None,
+    _qualifier_retry: bool = False,
 ) -> dict:
     """Return {match, source_key, similarity, confidence, reason, matched_name, cleaned_query}."""
     source = (source or "irish").strip().lower()
@@ -1808,6 +1819,47 @@ def best_nutrition_match(
         raise ValueError(
             f"Unsupported nutrition source '{source}'. Supported sources: irish, hungarian, eu, slovenian"
         )
+    # A "reduced-sodium"/"no-added-salt"/etc query: first give the QUALIFIED name
+    # itself a real chance at matching normally (a genuine "unsalted butter" or
+    # "no-salt-added kidney beans" composition row, whether via alias or the
+    # ordinary ranking path, must win outright -- never downgraded). Only if that
+    # fails does this fall back to the BASE food's composition (accurate for
+    # everything except sodium, an approximation from the regular product) instead
+    # of the old behaviour of silently contributing zero for the whole ingredient.
+    # Generalizes what used to be two special-cased guards (stock/broth/bouillon,
+    # soy sauce) plus per-phrasing alias rows -- any food, any qualifier synonym,
+    # no alias needed for the fallback tier.
+    if not _qualifier_retry and _LOW_SODIUM_RE.search(str(name or "")):
+        qualified_result = best_nutrition_match(
+            name, source, min_similarity, identity_name=identity_name, _qualifier_retry=True,
+        )
+        if qualified_result.get("match") is not None:
+            return qualified_result
+        stripped_name = _strip_low_sodium_qualifier(str(name or ""))
+        if stripped_name:
+            stripped_identity = (
+                _strip_low_sodium_qualifier(str(identity_name)) or identity_name
+                if identity_name else None
+            )
+            base_result = best_nutrition_match(
+                stripped_name, source, min_similarity,
+                identity_name=stripped_identity, _qualifier_retry=True,
+            )
+            if base_result.get("match") is not None:
+                previous_reason = str(base_result.get("reason") or "")
+                base_result["reason"] = ";".join(
+                    part for part in ("qualifier_proxy_sodium_unverified", previous_reason) if part
+                )
+                base_result["nutrition_match_note"] = (
+                    "Matched to the regular (non-reduced) product; the source line stated a "
+                    "reduced-sodium/no-added-salt qualifier we don't have verified composition "
+                    "data for. All values except sodium should be accurate; sodium is likely "
+                    "an overestimate for this specific product."
+                )
+                return base_result
+            # neither the qualified name nor the base food matched -- fall
+            # through to normal handling of the original name below (whatever
+            # that normally produces, e.g. an abstention reason).
     # Explicit identity is parser output, not a retrieval query. Query cleanup
     # can erase the food itself (for example standalone cooking spray), so
     # preserve it. Calls without a parser identity retain the historic cleaned
@@ -1874,6 +1926,10 @@ def best_nutrition_match(
     if (
         identity in _AMBIGUOUS_GENERIC_IDENTITIES
         and cleaned_identity_probe == identity
+        # A curated alias is a deliberate, reviewed exception to "no defensible
+        # generic row exists" for this exact identity (e.g. an averaged
+        # external-source default) -- let it through instead of blocking.
+        and _curated_alias_lookup(str(name or ""), str(name or "")) is None
     ):
         return {
             "match": None,

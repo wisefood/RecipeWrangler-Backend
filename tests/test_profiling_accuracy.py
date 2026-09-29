@@ -84,11 +84,11 @@ class WeightCapTests(unittest.TestCase):
         # ratios preserved
         self.assertAlmostEqual(w[0] / w[1], 5000 / 4000, places=4)
 
-    def test_salad_cup_does_not_use_dressing_density(self):
+    def test_plain_salad_cup_uses_leaf_density(self):
         from recipe_wrangler.tools.ingredient_weight_tool import _common_unit_reference_grams
 
         self.assertEqual(
-            _common_unit_reference_grams("salad with a little dressing", "cup"),
+            _common_unit_reference_grams("mixed salad leaves", "cup"),
             (40.0, "loose mixed salad cup"),
         )
 

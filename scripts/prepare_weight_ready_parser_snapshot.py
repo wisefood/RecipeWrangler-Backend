@@ -30,6 +30,7 @@ OUTPUT_ROOT = SNAPSHOT_ROOT / "weight_ready_parsed"
 
 RAW_SOURCE_PATHS = {
     "healthyfoods_final_parsed_fixed.json": [REPO_ROOT / "data/HealthyFoods/HealthyFood_recipes.json"],
+    "healthyfoods_remaining_a-n_parsed.json": [REPO_ROOT / "data/HealthyFoods/HealthyFood_recipes.json"],
     "myplate_final_parsed.json": [REPO_ROOT / "data/MyPlate/myplate_recipes.json"],
     "foodhero_final_parsed.json": [REPO_ROOT / "data/FoodHero/foodhero_recipes.json"],
     "best_of_hungary_final_parsed.json": [REPO_ROOT / "data/BestOfHungary/bestofhungary.json"],
@@ -80,6 +81,13 @@ def _load_raw_source_lines() -> dict[str, dict[str, list[str]]]:
 
 # (file, recipe title, ingredient, old measurement) -> new measurement
 VERIFIED_REPAIRS = {
+    # Raw source line gives the explicit weight ("1 sweet potato / 130g / 4.5 oz")
+    # that the LLM parse discarded, outputting "1.0 g" (a bare count treated as
+    # 1 gram) instead of the stated 130g.
+    ("safefood_v1_parsed.json", "Sweet Potato Fries (dinner)", "sweet potato", "1.0 g"): "130.0 g",
+    # Raw source: "4 skinless chicken breasts, 520g / 1lb 2 1/2 oz." -- same bug,
+    # the count (4) was output as the gram measurement instead of the stated 520g.
+    ("safefood_v1_parsed.json", "Baked garlic lime chicken breasts (dinner)", "chicken breasts", "4.0 g"): "520.0 g",
     ("safefood_v1_parsed.json", "Stephen McAllister's thai chilli chicken (dinner)", "broccoli", "3.5"): "3.5 floret",
     # Verified against the raw source line ("6 whole wheat buns , split in half to make 12",
     # "1 to 2 hot peppers", "1 punnet (1 ½ cups) fresh strawberries", "450 pouch ... rice").

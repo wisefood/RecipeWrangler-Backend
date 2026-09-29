@@ -9,6 +9,7 @@ from recipe_wrangler.pricing.cost_calculator import calculate_recipe_cost_profil
 from recipe_wrangler.pricing.recipe_cost_categories import load_recipe_cost_calibration
 from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.tools.nutritional_calculator import nutritional_tool_vector
+from recipe_wrangler.tools.parse_recipe_tool import split_salt_and_pepper_rows
 from recipe_wrangler.tools.sustainability_calculator import (
     sustainability_tool_vector,
 )
@@ -29,6 +30,7 @@ _SERVING_EST_G = 450.0          # rough grams/serving used to estimate missing s
 _PER_SERVING_TARGET_G = 700.0   # what a sanity-trimmed recipe is brought back to
 _PER_SERVING_CEILING_G = 2500.0  # above this/serving the recipe is "implausibly inflated"
 _LOW_COVERAGE_THRESHOLD = 0.80   # below this fraction of recipe weight matched -> flagged
+_IMPLAUSIBLE_ITEM_WEIGHT_G = 2500.0
 
 _PER_PERSON_WEIGHT_RE = re.compile(
     r"(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:g|grams?|grammes?)\b"
@@ -196,6 +198,7 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     nutrition_payload = dict(payload)
     nutrition_payload.pop("ingredient_match_names", None)
+    nutrition_payload["ingredient_identity_names"] = display_names
     nutrition_payload["ingredient_names"] = match_names
     sustainability_payload = dict(payload)
     sustainability_payload.pop("ingredient_match_names", None)
@@ -387,6 +390,18 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     else:
         weights = raw_weights
     weights = [float(x) for x in weights]
+    names, measurements, match_names, normalized_weights = split_salt_and_pepper_rows(
+        names,
+        measurements,
+        match_names,
+        weights if len(weights) == len(names) else None,
+    )
+    if normalized_weights is not None:
+        weights = normalized_weights
+    state.ingredient_names = names
+    state.ingredient_match_names = match_names
+    state.measurements = measurements
+    state.weights = weights
 
     # accuracy guards: estimate/clamp serves, and trim an implausibly-inflated recipe.
     _trusted = getattr(state, "trusted_serves", None)
@@ -400,6 +415,21 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     weights, served_meat_weight_indices = _apply_explicit_served_meat_weight(
         names, list(state.directions or []), weights
     )
+    weight_trace = (state.pipeline_trace or {}).get("weight_calculation") or {}
+    weight_details = weight_trace.get("details") or []
+    zero_weight_indices = [i for i, weight in enumerate(weights) if weight <= 0]
+    implausible_weight_indices = [
+        i for i, weight in enumerate(weights) if weight > _IMPLAUSIBLE_ITEM_WEIGHT_G
+    ]
+    low_confidence_weight_indices = []
+    if len(weight_details) == len(weights):
+        for i, detail in enumerate(weight_details):
+            try:
+                confidence = float(detail.get("confidence"))
+            except (AttributeError, TypeError, ValueError):
+                confidence = 0.0
+            if confidence < 0.5:
+                low_confidence_weight_indices.append(i)
     weights, weights_capped = _cap_recipe_weights(weights, serves)
 
     region = (state.region or "IE").strip().upper()
@@ -473,7 +503,10 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     # coverage: fraction of recipe weight that got a real nutrition / CO2e match
     _total_w = sum(float(p.get("weight_g") or 0.0) for p in merged) or 1.0
     _matched_w = sum(
-        float(p.get("weight_g") or 0.0) for p in merged if p.get("matched_nutritional_ingredient")
+        float(p.get("weight_g") or 0.0)
+        for p in merged
+        if p.get("matched_nutritional_ingredient")
+        or p.get("nutrition_intentionally_ignored")
     )
     nutrition_coverage = round(_matched_w / _total_w, 4)
     nutrition_low_coverage = nutrition_coverage < _LOW_COVERAGE_THRESHOLD
@@ -491,6 +524,9 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "explicit_served_meat_weight_indices": served_meat_weight_indices,
         "raw_total_weight_g": round(raw_total_g, 1),
         "capped_total_weight_g": round(sum(weights), 1),
+        "zero_weight_indices": zero_weight_indices,
+        "implausible_weight_indices": implausible_weight_indices,
+        "low_confidence_weight_indices": low_confidence_weight_indices,
         "nutrition_coverage": nutrition_coverage,
         "nutrition_low_coverage": nutrition_low_coverage,
         "sustainability_coverage": sustainability_coverage,

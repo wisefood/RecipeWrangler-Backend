@@ -1312,29 +1312,34 @@ class CuratedAliasTests(unittest.TestCase):
                     self.assertEqual(result["confidence"], "curated")
                     self.assertEqual(result["matched_name"], names[expected_id])
 
-    def test_reduced_salt_stock_does_not_use_regular_stock_alias(self):
+    def test_reduced_salt_stock_falls_back_to_regular_stock_as_a_flagged_proxy(self):
+        # Design change (2026-09-28): silently contributing zero for the whole
+        # ingredient was worse for users than a flagged proxy. A "reduced-sodium"
+        # query with no verified reduced-salt row now matches the regular
+        # product -- accurate for every nutrient except sodium -- tagged
+        # "qualifier_proxy_sodium_unverified" instead of abstaining outright.
         with self._patch_alias_table(rows=[
             {"alias": "vegetable stock", "eu_food_id": "fineli:29026"},
         ]), patch.object(
             nm, "get_nutrition_candidate_by_source_id",
-            side_effect=AssertionError("regular stock row must not be fetched"),
+            return_value=_cand("Vegetable bouillon, dissolved", 0.0),
         ):
             result = nm.best_nutrition_match(
                 "low-sodium vegetable stock", "irish", identity_name="vegetable stock"
             )
-        self.assertIsNone(result["match"])
-        self.assertEqual(result["reason"], "unsupported_nutrition_variant")
+        self.assertIsNotNone(result["match"])
+        self.assertIn("qualifier_proxy_sodium_unverified", result["reason"])
 
-    def test_reduced_sodium_soy_does_not_use_regular_soy(self):
+    def test_reduced_sodium_soy_falls_back_to_regular_soy_as_a_flagged_proxy(self):
         with self._patch_alias_table(rows=[]), patch.object(
             nm, "query_irish_nutrition_candidates",
-            side_effect=AssertionError("regular soy sauce must not be retrieved"),
+            return_value=[_cand("Soy sauce, light and dark varieties", 0.05)],
         ):
             for ingredient in ("low-sodium soy sauce", "reduced-sodium soy sauce"):
                 with self.subTest(ingredient=ingredient):
                     result = nm.best_nutrition_match(ingredient, "irish")
-                    self.assertIsNone(result["match"])
-                    self.assertEqual(result["reason"], "unsupported_nutrition_variant")
+                    self.assertIsNotNone(result["match"])
+                    self.assertIn("qualifier_proxy_sodium_unverified", result["reason"])
 
     def test_pickled_form_does_not_match_fresh_form(self):
         self.assertFalse(
@@ -1432,3 +1437,47 @@ class ReducedSaltStockCubeAliasTests(unittest.TestCase):
             hit = nm._curated_alias_lookup("low-salt chicken stock cube", "low salt chicken stock cube")
             self.assertEqual(hit["eu_food_id"], "retail:knorr-fr-reduced-salt-chicken-cube")
             self.assertIsNone(nm._curated_alias_lookup("low sodium vegetable stock", "low sodium vegetable stock"))
+
+
+class SodiumQualifierGeneralFallbackTests(unittest.TestCase):
+    """2026-09-28: one general fallback (strip the qualifier, match the base food,
+    tag the result) replaced dozens of per-phrasing alias rows and two separate
+    special-cased guards (stock/broth/bouillon, soy sauce)."""
+
+    def test_strip_helper_removes_every_known_synonym(self):
+        cases = {
+            "reduced-sodium canned white beans": "canned white beans",
+            "no-added-salt canned black beans": "canned black beans",
+            "low-sodium chicken broth": "chicken broth",
+            "salt-reduced soy sauce": "soy sauce",
+            "unsalted butter": "butter",
+            "plain flour": None,  # no qualifier present -> None
+        }
+        for raw, want in cases.items():
+            with self.subTest(raw=raw):
+                self.assertEqual(nm._strip_low_sodium_qualifier(raw), want)
+
+    def test_exact_verified_alias_is_not_downgraded_to_a_proxy(self):
+        # A genuinely verified reduced-salt row (its own alias entry) must win
+        # outright -- the general fallback only fires when no exact alias exists.
+        alias_rows = [{"alias": "reduced-sodium chicken stock cube",
+                        "eu_food_id": "retail:knorr-fr-reduced-salt-chicken-cube"}]
+        with patch.object(nm, "load_pipeline_data", return_value=alias_rows), patch.object(
+            nm, "get_nutrition_candidate_by_source_id",
+            return_value=_cand("Stock cube, chicken, reduced salt", 0.0),
+        ):
+            nm._alias_index.cache_clear()
+            result = nm.best_nutrition_match("reduced-sodium chicken stock cube", "eu")
+        nm._alias_index.cache_clear()
+        self.assertEqual(result["reason"], "alias")
+        self.assertNotIn("qualifier_proxy", result["reason"])
+
+    def test_no_fallback_when_base_food_also_fails_to_match(self):
+        # If even the stripped/base name can't be matched, the original
+        # qualifier-bearing name falls through to normal handling (whatever
+        # that normally is) rather than fabricating a match from nothing.
+        with patch.object(nm, "load_pipeline_data", return_value=[]), patch.object(
+            nm, "query_irish_nutrition_candidates", return_value=[],
+        ):
+            result = nm.best_nutrition_match("low-sodium completely made up food xyz", "irish")
+        self.assertIsNone(result["match"])

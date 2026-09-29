@@ -284,7 +284,7 @@ def fetch_ingredient_nutrition_by_eu_id(eu_id: str) -> Optional[dict]:
     query_str = f"""
         SELECT row_to_json(t) AS data
         FROM (
-            SELECT id, food_name, source, country, food_group, nutrients
+            SELECT id, food_name, source, country, food_group, nutrients, source_url
             FROM "{cfg['schema']}"."{cfg['eu_ingredients_table']}"
             WHERE id = :eu_id
             LIMIT 1
@@ -301,7 +301,7 @@ def fetch_ingredient_nutrition_by_eu_id(eu_id: str) -> Optional[dict]:
             q = f"""
                 SELECT row_to_json(t)
                 FROM (
-                    SELECT id, food_name, source, country, food_group, nutrients
+                    SELECT id, food_name, source, country, food_group, nutrients, source_url
                     FROM "{cfg['schema']}"."{cfg['eu_ingredients_table']}"
                     WHERE id = '{str(eu_id).replace("'", "''")}'
                     LIMIT 1

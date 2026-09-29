@@ -123,7 +123,6 @@ RETURN
   coalesce(r.expert_recipe, false) AS expert_recipe,
   coalesce(r.status, "active") AS status,
   toString(properties(r)['disabled_at']) AS disabled_at,
-  coalesce(r.has_profile, false) AS has_profile,
   coalesce(r.has_rcsi_lab_nutrition, false) AS has_rcsi_nutrition,
   coalesce(r.has_planeat_nutrition, false) AS has_planeat_nutrition,
   r.ground_truth_nutrition_source AS ground_truth_nutrition_source,
@@ -270,7 +269,9 @@ def build_document(
         # by the very next step, so no recipe ever had a visible author.
         "creator": _clean(row.get("creator")) or None,
         "disabled_at": _clean(row.get("disabled_at")) or None,
-        "has_profile": bool(profiles) or bool(row.get("has_profile")),
+        # PostgreSQL owns profile existence. This boolean is retained only as
+        # an Elasticsearch search/planning projection.
+        "has_profile": bool(profiles),
         "has_rcsi_nutrition": bool(row.get("has_rcsi_nutrition")),
         "has_planeat_nutrition": bool(row.get("has_planeat_nutrition")),
         "ground_truth_nutrition_source": _clean(
@@ -393,21 +394,19 @@ def project(recipe_id: str, *, refresh: str = "wait_for") -> dict[str, Any]:
 
     # Nutrition lives in Postgres, not Neo4j, so the owner row alone cannot
     # produce it. Omitting this step is why a recipe created through the API was
-    # profiled in Postgres and unprofiled everywhere anyone could see — and,
-    # because unfiltered browse uses `exists: nutri_score_eu` as its
-    # has-been-profiled marker, why it never appeared in browse at all.
+    # profiled in Postgres and unprofiled everywhere anyone could see. Browse
+    # uses Elasticsearch's derived `has_profile` flag, so such a recipe was
+    # invisible there too.
     #
-    # A nutrition outage must not remove the recipe from search, so a failure
-    # here degrades to an unprofiled document rather than to no document.
+    # A nutrition outage must not overwrite a valid search document with a
+    # falsely unprofiled one, so abort this projection and let reconciliation
+    # retry it after PostgreSQL recovers.
     try:
         profiles = load_profiles_for(recipe_id, nutri_label=nutri_label)
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "could not load nutrition profiles for %s: %s — projecting without them",
-            recipe_id,
-            exc,
-        )
-        profiles = []
+        raise ProjectionError(
+            f"could not load nutrition profiles for {recipe_id}: {exc}"
+        ) from exc
 
     try:
         document = build_document(row, profiles=profiles, preserve=preserve)

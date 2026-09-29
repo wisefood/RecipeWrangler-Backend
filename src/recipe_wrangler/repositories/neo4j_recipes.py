@@ -170,7 +170,6 @@ def fetch_recipe_scores_by_ids(ids: list[str]) -> dict[str, dict[str, Any]]:
     MATCH (r:Recipe)
     WHERE r.recipe_id = rid OR r.id = rid
     RETURN rid AS recipe_id,
-           coalesce(r.nutriscore, null) AS nutri_score,
            coalesce(r.totalsustainabilityperserving, null) AS sust_score,
            r.duration AS duration,
            r.serves AS serves,

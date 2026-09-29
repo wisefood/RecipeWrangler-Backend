@@ -69,6 +69,20 @@ class TestDocumentShape:
         assert "course_types" not in doc
         assert doc["ingredient_names"] == ["onion", "garlic"]
 
+    def test_profile_flag_is_derived_from_postgres_profiles(self):
+        assert build_document(owner_row(has_profile=True))["has_profile"] is False
+        profile = {
+            "nutrition_source": "eu",
+            "nutri_score": None,
+            "nutri_color": None,
+            "nutri_points": None,
+            "is_ground_truth": False,
+            "computed_at": None,
+        }
+        assert build_document(owner_row(), profiles=[profile])[
+            "has_profile"
+        ] is True
+
     def test_projection_keeps_ingredient_measurements_for_detail_reads(self, recipe):
         ingredients = [
             {

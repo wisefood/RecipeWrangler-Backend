@@ -6,6 +6,10 @@ from recipe_wrangler.api.routers import recipes
 from recipe_wrangler.schemas import RecipeSearchRequest
 from recipe_wrangler.tools import es_recipe_search as search
 from recipe_wrangler.tools.recipe_search_constraints import (
+    EXTRACT_CONSTRAINTS_SCHEMA_CONTEXT,
+    ExtractConstraintsOutput,
+    SEARCH_FACET_VALUES,
+    _normalize_extracted_facets,
     resolve_ingredient_allergen_conflicts,
 )
 
@@ -270,6 +274,96 @@ def test_natural_language_search_always_uses_elasticsearch():
     assert constraints.include_ingredients == ["lentils"]
     assert constraints.diet_tags == ["vegan"]
     assert constraints.max_duration_minutes == 30
+
+
+def test_constraint_extractor_contract_includes_every_search_facet():
+    fields = ExtractConstraintsOutput.model_fields
+
+    assert SEARCH_FACET_VALUES.keys() <= fields.keys()
+    for facet, values in SEARCH_FACET_VALUES.items():
+        assert facet in EXTRACT_CONSTRAINTS_SCHEMA_CONTEXT
+        assert all(value in EXTRACT_CONSTRAINTS_SCHEMA_CONTEXT for value in values)
+
+
+def test_extractor_cleans_duplicate_and_misclassified_facets():
+    constraints = ExtractConstraintsOutput(
+        search_intent="constraints",
+        title_query=None,
+        preferred_ingredients=["chicken"],
+        diet=["high-protein"],
+        moods=["quick"],
+        food_groups=["meat"],
+        title_keywords=["quick", "high-protein", "chicken"],
+    ).model_dump()
+
+    _normalize_extracted_facets(
+        "quick high-protein chicken recipe",
+        constraints,
+    )
+
+    assert constraints["diet"] == []
+    assert constraints["moods"] == []
+    assert constraints["food_groups"] == []
+    assert constraints["convenience"] == ["quick"]
+    assert constraints["nutrition_claims"] == ["high_protein"]
+    assert constraints["title_keywords"] == []
+
+
+def test_natural_language_search_forwards_every_extracted_facet():
+    extractor = Mock()
+    extractor.run_extract_constraints.return_value = {
+        "query_constraints": {
+            "search_intent": "constraints",
+            "title_query": None,
+            "preferred_ingredients": ["chicken"],
+            "excluded_ingredients": [],
+            "allergens": [],
+            "diet": [],
+            "dish_types": ["main-dish"],
+            "sources": ["myplate"],
+            "cuisines": ["irish"],
+            "moods": ["hearty"],
+            "flavor_profiles": ["umami"],
+            "food_groups": ["poultry"],
+            "convenience": ["quick"],
+            "nutrition_claims": ["high_protein"],
+            "nutri_scores": ["A"],
+            "title_keywords": [],
+            "max_duration_minutes": None,
+            "min_servings": None,
+            "sort_by": None,
+            "limit": 5,
+        }
+    }
+
+    with (
+        patch.object(
+            recipes,
+            "get_recipe_constraint_extractor",
+            return_value=extractor,
+        ),
+        patch.object(
+            recipes,
+            "search_recipes_es",
+            return_value={"results": [{"recipe_id": "1", "title": "Chicken"}]},
+        ) as es_search,
+    ):
+        asyncio.run(
+            recipes.recipe_search(
+                RecipeSearchRequest(question="quick high-protein Irish chicken")
+            )
+        )
+
+    constraints = es_search.call_args.args[0]
+    assert constraints.dish_types == ["main-dish"]
+    assert constraints.sources == ["myplate"]
+    assert constraints.cuisines == ["irish"]
+    assert constraints.moods == ["hearty"]
+    assert constraints.flavor_profiles == ["umami"]
+    assert constraints.food_groups == ["poultry"]
+    assert constraints.convenience == ["quick"]
+    assert constraints.nutrition_claims == ["high_protein"]
+    assert constraints.nutri_scores == ["A"]
 
 
 def test_natural_language_search_removes_llm_include_allergen_conflict():

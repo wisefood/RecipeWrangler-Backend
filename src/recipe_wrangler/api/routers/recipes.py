@@ -1225,7 +1225,7 @@ def get_recipe(
             return cached_response
 
     if slim:
-        nutri_score_str = recipe.get("nutri_score")
+        nutri_score_str = recipe.get("default_nutri_score")
         response = RecipeCardResponse(
             recipe_id=resolved_recipe_id,
             title=recipe.get("title"),
@@ -1456,15 +1456,6 @@ def get_recipe(
             payload["total_cholesterol_mg_per_serving"] = _per_serving(
                 payload.get("total_cholesterol_mg_per_serving"), serves
             )
-
-    # The recipe's original Nutri-Score stays authoritative for display: the
-    # live profiling pipeline re-matches free-text ingredients and can drift
-    # toward better grades on messy ingredient lists. Its recomputed score
-    # only fills the gap when the recipe never had one.
-    original_nutri_score = str(recipe.get("nutri_score") or "").strip()
-    if original_nutri_score:
-        payload["nutri_score_label"] = original_nutri_score
-        payload["nutri_score_color"] = _nutri_color_from_score(original_nutri_score)
 
     payload["nutri_score_explanation"] = _nutri_score_explanation(
         payload.get("nutri_score_label"),
@@ -1949,6 +1940,18 @@ async def recipe_search(
         ),
         diet_tags=[] if title_only else constraints.get("diet") or [],
         dish_types=[] if title_only else constraints.get("dish_types") or [],
+        sources=[] if title_only else constraints.get("sources") or [],
+        cuisines=[] if title_only else constraints.get("cuisines") or [],
+        moods=[] if title_only else constraints.get("moods") or [],
+        flavor_profiles=(
+            [] if title_only else constraints.get("flavor_profiles") or []
+        ),
+        food_groups=[] if title_only else constraints.get("food_groups") or [],
+        convenience=[] if title_only else constraints.get("convenience") or [],
+        nutrition_claims=(
+            [] if title_only else constraints.get("nutrition_claims") or []
+        ),
+        nutri_scores=[] if title_only else constraints.get("nutri_scores") or [],
         boost_tags=payload.diet_tags,
         boost_ingredients=payload.preferred_ingredients,
         title_keywords=(
@@ -2041,20 +2044,23 @@ async def recipe_search(
     # constraint the user did not express.
     from recipe_wrangler.catalog import vocabularies as _V
 
-    _mood_vocab = set(_V.MOODS)
+    # ``quick`` exists in the annotation vocabulary for historical reasons,
+    # but in a search request it describes preparation convenience. Applying
+    # it as both mood and convenience would needlessly require both fields.
+    _mood_vocab = set(_V.MOODS) - {"quick"}
     _cuisine_vocab = set(_V.CUISINES)
     _food_group_vocab = set(_V.FOOD_GROUPS)
 
     moods = [t for t in _question_tokens if t in _mood_vocab]
     cuisines = [t for t in _question_tokens if t in _cuisine_vocab]
     food_groups = [t for t in _question_tokens if t in _food_group_vocab]
-    if moods:
+    if moods and not base_constraints["moods"]:
         base_constraints["moods"] = list(dict.fromkeys(moods))
         logger.info("recipe_search recovered moods %s", base_constraints["moods"])
-    if cuisines:
+    if cuisines and not base_constraints["cuisines"]:
         base_constraints["cuisines"] = list(dict.fromkeys(cuisines))
         logger.info("recipe_search recovered cuisines %s", base_constraints["cuisines"])
-    if food_groups:
+    if food_groups and not base_constraints["food_groups"]:
         base_constraints["food_groups"] = list(dict.fromkeys(food_groups))
         logger.info(
             "recipe_search recovered food groups %s", base_constraints["food_groups"]

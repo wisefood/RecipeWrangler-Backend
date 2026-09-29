@@ -8,9 +8,14 @@ from typing import Iterable, Sequence
 from recipe_wrangler.repositories.elasticsearch_vectors import (
     elastic_hybrid_pool_size,
     get_elasticsearch_vector_collection_page,
+    get_elasticsearch_vector_record_by_source_id,
     query_elasticsearch_hybrid_collection,
     query_elasticsearch_vector_collection_by_embedding,
 )
+
+
+def get_nutrition_candidate_by_source_id(collection_name: str, source_id: str) -> dict | None:
+    return get_elasticsearch_vector_record_by_source_id(collection_name, source_id)
 
 
 def query_vector_collection_by_embedding(

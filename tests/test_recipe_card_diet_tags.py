@@ -111,6 +111,27 @@ class TestTheCard:
         )
         assert card.diet_tags == []
 
+    def test_slim_detail_reads_the_elasticsearch_default_score(self):
+        from recipe_wrangler.api.routers import recipes
+
+        document = {
+            "recipe_id": "r-1",
+            "title": "Chickpea stew",
+            "default_nutri_score": "B",
+        }
+        with (
+            patch.object(recipes, "_cached_recipe_response", return_value=None),
+            patch.object(recipes, "cache_get", return_value=None),
+            patch.object(recipes, "_catalog_recipe_by_id", return_value=document),
+            patch.object(recipes, "cache_set"),
+            patch.object(recipes, "_cache_recipe_response"),
+        ):
+            card = recipes.get_recipe(
+                "r-1", region=None, slim=True, include_disabled=False
+            )
+
+        assert card.nutri_score_label == "B"
+
 
 class TestTheCache:
     def test_the_variant_changed_with_the_field(self):

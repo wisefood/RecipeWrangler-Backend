@@ -5,12 +5,9 @@ Postgres pass; the per-recipe commit loads one. They must produce byte-identical
 documents or a rebuild would silently rewrite what a create had just written —
 so the shaping lives here and the loading strategy lives with each caller.
 
-The flat ``nutri_score_<region>`` fields matter more than they look. Unfiltered
-browse filters on ``exists: nutri_score_eu`` as its "has been profiled" marker,
-so a document without them is not merely missing a score: it cannot appear in
-browse at all. A recipe created through the API had exactly that shape, because
-the per-recipe projection never loaded profiles — it was profiled in Postgres
-and unprofiled everywhere anyone could see.
+The flat ``nutri_score_<region>`` fields support regional filtering and display.
+Profile availability itself is expressed by Elasticsearch's ``has_profile``
+projection, derived from PostgreSQL rows rather than inferred from one region.
 """
 
 from __future__ import annotations

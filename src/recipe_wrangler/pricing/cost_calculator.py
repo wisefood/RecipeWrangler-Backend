@@ -169,6 +169,7 @@ def _row_payload(
         "matched_product_id": row["product_id"],
         "matched_canonical_name": row["canonical_name"],
         "matched_product_detail": detail,
+        "food_category": row["food_category"],
         "price_scope": price_scope,
         "economic_reference_price_eur_kg": price,
         "country_price_index": price / eu_price,

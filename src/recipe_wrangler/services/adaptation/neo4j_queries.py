@@ -6,6 +6,7 @@ Standalone module — does not modify or import from the existing
 
 from __future__ import annotations
 
+from functools import lru_cache
 import re
 from typing import Any
 
@@ -114,10 +115,18 @@ def _foodon_candidates(name: str) -> list[dict[str, Any]]:
     return []
 
 
+@lru_cache(maxsize=4096)
 def find_substitute_candidates(name: str) -> list[dict[str, Any]]:
     """Merged MISKG + FoodOn candidate list, deduplicated by lowercase name.
 
     MISKG wins on duplicates because it is curated.
+
+    Cached: this is a multi-depth Neo4j traversal (~1-1.5s cold) and the same
+    ingredient names repeat heavily across recipes and within one resolution
+    pass (the graph-name selection gate calls it twice per ingredient, then
+    the offender-evaluation loop calls it again for the chosen one). Callers
+    must not mutate the returned list or its dicts in place — none currently
+    do; copy before mutating if that changes.
     """
 
     seen: dict[str, dict[str, Any]] = {}
@@ -317,9 +326,21 @@ def resolve_graph_name(fct_name: str, fallback_hints: list[str] | None = None) -
             return rows[0]["name"]
 
     # --- 2. token-based match: every Ingredient token must appear in fct_tokens.
-    # Among matches, prefer most-specific (most tokens), then tightest cluster
-    # (smallest span between first and last matching token in FCT), then earliest
-    # appearance, then shorter name.
+    return _token_match_ingredient(fct_clean)
+
+
+def _token_match_ingredient(fct_clean: str, exclude_name: str | None = None) -> str | None:
+    """Token-based match: every Ingredient token must appear in fct_clean's tokens.
+
+    Among matches, prefer most-specific (most tokens), then tightest cluster
+    (smallest span between first and last matching token in fct_clean), then
+    earliest appearance, then shorter name.
+
+    ``exclude_name`` skips the candidate matching that name verbatim
+    (case-insensitive) — used to bypass a node's trivial self-match so this
+    can find a *different*, better-connected Ingredient node instead.
+    """
+
     fct_tokens = _tokens(fct_clean)
     if not fct_tokens:
         return None
@@ -327,6 +348,7 @@ def resolve_graph_name(fct_name: str, fallback_hints: list[str] | None = None) -
     rows = run_query(
         """
         MATCH (i:Ingredient)
+        WHERE $exclude_name IS NULL OR toLower(i.name) <> toLower($exclude_name)
         WITH i, [tok IN split(toLower(i.name), ' ')
                   WHERE size(tok) >= 2
                   AND NOT tok IN ['and','or','the','of','with','from','made','for']
@@ -336,7 +358,7 @@ def resolve_graph_name(fct_name: str, fallback_hints: list[str] | None = None) -
           AND ((i)-[:HAS_SUBSTITUTION]->() OR (i)-[:HAS_CLASS]->(:FoodOnClass))
         RETURN i.name AS name, itokens
         """,
-        {"fct_tokens": fct_tokens},
+        {"fct_tokens": fct_tokens, "exclude_name": exclude_name},
     )
     if not rows:
         return None
@@ -354,21 +376,26 @@ def resolve_graph_name(fct_name: str, fallback_hints: list[str] | None = None) -
     return rows[0]["name"]
 
 
-def fetch_recipe_default_nutriscore(recipe_id: str) -> str | None:
-    """The recipe node's original Nutri-Score (e.g. 'Nutriscore_D'), if any."""
-    rows = run_query(
-        """
-        MATCH (r:Recipe)
-        WHERE toString(r.recipe_id) = $rid OR toString(r.id) = $rid
-        RETURN r.nutriscore AS nutriscore
-        LIMIT 1
-        """,
-        {"rid": str(recipe_id)},
-    )
-    if not rows:
+def resolve_graph_name_excluding_self(raw_name: str) -> str | None:
+    """Find a *different*, better-connected Ingredient node via pure token overlap.
+
+    ``resolve_graph_name``'s step 1 verbatim-matches a node against itself —
+    when a recipe's raw ingredient text was ingested as its own literal
+    Ingredient node (e.g. ``"(1lb) lean minced beef"``), that self-match wins
+    trivially and step 2's smarter token match never runs, leaving the node
+    stuck with no real substitution candidates.
+
+    This calls the same token-match step directly on the raw text, excluding
+    the node whose name equals it, so a shared generic node (e.g. ``"beef"``)
+    can be found instead. No FCT/nutrition-matched name is used here — only
+    tokens the raw text itself contains against the graph's own vocabulary —
+    which avoids inheriting the nutrition matcher's occasional wrong guesses.
+    """
+
+    raw_clean = (raw_name or "").strip()
+    if not raw_clean:
         return None
-    value = str(rows[0].get("nutriscore") or "").strip()
-    return value or None
+    return _token_match_ingredient(raw_clean, exclude_name=raw_clean)
 
 
 def has_any_substitution_path(name: str) -> bool:

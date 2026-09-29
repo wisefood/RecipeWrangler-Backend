@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-off FoodHero profiling import into Postgres trace table.
+"""Build FoodHero regional profiles in the Postgres trace table.
 
 Pipeline:
 1) Load data/FoodHero/foodhero_recipes_clean.json

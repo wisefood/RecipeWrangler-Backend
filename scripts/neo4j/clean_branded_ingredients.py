@@ -239,7 +239,7 @@ If you cannot identify the full generic product confidently, choose
 `needs_review`.
 
 Choose `keep_original` when the alleged brand is actually:
-- a database/source name such as recipe1m, HealthyFoods, FoodHero, MyPlate, or
+- a database/source name such as HealthyFoods, FoodHero, MyPlate, or
   Curated Irish Recipes;
 - a generic food, food style, protected/traditional name, flavour, colour,
   preparation state, dietary property, or nutrition qualifier;

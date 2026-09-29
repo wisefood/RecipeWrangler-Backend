@@ -2,7 +2,7 @@
 """Re-project every recipe from Neo4j+Postgres into Elasticsearch.
 
 Needed after a Postgres-only nutrition write (e.g. `recompute_all_profiles.py`,
-which never touches ES) leaves recipes_v4 documents with stale/missing
+which never touches Elasticsearch) leaves catalog documents with stale/missing
 `nutri_score_*` flat fields. `scripts/maintenance/reconcile.py`'s drift
 detection is digest-based against the Neo4j *owner* content only — it cannot
 see a Postgres-only profile change, so it won't catch this gap. This script

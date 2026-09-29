@@ -7,17 +7,17 @@ means active, so the operation is safe to re-run until converged.
 Usage
 -----
   # Dry-run (default): report what would be disabled
-  python scripts/disable_recipes.py --source recipe1m
+  python scripts/disable_recipes.py --source FoodHero
 
   # Disable a whole source with a reason
-  python scripts/disable_recipes.py --source recipe1m \
+  python scripts/disable_recipes.py --source FoodHero \
       --reason "quality: pending retagging" --apply
 
   # Disable explicit IDs (inline or one-per-line file)
   python scripts/disable_recipes.py --ids id1,id2,id3 --apply
   python scripts/disable_recipes.py --ids-file bad_ids.txt --apply
 
-  # Re-enable a non-retired source
+  # Re-enable a source
   python scripts/disable_recipes.py --source foodhero --enable --apply
 """
 
@@ -102,9 +102,6 @@ def main() -> None:
     parser.add_argument("--apply", action="store_true",
                         help="Actually write. Default is dry-run.")
     args = parser.parse_args()
-
-    if args.enable and args.source and args.source.strip().lower() == "recipe1m":
-        parser.error("recipe1m is retired and cannot be re-enabled")
 
     from recipe_wrangler.api.config import get_settings
     from recipe_wrangler.tools.es_recipe_search import ES_INDEX

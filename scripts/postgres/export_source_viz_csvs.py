@@ -24,7 +24,9 @@ load_runtime_env()
 
 CALCULATED_SOURCES = ("eu", "irish", "hungarian")
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
-GROUND_TRUTH_NUTRITION_SOURCES = ("safefood_rcsi", "safefood", "recipe1m_original", "scraped", "planeat", "slovenian_original")
+GROUND_TRUTH_NUTRITION_SOURCES = (
+    "safefood_rcsi", "safefood", "scraped", "planeat", "slovenian_original"
+)
 NUTRIENTS = (
     "energy_kcal",
     "protein_g",
@@ -66,13 +68,6 @@ SOURCES = {
         "prefix": "myplate",
         "reference_source": None,
         "source_order": CALCULATED_SOURCES,
-    },
-    "recipe1m": {
-        "db_source": "recipe1m",
-        "out_dir": REPO_ROOT / "artifacts" / "viz" / "recipe1m",
-        "prefix": "recipe1m",
-        "reference_source": "recipe1m_original",
-        "source_order": ("recipe1m_original", *CALCULATED_SOURCES),
     },
     "planeat": {
         "db_source": "Curated Hungarian Recipes",

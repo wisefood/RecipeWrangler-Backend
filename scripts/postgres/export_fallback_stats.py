@@ -43,8 +43,6 @@ load_runtime_env()
 
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
 DEFAULT_OUT = REPO_ROOT / "artifacts" / "viz" / "coverage_stats_per_source.csv"
-SOURCES = ("HealthyFoods", "MyPlate", "FoodHero", "Curated Irish Recipes", "recipe1m")
-
 # Region -> the per-ingredient `source` label of that region's own table.
 REGION_TABLE = {
     "irish": "Irish Composition Table",
@@ -64,7 +62,7 @@ def _fetch(pipeline_version: str) -> pd.DataFrame:
             FROM "{cfg['schema']}"."{cfg['profiles_table']}" p,
                  jsonb_array_elements(p.nutrition_profiling_details) elem
             WHERE p.pipeline_version = :pv
-              AND p.source = ANY(:sources)
+              AND p.source IS NOT NULL
               AND p.nutrition_source IN ('irish','hungarian')
               AND p.nutrition_profiling_details IS NOT NULL
         ),
@@ -93,7 +91,7 @@ def _fetch(pipeline_version: str) -> pd.DataFrame:
     """
     with get_connection() as conn:
         rows = conn.execute(
-            text(query), {"pv": pipeline_version, "sources": list(SOURCES)}
+            text(query), {"pv": pipeline_version}
         ).mappings().all()
     return pd.DataFrame.from_records([dict(r) for r in rows])
 

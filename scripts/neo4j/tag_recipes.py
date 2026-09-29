@@ -1,3 +1,9 @@
+"""Materialize recipe dietary tags from current Neo4j ingredient evidence.
+
+The script derives corpus-wide tags such as dairy-free and nut-free from the
+same allergen and ingredient rules used by request-time recipe projection.
+"""
+
 import argparse
 import os
 import re
@@ -12,9 +18,6 @@ try:
     from tqdm import tqdm
 except Exception:  # pragma: no cover - optional dependency
     tqdm = None
-
-
-# Purpose: Tag recipes based on ingredient allergen tags.
 
 
 def _connect(uri: str, username: str, password: Optional[str], no_auth: bool):

@@ -158,7 +158,6 @@ RETURN
   coalesce(r.expert_recipe, false) AS expert_recipe,
   coalesce(r.status, "active") AS status,
   toString(r.disabled_at) AS disabled_at,
-  coalesce(r.has_profile, false) AS has_profile,
   coalesce(r.has_rcsi_lab_nutrition, false) AS has_rcsi_nutrition,
   coalesce(r.has_planeat_nutrition, false) AS has_planeat_nutrition,
   r.ground_truth_nutrition_source AS ground_truth_nutrition_source,
@@ -391,7 +390,9 @@ def build_document(
         "expert_recipe": bool(row.get("expert_recipe")),
         "status": _clean(row.get("status")) or "active",
         "disabled_at": _clean(row.get("disabled_at")) or None,
-        "has_profile": bool(profiles) or bool(row.get("has_profile")),
+        # PostgreSQL owns profile existence; Elasticsearch materializes the
+        # flag only to make browse/planning filters cheap.
+        "has_profile": bool(profiles),
         "has_rcsi_nutrition": bool(row.get("has_rcsi_nutrition")),
         "has_planeat_nutrition": bool(row.get("has_planeat_nutrition")),
         "ground_truth_nutrition_source": _clean(

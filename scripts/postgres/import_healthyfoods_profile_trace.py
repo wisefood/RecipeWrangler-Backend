@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-off HealthyFoods profiling import into Postgres trace table.
+"""Build HealthyFoods regional profiles in the Postgres trace table.
 
 Pipeline:
 1) Load data/HealthyFoods/HealthyFood_recipes_clean.json

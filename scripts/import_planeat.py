@@ -116,8 +116,7 @@ def _set_planeat_properties(recipe_id: str, rec: dict) -> None:
                 r.animal_product_category   = $animal_product_category,
                 r.seasonality               = $seasonality,
                 r.has_planeat_nutrition     = true,
-                r.ground_truth_nutrition_source = 'planeat',
-                r.has_profile               = true
+                r.ground_truth_nutrition_source = 'planeat'
             """,
             {
                 "recipe_id": recipe_id,

@@ -13,14 +13,14 @@ spare; everything else belonging to the source is deleted.
 Usage
 -----
   # Dry-run (default): report exactly what would be deleted, per store
-  python scripts/maintenance/purge_source.py --source recipe1m
+  python scripts/maintenance/purge_source.py --source "Example Source"
 
-  # Purge recipe1m, but keep its original nutrition rows as reference data
-  python scripts/maintenance/purge_source.py --source recipe1m \
-      --keep-nutrition-source recipe1m_original --apply
+  # Purge a source but retain a reference-nutrition row
+  python scripts/maintenance/purge_source.py --source "Example Source" \
+      --keep-nutrition-source source_reference --apply
 
   # Limit to one store (repeat or comma-separate)
-  python scripts/maintenance/purge_source.py --source recipe1m \
+  python scripts/maintenance/purge_source.py --source "Example Source" \
       --stores neo4j --apply
 
 Notes
@@ -237,7 +237,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(
         description="Hard-delete a recipe source from every store."
     )
-    ap.add_argument("--source", required=True, help="Recipe source to purge, e.g. recipe1m")
+    ap.add_argument("--source", required=True, help="Exact Recipe.source value to purge")
     ap.add_argument(
         "--keep-nutrition-source",
         action="append",

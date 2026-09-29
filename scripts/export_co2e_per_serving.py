@@ -28,36 +28,49 @@ QUERY = f'''
     ORDER BY source, recipe_id
 '''
 
-rows = []
-with get_engine().connect() as conn:
-    for rid, source, co2e in conn.execute(text(QUERY)):
-        rows.append((str(rid), source, float(co2e)))
+def main() -> None:
+    """Write recipe-level and per-source sustainability summaries."""
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    rows = []
+    with get_engine().connect() as conn:
+        for rid, source, co2e in conn.execute(text(QUERY)):
+            rows.append((str(rid), source, float(co2e)))
 
-with open(FLAT, "w", newline="") as f:
-    w = csv.writer(f)
-    w.writerow(["recipe_id", "source", "co2e_per_serving_kg"])
-    w.writerows(rows)
+    with FLAT.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["recipe_id", "source", "co2e_per_serving_kg"])
+        writer.writerows(rows)
 
-by_src = {}
-for _, source, v in rows:
-    by_src.setdefault(source, []).append(v)
+    by_src = {}
+    for _, source, value in rows:
+        by_src.setdefault(source, []).append(value)
 
-with open(SUMMARY, "w", newline="") as f:
-    w = csv.writer(f)
-    w.writerow(["source", "n", "mean_co2e_per_serving_kg", "median_co2e_per_serving_kg",
-                "min_kg", "max_kg", "zero_count"])
-    for source in sorted(by_src):
-        vals = by_src[source]
-        w.writerow([
-            source, len(vals), round(mean(vals), 4), round(median(vals), 4),
-            round(min(vals), 4), round(max(vals), 4), sum(1 for x in vals if x == 0.0),
+    with SUMMARY.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow([
+            "source", "n", "mean_co2e_per_serving_kg",
+            "median_co2e_per_serving_kg", "min_kg", "max_kg", "zero_count",
         ])
+        for source in sorted(by_src):
+            values = by_src[source]
+            writer.writerow([
+                source, len(values), round(mean(values), 4), round(median(values), 4),
+                round(min(values), 4), round(max(values), 4),
+                sum(1 for value in values if value == 0.0),
+            ])
 
-print(f"WROTE {FLAT}  ({len(rows)} rows)")
-print(f"WROTE {SUMMARY}")
-print("\nPer-source CO2e/serving (kg):")
-print(f"{'source':18}{'n':>8}{'mean':>10}{'median':>10}{'zeros':>8}")
-for source in sorted(by_src):
-    vals = by_src[source]
-    z = sum(1 for x in vals if x == 0.0)
-    print(f"{source:18}{len(vals):>8}{mean(vals):>10.4f}{median(vals):>10.4f}{z:>8}")
+    print(f"WROTE {FLAT}  ({len(rows)} rows)")
+    print(f"WROTE {SUMMARY}")
+    print("\nPer-source CO2e/serving (kg):")
+    print(f"{'source':18}{'n':>8}{'mean':>10}{'median':>10}{'zeros':>8}")
+    for source in sorted(by_src):
+        values = by_src[source]
+        zeros = sum(1 for value in values if value == 0.0)
+        print(
+            f"{source:18}{len(values):>8}{mean(values):>10.4f}"
+            f"{median(values):>10.4f}{zeros:>8}"
+        )
+
+
+if __name__ == "__main__":
+    main()

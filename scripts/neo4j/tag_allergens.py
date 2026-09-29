@@ -1,3 +1,10 @@
+"""Materialize ingredient-allergen evidence in Neo4j.
+
+FoodOn ancestry is preferred when available; conservative keyword rules cover
+ingredients without ontology links. The operation is idempotent but writes on
+every run; use ``--allergens`` to limit its scope.
+"""
+
 import argparse
 import os
 import re
@@ -23,10 +30,6 @@ try:
     from tqdm import tqdm
 except Exception:  # pragma: no cover - optional dependency
     tqdm = None
-
-
-# Purpose: Tag ingredients with allergen evidence (FoodOn ancestry + keyword fallback).
-
 
 
 def _keyword_regex(keyword: str) -> str:

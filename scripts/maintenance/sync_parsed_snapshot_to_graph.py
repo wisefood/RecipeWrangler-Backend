@@ -50,6 +50,7 @@ NEW_NODE_SOURCE = "parsed_snapshot_2026-09"
 
 DATASETS = {
     "healthyfoods_final_parsed_fixed.json": ("HealthyFoods", "link", "title"),
+    "healthyfoods_remaining_a-n_parsed.json": ("HealthyFoods", "link", "title"),
     "myplate_final_parsed.json": ("MyPlate", "url", "title"),
     "foodhero_final_parsed.json": ("FoodHero", "source_url", "title"),
     "best_of_hungary_final_parsed.json": ("Best of Hungary", "url", "title"),

@@ -8,8 +8,8 @@ Writes four CSVs into ``artifacts/viz/``:
 - ``top_dish_type_tags_per_source.csv``: tag counts where ``Tag.category = 'dish-type'``.
 - ``top_dietary_tags_per_source.csv`` : tag counts where ``Tag.category = 'dietary'``.
 
-Each CSV is long-form: ``(scope, name, recipe_count)`` where ``scope`` is either
-``ALL`` or one of {HealthyFoods, MyPlate, FoodHero, Irish_SafeFood, recipe1m}.
+Each CSV is long-form: ``(scope, name, recipe_count)`` where ``scope`` is
+``ALL`` or a current ``Recipe.source`` value discovered from Neo4j.
 """
 
 from __future__ import annotations
@@ -32,7 +32,6 @@ import os  # noqa: E402
 from neo4j import GraphDatabase  # noqa: E402
 
 OUT_DIR = REPO_ROOT / "artifacts" / "viz"
-SOURCES = ("HealthyFoods", "MyPlate", "FoodHero", "Curated Irish Recipes", "recipe1m")
 DEFAULT_TOP_N = 30
 
 
@@ -43,14 +42,19 @@ def _driver():
     return GraphDatabase.driver(uri, auth=(user, pwd))
 
 
-def _run_scope(session, cypher_template: str, top_n: int) -> pd.DataFrame:
+def _run_scope(
+    session, cypher_template: str, top_n: int, sources: list[str]
+) -> pd.DataFrame:
     rows: list[dict] = []
     overall = session.run(cypher_template.format(filter=""), top_n=top_n).data()
     for r in overall:
         rows.append({"scope": "ALL", "name": r["name"], "recipe_count": r["n"]})
-    for src in SOURCES:
-        flt = f"WHERE rec.source = '{src}'"
-        res = session.run(cypher_template.format(filter=flt), top_n=top_n).data()
+    for src in sources:
+        res = session.run(
+            cypher_template.format(filter="WHERE rec.source = $source"),
+            top_n=top_n,
+            source=src,
+        ).data()
         for r in res:
             rows.append({"scope": src, "name": r["name"], "recipe_count": r["n"]})
     return pd.DataFrame.from_records(rows)
@@ -84,17 +88,22 @@ LIMIT $top_n
 """
 
 
-def _run_tags_scope(session, category: str, top_n: int) -> pd.DataFrame:
+def _run_tags_scope(
+    session, category: str, top_n: int, sources: list[str]
+) -> pd.DataFrame:
     rows: list[dict] = []
     res = session.run(
         TAGS_Q.format(category=category, extra_filter=""), top_n=top_n
     ).data()
     for r in res:
         rows.append({"scope": "ALL", "name": r["name"], "recipe_count": r["n"]})
-    for src in SOURCES:
-        extra = f" AND rec.source = '{src}'"
+    for src in sources:
         res = session.run(
-            TAGS_Q.format(category=category, extra_filter=extra), top_n=top_n
+            TAGS_Q.format(
+                category=category, extra_filter=" AND rec.source = $source"
+            ),
+            top_n=top_n,
+            source=src,
         ).data()
         for r in res:
             rows.append({"scope": src, "name": r["name"], "recipe_count": r["n"]})
@@ -111,10 +120,17 @@ def main() -> int:
     drv = _driver()
     try:
         with drv.session() as s:
-            ing = _run_scope(s, INGREDIENTS_Q, args.top_n)
-            alg = _run_scope(s, ALLERGENS_Q, args.top_n)
-            dish = _run_tags_scope(s, "dish-type", args.top_n)
-            diet = _run_tags_scope(s, "dietary", args.top_n)
+            sources = [
+                row["source"]
+                for row in s.run(
+                    "MATCH (r:Recipe) WHERE r.source IS NOT NULL "
+                    "RETURN DISTINCT r.source AS source ORDER BY source"
+                )
+            ]
+            ing = _run_scope(s, INGREDIENTS_Q, args.top_n, sources)
+            alg = _run_scope(s, ALLERGENS_Q, args.top_n, sources)
+            dish = _run_tags_scope(s, "dish-type", args.top_n, sources)
+            diet = _run_tags_scope(s, "dietary", args.top_n, sources)
     finally:
         drv.close()
 

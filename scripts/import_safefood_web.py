@@ -13,9 +13,8 @@ Per recipe:
      nutrition as ground truth to Postgres.
   4. Index in Elasticsearch.
 
-Reuses the same helpers as import_irish_safefood.py — only the data source and
-the image/URL handling differ. Resume-safe via checkpoint; one failure does not
-kill the run.
+RCSI lab parsing and matching live in ``safefood_rcsi.py``. The import is
+resume-safe via checkpoint; one failure does not kill the run.
 
 Run (Groq for parse+weight, since the vLLM ingredient-tagger is not served):
     PARSE_LLM=llama-3.1-8b-instant WEIGHT_LLM=llama-3.1-8b-instant \
@@ -206,7 +205,7 @@ def set_recipe_url(recipe_id: str, url: str | None) -> None:
         return
     from recipe_wrangler.repositories.neo4j_recipes import driver
     with driver.session() as s:
-        s.run("MATCH (r:Recipe {recipe_id: $rid}) SET r.url = $url, r.has_profile = true",
+        s.run("MATCH (r:Recipe {recipe_id: $rid}) SET r.url = $url",
               rid=recipe_id, url=url)
 
 

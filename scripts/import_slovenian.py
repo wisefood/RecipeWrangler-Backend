@@ -194,7 +194,6 @@ def _set_slovenian_properties(recipe_id: str, dish_type: str) -> None:
                 r.dish_type                     = $dish_type,
                 r.has_slovenian_nutrition       = true,
                 r.ground_truth_nutrition_source = 'slovenian_original',
-                r.has_profile                   = true,
                 r.language                      = 'en'
             """,
             {"recipe_id": recipe_id, "dish_type": dish_type},

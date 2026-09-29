@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "recipe-wrangler"
 version = "0.0.0"
 description = "RecipeWrangler backend"
-readme = "README.md"
+readme = "docs/README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.111.0",

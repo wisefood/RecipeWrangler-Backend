@@ -74,5 +74,9 @@ htmlcov/
 
 # Agent/tool configs
 .claude/
-.blackboxcli/
 .codex
+
+# Packaging metadata points to this file.
+!docs/
+docs/*
+!docs/README.md

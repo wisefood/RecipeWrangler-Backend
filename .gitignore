@@ -2,6 +2,7 @@
 /docs
 /FATO_FOODON_NEO4J.md
 /VEGAN_VEGETARIAN_RULES.md
+/RECIPE_COLLECTIONS.md
 /build
 /qdrant_storage
 /n8n-local
@@ -156,3 +157,16 @@ CLAUDE.md
 
 # Personal terminal cheatsheet, not project docs
 /INSPECT_DATABASES.md
+
+# Repository documentation kept in Git despite the local docs workspace ignore.
+!/docs/
+/docs/*
+!/docs/README.md
+!/docs/Living_Lab_feedback_aggregated(RecipeWrangler).csv
+
+# Alembic is the reproducible PostgreSQL schema history.
+!/alembic/
+!/alembic/*.py
+!/alembic/versions/
+!/alembic/versions/*.py
+!/alembic.ini

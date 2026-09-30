@@ -613,6 +613,12 @@ _ANIMAL_KIND_PATTERNS = (
     # a known, documented residual gap, not an oversight.
 )
 
+_ORGAN_MEAT_WORDS = {
+    "heart", "hearts", "liver", "livers", "kidney", "kidneys", "gizzard",
+    "gizzards", "tripe", "tongue", "tongues", "brain", "brains", "offal",
+    "sweetbread", "sweetbreads",
+}
+
 
 def animal_kind(name: str) -> str | None:
     for kind, pattern in _ANIMAL_KIND_PATTERNS:
@@ -687,6 +693,27 @@ def ingredient_forms_compatible(query_name: str, candidate_name: str) -> bool:
         )
         if not generic_stock_powder:
             return False
+    # An ordinary cut of meat (bare "chicken", "cooked turkey", "lamb steak")
+    # must not silently become an organ meat. Embeddings routinely rank
+    # "Heart, chicken, cooked" above any chicken-breast row for the bare word
+    # "chicken" because both share species + "cooked"; nothing else in the
+    # query signals organ meat, so treat it as a hard mismatch.
+    if (
+        query_animal
+        and not (_ORGAN_MEAT_WORDS & query_words)
+        and (_ORGAN_MEAT_WORDS & candidate_words)
+    ):
+        return False
+    # Same failure mode, different product: a plain roast/whole cut of chicken
+    # or turkey must not become sliced deli ham of that species (e.g. "cooked
+    # whole chicken" -> "Cooked ham, from chicken, in slices"). Ham is a
+    # distinct cured/reformed product, not a stand-in for roasted meat.
+    if (
+        query_animal in {"chicken", "turkey", "pork"}
+        and "ham" not in query_words
+        and "ham" in candidate_words
+    ):
+        return False
     # A prepared animal food can contain the requested oil/sauce as a minor
     # ingredient. Do not treat that mention as the product identity (for
     # example chilli oil -> anchovy fillets marinated in chilli oil).

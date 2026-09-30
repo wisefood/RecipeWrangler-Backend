@@ -865,15 +865,46 @@ def ingredient_forms_compatible(query_name: str, candidate_name: str) -> bool:
         and {"cut", "cuts"} & candidate_words
     ):
         return False
-    # "ground pepper" conventionally means the spice. Do not let the shared
-    # word pepper turn it into a raw bell/capsicum vegetable.
-    if (
-        "ground" in query_words
-        and "pepper" in query_words
-        and not ({"capsicum", "bell", "sweet", "chilli", "chili", "cayenne"} & query_words)
-        and ({"capsicum", "bell", "sweet", "chilli", "chili", "cayenne"} & candidate_words)
-    ):
-        return False
+    # "Pepper" names two unrelated foods: the Piper nigrum spice and the
+    # capsicum/bell vegetable. Composition tables name the spice rows bare
+    # ("Pepper, black", "Pepper black/white") and the vegetable rows always
+    # carry an extra descriptor ("Pepper, capsicum, red, raw", "Sweet pepper,
+    # red, raw"), so that descriptor is what tells the two apart -- on
+    # EITHER side. Previously only the spice-query/vegetable-candidate
+    # direction was guarded (and only for the literal phrase "ground
+    # pepper"), so "peppercorns"/"black peppercorns"/"lemon pepper" could
+    # still land on "green peppers", and "orange capsicum"/"banana peppers"
+    # could land on "Pepper, white" -- the reverse direction had no guard
+    # at all.
+    if {"pepper", "peppers", "peppercorn", "peppercorns"} & (query_words | candidate_words):
+        pepper_spice_signal = {
+            "peppercorn", "peppercorns", "ground", "cracked", "mill", "corns",
+            "szechuan", "sichuan", "tellicherry", "black", "white", "pink", "mixed",
+        }
+        pepper_veg_signal = {
+            "capsicum", "capsicums", "bell", "sweet", "banana", "stuffed",
+            "chilli", "chili", "jalapeno", "poblano", "habanero", "cayenne",
+            "red", "green", "yellow", "orange", "purple",
+        }
+        query_is_spice = bool(
+            {"peppercorn", "peppercorns"} & query_words
+            or (pepper_spice_signal & query_words - {"peppercorn", "peppercorns"})
+        ) and not (pepper_veg_signal & query_words)
+        query_is_veg = bool(pepper_veg_signal & query_words) and not (
+            {"peppercorn", "peppercorns"} & query_words
+        )
+        candidate_has_veg_signal = bool(pepper_veg_signal & candidate_words)
+        candidate_is_spice = (
+            {"pepper", "peppers", "peppercorn", "peppercorns"} & candidate_words
+            and not candidate_has_veg_signal
+        )
+        candidate_is_veg = (
+            {"pepper", "peppers"} & candidate_words and candidate_has_veg_signal
+        )
+        if query_is_spice and candidate_is_veg:
+            return False
+        if query_is_veg and candidate_is_spice:
+            return False
     # "flavoured" as a plain descriptor ("flavoured tomatoes", "full-
     # flavoured liquid vegetable stock") is not a request for the specific
     # commercial product "Seasoning flavoured liquid" -- only let it through

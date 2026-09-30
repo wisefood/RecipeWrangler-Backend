@@ -198,21 +198,33 @@ ES_OWNED_FIELDS: tuple[str, ...] = (
 )
 
 
-def load_carry_over(alias: str) -> dict[str, dict[str, Any]]:
+def load_carry_over(alias: str) -> tuple[dict[str, dict[str, Any]], int]:
     """Read the ES-only fields out of the live index, keyed by recipe_id.
 
     Streamed with search_after rather than from/size so corpus growth cannot
     push it past a result window.
+
+    Returns (carried, scanned) -- ``scanned`` is the number of live documents
+    read, separate from ``len(carried)`` (how many actually had a field to
+    keep). A caller can then tell "index doesn't exist yet, nothing to carry"
+    (scanned == 0) apart from "index has documents but none carried a field"
+    (scanned > 0, carried empty) -- the latter is the signature of this
+    exact incident (2026-08-25 -> 2026-09-26: course_types/cuisines/
+    flavor_profiles/moods/food_groups silently dropped to zero across the
+    whole corpus by a rebuild whose carry-over step no-op'd without anyone
+    noticing) and must fail loud instead of proceeding.
     """
     client = get_catalog_client()
     if not (client.alias_exists(alias) or client.index_exists(alias)):
         logger.info("carry-over: %s does not exist yet, nothing to carry", alias)
-        return {}
+        return {}, 0
 
     carried: dict[str, dict[str, Any]] = {}
+    scanned = 0
     for hit in client.scroll_all(
         alias, source=["recipe_id", *ES_OWNED_FIELDS], page_size=1000
     ):
+        scanned += 1
         src = hit.get("_source") or {}
         recipe_id = _clean(src.get("recipe_id"))
         if not recipe_id:
@@ -224,7 +236,7 @@ def load_carry_over(alias: str) -> dict[str, dict[str, Any]]:
         }
         if kept:
             carried[recipe_id] = kept
-    return carried
+    return carried, scanned
 
 
 def _clean(value: object) -> str:
@@ -479,6 +491,17 @@ def main() -> None:
         action="store_false",
         help="Rebuild purely from owners, DISCARDING all annotation work.",
     )
+    ap.add_argument(
+        "--force-empty-carry-over",
+        action="store_true",
+        help=(
+            "Proceed even though carry-over found live documents but none had "
+            "any ES-only annotation field set. Only use this when the live "
+            "index genuinely has no annotations yet (e.g. a fresh corpus) -- "
+            "this flag exists to override the guard added after annotations "
+            "were silently wiped once already."
+        ),
+    )
     ap.add_argument("--dry-run", action="store_true", help="Assemble but do not write.")
     ap.add_argument("--apply", action="store_true", help="Actually write.")
     args = ap.parse_args()
@@ -518,8 +541,20 @@ def main() -> None:
     carried: dict[str, dict[str, Any]] = {}
     if args.carry_over:
         logger.info("loading carry-over fields from %s...", alias)
-        carried = load_carry_over(alias)
-        logger.info("carry-over: %s recipe(s) with ES-only fields", len(carried))
+        carried, scanned = load_carry_over(alias)
+        logger.info(
+            "carry-over: %s recipe(s) with ES-only fields (scanned %s live docs)",
+            len(carried), scanned,
+        )
+        if scanned > 0 and not carried and not args.force_empty_carry_over:
+            ap.error(
+                f"carry-over scanned {scanned} live document(s) in '{alias}' but "
+                f"none had any of {ES_OWNED_FIELDS} set -- this is the exact "
+                "signature of silently wiping all annotation work (it happened "
+                "once already, 2026-08-25 -> 2026-09-26). Refusing to proceed. "
+                "If the live index genuinely has no annotations yet, re-run with "
+                "--force-empty-carry-over."
+            )
     else:
         logger.warning(
             "--no-carry-over: annotations and provenance in %s will NOT survive",

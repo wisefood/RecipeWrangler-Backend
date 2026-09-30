@@ -3298,4 +3298,48 @@ confirms serves/weight was never the real issue -- consistent with earlier direc
 - One remaining full recompute (all ~7744 recipes x 4 regions, ~1.4h) would guarantee zero
   staleness anywhere, superseding the two targeted sweeps above. Not run -- pending the
   user's call given the presentation timeline.
+
+## 2026-09-30 — course_types/cuisines/flavor_profiles/moods/food_groups silently wiped, restored
+
+Found and fixed a real data-loss incident, unrelated to nutrition matching. These 5 fields
+(`ES_OWNED_FIELDS` in `scripts/catalog/build_recipes.py`) are LLM-annotated (`catalog/annotation.py`,
+model `llama-3.3-70b-versatile`), live **only** in Elasticsearch — Neo4j/Postgres never back them,
+by design, so a corpus rebuild must carry them over from the live index or lose them.
+
+- Confirmed via a chain of historical dumps: 100% populated across all 11 collections as of
+  2026-08-25 (`dumps/local/2026-08-25/elastic-recipes.ndjson.gz`), completely absent (0/7744) by
+  2026-09-26 and still absent as of the 2026-09-29 handoff dump. Wiped sometime in that window,
+  most likely during the recipe1m/HUMMUS removal work (`pre_recipe1m_removal` dump sits right in
+  the same period).
+- Root cause: `build_recipes.py --carry-over` (on by default) is supposed to read these fields out
+  of the live index before a rebuild and re-merge them in. `load_carry_over()` silently returns
+  `{}` if the alias doesn't exist yet **or** if it exists but nothing carries a field — both cases
+  logged as ordinary info, not a warning, so a rebuild that hit either case proceeded and silently
+  discarded every annotation with no visible error.
+- **Restored**, not re-annotated: wrote a one-off script pulling the 5 fields from the intact
+  2026-08-25 dump and partial-updating the live index by `_id` (`urn:recipe:<id>`), matched only
+  against recipe_ids still present in the current corpus. 7526/7744 recipes recovered (97%),
+  0 errors. `reconcile.py` confirmed 0 drift afterward. The remaining ~218 recipes are ones added
+  after 2026-08-25 that were never annotated in the first place — a real but separate, much smaller
+  gap (estimated cost to close via the existing LLM pipeline: well under $0.15 total, Groq
+  llama-3.3-70b-versatile, ~700 input / ~50 output tokens per recipe).
+- **Fixed the root cause**, not just the symptom: `build_recipes.py`'s carry-over step now hard-fails
+  (`ap.error`, refuses to proceed) if it scans a non-empty live index but finds zero documents
+  carrying any `ES_OWNED_FIELDS` value — the exact signature of this incident. Added
+  `--force-empty-carry-over` as the explicit, named escape hatch for the one legitimate case (a
+  genuinely fresh, never-annotated corpus). Verified the guard doesn't false-trigger against the
+  now-healthy index (7666/7744 carried on a dry run) and does exist to catch the failure mode that
+  caused this.
+- **Update, same session:** the ~218-recipe gap was closed too. `catalog/annotation.py`'s
+  `call_model()` is hardcoded to Groq (`ChatGroq`), which was unavailable/rate-limited at the time;
+  ran a one-off variant against OpenRouter (`meta-llama/llama-3.3-70b-instruct`) instead, reusing
+  the shared prompt/vocabulary/validation code and writing straight to Elasticsearch. 214/218 on
+  the first pass, 4 JSON-parse failures (model returned prose around the JSON) fixed by extracting
+  the `{...}` span before parsing, retried, 0 errors. Final coverage: course_types 7726/7744
+  (99.77%) — the remainder are recipes where the model legitimately returned empty facets, which
+  the system treats as a correct answer, not a gap. `reconcile.py` confirmed 0 drift after.
+  Not done: no automated test added for the new `build_recipes.py` guard (manual dry-run
+  verification only); `call_model()` itself still has no OpenRouter fallback built in — today's
+  fix was a one-off script, not a permanent provider-fallback in the shared module.
+
 # claude — END

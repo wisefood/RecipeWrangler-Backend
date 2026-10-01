@@ -492,7 +492,15 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         # unify field names: set canonical surface name + parser fields
         p["name"] = names[i]
         p["measurement"] = measurements[i]
-        p["weight_g"] = float(weights[i])  # ensure numeric
+        # `weights[i]` is the pre-capping weight fed INTO nutritional_calculator;
+        # prof_items[i]["weight_g"] already reflects any sanity cap applied
+        # there (see weight_capped/original_weight_g). Overwriting it with
+        # weights[i] unconditionally silently undid every cap for display
+        # purposes (nutrient totals stayed correct -- they're computed from
+        # the capped weight before this merge step -- only the reported
+        # "weight used" was wrong). Keep the calculator's value; only fall
+        # back to weights[i] if prof_items[i] never set one.
+        p["weight_g"] = float(p.get("weight_g", weights[i]))
         merged.append(p)
 
     per_serving_suffix = f"_per_serving{suffix}"

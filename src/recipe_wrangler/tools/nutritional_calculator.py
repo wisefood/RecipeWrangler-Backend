@@ -56,9 +56,7 @@ def _contextual_match_name(
 logger = logging.getLogger(__name__)
 
 SOURCE_NUTRITION = "Irish Composition Table"
-SOURCE_NUTRITION_EU = (
-    "EU Composite (Ciqual+CoFID+NEVO+Fineli+Frida+SLV+Matvaretabellen)"
-)
+SOURCE_NUTRITION_EU = "EU"
 
 PROTEIN_KEY = "Protein (g)"
 CARB_KEY    = "Carbohydrate (g)"
@@ -123,12 +121,41 @@ def _capped_concentrate_weight_g(
 # food_class for the unambiguous herb/spice names (cinnamon, cumin, ...).
 # ponytail: flat cap, not a per-spice portion table; same shape as the
 # concentrate cap above.
-_SEASONING_NAME_PHRASES = ("salt", "black pepper", "peppercorn")
+_SEASONING_NAME_PHRASES = ("salt", "black pepper", "white pepper", "peppercorn", "zest")
 _SEASONING_IMPLAUSIBLE_WEIGHT_G = 30.0
 _SEASONING_CAPPED_WEIGHT_G = 5.0
+# Matches ingredient_weight_tool.py's TO_TASTE_MIN_GRAMS / BLANK_DEFAULT_GRAMS
+# policy (2026-09-25 product decision: a line with no stated amount gets a
+# negligible-but-nonzero weight, not "0 g"). That policy only fires when the
+# weight tool left the weight at exactly 0 -- it does not correct an
+# already-wrong nonzero guess (the 120g-for-unquantified-pepper case this
+# cap exists for). When the recipe line truly gave no quantity at all, honor
+# the 0.5g policy here instead of the flat 5g fallback for "a number was
+# given but it's an implausible one".
+_SEASONING_BLANK_MEASUREMENT_GRAMS = 0.5
+
+# Garnish seeds/nuts (sprinkled, not a bulk ingredient) are a separate class
+# from pure spices: a real garnish amount is closer to a tablespoon (~10g)
+# than a pinch, but the parser can still hand them an unquantified-line
+# weight in the hundreds or thousands of grams (found: "sesame or pumpkin
+# seeds", no stated quantity, parsed as 1000g, on a recipe whose other
+# unquantified lines are explicitly "to garnish"). Only fires when the line
+# truly stated no quantity -- a recipe that actually says "1 cup pumpkin
+# seeds" is a real bulk ingredient and must not be capped.
+_GARNISH_SEED_TOKENS = {"sesame", "pumpkin", "sunflower", "poppy", "chia", "flax", "flaxseed"}
+_GARNISH_SEED_IMPLAUSIBLE_WEIGHT_G = 30.0
+_GARNISH_SEED_BLANK_MEASUREMENT_GRAMS = 10.0
 
 
-def _capped_seasoning_weight_g(weight_g: float, ingredient_name: str) -> tuple[float, bool]:
+_MEASUREMENT_NOT_PROVIDED = object()
+
+
+def _capped_seasoning_weight_g(
+    weight_g: float,
+    ingredient_name: str,
+    measurement: object = _MEASUREMENT_NOT_PROVIDED,
+    matched_name: str = "",
+) -> tuple[float, bool]:
     if weight_g <= _SEASONING_IMPLAUSIBLE_WEIGHT_G:
         return weight_g, False
     name = str(ingredient_name or "").lower()
@@ -141,8 +168,40 @@ def _capped_seasoning_weight_g(weight_g: float, ingredient_name: str) -> tuple[f
     is_seasoning = any(phrase in name for phrase in _SEASONING_NAME_PHRASES) or (
         food_class(name) == "spice_herb"
     )
+    if not is_seasoning:
+        # Bare "pepper" is ambiguous between the Piper nigrum spice and the
+        # capsicum vegetable (same ambiguity nutrition_match.py's pepper
+        # guard resolves for composition matching) -- the ingredient's own
+        # name doesn't say which, but what it actually matched to does.
+        # "Lemon zest" at 58g revealed the same class of gap: implausible
+        # parser weight on a flavoring-amount ingredient the name-phrase
+        # list didn't anticipate.
+        matched = str(matched_name or "").lower()
+        matched_tokens = set(_tokens(matched))
+        is_spice_pepper = (
+            "pepper" in matched_tokens
+            and {"black", "white"} & matched_tokens
+            and not ({"capsicum", "sweet", "bell", "chilli", "chili"} & matched_tokens)
+        )
+        is_seasoning = is_spice_pepper or "zest" in matched_tokens
     if is_seasoning:
+        # Distinguish "caller didn't pass a measurement" (callers that only
+        # care about the general cap, e.g. tests) from "the recipe line
+        # genuinely stated no quantity" (measurement == "") -- only the
+        # latter gets the stricter to-taste default.
+        if measurement is not _MEASUREMENT_NOT_PROVIDED and not str(measurement or "").strip():
+            return _SEASONING_BLANK_MEASUREMENT_GRAMS, True
         return _SEASONING_CAPPED_WEIGHT_G, True
+    # Garnish seeds: only correct the case the recipe line gave no quantity
+    # at all. A stated amount ("1 cup pumpkin seeds") is a real bulk
+    # ingredient, not a garnish sprinkle, and must be left alone.
+    if (
+        measurement is not _MEASUREMENT_NOT_PROVIDED
+        and not str(measurement or "").strip()
+        and weight_g > _GARNISH_SEED_IMPLAUSIBLE_WEIGHT_G
+        and _GARNISH_SEED_TOKENS & set(_tokens(str(matched_name or "").lower()))
+    ):
+        return _GARNISH_SEED_BLANK_MEASUREMENT_GRAMS, True
     return weight_g, False
 
 
@@ -461,7 +520,9 @@ def nutritional_tool_vector(
             original_weight_g, float(sodium_per_100g_mg), matched_name
         )
         if not weight_capped:
-            weight_g, weight_capped = _capped_seasoning_weight_g(weight_g, ing_name)
+            weight_g, weight_capped = _capped_seasoning_weight_g(
+                weight_g, ing_name, measurement, matched_name
+            )
         if weight_capped:
             logger.info(
                 "nutrition: capping implausible weight %r %.0fg -> %.0fg",

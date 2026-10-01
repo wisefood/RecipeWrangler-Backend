@@ -23,7 +23,7 @@ import pandas as pd
 # ── config ────────────────────────────────────────────────────────────────────
 RECIPES_FILE = Path("data/ESSRG/ESSRG_recipes_clean.json")
 EXCEL_FILE = Path("PLANEAT T442 MEAL DB LL ESSRG.xlsx")
-OUTPUT_DIR = Path("output/ESSRG")
+OUTPUT_DIR = Path("data/processed/essrg")
 AUDIT_FILE = OUTPUT_DIR / "ingredient_parse_audit.csv"
 SUMMARY_FILE = OUTPUT_DIR / "ingredient_resolution_report.txt"
 

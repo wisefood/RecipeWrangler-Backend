@@ -17,7 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ git postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml ./
+COPY docs/README.md ./docs/README.md
 COPY src/recipe_wrangler/__init__.py ./src/recipe_wrangler/__init__.py
 
 RUN --mount=type=cache,target=/mnt/cache/pip \

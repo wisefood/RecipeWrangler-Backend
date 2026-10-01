@@ -117,10 +117,15 @@ RETURN
   r.source_id AS source_id,
   coalesce(r.duration_minutes, r.duration) AS duration,
   r.serves AS serves, r.cost_category AS cost_category,
+  r.cost_category_code AS cost_category_code,
+  r.cost_category_status AS cost_category_status,
+  r.cost_price_coverage AS cost_price_coverage,
   coalesce(r.expert_recipe, false) AS expert_recipe,
   coalesce(r.status, "active") AS status,
   toString(properties(r)['disabled_at']) AS disabled_at,
-  coalesce(r.has_profile, false) AS has_profile,
+  coalesce(r.has_rcsi_lab_nutrition, false) AS has_rcsi_nutrition,
+  coalesce(r.has_planeat_nutrition, false) AS has_planeat_nutrition,
+  r.ground_truth_nutrition_source AS ground_truth_nutrition_source,
   r.creator AS creator,
   r.meal_type AS meal_type, r.dish_type AS dish_type, r.seasonality AS seasonality,
   ingredients, allergens, ingredient_class_ancestors,
@@ -159,6 +164,11 @@ def _float(value: object) -> float | None:
         return float(value) if value is not None else None
     except (TypeError, ValueError):
         return None
+
+
+def _int(value: object) -> int | None:
+    number = _float(value)
+    return int(number) if number is not None else None
 
 
 def _clean_ingredients(values: object) -> list[dict[str, Any]]:
@@ -242,9 +252,13 @@ def build_document(
         "image_url": _clean(row.get("image_url")) or None,
         "source": _clean(row.get("source")),
         "source_id": _clean(row.get("source_id")) or None,
+        "external_id": _clean(row.get("source_id")) or None,
         "duration": _float(row.get("duration")),
         "serves": _float(row.get("serves")),
         "cost_category": _clean(row.get("cost_category")) or None,
+        "cost_category_code": _int(row.get("cost_category_code")),
+        "cost_category_status": _clean(row.get("cost_category_status")) or None,
+        "cost_price_coverage": _float(row.get("cost_price_coverage")),
         "expert_recipe": bool(row.get("expert_recipe")),
         "status": _clean(row.get("status")) or "active",
         # Read from Neo4j *and* listed in ES_OWNED_FIELDS. Not a contradiction:
@@ -255,7 +269,15 @@ def build_document(
         # by the very next step, so no recipe ever had a visible author.
         "creator": _clean(row.get("creator")) or None,
         "disabled_at": _clean(row.get("disabled_at")) or None,
-        "has_profile": bool(profiles) or bool(row.get("has_profile")),
+        # PostgreSQL owns profile existence. This boolean is retained only as
+        # an Elasticsearch search/planning projection.
+        "has_profile": bool(profiles),
+        "has_rcsi_nutrition": bool(row.get("has_rcsi_nutrition")),
+        "has_planeat_nutrition": bool(row.get("has_planeat_nutrition")),
+        "ground_truth_nutrition_source": _clean(
+            row.get("ground_truth_nutrition_source")
+        )
+        or None,
         "ingredients": _clean_ingredients(row.get("ingredients")),
         "ingredient_class_ancestors": _clean_list(row.get("ingredient_class_ancestors")),
         "allergens": _clean_list(row.get("allergens")),
@@ -294,8 +316,10 @@ def build_document(
 # about whether it should still exist.
 OWNER_PROJECTED_FIELDS: tuple[str, ...] = (
     "title", "description", "instructions", "url", "image_url",
-    "source", "source_id", "duration", "serves", "cost_category",
-    "disabled_at", "ingredients", "ingredient_class_ancestors",
+    "source", "source_id", "external_id", "duration", "serves", "cost_category",
+    "cost_category_code", "cost_category_status", "cost_price_coverage", "cost",
+    "disabled_at", "has_rcsi_nutrition", "has_planeat_nutrition",
+    "ground_truth_nutrition_source", "ingredients", "ingredient_class_ancestors",
     "allergens", "allergen_evidence", "consumer_suitability",
     "suitable_for", "tags", "diet_tags", "nutrition_claims", "seasonality",
 )
@@ -370,21 +394,19 @@ def project(recipe_id: str, *, refresh: str = "wait_for") -> dict[str, Any]:
 
     # Nutrition lives in Postgres, not Neo4j, so the owner row alone cannot
     # produce it. Omitting this step is why a recipe created through the API was
-    # profiled in Postgres and unprofiled everywhere anyone could see — and,
-    # because unfiltered browse uses `exists: nutri_score_eu` as its
-    # has-been-profiled marker, why it never appeared in browse at all.
+    # profiled in Postgres and unprofiled everywhere anyone could see. Browse
+    # uses Elasticsearch's derived `has_profile` flag, so such a recipe was
+    # invisible there too.
     #
-    # A nutrition outage must not remove the recipe from search, so a failure
-    # here degrades to an unprofiled document rather than to no document.
+    # A nutrition outage must not overwrite a valid search document with a
+    # falsely unprofiled one, so abort this projection and let reconciliation
+    # retry it after PostgreSQL recovers.
     try:
         profiles = load_profiles_for(recipe_id, nutri_label=nutri_label)
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "could not load nutrition profiles for %s: %s — projecting without them",
-            recipe_id,
-            exc,
-        )
-        profiles = []
+        raise ProjectionError(
+            f"could not load nutrition profiles for {recipe_id}: {exc}"
+        ) from exc
 
     try:
         document = build_document(row, profiles=profiles, preserve=preserve)

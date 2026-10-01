@@ -9,7 +9,6 @@ Fills, when missing:
 Ground-truth specific paths (no ingredient-weight data available):
 - 'safefood_rcsi'     → reads ground_truth_per_100g from trace (full fields)
 - 'safefood'          → legacy label for the same SafeFood lab format
-- 'recipe1m_original' → reads nutr_values_per100g from trace (fibre=0, fruit_pct=0)
 
 Data sources:
 - Postgres `nutrients-recipe-profiles` rows
@@ -22,7 +21,6 @@ import argparse
 import json
 import os
 from collections.abc import Iterable
-from functools import lru_cache
 from typing import Any
 
 from sqlalchemy import text
@@ -39,10 +37,7 @@ os.environ["LANGSMITH_TRACING"] = "false"
 from recipe_wrangler.utils.nutrition_postgres import get_connection, _get_config
 from recipe_wrangler.utils.neo4j_utils import run_query
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
-from recipe_wrangler.utils.usda_nutrients_v1 import fruits_veg_legumes_percent
-from recipe_wrangler.repositories.vector_matchers import query_usda_nutrition_candidates
-
-_USDA_MATCH_THRESHOLD = 0.4  # max cosine distance for a valid USDA food-group match
+from recipe_wrangler.utils.fruit_vegetable_content import fruits_veg_legumes_percent
 
 
 EXPECTED_KEYS = [
@@ -176,8 +171,6 @@ def _extract_serves_from_trace(trace_obj: dict[str, Any] | None) -> float | None
 
 def _source_key(nutrition_source: str) -> str:
     src = (nutrition_source or "").strip().lower()
-    if src in {"usda", "irish", "hungarian"}:
-        return src
     return src
 
 
@@ -186,7 +179,7 @@ def _normalize_totals(total_nutrients: dict[str, Any], nutrition_source: str) ->
 
     Supports:
     - plain keys: protein_g, ...
-    - legacy keys: total_protein_g_usda, ...
+    - legacy suffixed keys: total_protein_g_irish, ...
     """
     plain: dict[str, float] = {}
     for key in EXPECTED_KEYS:
@@ -241,34 +234,6 @@ def _derive_per_serving(totals: dict[str, float], serves: float) -> dict[str, fl
     return {k: float(v) / serves for k, v in totals.items()}
 
 
-@lru_cache(maxsize=8192)
-def _resolve_usda_id(canonical_food_id: str | None, ingredient_name: str | None) -> str | None:
-    """Return a USDA NDB number for food-group classification.
-
-    For USDA-profiled ingredients the canonical_food_id is already an NDB number
-    (first two chars are digits, e.g. "11282").  For regional profiles (IE*/HU*)
-    we fall back to an Elasticsearch vector search on the USDA collection.
-    """
-    if canonical_food_id:
-        s = str(canonical_food_id)
-        if len(s) >= 2 and s[:2].isdigit():
-            return s  # already a USDA NDB number
-
-    # Regional canonical — resolve via ingredient name
-    name = (ingredient_name or "").strip()
-    if not name:
-        return None
-    try:
-        candidates = query_usda_nutrition_candidates(name)
-        if candidates:
-            best = candidates[0]
-            if best.get("distance", 1.0) < _USDA_MATCH_THRESHOLD:
-                return best.get("metadata", {}).get("usda_id")
-    except Exception:
-        pass
-    return None
-
-
 def _extract_total_weight_and_fvl_ingredients(
     details_obj: list[Any] | None,
 ) -> tuple[float, list[dict[str, Any]]]:
@@ -285,16 +250,14 @@ def _extract_total_weight_and_fvl_ingredients(
             continue
         total_weight += w
 
-        ingredient_name = row.get("name") or row.get("ingredient")
-        usda_id = _resolve_usda_id(row.get("canonical_food_id"), ingredient_name)
-        if usda_id:
-            fvl_ingredients.append(
-                {
-                    "name": row.get("ingredient"),
-                    "weight_grams": w,
-                    "usda_id": usda_id,
-                }
-            )
+        entry = {
+            "name": row.get("name") or row.get("ingredient"),
+            "weight_grams": w,
+        }
+        for key in ("food_groups", "ingredient_class_ancestors"):
+            if row.get(key):
+                entry[key] = row[key]
+        fvl_ingredients.append(entry)
 
     return total_weight, fvl_ingredients
 
@@ -322,7 +285,7 @@ def _compute_breakdown(
         breakdown = compute_nutri_score_breakdown_from_values(nutrient_values, "solid")
         breakdown["inputs"] = {
             "total_weight_g": total_weight_g,
-            "ingredients_with_usda_id_count": len(fvl_ingredients),
+            "ingredients_evaluated_for_fvln_count": len(fvl_ingredients),
         }
         return breakdown
     except Exception:
@@ -383,39 +346,6 @@ def _nutri_score_from_safefood_trace(trace_obj: dict[str, Any]) -> dict[str, Any
         "fruit_percentage": 0.0,  # not available in the ground-truth export
     }
     return _compute_breakdown_from_per100g(nutrient_values, "safefood_ground_truth_per100g")
-
-
-def _nutri_score_from_recipe1m_original_trace(trace_obj: dict[str, Any]) -> dict[str, Any] | None:
-    """Extract per-100g ground-truth values from a Recipe1M original trace and compute Nutri-Score.
-
-    The trace stores ``nutr_values_per100g`` with keys:
-      energy (kcal), fat (g), protein (g), salt (g), saturates (g), sugars (g).
-    Fibre is absent — it is approximated as 0 (best-effort).
-    """
-    nutr = trace_obj.get("nutr_values_per100g")
-    if not isinstance(nutr, dict):
-        return None
-
-    energy_kcal = _to_float(nutr.get("energy"))
-    fat = _to_float(nutr.get("fat"))
-    protein = _to_float(nutr.get("protein"))
-    salt_g = _to_float(nutr.get("salt"))  # salt g/100g → sodium mg/100g
-    sat_fat = _to_float(nutr.get("saturates"))
-    sugar = _to_float(nutr.get("sugars"))
-
-    if any(v is None for v in (energy_kcal, fat, protein, salt_g, sat_fat, sugar)):
-        return None
-
-    nutrient_values = {
-        "energy": energy_kcal * 4.184,          # kcal/100g → kJ/100g
-        "sugar": sugar,
-        "saturated_fats": sat_fat,
-        "sodium": salt_g * 400.0,               # salt g → sodium mg (×400)
-        "fibers": 0.0,                           # not present in recipe1m ground truth
-        "proteins": protein,
-        "fruit_percentage": 0.0,                 # not available
-    }
-    return _compute_breakdown_from_per100g(nutrient_values, "recipe1m_original_per100g_fibre0")
 
 
 def main() -> None:
@@ -529,13 +459,6 @@ def main() -> None:
             # Ground-truth sources: derive Nutri-Score from per-100g trace data directly.
             if nutrition_source in {"safefood_rcsi", "safefood"} and isinstance(trace_obj, dict):
                 computed = _nutri_score_from_safefood_trace(trace_obj)
-                if isinstance(computed, dict):
-                    new_breakdown = computed
-                    updated_breakdown += 1
-                else:
-                    skipped_no_weight += 1
-            elif nutrition_source == "recipe1m_original" and isinstance(trace_obj, dict):
-                computed = _nutri_score_from_recipe1m_original_trace(trace_obj)
                 if isinstance(computed, dict):
                     new_breakdown = computed
                     updated_breakdown += 1

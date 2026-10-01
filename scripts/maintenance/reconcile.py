@@ -136,10 +136,13 @@ CALL (r) {
   OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
   RETURN collect(DISTINCT t.name) AS tags,
          collect(DISTINCT CASE WHEN t.category IN ['dietary','dietary_option']
-                          THEN t.name END) AS diet_tags
+                          AND t.name IN $diet_tag_names THEN t.name END) AS diet_tags
 }
 CALL (r) {
-  OPTIONAL MATCH (r)-[:SUITABLE_FOR]->(g:ConsumerGroup)
+  OPTIONAL MATCH (r)-[s:SUITABILITY_FOR]->(g:ConsumerGroup)
+  WHERE g.name IN ["vegan", "vegetarian"]
+    AND s.classification_version = $suitability_version
+    AND s.status = "suitable"
   RETURN collect(DISTINCT g.name) AS suitable_for
 }
 RETURN coalesce(r.recipe_id, r.id) AS recipe_id,
@@ -150,9 +153,12 @@ RETURN coalesce(r.recipe_id, r.id) AS recipe_id,
        r.image_url AS image_url,
        r.source AS source,
        r.source_id AS source_id,
-       r.duration AS duration,
+       coalesce(r.duration_minutes, r.duration) AS duration,
        r.serves AS serves,
        r.cost_category AS cost_category,
+       r.cost_category_code AS cost_category_code,
+       r.cost_category_status AS cost_category_status,
+       r.cost_price_coverage AS cost_price_coverage,
        r.expert_recipe AS expert_recipe,
        r.content_digest AS stamped_digest,
        coalesce(r.projection_pending, false) AS projection_pending,
@@ -193,6 +199,9 @@ def owner_document(row: dict[str, Any]) -> dict[str, Any]:
         "duration": row.get("duration"),
         "serves": row.get("serves"),
         "cost_category": row.get("cost_category"),
+        "cost_category_code": row.get("cost_category_code"),
+        "cost_category_status": row.get("cost_category_status"),
+        "cost_price_coverage": row.get("cost_price_coverage"),
         "expert_recipe": bool(row.get("expert_recipe")),
         "ingredients": row.get("ingredients") or [],
         "allergens": row.get("allergens") or [],
@@ -226,11 +235,17 @@ def resolve_source(slug: str | None) -> list[str] | None:
 def fetch_owner_rows(
     sources: list[str] | None, recipe_id: str | None
 ) -> list[dict[str, Any]]:
+    from recipe_wrangler.utils.consumer_suitability import SUITABILITY_CLASSIFICATION_VERSION
+    from recipe_wrangler.utils.diet_tags import DIET_TAG_NAMES
     from recipe_wrangler.utils.neo4j_utils import driver
 
     with driver.session() as session:
         return session.run(
-            OWNER_QUERY, {"sources": sources, "rid": recipe_id}
+            OWNER_QUERY,
+            {
+                "sources": sources, "rid": recipe_id, "diet_tag_names": sorted(DIET_TAG_NAMES),
+                "suitability_version": SUITABILITY_CLASSIFICATION_VERSION,
+            },
         ).data()
 
 

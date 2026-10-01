@@ -901,6 +901,35 @@ def _extract_profiling_quality(stored_trace: dict[str, Any] | None) -> dict[str,
     return _as_dict(profiling.get("quality")) or {}
 
 
+def _extract_cost_profile(stored_trace: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Read the calculator result from current or future trace layouts."""
+
+    if not isinstance(stored_trace, dict):
+        return None
+    direct = _as_dict(stored_trace.get("cost_profile"))
+    if direct:
+        return direct
+    debug = _as_dict(stored_trace.get("nutrition_profiling_debug")) or {}
+    direct = _as_dict(debug.get("cost_profile"))
+    if direct:
+        return direct
+    profiling = _as_dict(debug.get("profiling")) or {}
+    return _as_dict(profiling.get("cost_profile"))
+
+
+def _extract_cost_facet(stored_trace: dict[str, Any] | None) -> list[dict[str, Any]] | None:
+    """Return only the non-monetary public regional cost facets."""
+
+    profile = _extract_cost_profile(stored_trace)
+    if not profile:
+        return None
+    raw = profile.get("cost_facet")
+    if isinstance(raw, list):
+        return [dict(value) for value in raw if isinstance(value, dict)] or None
+    facet = _as_dict(raw)
+    return [facet] if facet else None
+
+
 def _calculation_disclaimer(
     quality: dict[str, Any],
     profile_details: list[dict[str, Any]],
@@ -1255,7 +1284,7 @@ def get_recipe(
             return cached_response
 
     if slim:
-        nutri_score_str = recipe.get("nutri_score")
+        nutri_score_str = recipe.get("default_nutri_score")
         response = RecipeCardResponse(
             recipe_id=resolved_recipe_id,
             title=recipe.get("title"),
@@ -1359,6 +1388,7 @@ def get_recipe(
     )
     profiling_quality = _extract_profiling_quality(stored_trace)
     payload["profiling_quality"] = profiling_quality
+    payload["cost"] = _extract_cost_facet(stored_trace)
     payload["calculation_disclaimer"] = _calculation_disclaimer(
         profiling_quality, profile_details
     )
@@ -1497,15 +1527,6 @@ def get_recipe(
             payload["total_cholesterol_mg_per_serving"] = _per_serving(
                 payload.get("total_cholesterol_mg_per_serving"), serves
             )
-
-    # The recipe's original Nutri-Score stays authoritative for display: the
-    # live profiling pipeline re-matches free-text ingredients and can drift
-    # toward better grades on messy ingredient lists. Its recomputed score
-    # only fills the gap when the recipe never had one.
-    original_nutri_score = str(recipe.get("nutri_score") or "").strip()
-    if original_nutri_score:
-        payload["nutri_score_label"] = original_nutri_score
-        payload["nutri_score_color"] = _nutri_color_from_score(original_nutri_score)
 
     payload["nutri_score_explanation"] = _nutri_score_explanation(
         payload.get("nutri_score_label"),
@@ -2176,6 +2197,9 @@ async def recipe_search(
     # constraint the user did not express.
     from recipe_wrangler.catalog import vocabularies as _V
 
+    # ``quick`` exists in the annotation vocabulary for historical reasons,
+    # but in a search request it describes preparation convenience. Applying
+    # it as both mood and convenience would needlessly require both fields.
     _mood_vocab = set(_V.MOODS) - {"quick"}
     _cuisine_vocab = set(_V.CUISINES)
     _food_group_vocab = set(_V.FOOD_GROUPS)

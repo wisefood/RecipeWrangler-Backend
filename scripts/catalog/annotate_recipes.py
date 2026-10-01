@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Annotate recipes with course, cuisine, flavour and mood — vocabulary-first.
+"""Annotate recipes with cuisine, flavour and mood — vocabulary-first.
 
 The vocabulary comes before the annotation. Every facet is constrained to a
 closed list sourced from what the system already knows (``catalog/vocabularies``),
@@ -16,15 +16,10 @@ Two passes, deliberately separate:
     human-authoritative field because it is data, not judgement.
 
 **Model pass** (constrained, audited, reversible)
-    ``cuisines``, ``flavor_profiles``, ``moods`` and — where the corpus has no
-    course type — ``course_types``. Values are written to the facet itself, not
-    to an ``ai_`` twin: ``annotation_evidence`` records method, confidence and
+    ``cuisines``, ``flavor_profiles`` and ``moods``. Values are written to the
+    facet itself, not to an ``ai_`` twin: ``annotation_evidence`` records method, confidence and
     vocabulary version per value, and ``enhancements[].before`` retains whatever
     was replaced, so provenance and reversibility do not need a second field.
-
-By default an existing course type is left alone; ``--reannotate-course``
-overrides that, because the stored values are scraped source tags rather than a
-classification.
 
 Usage
 -----
@@ -37,14 +32,6 @@ Usage
 
   # Only recipes that have no cuisine yet
   python scripts/catalog/annotate_recipes.py --missing cuisines --apply
-
-  # Re-classify every course type (existing values are untrusted)
-  python scripts/catalog/annotate_recipes.py \\
-      --facets course_types --reannotate-course --workers 8 --apply
-
-  # Resume: only recipes a previous run failed on, skipping the successes
-  python scripts/catalog/annotate_recipes.py --facets course_types \\
-      --reannotate-course --retry-missing course_types --workers 4 --apply
 
   # Re-annotate one recipe
   python scripts/catalog/annotate_recipes.py --recipe-id 0000656901 --apply
@@ -70,7 +57,6 @@ from recipe_wrangler.utils.env_loader import load_runtime_env
 
 load_runtime_env()
 
-from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog import vocabularies as V
 # Derivation lives in the catalog core so the commit path shares it.
 from recipe_wrangler.catalog.annotation import derive_food_groups
@@ -79,7 +65,7 @@ from recipe_wrangler.catalog.entities import recipe_entity
 
 logger = logging.getLogger("annotate_recipes")
 
-MODEL_FACETS = ("course_types", "cuisines", "flavor_profiles", "moods")
+MODEL_FACETS = ("cuisines", "flavor_profiles", "moods")
 DERIVED_FACETS = ("food_groups",)
 
 
@@ -90,12 +76,8 @@ def vocabulary_block() -> str:
     """Render the closed vocabularies the model must choose from."""
     lines: list[str] = []
     for facet in MODEL_FACETS:
-        if facet == "course_types":
-            values = S.COURSE_TYPES
-            description = "The course the dish is served as."
-        else:
-            spec = V.FACETS[facet]
-            values, description = spec["values"], spec["description"]
+        spec = V.FACETS[facet]
+        values, description = spec["values"], spec["description"]
         lines.append(f"{facet} — {description}")
         lines.append(f"  allowed values: {', '.join(values)}")
     return "\n".join(lines)
@@ -111,17 +93,17 @@ Rules, in order of importance:
 3. Judge the dish as a whole, from its title and ingredients. Do not infer a
    cuisine from a single ingredient — olive oil does not make a dish Italian,
    and soy sauce does not make it Chinese.
-4. Assign at most 2 cuisines, 4 flavor_profiles, 2 moods and 2 course_types.
+4. Assign at most 2 cuisines, 4 flavor_profiles and 2 moods.
 5. confidence is your own 0-1 estimate that the whole assignment is right.
 
 {vocabulary_block()}
 
 Respond with JSON only, no prose:
-{{"course_types": [], "cuisines": [], "flavor_profiles": [], "moods": [],
+{{"cuisines": [], "flavor_profiles": [], "moods": [],
   "confidence": 0.0}}"""
 
 
-def build_user_prompt(doc: dict[str, Any], *, reannotate_course: bool = False) -> str:
+def build_user_prompt(doc: dict[str, Any]) -> str:
     """The per-recipe half of the prompt.
 
     Includes a source hint where the source's geography is known, because that
@@ -136,16 +118,6 @@ def build_user_prompt(doc: dict[str, Any], *, reannotate_course: bool = False) -
 
     if doc.get("description"):
         parts.append(f"Description: {str(doc['description'])[:400]}")
-
-    # Only shown when we trust it. Under --reannotate-course the stored value is
-    # exactly what we are trying to correct, and stating it anchors the model to
-    # the wrong answer — a chocolate brownie came back as "main-dish" purely
-    # because the prompt said it already was one.
-    existing = doc.get("course_types") or []
-    if existing and not reannotate_course:
-        parts.append(
-            f"Course type already known (do not change): {', '.join(existing)}"
-        )
 
     prior = V.SOURCE_CUISINE_PRIOR.get(doc.get("source", ""))
     if prior:
@@ -202,23 +174,15 @@ def annotate_one(
     *,
     model: str,
     temperature: float,
-    reannotate_course: bool = False,
     facets: tuple[str, ...] = MODEL_FACETS,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Return (ai_fields, evidence) for one recipe, vocabulary-validated.
 
-    ``reannotate_course`` overrides the usual rule that a source-supplied course
-    type is authoritative. It is needed because the corpus's existing course
-    types are not a classification: ``main-dish`` covers 79.8% of recipes and
-    includes 142 cakes, puddings and brownies. Treating that as ground truth
-    would permanently pin the bad values.
-
-    The replaced value is not lost — ``enhancements[].before`` records it, and
-    ``annotation_evidence`` records what produced the new one — so the change is
-    auditable and reversible without a parallel ``ai_`` field.
+    Course types are intentionally outside this model pass. Existing values are
+    preserved by catalog projection and missing values remain empty.
     """
     raw = call_model(
-        build_user_prompt(doc, reannotate_course=reannotate_course),
+        build_user_prompt(doc),
         model=model,
         temperature=temperature,
     )
@@ -234,17 +198,10 @@ def annotate_one(
     # Only the requested facets are written. The model is still *asked* for all
     # of them in one call — splitting the prompt would cost four calls per
     # recipe for no benefit — but `--facets cuisines` must not silently
-    # overwrite course_types, flavours and moods as it previously did.
+    # overwrite unrelated facets as it previously did.
     for facet in facets:
         proposed = raw.get(facet) or []
-        if facet == "course_types":
-            # Course types go through the same canonicalizer as index-time data,
-            # so a model saying "dessert" lands on "desserts" like everything else.
-            values = S.canonical_course_types(proposed)
-            if doc.get("course_types") and not reannotate_course:
-                continue
-        else:
-            values = V.validate_values(facet, proposed)
+        values = V.validate_values(facet, proposed)
         if not values:
             continue
         # Written to the facet itself, not an `ai_` twin. What produced each
@@ -308,7 +265,7 @@ def main() -> None:
         "--retry-missing",
         metavar="FIELD",
         help="Only recipes with no enhancement audit entry for FIELD — i.e. the "
-             "ones a previous run failed on. e.g. --retry-missing course_types",
+             "ones a previous run failed on. e.g. --retry-missing cuisines",
     )
     # Groq, per the rest of the stack. Deliberately NOT SEARCH_MAIN_MODEL:
     # that setting is shared with query-time constraint extraction, wants a fast
@@ -329,16 +286,6 @@ def main() -> None:
         default=int(os.getenv("ANNOTATION_WORKERS", "8")),
         help="Concurrent Groq calls (env: ANNOTATION_WORKERS). Lower if rate-limited.",
     )
-    ap.add_argument(
-        "--reannotate-course",
-        action="store_true",
-        help=(
-            "Re-classify course_types even where one already exists. The corpus's "
-            "existing values are a default, not a classification (main-dish is "
-            "79.8%% of recipes and includes cakes and puddings). The replaced "
-            "value is kept in enhancements[].before."
-        ),
-    )
     ap.add_argument("--show-vocabulary", action="store_true")
     ap.add_argument("--show-prompt", action="store_true")
     ap.add_argument("--apply", action="store_true")
@@ -350,7 +297,6 @@ def main() -> None:
 
     if args.show_vocabulary:
         print(f"classification_version: {V.CLASSIFICATION_VERSION}\n")
-        print(f"course_types ({len(S.COURSE_TYPES)}): {', '.join(S.COURSE_TYPES)}\n")
         for facet, spec in V.FACETS.items():
             print(f"{facet} ({len(spec['values'])}, method={spec['method']}, "
                   f"authoritative={spec['authoritative']})")
@@ -389,7 +335,7 @@ def main() -> None:
             print("=" * 70)
             print(SYSTEM_PROMPT)
             print("-" * 70)
-            print(build_user_prompt(doc, reannotate_course=args.reannotate_course))
+            print(build_user_prompt(doc))
         return
 
     for doc in targets:
@@ -433,7 +379,6 @@ def main() -> None:
                     doc,
                     model=args.model,
                     temperature=args.temperature,
-                    reannotate_course=args.reannotate_course,
                     facets=model_facets,
                 )
                 return urn, fields, evidence, None

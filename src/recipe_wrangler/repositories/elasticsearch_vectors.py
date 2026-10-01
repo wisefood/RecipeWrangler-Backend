@@ -303,6 +303,49 @@ def query_elasticsearch_vector_collection(
     )[:result_count]
 
 
+def get_elasticsearch_vector_record_by_source_id(
+    collection_name: str,
+    source_id: str,
+) -> dict | None:
+    """Exact-fetch one record by id within a collection.
+
+    Different collections key their records differently: EU and Slovenian
+    records use a readable `source_id` (e.g. 'nevo:5519', 'slovenian_meat:56');
+    Irish and Hungarian records have a random-UUID `source_id` and the readable
+    id lives in `metadata.canonical_food_id` (e.g. 'IE00222') instead. Try both
+    so callers don't need to know which scheme a given collection uses.
+    """
+    payload = {
+        "size": 1,
+        "_source": ["source_id", "document", "metadata"],
+        "query": {
+            "bool": {
+                "filter": [{"term": {"collection": collection_name}}],
+                "should": [
+                    {"term": {"source_id": source_id}},
+                    {"term": {"metadata.canonical_food_id": source_id}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    response = requests.post(
+        f"{elastic_vector_url()}/{elastic_vector_index()}/_search",
+        json=payload,
+        timeout=max(10.0, elastic_vector_timeout()),
+    )
+    response.raise_for_status()
+    hits = response.json().get("hits", {}).get("hits", [])
+    if not hits:
+        return None
+    hit = hits[0]
+    return {
+        "id": (hit.get("_source") or {}).get("source_id") or hit.get("_id"),
+        "document": (hit.get("_source") or {}).get("document"),
+        "metadata": (hit.get("_source") or {}).get("metadata") or {},
+    }
+
+
 def get_elasticsearch_vector_collection_page(
     collection_name: str,
     limit: int,

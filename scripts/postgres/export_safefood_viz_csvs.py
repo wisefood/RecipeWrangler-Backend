@@ -17,7 +17,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from recipe_wrangler.utils.nutrition_postgres import _get_config, get_connection  # noqa: E402
 
-DEFAULT_OUT_DIR = REPO_ROOT / "data_to_send" / "viz" / "safefood"
+DEFAULT_OUT_DIR = REPO_ROOT / "artifacts" / "viz" / "safefood"
 DATASET_SOURCE = "Curated Irish Recipes"
 REFERENCE_SOURCE = "safefood_rcsi"
 CALCULATED_SOURCES = ("eu", "irish", "hungarian")

@@ -16,12 +16,21 @@ from typing import Any
 
 import pandas as pd
 
-EXCEL = Path("PLANEAT T442 MEAL DB LL ESSRG.xlsx")
-OUTPUT_DIR = Path("data/ESSRG")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+EXCEL = REPO_ROOT / "data/ESSRG/PLANEAT T442 MEAL DB LL ESSRG.xlsx"
+OUTPUT_DIR = REPO_ROOT / "data/ESSRG"
 OUTPUT_FILE = OUTPUT_DIR / "ESSRG_recipes_clean.json"
 AUDIT_FILE = OUTPUT_DIR / "ESSRG_conversion_audit.json"
 
 SOURCE = "ESSRG"
+# The workbook leaves these meal-to-dish IDs blank even though the named dish
+# exists in the Dishes sheet. Keep the source errata explicit and reproducible.
+MISSING_DISH_ID_BY_NAME = {
+    "hungarian salt sticks": 103,
+    "vegetables in breadcrumbs": 129,
+    "tofu slices": 168,
+    "sautéed onions and beans": 177,
+}
 # The source contains meal quantities, but no explicit serving count.
 DEFAULT_SERVES = 1.0
 SEASONS = ("Autumn", "Winter", "Spring", "Summer")
@@ -184,7 +193,16 @@ def extract_components(
         dish_id = meal_row.get(f"ID.{index}")
         source_dish_name = _text(meal_row.get(f"Dish #{index}"))
         if pd.isna(dish_id):
-            continue
+            recovered_id = MISSING_DISH_ID_BY_NAME.get(
+                (source_dish_name or "").casefold()
+            )
+            if recovered_id is None:
+                if source_dish_name:
+                    missing_references.append(
+                        {"dish_id": None, "dish_name": source_dish_name}
+                    )
+                continue
+            dish_id = recovered_id
 
         try:
             numeric_id = float(dish_id)

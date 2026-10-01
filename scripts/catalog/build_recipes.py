@@ -2,7 +2,7 @@
 """Build the ``recipes`` index from its owners: Neo4j content + Postgres profiles.
 
 Replaces the two writers that had to be kept byte-compatible by hand —
-``scripts/elasticsearch/index_recipes_v2.py`` (corpus rebuild) and
+the retired v2 corpus builder and
 ``utils/es_recipe_projection.py`` (per-recipe refresh). Both reassembled the
 document independently, and they disagreed: the offline builder read
 ``Recipe.meal_type``/``Recipe.dish_type`` properties while the runtime
@@ -17,7 +17,11 @@ Usage
   # Dry run: assemble everything, write nothing, report what would be indexed
   python scripts/catalog/build_recipes.py --dry-run
 
-  # Build into a new concrete index and swap the alias atomically
+  # Build into a new concrete index and swap the alias atomically.
+  # Index name defaults to one version ahead of whatever the alias currently
+  # points at (recipes_v14 -> recipes_v15); pass --new-index to override.
+  # The old index is deleted once the swap succeeds, unless --keep-old is set.
+  python scripts/catalog/build_recipes.py --apply
   python scripts/catalog/build_recipes.py --new-index recipes_v3 --apply
 
   # Refresh in place (alias must already exist)
@@ -31,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -49,11 +54,14 @@ from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog.elastic import get_catalog_client
 from recipe_wrangler.catalog.entities import nutri_label, recipe_entity
+from recipe_wrangler.catalog.integrity import content_digest
 from recipe_wrangler.catalog.nutrition import apply_profiles, profile_summary
 from recipe_wrangler.catalog.es_schema import recipe_index
 from recipe_wrangler.utils.consumer_suitability import (
     SUITABILITY_CLASSIFICATION_VERSION,
 )
+from recipe_wrangler.utils.diet_tags import DIET_TAG_NAMES
+from recipe_wrangler.utils.nutrition_claims import NUTRITION_CLAIM_TAG_NAMES
 from recipe_wrangler.utils.es_recipe_evidence import (
     normalize_allergen_evidence,
     normalize_consumer_suitability,
@@ -74,9 +82,16 @@ WHERE ($sources IS NULL OR r.source IN $sources)
 WITH r ORDER BY coalesce(r.recipe_id, r.id)
 SKIP $skip LIMIT $limit
 CALL { WITH r
-  OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
-  RETURN collect(DISTINCT i.name) AS ingredients,
-         collect(DISTINCT i.canonical_id) AS ingredient_ids
+  OPTIONAL MATCH (r)-[rel:HAS_INGREDIENT]->(i:Ingredient)
+  WITH i, rel ORDER BY coalesce(rel.position, 2147483647), i.name
+  RETURN collect(CASE WHEN i IS NULL THEN NULL ELSE {
+           name: i.name,
+           quantity: coalesce(rel.quantity, rel.measurement),
+           unit: rel.unit,
+           measurement: rel.measurement,
+           position: rel.position,
+           canonical_id: i.canonical_id
+         } END) AS ingredients
 }
 CALL { WITH r
   OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
@@ -114,7 +129,10 @@ CALL { WITH r
   OPTIONAL MATCH (r)-[:HAS_TAG]->(t:Tag)
   RETURN collect(DISTINCT t.name) AS tags,
          collect(DISTINCT CASE WHEN t.category = 'dish-type' THEN t.name END) AS tag_dish_types,
-         collect(DISTINCT CASE WHEN t.category IN ['dietary','dietary_option'] THEN t.name END) AS diet_tags
+         collect(DISTINCT CASE WHEN t.category IN ['dietary','dietary_option']
+                               AND t.name IN $diet_tag_names THEN t.name END) AS diet_tags,
+         collect(DISTINCT CASE WHEN t.category = 'nutrition_claim'
+                               AND t.name IN $nutrition_claim_names THEN t.name END) AS nutrition_claims
 }
 // Text properties are returned RAW rather than toString()'d. The corpus is not
 // consistent about scalar-vs-array: `instructions` is a StringArray of steps on
@@ -134,17 +152,21 @@ RETURN
   coalesce(r.duration_minutes, r.duration) AS duration,
   r.serves AS serves,
   r.cost_category AS cost_category,
+  r.cost_category_code AS cost_category_code,
+  r.cost_category_status AS cost_category_status,
+  r.cost_price_coverage AS cost_price_coverage,
   coalesce(r.expert_recipe, false) AS expert_recipe,
   coalesce(r.status, "active") AS status,
   toString(r.disabled_at) AS disabled_at,
-  coalesce(r.has_profile, false) AS has_profile,
   coalesce(r.has_rcsi_lab_nutrition, false) AS has_rcsi_nutrition,
   coalesce(r.has_planeat_nutrition, false) AS has_planeat_nutrition,
   r.ground_truth_nutrition_source AS ground_truth_nutrition_source,
   r.meal_type AS meal_type,
   r.dish_type AS dish_type,
-  ingredients, ingredient_ids, allergens, ingredient_class_ancestors,
-  allergen_evidence, consumer_suitability, tags, tag_dish_types, diet_tags
+  r.seasonality AS seasonality,
+  ingredients, allergens, ingredient_class_ancestors,
+  allergen_evidence, consumer_suitability, tags, tag_dish_types, diet_tags,
+  nutrition_claims
 """
 
 
@@ -159,6 +181,7 @@ ES_OWNED_FIELDS: tuple[str, ...] = (
     "flavor_profiles",
     "moods",
     "food_groups",
+    "convenience",
     "annotation_evidence",
     "enhancements",
     "ai_generated_fields",
@@ -175,21 +198,33 @@ ES_OWNED_FIELDS: tuple[str, ...] = (
 )
 
 
-def load_carry_over(alias: str) -> dict[str, dict[str, Any]]:
+def load_carry_over(alias: str) -> tuple[dict[str, dict[str, Any]], int]:
     """Read the ES-only fields out of the live index, keyed by recipe_id.
 
     Streamed with search_after rather than from/size so corpus growth cannot
     push it past a result window.
+
+    Returns (carried, scanned) -- ``scanned`` is the number of live documents
+    read, separate from ``len(carried)`` (how many actually had a field to
+    keep). A caller can then tell "index doesn't exist yet, nothing to carry"
+    (scanned == 0) apart from "index has documents but none carried a field"
+    (scanned > 0, carried empty) -- the latter is the signature of this
+    exact incident (2026-08-25 -> 2026-09-26: course_types/cuisines/
+    flavor_profiles/moods/food_groups silently dropped to zero across the
+    whole corpus by a rebuild whose carry-over step no-op'd without anyone
+    noticing) and must fail loud instead of proceeding.
     """
     client = get_catalog_client()
     if not (client.alias_exists(alias) or client.index_exists(alias)):
         logger.info("carry-over: %s does not exist yet, nothing to carry", alias)
-        return {}
+        return {}, 0
 
     carried: dict[str, dict[str, Any]] = {}
+    scanned = 0
     for hit in client.scroll_all(
         alias, source=["recipe_id", *ES_OWNED_FIELDS], page_size=1000
     ):
+        scanned += 1
         src = hit.get("_source") or {}
         recipe_id = _clean(src.get("recipe_id"))
         if not recipe_id:
@@ -201,7 +236,7 @@ def load_carry_over(alias: str) -> dict[str, dict[str, Any]]:
         }
         if kept:
             carried[recipe_id] = kept
-    return carried
+    return carried, scanned
 
 
 def _clean(value: object) -> str:
@@ -241,6 +276,45 @@ def _float(value: object) -> float | None:
         return None
 
 
+def _int(value: object) -> int | None:
+    number = _float(value)
+    return int(number) if number is not None else None
+
+
+def _clean_ingredients(values: object) -> list[dict[str, Any]]:
+    if not isinstance(values, (list, tuple)):
+        return []
+    ingredients: list[dict[str, Any]] = []
+    for fallback_position, value in enumerate(values):
+        if not isinstance(value, dict):
+            name = _clean(value)
+            if name:
+                ingredients.append({"name": name, "position": fallback_position})
+            continue
+        name = _clean(value.get("name"))
+        if not name:
+            continue
+        position = _float(value.get("position"))
+        entry: dict[str, Any] = {
+            "name": name,
+            "position": int(position if position is not None else fallback_position),
+        }
+        quantity = _float(value.get("quantity"))
+        if quantity is not None:
+            entry["quantity"] = quantity
+        unit = _clean(value.get("unit"))
+        if unit:
+            entry["unit"] = unit
+        measurement = _clean(value.get("measurement"))
+        if measurement:
+            entry["measurement"] = measurement
+        canonical_id = _clean(value.get("canonical_id"))
+        if canonical_id:
+            entry["canonical_urn"] = f"urn:ingredient:{canonical_id}"
+        ingredients.append(entry)
+    return ingredients
+
+
 def stream_recipes(
     sources: list[str] | None, batch_size: int, limit: int | None
 ) -> Iterator[dict[str, Any]]:
@@ -258,6 +332,8 @@ def stream_recipes(
                     "skip": skip,
                     "limit": page,
                     "suitability_version": SUITABILITY_CLASSIFICATION_VERSION,
+                    "diet_tag_names": list(DIET_TAG_NAMES),
+                    "nutrition_claim_names": list(NUTRITION_CLAIM_TAG_NAMES),
                 },
             ).data()
         if not rows:
@@ -278,7 +354,8 @@ def load_profiles() -> dict[str, list[dict[str, Any]]]:
         rows = conn.execute(
             text(
                 f'SELECT recipe_id, nutrition_source, source, nutri_score, '
-                f'       total_sustainability_per_serving, pipeline_version, computed_at '
+                f'       total_sustainability_per_serving, pipeline_version, computed_at, '
+                f'       nutrition_profiling_debug '
                 f'FROM "{table}"'
             )
         ).mappings()
@@ -300,17 +377,6 @@ def build_document(
     """
     recipe_id = _clean(row["recipe_id"]) or _clean(row["internal_id"])
 
-    # Both course-type owners feed the same list; the entity folds them.
-    # `meal_type`/`dish_type` are scalars on the sources that carry them, but
-    # handled as either shape for the same reason the query returns them raw.
-    course_candidates = list(_clean_list(row.get("tag_dish_types")))
-    for key in ("meal_type", "dish_type"):
-        value = row.get(key)
-        if isinstance(value, (list, tuple)):
-            course_candidates.extend(_clean_list(value))
-        elif _clean(value):
-            course_candidates.append(_clean(value).lower())
-
     consumer = normalize_consumer_suitability(
         row.get("consumer_suitability"),
         classification_version=SUITABILITY_CLASSIFICATION_VERSION,
@@ -330,17 +396,22 @@ def build_document(
         "duration": _float(row.get("duration")),
         "serves": _float(row.get("serves")),
         "cost_category": _clean(row.get("cost_category")) or None,
+        "cost_category_code": _int(row.get("cost_category_code")),
+        "cost_category_status": _clean(row.get("cost_category_status")) or None,
+        "cost_price_coverage": _float(row.get("cost_price_coverage")),
         "expert_recipe": bool(row.get("expert_recipe")),
         "status": _clean(row.get("status")) or "active",
         "disabled_at": _clean(row.get("disabled_at")) or None,
-        "has_profile": bool(profiles) or bool(row.get("has_profile")),
+        # PostgreSQL owns profile existence; Elasticsearch materializes the
+        # flag only to make browse/planning filters cheap.
+        "has_profile": bool(profiles),
         "has_rcsi_nutrition": bool(row.get("has_rcsi_nutrition")),
         "has_planeat_nutrition": bool(row.get("has_planeat_nutrition")),
         "ground_truth_nutrition_source": _clean(
             row.get("ground_truth_nutrition_source")
         )
         or None,
-        "ingredients": _clean_list(row.get("ingredients")),
+        "ingredients": _clean_ingredients(row.get("ingredients")),
         "ingredient_class_ancestors": _clean_list(
             row.get("ingredient_class_ancestors")
         ),
@@ -350,7 +421,8 @@ def build_document(
         "suitable_for": suitable_groups(consumer),
         "tags": _clean_list(row.get("tags")),
         "diet_tags": _clean_list(row.get("diet_tags")),
-        "course_types": course_candidates,
+        "nutrition_claims": _clean_list(row.get("nutrition_claims")),
+        "seasonality": _clean_list(row.get("seasonality")),
     }
 
     # Shared with the per-recipe commit path. The rebuild and a single create
@@ -358,7 +430,34 @@ def build_document(
     # a create had just written.
     apply_profiles(doc, profiles)
 
-    return {k: v for k, v in doc.items() if v is not None}
+    doc = {k: v for k, v in doc.items() if v is not None}
+    # Same digest projection.py stamps on a single write — omitting it here
+    # left every bulk-rebuilt document without one, silently breaking
+    # reconcile.py's Neo4j<->ES integrity check for the whole corpus.
+    doc["content_digest"] = content_digest(doc)
+    return doc
+
+
+def next_index_name(client, alias: str) -> str:
+    """One version ahead of whatever the alias currently resolves to.
+
+    ``recipes_v14...`` -> ``recipes_v15``. No live index yet -> ``recipes_v1``.
+    Drops any descriptive/date suffix that had accumulated on past names —
+    the version number is the only thing that needs to move.
+    """
+    current = None
+    if client.alias_exists(alias):
+        current = next(iter(client._request("GET", f"_alias/{alias}").keys()))
+    elif client.index_exists(alias):
+        current = alias
+    if not current:
+        return f"{alias}_v1"
+    m = re.match(rf"{re.escape(alias)}_v(\d+)", current)
+    if not m:
+        raise SystemExit(
+            f"live index {current!r} doesn't match '{alias}_vN' — pass --new-index explicitly"
+        )
+    return f"{alias}_v{int(m.group(1)) + 1}"
 
 
 def main() -> None:
@@ -366,8 +465,17 @@ def main() -> None:
     ap.add_argument("--sources", help="Comma-separated source slugs (default: all active)")
     ap.add_argument("--limit", type=int, help="Stop after N recipes.")
     ap.add_argument("--batch-size", type=int, default=500)
-    ap.add_argument("--new-index", help="Build into this concrete index, then swap the alias.")
+    ap.add_argument(
+        "--new-index",
+        help="Build into this concrete index, then swap the alias. "
+             "Default: auto, one version ahead of the current alias target.",
+    )
     ap.add_argument("--in-place", action="store_true", help="Write into the existing alias.")
+    ap.add_argument(
+        "--keep-old",
+        action="store_true",
+        help="Don't delete the previous concrete index after a successful swap.",
+    )
     ap.add_argument("--alias", default=None, help="Override the recipes alias.")
     ap.add_argument(
         "--carry-over",
@@ -383,6 +491,17 @@ def main() -> None:
         action="store_false",
         help="Rebuild purely from owners, DISCARDING all annotation work.",
     )
+    ap.add_argument(
+        "--force-empty-carry-over",
+        action="store_true",
+        help=(
+            "Proceed even though carry-over found live documents but none had "
+            "any ES-only annotation field set. Only use this when the live "
+            "index genuinely has no annotations yet (e.g. a fresh corpus) -- "
+            "this flag exists to override the guard added after annotations "
+            "were silently wiped once already."
+        ),
+    )
     ap.add_argument("--dry-run", action="store_true", help="Assemble but do not write.")
     ap.add_argument("--apply", action="store_true", help="Actually write.")
     args = ap.parse_args()
@@ -394,11 +513,14 @@ def main() -> None:
 
     if not args.apply:
         args.dry_run = True
-    if not args.dry_run and not (args.new_index or args.in_place):
-        ap.error("choose --new-index <name> or --in-place")
 
     settings = get_settings()
     alias = args.alias or settings.catalog_recipes_alias
+
+    if not args.dry_run and not args.in_place and not args.new_index:
+        client_for_naming = get_catalog_client()
+        args.new_index = next_index_name(client_for_naming, alias)
+        logger.info("--new-index not given, auto-derived: %s", args.new_index)
 
     raw_sources = None
     if args.sources:
@@ -407,6 +529,8 @@ def main() -> None:
             source = S.resolve(slug.strip())
             if source is None:
                 ap.error(f"unknown source: {slug}")
+            if source.retired:
+                ap.error(f"retired source cannot be rebuilt: {source.slug}")
             raw_sources.append(source.raw)
     else:
         # Never rebuild retired sources back into the corpus.
@@ -417,8 +541,20 @@ def main() -> None:
     carried: dict[str, dict[str, Any]] = {}
     if args.carry_over:
         logger.info("loading carry-over fields from %s...", alias)
-        carried = load_carry_over(alias)
-        logger.info("carry-over: %s recipe(s) with ES-only fields", len(carried))
+        carried, scanned = load_carry_over(alias)
+        logger.info(
+            "carry-over: %s recipe(s) with ES-only fields (scanned %s live docs)",
+            len(carried), scanned,
+        )
+        if scanned > 0 and not carried and not args.force_empty_carry_over:
+            ap.error(
+                f"carry-over scanned {scanned} live document(s) in '{alias}' but "
+                f"none had any of {ES_OWNED_FIELDS} set -- this is the exact "
+                "signature of silently wiping all annotation work (it happened "
+                "once already, 2026-08-25 -> 2026-09-26). Refusing to proceed. "
+                "If the live index genuinely has no annotations yet, re-run with "
+                "--force-empty-carry-over."
+            )
     else:
         logger.warning(
             "--no-carry-over: annotations and provenance in %s will NOT survive",
@@ -473,6 +609,12 @@ def main() -> None:
             # source tag it was correcting.
             preserved = carried.get(recipe_id)
             if preserved:
+                preserved = dict(preserved)
+                if preserved.get("embedding_text") != doc.get("title"):
+                    for field in (
+                        "embedding", "embedding_model", "embedding_text", "embedded_at"
+                    ):
+                        preserved.pop(field, None)
                 doc.update(preserved)
                 stats["carried_over"] += 1
 
@@ -506,8 +648,12 @@ def main() -> None:
             logger.info(
                 "alias %s now -> %s (was %s)", alias, args.new_index, old or "unset"
             )
-            if old:
-                logger.info("previous index %s retained; delete when satisfied", old)
+            if old and old != args.new_index:
+                if args.keep_old:
+                    logger.info("previous index %s retained (--keep-old)", old)
+                else:
+                    client._request("DELETE", old)
+                    logger.info("previous index %s deleted", old)
 
     logger.info("--- summary ---")
     for key, value in sorted(stats.items()):

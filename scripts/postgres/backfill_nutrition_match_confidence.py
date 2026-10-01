@@ -12,7 +12,7 @@ Usage:
         [--pipeline-version recompute_2026-05-11] [--limit N] [--no-resume]
 
 Default is a dry run (reports counts, writes nothing). Pass --write to persist.
-Resumable via data_to_send/backfill_nutrition_match_confidence.checkpoint.json.
+Resumable via backups/backfill_nutrition_match_confidence.checkpoint.json.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ from recipe_wrangler.tools.nutrition_match import best_nutrition_match  # noqa: 
 from recipe_wrangler.utils.nutrition_postgres import get_engine, _get_config  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-OUT_DIR = REPO_ROOT / "data_to_send"
+OUT_DIR = REPO_ROOT / "backups"
 CKPT_FILE = OUT_DIR / "backfill_nutrition_match_confidence.checkpoint.json"
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
 MIN_SIMILARITY = 0.5  # matches Recipe_Profiling_Node's payload default
@@ -161,7 +161,7 @@ def main(argv: list[str]) -> int:
             continue
         n_seen += 1
         source = (nutrition_source or "irish").strip().lower()
-        if source not in {"irish", "usda", "hungarian"}:
+        if source not in {"irish", "hungarian", "eu", "slovenian"}:
             source = "irish"
         patched, changed = _patch_details(details or [], source)
         n_changed_entries += changed

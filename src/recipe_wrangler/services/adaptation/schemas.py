@@ -11,6 +11,7 @@ Region = Literal["IE", "HU", "EU", "SI"]
 Mode = Literal[
     "nutrition",
     "sustainability",
+    "cost",
     "reduce_quantity",
     "portion",
     "vegan",
@@ -23,7 +24,8 @@ class SuggestionsRequest(BaseModel):
     mode: Mode = Field(
         "nutrition",
         description="Optimisation target: 'nutrition' (swap to improve Nutri-Score), "
-                    "'sustainability' (swap to cut CO2e), or 'reduce_quantity' (use less of "
+                    "'sustainability' (swap to cut CO2e), 'cost' (swap to a cheaper "
+                    "same-category substitute), or 'reduce_quantity' (use less of "
                     "the worst nutrient contributor when no swap helps), or 'vegan' "
                     "(replace a known vegan-blocking ingredient with an explicitly "
                     "vegan-suitable candidate), or 'vegetarian' (the same "
@@ -133,6 +135,22 @@ class Suggestion(BaseModel):
     adjusted_serves: Optional[float] = None
     scale_factor: Optional[float] = None
 
+    # ---- cost-mode metrics (populated when mode=cost) ----
+    food_category: Optional[str] = Field(
+        None,
+        description="Cost catalogue food_category shared by the original ingredient and "
+                    "this substitute (e.g. 'meat', 'dairy and eggs').",
+    )
+    simulated_cost_per_serving_eur: Optional[float] = None
+    cost_reduction_per_serving_eur: Optional[float] = None
+    cost_reduction_pct: Optional[float] = None
+    original_price_eur_kg: Optional[float] = Field(
+        None, description="Price of the original ingredient (EUR / kg) in the requested region."
+    )
+    candidate_price_eur_kg: Optional[float] = Field(
+        None, description="Price of the substitute (EUR / kg) in the requested region."
+    )
+
 
 class LLMRejection(BaseModel):
     substitute_name: str
@@ -174,6 +192,15 @@ class SuggestionsResponse(BaseModel):
     # ---- sustainability-mode context (populated when mode=sustainability) ----
     current_co2e_per_serving_kg: Optional[float] = None
     current_co2e_total_kg: Optional[float] = None
+
+    # ---- cost-mode context (populated when mode=cost) ----
+    current_cost_per_serving_eur: Optional[float] = None
+    current_cost_total_eur: Optional[float] = None
+    unpriced_ingredients: list[str] = Field(
+        default_factory=list,
+        description="Ingredients excluded from the cost total because they didn't "
+                    "resolve in the cost catalogue for this region.",
+    )
 
     # ---- consumer-group adaptation context (vegan/vegetarian modes) ----
     target_consumer_group: Optional[Literal["vegan", "vegetarian"]] = None

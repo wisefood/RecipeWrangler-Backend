@@ -80,11 +80,16 @@ FOODON_ID_TO_FOOD_GROUP: dict[str, str] = {
     # vegetables & fruit
     "FOODON_00001261": "vegetables",
     "FOODON_00002153": "vegetables",   # plant seed vegetable food product
+    # Prepared mixed vegetables live under FoodOn's parallel multi-component
+    # branch and never reach ``vegetable food product`` through SUBCLASS_OF.
+    "FOODON_00002683": "vegetables",   # mixed vegetables
     "FOODON_00001057": "fruit",        # plant fruit food product
     # grains
     "FOODON_00001093": "grains",       # cereal grain food product
     "FOODON_00001173": "grains",       # plant seed food product
     "FOODON_00002151": "grains",       # plant seed based bakery food product
+    # Pasta is in FoodOn's processed-food branch rather than below cereal food.
+    "FOODON_00001211": "grains",       # pasta food product
     # nuts & seeds
     "FOODON_00001172": "nuts_and_seeds",
     "FOODON_03460177": "nuts_and_seeds",  # plant seed or nut food product

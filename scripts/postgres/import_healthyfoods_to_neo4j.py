@@ -94,6 +94,7 @@ def _extract_recipe_fields(
     serves = _to_float(hf.get("serves")) or 4.0
     duration = _to_float(hf.get("duration")) or 0.0
     image_url = hf.get("image_url") or None
+    url = hf.get("url") or hf.get("link") or None
     raw_instructions = _as_list(hf.get("instructions")) or []
     instructions = [str(s) for s in raw_instructions if s]
 
@@ -144,8 +145,9 @@ def _extract_recipe_fields(
         "duration": duration,
         "serves": serves,
         "image_url": image_url,
+        "url": url,
         "allergens": allergens,
-        "tags": tags,
+        "user_tags": tags,
         "source": "HealthyFoods",
     }
 

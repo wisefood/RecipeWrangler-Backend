@@ -5,27 +5,18 @@ resolved (offline reference / USDA portion tables / FDA / LLM fallback, plus
 the portion description and the matched USDA food). That detail was never
 persisted into ``nutrients-recipe-profiles``. This script re-derives it.
 
-Two phases (deterministic, no live LLM — ``WEIGHT_LLM`` is cleared so the
-weight tool's LLM step fails fast and falls through to the reference cascade):
-
-  * **neo4j sources** (HealthyFoods / MyPlate / FoodHero / Irish_SafeFood) —
-    these recipes ran the weight tool during profiling. Re-invoke
-    ``ingredient_weight_tool_usda(return_details=True)`` over the stored
-    names+measurements, then for each of the recipe's region rows: patch
-    ``weight_match_type`` / ``weight_source`` / ``weight_fallback`` /
-    ``weight_llm_likely_fired`` (+ ``weight_rederived_g`` on mismatch) onto
-    each ingredient entry, and store the full weight-detail blob under
-    ``trace.weight_calculation``.
-  * **recipe1m** — ships precomputed gram weights, so the pipeline skipped the
-    weight tool. Just tag each ingredient entry ``weight_method='dataset_precomputed'``.
+For the current Neo4j-backed sources (HealthyFoods, MyPlate, FoodHero, and
+Curated Irish Recipes), this deterministic job re-invokes the weight resolver
+with the live LLM disabled. It patches provenance onto each stored ingredient
+and puts the full detail under ``trace.weight_calculation``.
 
 Usage:
     PYTHONPATH=src python scripts/postgres/backfill_weight_trace.py [--write] \
-        [--pipeline-version recompute_2026-05-11] [--phase neo4j|recipe1m|all] \
+        [--pipeline-version recompute_2026-05-11] \
         [--limit N] [--no-resume]
 
 Default is a dry run. Resumable via
-data_to_send/backfill_weight_trace.checkpoint.json (one entry per recipe_id).
+backups/backfill_weight_trace.checkpoint.json (one entry per recipe_id).
 """
 
 from __future__ import annotations
@@ -69,7 +60,7 @@ from recipe_wrangler.tools.ingredient_weight_tool import (  # noqa: E402
 from recipe_wrangler.utils.nutrition_postgres import get_engine, _get_config  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-OUT_DIR = REPO_ROOT / "data_to_send"
+OUT_DIR = REPO_ROOT / "backups"
 CKPT_FILE = OUT_DIR / "backfill_weight_trace.checkpoint.json"
 DEFAULT_PIPELINE_VERSION = "recompute_2026-05-11"
 NEO4J_SOURCES = ("HealthyFoods", "MyPlate", "FoodHero", "Curated Irish Recipes")
@@ -251,53 +242,10 @@ def _phase_neo4j(eng, table, pv, done, write, limit, report_every) -> None:
           f"in {(time.time()-t0)/3600:.2f}h")
 
 
-def _phase_recipe1m(eng, table, pv, write, limit, report_every) -> None:
-    with eng.connect() as c:
-        rows = c.execute(
-            text(
-                f'SELECT recipe_id, nutrition_source, nutrition_profiling_details '
-                f'FROM "{table}" WHERE pipeline_version = :pv AND source = :src '
-                f'ORDER BY recipe_id, nutrition_source'
-                + (f" LIMIT {int(limit)}" if limit else "")
-            ),
-            {"pv": pv, "src": "recipe1m"},
-        ).all()
-    print(f"[weight-trace] phase=recipe1m rows={len(rows)} write={write}")
-    engine_w = get_engine()
-    n_seen = n_written = 0
-    t0 = time.time()
-    for recipe_id, nutrition_source, det in rows:
-        if _stop:
-            break
-        n_seen += 1
-        det = det or []
-        changed = False
-        for entry in det if isinstance(det, list) else []:
-            if isinstance(entry, dict) and entry.get("weight_method") != "dataset_precomputed":
-                entry["weight_method"] = "dataset_precomputed"
-                changed = True
-        if write and changed:
-            with engine_w.begin() as wc:
-                wc.execute(
-                    text(
-                        f'UPDATE "{table}" SET nutrition_profiling_details = CAST(:d AS jsonb), '
-                        f'updated_at = now() WHERE recipe_id = :rid AND nutrition_source = :ns '
-                        f'AND pipeline_version = :pv'
-                    ),
-                    {"d": json.dumps(det), "rid": recipe_id, "ns": nutrition_source, "pv": pv},
-                )
-            n_written += 1
-        if n_seen % report_every == 0:
-            rate = n_seen / max(1e-6, time.time() - t0)
-            print(f"[weight-trace] recipe1m {n_seen}/{len(rows)} written={n_written} | {rate:.0f}/s")
-    print(f"[weight-trace] phase=recipe1m done. seen={n_seen} written={n_written} in {(time.time()-t0)/3600:.2f}h")
-
-
 def main(argv: list[str]) -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--write", action="store_true")
     p.add_argument("--pipeline-version", default=DEFAULT_PIPELINE_VERSION)
-    p.add_argument("--phase", choices=("neo4j", "recipe1m", "all"), default="all")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--no-resume", action="store_true")
     p.add_argument("--report-every", type=int, default=500)
@@ -308,11 +256,7 @@ def main(argv: list[str]) -> int:
     pv = args.pipeline_version
     done = set() if (args.no_resume or not args.write) else _load_ckpt(args.write)
 
-    if args.phase in ("neo4j", "all"):
-        _phase_neo4j(eng, table, pv, done, args.write, args.limit, args.report_every)
-    if args.phase in ("recipe1m", "all"):
-        _phase_recipe1m(eng, table, pv, args.write, args.limit,
-                        max(args.report_every, 20000))
+    _phase_neo4j(eng, table, pv, done, args.write, args.limit, args.report_every)
     return 0
 
 

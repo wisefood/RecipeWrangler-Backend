@@ -256,7 +256,7 @@ def _merge_ingredient(tx, recipe_id: str, position: int, ingredient_text: str) -
         i.status = 'resolved'
     ON MATCH SET
         i.canonical_id = coalesce(i.canonical_id, randomUUID()),
-        i.source = coalesce(i.source, 'Recipe1M'),
+        i.source = coalesce(i.source, 'FoodHero'),
         i.status = coalesce(i.status, 'resolved')
 
     MERGE (o)-[:MAPS_TO]->(i)

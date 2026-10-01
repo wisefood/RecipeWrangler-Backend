@@ -1,3 +1,9 @@
+"""Materialize recipe dietary tags from current Neo4j ingredient evidence.
+
+The script derives corpus-wide tags such as dairy-free and nut-free from the
+same allergen and ingredient rules used by request-time recipe projection.
+"""
+
 import argparse
 import os
 import re
@@ -12,9 +18,6 @@ try:
     from tqdm import tqdm
 except Exception:  # pragma: no cover - optional dependency
     tqdm = None
-
-
-# Purpose: Tag recipes based on ingredient allergen tags.
 
 
 def _connect(uri: str, username: str, password: Optional[str], no_auth: bool):
@@ -174,6 +177,18 @@ def _tag_foodon_free(
           AND none(pattern IN $exclude_name_regexes
                    WHERE toLower(i2.name) =~ pattern)
     }
+    // The title names the dish, so "Bacon and sweetcorn baked potato" must
+    // block "vegan"/"vegetarian" even if "rashers" (its actual ingredient)
+    // has no FoodOn class link and isn't a keyword match -- a title-level
+    // check catches what ingredient-only scanning cannot. Same exclusion
+    // regexes as the ingredient checks, so "Vegan bacon and eggs" stays
+    // eligible.
+    AND NOT (
+        any(pattern IN $forbidden_keyword_regexes
+            WHERE toLower(coalesce(r.title, '')) =~ pattern)
+        AND none(pattern IN $exclude_name_regexes
+                 WHERE toLower(coalesce(r.title, '')) =~ pattern)
+    )
     MERGE (t:Tag {name: $tag_name})
     SET t.category = "dietary"
     MERGE (r)-[:HAS_TAG]->(t)

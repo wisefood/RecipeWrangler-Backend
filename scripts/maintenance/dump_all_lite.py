@@ -65,7 +65,11 @@ def load_env() -> dict[str, str]:
 ENV = load_env()
 ES_URL = ENV.get("ELASTIC_URL", "http://localhost:19200").rstrip("/")
 NEO4J_URI = ENV.get("NEO4J_URI", "bolt://localhost:17687")
-NEO4J_USER, _, NEO4J_PASSWORD = ENV.get("NEO4J_AUTH", "neo4j/").partition("/")
+# NEO4J_AUTH (user/password) may come from .env or the process environment; fall back to NEO4J_USERNAME/NEO4J_PASSWORD.
+NEO4J_USER, _, NEO4J_PASSWORD = (
+    os.environ.get("NEO4J_AUTH") or ENV.get("NEO4J_AUTH")
+    or f"{ENV.get('NEO4J_USERNAME', 'neo4j')}/{ENV.get('NEO4J_PASSWORD', '')}"
+).partition("/")
 PG = dict(
     host=ENV.get("NUTRITION_HOST", "localhost"),
     port=int(ENV.get("NUTRITION_PORT", "15432")),
@@ -388,7 +392,7 @@ def main() -> None:
     )
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out = Path(args.out) if args.out else REPO_ROOT / "dumps" / (
+    out = Path(args.out) if args.out else REPO_ROOT / "dumps" / "local" / (
         f"{stamp}{('-' + args.label) if args.label else ''}"
     )
     out.mkdir(parents=True, exist_ok=True)

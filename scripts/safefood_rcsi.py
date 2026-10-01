@@ -18,10 +18,10 @@ WEB_NUTRITION_SOURCE = "safefood_web"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LAB_XLSX = (
-    REPO_ROOT / "data" / "Curated Irish Recipes" / "Irish Recipes_updated_22.6.26.xlsx"
+    REPO_ROOT / "data" / "Irish_SafeFood" / "Irish Recipes_updated_22.6.26.xlsx"
 )
 DEFAULT_WEB_EXPORTS = tuple(
-    REPO_ROOT / "exports" / f"safefood_{category}_recipes.json"
+    REPO_ROOT / "data" / "SafeFood_web" / f"safefood_{category}_recipes.json"
     for category in ("breakfast", "lunch", "dinner", "snacks", "desserts")
 )
 

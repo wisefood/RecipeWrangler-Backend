@@ -102,7 +102,7 @@ def main() -> None:
     p.add_argument("--min-servings", type=int, default=None)
     p.add_argument("--limit", type=int, default=10)
     p.add_argument("--offset", type=int, default=0)
-    p.add_argument("--region", default="us", help="nutri-score region: us / ie / hu")
+    p.add_argument("--region", default="eu", help="nutri-score region: eu / ie / hu / slovenian")
     p.add_argument("--dump-query", action="store_true", help="print the ES query body and exit")
     args = p.parse_args()
 

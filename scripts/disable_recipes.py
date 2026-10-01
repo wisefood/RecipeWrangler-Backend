@@ -1,24 +1,24 @@
 """Bulk disable/enable (soft-delete) recipes — the corpus-scale tool.
 
-Neo4j `r.status` is the source of truth; ES (recipes_v2 + the legacy index)
-is synced per batch right after each Neo4j batch commits. Missing status
+Neo4j `r.status` is the source of truth; the `recipes` catalog alias is synced
+per batch right after each Neo4j batch commits. Missing status
 means active, so the operation is safe to re-run until converged.
 
 Usage
 -----
   # Dry-run (default): report what would be disabled
-  python scripts/disable_recipes.py --source recipe1m
+  python scripts/disable_recipes.py --source FoodHero
 
   # Disable a whole source with a reason
-  python scripts/disable_recipes.py --source recipe1m \
+  python scripts/disable_recipes.py --source FoodHero \
       --reason "quality: pending retagging" --apply
 
   # Disable explicit IDs (inline or one-per-line file)
   python scripts/disable_recipes.py --ids id1,id2,id3 --apply
   python scripts/disable_recipes.py --ids-file bad_ids.txt --apply
 
-  # Re-enable
-  python scripts/disable_recipes.py --source recipe1m --enable --apply
+  # Re-enable a source
+  python scripts/disable_recipes.py --source foodhero --enable --apply
 """
 
 from __future__ import annotations

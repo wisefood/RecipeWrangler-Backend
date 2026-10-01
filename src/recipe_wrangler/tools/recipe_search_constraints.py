@@ -325,6 +325,9 @@ def _normalize_extracted_facets(
         ]
         constraints[field] = list(dict.fromkeys(canonical))
 
+    # Food groups describe an explicitly requested category. Inferring one
+    # from an already extracted ingredient duplicates and can contradict that
+    # ingredient (the model classified chicken as "meat" in a live request).
     constraints["food_groups"] = [
         value
         for value in constraints["food_groups"]
@@ -612,7 +615,6 @@ class RecipeConstraintExtractor:
             r"(?=\b(?:under|less than|within|for|with|that|which|recipe|recipes)\b|$)",
             normalized_query,
         )
-
         def split_items(chunks: list[str]) -> list[str]:
             items: list[str] = []
             for chunk in chunks:

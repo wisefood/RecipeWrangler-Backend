@@ -8,6 +8,16 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
 class IngredientProfile(BaseModel):
+    # extra="allow": this model silently dropped every field the nutrition
+    # calculator added after it was written (sodium/sugar/saturated-fat/fibre/
+    # energy, per-100g variants, weight_capped/original_weight_g, ...) because
+    # validate_assignment on RecipeState.ingredients coerces each dict through
+    # this schema on model_dump(). Explicitly listing fields here just repeats
+    # the mistake for the next one added to nutritional_calculator.py's detail
+    # dict. Found 2026-09-17: recompute_all_profiles.py wrote 6,972 recipes'
+    # nutrition_profiling_details missing exactly those fields.
+    model_config = ConfigDict(extra="allow")
+
     name: Optional[str] = None
     measurement: Optional[str] = None
     weight_g: float = 0.0
@@ -68,6 +78,7 @@ class RecipeState(BaseModel):
     profiling_totals: Dict[str, float] = Field(default_factory=dict)
     full_profile: Dict[str, Any] = Field(default_factory=dict)
     pipeline_trace: Dict[str, Any] = Field(default_factory=dict)
+    cost_profile: Dict[str, Any] = Field(default_factory=dict)
     nutri_score: Optional[Dict[str, Any]] = None
     nutri_score_breakdown: Optional[Dict[str, Any]] = None
     nutri_score_color: Optional[str] = None
@@ -635,6 +646,8 @@ class RecipeDetailResponse(BaseModel):
     sustainability_profiling_details: Optional[List[Dict[str, Any]]] = None
     sustainability_explanation: Optional[Dict[str, Any]] = None
     profiling_quality: Dict[str, Any] = Field(default_factory=dict)
+    # Public cost output intentionally excludes internal EUR calculations.
+    cost: Optional[List[Dict[str, Any]]] = None
     calculation_disclaimer: Optional[Dict[str, Any]] = None
     profiling_status: Optional[str] = None
 

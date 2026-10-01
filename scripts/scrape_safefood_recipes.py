@@ -40,7 +40,7 @@ BASE_URL = "https://www.safefood.net"
 CATEGORIES = ["breakfast", "lunch", "dinner", "snacks", "desserts"]
 CATEGORY_PATHS = {c: f"{BASE_URL}/recipes/{c}" for c in CATEGORIES}
 
-OUTPUT_DIR = Path(__file__).resolve().parents[1] / "exports"
+OUTPUT_DIR = Path(__file__).resolve().parents[1] / "data" / "SafeFood_web"
 OUTPUT_BASENAME = "safefood_web_recipes"
 
 DELAY_SECONDS = 1.5          # polite crawl delay between page loads
@@ -123,6 +123,33 @@ def _clean(s: str) -> str:
     return re.sub(r"\s+", " ", s or "").strip()
 
 
+_TIME_NUMBER = r"(?:\d+(?:\.\d+)?(?:[¼½¾])?|[¼½¾])"
+_TIME_UNIT = r"(?:hours?|hrs?|hr|minutes?|mins?|min)"
+_TIME_VALUE_RE = re.compile(
+    rf"({_TIME_NUMBER}(?:\s*(?:/|–|-)\s*{_TIME_NUMBER})?\s*{_TIME_UNIT}"
+    rf"(?:\s+(?:and\s+)?{_TIME_NUMBER}\s*{_TIME_UNIT})?)",
+    re.IGNORECASE,
+)
+
+
+def _page_time(full_text: str, *labels: str) -> Optional[str]:
+    """Read one Safefood time value after any accepted metadata label.
+
+    Safefood uses ``Cooking Time`` and occasionally ``Cook Time``; the old
+    scraper accepted only the latter and silently dropped valid durations.
+    """
+    label_pattern = "|".join(re.escape(label) for label in labels)
+    match = re.search(
+        rf"(?:{label_pattern})\s*Time\s*:\s*",
+        full_text,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    value = _TIME_VALUE_RE.match(full_text, match.end())
+    return _clean(value.group(1)) if value else None
+
+
 def _container_items(soup: BeautifulSoup, selector: str) -> list[str]:
     """All non-empty <li> texts inside any element matching `selector`.
 
@@ -141,6 +168,67 @@ def _container_items(soup: BeautifulSoup, selector: str) -> list[str]:
             if txt:
                 out.append(txt)
     return out
+
+
+_METHOD_NUMBER_RE = re.compile(r"^\s*\d+\s*[.)]\s*")
+
+
+def _method_text(element) -> list[str]:
+    """Extract displayed method steps from one Safefood content element."""
+
+    items = element.find_all("li")
+    if items:
+        values = [_clean(item.get_text(" ", strip=True)) for item in items]
+    else:
+        # Some Safefood recipes put several numbered steps in one paragraph,
+        # separated only by <br> tags.  A newline separator preserves those
+        # page-authored boundaries without trying to infer sentence breaks.
+        values = [
+            _clean(line)
+            for line in element.get_text("\n", strip=True).splitlines()
+        ]
+
+    return [
+        _METHOD_NUMBER_RE.sub("", value)
+        for value in values
+        if _METHOD_NUMBER_RE.sub("", value)
+    ]
+
+
+def _parse_method(soup: BeautifulSoup) -> list[str]:
+    """Read only the recipe's explicitly labelled Method section.
+
+    Safefood uses several structures for the same section: ``<ol>``, ``<ul>``,
+    one numbered paragraph per step, or one paragraph with ``<br>`` separators.
+    The previous first-``<ol>`` heuristic silently missed every non-ordered-list
+    variant.
+    """
+
+    label = soup.find(
+        lambda tag: (
+            getattr(tag, "name", None) in {"h2", "h3", "h4", "p", "div", "span"}
+            and _clean(tag.get_text(" ", strip=True)).lower() == "method"
+        )
+    )
+    if label:
+        steps: list[str] = []
+        for sibling in label.next_siblings:
+            if not getattr(sibling, "name", None):
+                continue
+            classes = set(sibling.get("class") or [])
+            if sibling.name in {"h1", "h2", "h3", "h4"} or "detail-title" in classes:
+                break
+            steps.extend(_method_text(sibling))
+        if steps:
+            return steps
+
+    # Retain support for older pages whose method was an unlabelled ordered
+    # list. Navigation uses unordered lists, so this fallback stays narrow.
+    for ordered_list in soup.find_all("ol"):
+        steps = _method_text(ordered_list)
+        if steps:
+            return steps
+    return []
 
 
 def get_recipe_urls(soup: BeautifulSoup) -> list[str]:
@@ -201,24 +289,16 @@ def parse_recipe(url: str, soup: BeautifulSoup, category: Optional[str]) -> Reci
     # dedup by element identity so nested container matches aren't double-counted.
     r.ingredients = _container_items(soup, ".recipe-ingredients")
 
-    # Method — the first real <ol> on the page (nav/menus use <ul>).
-    for ol in soup.find_all("ol"):
-        steps = [_clean(li.get_text()) for li in ol.find_all("li")]
-        steps = [s for s in steps if s]
-        if steps:
-            r.method = steps
-            break
+    r.method = _parse_method(soup)
 
     # Equipment — `.recipe-details` container, skipping the "Print Recipe" list.
     r.equipment = [i for i in _container_items(soup, ".recipe-details")
                    if "print recipe" not in i.lower()]
 
     full_text = soup.get_text(" ", strip=True)
-    time_re = r"(\d[\d\s]*(?:min|hr|hour|minute)s?)"
-    for label, attr in (("Prep", "prep_time"), ("Cook", "cook_time"), ("Total", "total_time")):
-        m = re.search(label + r"\s*Time[:\s]+" + time_re, full_text, re.I)
-        if m:
-            setattr(r, attr, _clean(m.group(1)))
+    r.prep_time = _page_time(full_text, "Preparation", "Prep")
+    r.cook_time = _page_time(full_text, "Cooking", "Cook")
+    r.total_time = _page_time(full_text, "Total")
     m = re.search(r"Serves?[:\s]+(\d+)", full_text, re.I)
     if m:
         r.serves = m.group(1)

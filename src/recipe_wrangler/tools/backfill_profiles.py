@@ -15,8 +15,7 @@ Weight reuse mirrors the live job: when ANY region's trace exists, its stored
 (name, measurement, weight_g) details seed the chain and weight estimation is
 skipped; otherwise the first region computes weights and the others reuse them.
 
-recipe1m is excluded by default (FoodChat candidates exclude it too); pass
---include-recipe1m for a full-corpus run.
+Recipe1M is retired and always excluded.
 """
 
 from __future__ import annotations
@@ -30,8 +29,13 @@ from recipe_wrangler.utils.env_loader import load_runtime_env
 
 load_runtime_env()
 
-REGIONS = ("US", "IE", "HU")
-REGION_TO_SOURCE = {"US": "usda", "IE": "irish", "HU": "hungarian"}
+REGIONS = ("IE", "HU", "EU", "SI")
+REGION_TO_SOURCE = {
+    "IE": "irish",
+    "HU": "hungarian",
+    "EU": "eu",
+    "SI": "slovenian",
+}
 
 _stop = False
 
@@ -42,12 +46,13 @@ def _handle_signal(_sig, _frame):
     _stop = True
 
 
-def _candidate_recipe_ids(include_recipe1m: bool) -> list[str]:
+def _candidate_recipe_ids() -> list[str]:
     from recipe_wrangler.utils.neo4j_utils import run_query
 
-    where = "coalesce(r.status, 'active') <> 'disabled'"
-    if not include_recipe1m:
-        where += " AND toLower(coalesce(r.source, '')) <> 'recipe1m'"
+    where = (
+        "coalesce(r.status, 'active') <> 'disabled' "
+        "AND toLower(coalesce(r.source, '')) <> 'recipe1m'"
+    )
     rows = run_query(
         f"""
         MATCH (r:Recipe)
@@ -156,14 +161,15 @@ def _process_recipe(recipe_id: str, missing: list[str], reuse_row: dict | None) 
     return done_regions, fails
 
 
-def backfill(regions: tuple[str, ...], limit: int | None, include_recipe1m: bool,
-             sleep_s: float, dry_run: bool, workers: int = 1) -> int:
+def backfill(regions: tuple[str, ...], limit: int | None,
+             sleep_s: float, dry_run: bool, workers: int = 1,
+             report_every: int = 100) -> int:
     from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
     # Fail fast on import/config problems before spawning anything.
     from recipe_wrangler.api.routers.recipes import _persist_profile_trace_best_effort  # noqa: F401
 
-    ids = _candidate_recipe_ids(include_recipe1m)
+    ids = _candidate_recipe_ids()
     print(f"[backfill] {len(ids)} candidate recipes; regions={list(regions)} "
           f"workers={workers} dry_run={dry_run}", flush=True)
 
@@ -171,9 +177,10 @@ def backfill(regions: tuple[str, ...], limit: int | None, include_recipe1m: bool
     started_at = time.perf_counter()
 
     def report(recipe_id: str, done_regions: list[str], elapsed: float) -> None:
-        print(f"[backfill] {recipe_id}: {done_regions or 'nothing'} in {elapsed:.1f}s "
-              f"[done={processed} skipped={skipped} failed={failed} "
-              f"elapsed={time.perf_counter() - started_at:.0f}s]", flush=True)
+        if processed == 1 or processed % max(1, report_every) == 0:
+            print(f"[backfill] {recipe_id}: {done_regions or 'nothing'} in {elapsed:.1f}s "
+                  f"[done={processed} skipped={skipped} failed={failed} "
+                  f"elapsed={time.perf_counter() - started_at:.0f}s]", flush=True)
 
     executor = ThreadPoolExecutor(max_workers=max(1, workers))
     pending: dict = {}
@@ -231,17 +238,17 @@ def main(argv: list[str]) -> int:
     signal.signal(signal.SIGTERM, _handle_signal)
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--regions", default="US,IE,HU",
+    parser.add_argument("--regions", default="IE,HU,EU,SI",
                         help="Comma-separated regions to ensure (default all three)")
     parser.add_argument("--limit", type=int, default=None,
                         help="Stop after N recipes needing work (default: no limit)")
-    parser.add_argument("--include-recipe1m", action="store_true",
-                        help="Also backfill the recipe1m corpus (large!)")
     parser.add_argument("--sleep", type=float, default=0.0,
                         help="Seconds to pause between submissions (rate limiting)")
     parser.add_argument("--workers", type=int, default=1,
                         help="Parallel recipes (each recipe's regions stay sequential "
                              "so weight reuse holds; 4-6 is a sane ceiling)")
+    parser.add_argument("--report-every", type=int, default=100,
+                        help="Print progress every N processed recipes (default: 100)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Only report which recipes/regions are missing")
     args = parser.parse_args(argv)
@@ -252,8 +259,9 @@ def main(argv: list[str]) -> int:
     )
     if not regions:
         parser.error(f"--regions must name at least one of {REGIONS}")
-    return backfill(regions, args.limit, args.include_recipe1m, args.sleep,
-                    args.dry_run, workers=args.workers)
+    return backfill(regions, args.limit, args.sleep,
+                    args.dry_run, workers=args.workers,
+                    report_every=args.report_every)
 
 
 if __name__ == "__main__":

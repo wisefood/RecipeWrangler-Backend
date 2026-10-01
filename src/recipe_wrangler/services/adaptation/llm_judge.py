@@ -115,6 +115,29 @@ def _build_prompt(
             f"({offending_pct:.0f}% of recipe's total CO2e)"
         )
         candidate_block_intro = "CANDIDATE SUBSTITUTES (already filtered to materially reduce CO2e):"
+    elif mode == "cost":
+        cand_lines = []
+        for c in candidates:
+            allergen_str = (
+                f" (introduces allergens: {', '.join(c.get('new_allergens') or [])})"
+                if c.get("introduces_allergen") else ""
+            )
+            cand_lines.append(
+                f"  {c['rank']}. {c['substitute_name']}  "
+                f"[source: {c['source']}, "
+                f"€{c['original_price_eur_kg']:.2f}/kg → €{c['candidate_price_eur_kg']:.2f}/kg, "
+                f"saves €{c['cost_reduction_per_serving_eur']:.2f}/serving "
+                f"({c['cost_reduction_pct'] * 100:.0f}% cheaper)]"
+                f"{allergen_str}"
+            )
+        target_block = (
+            f"OFFENDING INGREDIENT: '{offending_ingredient}' "
+            f"({offending_pct:.0f}% of recipe's total cost)"
+        )
+        candidate_block_intro = (
+            "CANDIDATE SUBSTITUTES (already filtered to the same food category "
+            "and materially cheaper):"
+        )
     elif mode in {"vegan", "vegetarian"}:
         cand_lines = []
         for c in candidates:

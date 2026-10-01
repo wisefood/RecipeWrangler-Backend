@@ -1,5 +1,7 @@
 from recipe_wrangler.api.routers.recipes import (
     _calculation_disclaimer,
+    _extract_cost_facet,
+    _extract_cost_profile,
     _extract_profiling_quality,
     _nutri_score_explanation,
     _sustainability_explanation,
@@ -56,6 +58,26 @@ def test_quality_can_be_read_from_compact_column_or_debug() -> None:
     assert _extract_profiling_quality(
         {"nutrition_profiling_debug": {"profiling": {"quality": {"weights_capped": False}}}}
     ) == {"weights_capped": False}
+
+
+def test_cost_profile_can_be_read_from_profiling_debug() -> None:
+    expected = {"status": "complete", "estimated_recipe_cost_total_eur": 4.2}
+    assert _extract_cost_profile(
+        {"nutrition_profiling_debug": {"profiling": {"cost_profile": expected}}}
+    ) == expected
+
+
+def test_public_cost_facet_hides_internal_monetary_profile() -> None:
+    trace = {
+        "cost_profile": {
+            "estimated_recipe_cost_per_serving_eur": 2.75,
+            "cost_facet": {"category": "medium", "explanation": "Medium-cost recipe."},
+        }
+    }
+    assert _extract_cost_facet(trace) == [{
+        "category": "medium",
+        "explanation": "Medium-cost recipe.",
+    }]
 
 
 def test_sustainability_explanation_ranks_contributors() -> None:

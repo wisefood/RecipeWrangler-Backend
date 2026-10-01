@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from typing import Dict, List, Optional
 
 from langchain.tools import tool
@@ -13,7 +14,12 @@ from recipe_wrangler.repositories.postgres_nutrition import (
     get_irish_ingredient_nutrition,
     get_slovenian_ingredient_nutrition,
 )
-from recipe_wrangler.tools.nutrition_match import best_nutrition_match
+from recipe_wrangler.tools.nutrition_match import (
+    _CONCENTRATE_FORM_MARKERS,
+    _tokens,
+    best_nutrition_match,
+    food_class,
+)
 
 # Whether a `weak`-confidence ingredient match may contribute nutrients.
 # Off means the old behaviour: any nearest neighbour is used, however
@@ -23,10 +29,34 @@ REJECT_WEAK_NUTRITION_MATCHES = (
     not in {'0', 'false', 'no'}
 )
 
+
+def _contextual_match_name(
+    match_name: str,
+    identity_name: str,
+    measurement: object,
+    weight_g: float,
+) -> str:
+    """Disambiguate the common bare `pepper` spice/produce collision."""
+    if (
+        str(match_name).strip().casefold() != "pepper"
+        or str(identity_name).strip().casefold() != "pepper"
+    ):
+        return match_name
+    measure = str(measurement or "").strip().casefold()
+    if re.search(r"\b(?:tsp|teaspoons?|pinch|dash|taste|season|ground)\b", measure):
+        return "black pepper"
+    if re.search(r"\b(?:small|medium|large|red|green|yellow|capsicum|bell)\b", measure):
+        return "sweet pepper"
+    if re.search(r"\d\s*(?:g|kg|oz|ounces?|lb|pounds?)\b", measure):
+        return "sweet pepper"
+    if re.fullmatch(r"\d+(?:\.\d+)?", measure) and weight_g >= 20.0:
+        return "sweet pepper"
+    return "black pepper"
+
 logger = logging.getLogger(__name__)
 
 SOURCE_NUTRITION = "Irish Composition Table"
-SOURCE_NUTRITION_EU = "EU Composite (Ciqual+CoFID+NEVO)"
+SOURCE_NUTRITION_EU = "EU"
 
 PROTEIN_KEY = "Protein (g)"
 CARB_KEY    = "Carbohydrate (g)"
@@ -44,6 +74,136 @@ HUNGARIAN_FAT_KEYS = ("Fat g", "Fat (g)")
 HUNGARIAN_SODIUM_KEYS = ("Sodium\nmg", "Sodium mg", "Sodium (mg)")
 HUNGARIAN_ENERGY_KCAL_KEYS = ("Energy\nkcal", "Energy (kcal) (kcal)")
 HUNGARIAN_ENERGY_KJ_KEYS = ("Energy\nkJ", "Energy (kJ) (kJ)")
+HUNGARIAN_SUGAR_KEYS = ("Sugar (g)",)
+HUNGARIAN_SATURATED_FAT_KEYS = ("Saturated Fat (g)",)
+HUNGARIAN_FIBER_KEYS = ("Fiber (g)",)
+
+# A stock cube, bouillon powder, or plain salt carries per-100g nutrition for
+# the concentrate itself, not for the water/dish it seasons. An upstream
+# parsing bug (fixing the parser is a separate, larger piece of work — see
+# `data/analysis/nutrition_curation/PLAN.md`) can attach the *whole line's*
+# weight to that concentrate match — e.g. "850g water and 1 vegetable stock
+# cube" resolving to 850g of stock cube nutrition instead of ~10g. That turns
+# a normal soup into ~47,600mg of sodium per serving. This is a backstop, not
+# a fix for the parser: any match whose per-100g sodium is concentrate-level
+# AND whose assigned weight is implausible for a concentrate gets capped to a
+# typical concentrate serving before it's scaled into the totals.
+# ponytail: a flat cap, not a per-food-type portion table; revisit if a real
+# compound-line splitter (Step 3 of the plan) lands and makes this redundant.
+_CONCENTRATE_SODIUM_MG_PER_100G = 3000.0
+_CONCENTRATE_IMPLAUSIBLE_WEIGHT_G = 200.0
+_CONCENTRATE_CAPPED_WEIGHT_G = 15.0
+
+
+def _capped_concentrate_weight_g(
+    weight_g: float, sodium_per_100g_mg: float, matched_name: str
+) -> tuple[float, bool]:
+    # Density alone is not enough: real foods clear this sodium density and
+    # legitimately appear at a bulk weight — anchovies (~3500mg/100g), fish
+    # sauce (~7000), soy sauce (~5500), cured meats. Found via the plausibility
+    # audit: "dried noodles" matched to "Soup, chicken noodle, dried" would
+    # otherwise get its legitimate 250-375g crushed to 15g. Require the
+    # matched food's own name to say it's a concentrate/dry-mix product.
+    if not (_CONCENTRATE_FORM_MARKERS & set(_tokens(matched_name))):
+        return weight_g, False
+    if weight_g > _CONCENTRATE_IMPLAUSIBLE_WEIGHT_G and sodium_per_100g_mg >= _CONCENTRATE_SODIUM_MG_PER_100G:
+        return _CONCENTRATE_CAPPED_WEIGHT_G, True
+    return weight_g, False
+
+
+# A "salt and pepper" / "black pepper" seasoning line is written as "to
+# taste", but a weight-parsing bug can still attach a real gram figure to it
+# (17% of the 2026-09-16 plausibility audit's flagged lines: e.g. "salt and
+# pepper" at 720g across 7 lines, "black pepper" at 750g, "4 cups" black
+# pepper parsed as 436g). food_class() alone under-catches this: "pepper" is
+# deliberately left ambiguous there (it also means bell pepper/capsicum), so
+# gate on an explicit phrase list for pepper and salt specifically, plus
+# food_class for the unambiguous herb/spice names (cinnamon, cumin, ...).
+# ponytail: flat cap, not a per-spice portion table; same shape as the
+# concentrate cap above.
+_SEASONING_NAME_PHRASES = ("salt", "black pepper", "white pepper", "peppercorn", "zest")
+_SEASONING_IMPLAUSIBLE_WEIGHT_G = 30.0
+_SEASONING_CAPPED_WEIGHT_G = 5.0
+# Matches ingredient_weight_tool.py's TO_TASTE_MIN_GRAMS / BLANK_DEFAULT_GRAMS
+# policy (2026-09-25 product decision: a line with no stated amount gets a
+# negligible-but-nonzero weight, not "0 g"). That policy only fires when the
+# weight tool left the weight at exactly 0 -- it does not correct an
+# already-wrong nonzero guess (the 120g-for-unquantified-pepper case this
+# cap exists for). When the recipe line truly gave no quantity at all, honor
+# the 0.5g policy here instead of the flat 5g fallback for "a number was
+# given but it's an implausible one".
+_SEASONING_BLANK_MEASUREMENT_GRAMS = 0.5
+
+# Garnish seeds/nuts (sprinkled, not a bulk ingredient) are a separate class
+# from pure spices: a real garnish amount is closer to a tablespoon (~10g)
+# than a pinch, but the parser can still hand them an unquantified-line
+# weight in the hundreds or thousands of grams (found: "sesame or pumpkin
+# seeds", no stated quantity, parsed as 1000g, on a recipe whose other
+# unquantified lines are explicitly "to garnish"). Only fires when the line
+# truly stated no quantity -- a recipe that actually says "1 cup pumpkin
+# seeds" is a real bulk ingredient and must not be capped.
+_GARNISH_SEED_TOKENS = {"sesame", "pumpkin", "sunflower", "poppy", "chia", "flax", "flaxseed"}
+_GARNISH_SEED_IMPLAUSIBLE_WEIGHT_G = 30.0
+_GARNISH_SEED_BLANK_MEASUREMENT_GRAMS = 10.0
+
+
+_MEASUREMENT_NOT_PROVIDED = object()
+
+
+def _capped_seasoning_weight_g(
+    weight_g: float,
+    ingredient_name: str,
+    measurement: object = _MEASUREMENT_NOT_PROVIDED,
+    matched_name: str = "",
+) -> tuple[float, bool]:
+    if weight_g <= _SEASONING_IMPLAUSIBLE_WEIGHT_G:
+        return weight_g, False
+    name = str(ingredient_name or "").lower()
+    # "salt-free vegetable stock" contains the substring "salt" but names a
+    # stock, not a seasoning -- that line's own implausible weight is the
+    # concentrate cap's job, not this one's. Guard against the phrase check
+    # firing on a different food that merely mentions salt as a qualifier.
+    if {"stock", "broth", "sauce", "gravy"} & set(_tokens(name)):
+        return weight_g, False
+    is_seasoning = any(phrase in name for phrase in _SEASONING_NAME_PHRASES) or (
+        food_class(name) == "spice_herb"
+    )
+    if not is_seasoning:
+        # Bare "pepper" is ambiguous between the Piper nigrum spice and the
+        # capsicum vegetable (same ambiguity nutrition_match.py's pepper
+        # guard resolves for composition matching) -- the ingredient's own
+        # name doesn't say which, but what it actually matched to does.
+        # "Lemon zest" at 58g revealed the same class of gap: implausible
+        # parser weight on a flavoring-amount ingredient the name-phrase
+        # list didn't anticipate.
+        matched = str(matched_name or "").lower()
+        matched_tokens = set(_tokens(matched))
+        is_spice_pepper = (
+            "pepper" in matched_tokens
+            and {"black", "white"} & matched_tokens
+            and not ({"capsicum", "sweet", "bell", "chilli", "chili"} & matched_tokens)
+        )
+        is_seasoning = is_spice_pepper or "zest" in matched_tokens
+    if is_seasoning:
+        # Distinguish "caller didn't pass a measurement" (callers that only
+        # care about the general cap, e.g. tests) from "the recipe line
+        # genuinely stated no quantity" (measurement == "") -- only the
+        # latter gets the stricter to-taste default.
+        if measurement is not _MEASUREMENT_NOT_PROVIDED and not str(measurement or "").strip():
+            return _SEASONING_BLANK_MEASUREMENT_GRAMS, True
+        return _SEASONING_CAPPED_WEIGHT_G, True
+    # Garnish seeds: only correct the case the recipe line gave no quantity
+    # at all. A stated amount ("1 cup pumpkin seeds") is a real bulk
+    # ingredient, not a garnish sprinkle, and must be left alone.
+    if (
+        measurement is not _MEASUREMENT_NOT_PROVIDED
+        and not str(measurement or "").strip()
+        and weight_g > _GARNISH_SEED_IMPLAUSIBLE_WEIGHT_G
+        and _GARNISH_SEED_TOKENS & set(_tokens(str(matched_name or "").lower()))
+    ):
+        return _GARNISH_SEED_BLANK_MEASUREMENT_GRAMS, True
+    return weight_g, False
+
 
 def _to_float(value: object, default: float = 0.0) -> float:
     try:
@@ -98,6 +258,8 @@ def nutritional_tool_vector(
     title: str,
     ingredient_names: List[str],
     weights: List[float],
+    ingredient_identity_names: Optional[List[str]] = None,
+    measurements: Optional[List[str]] = None,
     min_similarity: float = 0.7,
     source: str = "irish",
     serves: Optional[float] = None,
@@ -131,12 +293,35 @@ def nutritional_tool_vector(
             "Supported sources: irish, hungarian, eu, slovenian"
         )
 
-    for ing_name, weight_g in zip(ingredient_names, weights):
-        m = best_nutrition_match(ing_name, source_normalized, float(min_similarity))
+    identity_names = (
+        ingredient_identity_names
+        if isinstance(ingredient_identity_names, list)
+        and len(ingredient_identity_names) == len(ingredient_names)
+        else ingredient_names
+    )
+    measurement_values = (
+        measurements
+        if isinstance(measurements, list) and len(measurements) == len(ingredient_names)
+        else [""] * len(ingredient_names)
+    )
+    for ing_name, identity_name, weight_g, measurement in zip(
+        ingredient_names, identity_names, weights, measurement_values
+    ):
+        match_name = _contextual_match_name(
+            ing_name, identity_name, measurement, float(weight_g)
+        )
+        m = best_nutrition_match(
+            match_name,
+            source_normalized,
+            float(min_similarity),
+            identity_name=identity_name,
+        )
         match = m.get("match")
         active_source = m.get("source_key") or source_normalized
         match_confidence = m.get("confidence")
         match_reason = m.get("reason")
+        nutrition_match_note = m.get("nutrition_match_note")
+        intentionally_ignored = bool(m.get("intentionally_ignored"))
         distance = None if match is None else match.get("distance")
         similarity = m.get("similarity")
 
@@ -196,6 +381,8 @@ def nutritional_tool_vector(
                 "similarity": similarity,
                 "match_confidence": match_confidence,
                 "match_reason": match_reason,
+                "nutrition_match_note": nutrition_match_note,
+                "nutrition_intentionally_ignored": intentionally_ignored,
             })
             continue
 
@@ -252,6 +439,7 @@ def nutritional_tool_vector(
                 "similarity": similarity,
                 "match_confidence": match_confidence,
                 "match_reason": match_reason,
+                "nutrition_match_note": nutrition_match_note,
             })
             continue
 
@@ -284,11 +472,11 @@ def nutritional_tool_vector(
                 sodium_per_100g_mg = _first_float(meta, HUNGARIAN_SODIUM_KEYS, default=0.0)
                 energy_kcal_per_100g = _first_float(meta, HUNGARIAN_ENERGY_KCAL_KEYS, default=0.0)
                 energy_kj_per_100g = _first_float(meta, HUNGARIAN_ENERGY_KJ_KEYS, default=0.0)
-                # These fields are absent from the Hungarian source. Keep the
-                # values explicitly empty rather than borrowing another table.
-                sugars_per_100g = 0.0
-                saturated_fat_per_100g = 0.0
-                fibre_per_100g = 0.0
+                sugars_per_100g = _first_float(meta, HUNGARIAN_SUGAR_KEYS, default=0.0)
+                saturated_fat_per_100g = _first_float(
+                    meta, HUNGARIAN_SATURATED_FAT_KEYS, default=0.0
+                )
+                fibre_per_100g = _first_float(meta, HUNGARIAN_FIBER_KEYS, default=0.0)
 
             # Try to read kcal/100g from metadata; if missing, approximate via 4/4/9
             if energy_kcal_per_100g <= 0:
@@ -327,6 +515,20 @@ def nutritional_tool_vector(
                     4.0 * protein_per_100g + 4.0 * carbs_per_100g + 9.0 * fat_per_100g
                 )
 
+        original_weight_g = float(weight_g)
+        weight_g, weight_capped = _capped_concentrate_weight_g(
+            original_weight_g, float(sodium_per_100g_mg), matched_name
+        )
+        if not weight_capped:
+            weight_g, weight_capped = _capped_seasoning_weight_g(
+                weight_g, ing_name, measurement, matched_name
+            )
+        if weight_capped:
+            logger.info(
+                "nutrition: capping implausible weight %r %.0fg -> %.0fg",
+                ing_name, original_weight_g, weight_g,
+            )
+
         scale = float(weight_g) / 100.0
         protein_g = scale * protein_per_100g
         carbs_g   = scale * carbs_per_100g
@@ -357,6 +559,8 @@ def nutritional_tool_vector(
                 else None
             ),
             "weight_g": float(weight_g),
+            "weight_capped": weight_capped,
+            "original_weight_g": original_weight_g if weight_capped else None,
             "protein_per_100g": protein_per_100g,
             "carbs_per_100g": carbs_per_100g,
             "fat_per_100g": fat_per_100g,
@@ -377,6 +581,7 @@ def nutritional_tool_vector(
             "similarity": similarity,
             "match_confidence": match_confidence,
             "match_reason": match_reason,
+            "nutrition_match_note": nutrition_match_note,
         })
 
         total_energy_kcal += energy_kcal
@@ -449,6 +654,11 @@ def Nutrition_Node(state: RecipeState) -> RecipeState:
     n = min(len(ingredient_names), len(weights))
     ingredient_names = ingredient_names[:n]
     weights = weights[:n]
+    match_names = (
+        list(state.ingredient_match_names[:n])
+        if len(state.ingredient_match_names or []) >= n
+        else ingredient_names
+    )
 
     source = (
         getattr(state, "nutrition_source", None)
@@ -459,8 +669,10 @@ def Nutrition_Node(state: RecipeState) -> RecipeState:
 
     res = nutritional_tool_vector.invoke({
         "title": state.title or "Untitled Recipe",
-        "ingredient_names": ingredient_names,
+        "ingredient_names": match_names,
+        "ingredient_identity_names": ingredient_names,
         "weights": weights,
+        "measurements": list(state.measurements[:n]) if state.measurements else None,
         "min_similarity": state.min_similarity if state.min_similarity is not None else 0.7,
         "source": source,
         "serves": state.serves,

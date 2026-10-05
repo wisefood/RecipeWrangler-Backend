@@ -383,6 +383,10 @@ class RecipeProfileRequest(BaseModel):
         gt=0,
         description="Trusted serving count to use instead of the parser's inferred serving count.",
     )
+    annotate: bool = Field(
+        default=True,
+        description="Add Groq-derived course_types, cuisines, flavor_profiles and moods (ES field names) at top level.",
+    )
     parse_only: bool = Field(
         default=False,
         description=(

@@ -2347,6 +2347,18 @@ async def recipe_profile(
     profile_result["allergens"] = allergen_fields["allergens"]
     profile_result["allergen_evidence"] = allergen_fields["allergen_evidence"]
 
+    if payload.annotate:
+        from recipe_wrangler.catalog import annotation
+
+        try:
+            values, confidence = annotation.suggest(
+                title=profile_result.get("title") or "", ingredients=profile_names
+            )
+            profile_result.update({f: values.get(f, []) for f in annotation.MODEL_FACETS})
+            profile_result["annotation_confidence"] = confidence
+        except Exception as exc:  # noqa: BLE001
+            profile_result["annotations_warning"] = f"Annotation failed: {exc}"
+
     # Return the full chain output so clients can access all parsed/profiling fields.
     # Strip top-level None values — they represent unset pipeline state, not meaningful nulls.
     profile_result = {k: v for k, v in profile_result.items() if v is not None}

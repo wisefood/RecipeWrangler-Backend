@@ -199,7 +199,8 @@ Results are ordered deterministically for pagination: expert recipes first, then
 {
   "raw_recipe": "Chicken Tikka Masala\n2 chicken breasts...",
   "region": "IE",
-  "persist_trace": false
+  "persist_trace": false,
+  "annotate": true
 }
 ```
 
@@ -233,14 +234,22 @@ raw_recipe
         │      → Match ingredient to carbon footprint DB
         │      → kg CO2e per ingredient → total + per-serving
         │
-        └── 5. Nutri-Score (A–E)
-               → Computed from macros (energy, saturated fat,
-                 sugar, sodium, protein, fibre, fruit/veg)
-               → Optional: persist trace to PostgreSQL
+        ├── 5. Nutri-Score (A–E)
+        │      → Computed from macros (energy, saturated fat,
+        │        sugar, sodium, protein, fibre, fruit/veg)
+        │      → Optional: persist trace to PostgreSQL
+        │
+        └── 6. Annotate (Groq, `catalog.annotation.suggest`; skipped when `annotate: false`)
+               → course_types, cuisines, flavor_profiles, moods — closed
+                 vocabularies, same field names as the Elasticsearch index
+               → annotation_confidence (the model's own 0–1 estimate)
+               → Best-effort: if the call fails the profile still returns and
+                 `annotations_warning` is set instead of the facets.
+                 `parse_only=true` returns no facets.
 ```
 
 **Databases:** Elasticsearch (nutrition + sustainability matching), PostgreSQL (nutrient data + trace storage).
-**LLM:** Groq for parsing + weight fallback by default; a local OpenAI-compatible vLLM endpoint can be selected with `WEIGHT_LLM_SOURCE`.
+**LLM:** Groq for parsing + weight fallback by default (a local OpenAI-compatible vLLM endpoint can be selected with `WEIGHT_LLM_SOURCE`), and Groq for the facet annotation (`ANNOTATION_MODEL`, default `openai/gpt-oss-120b`; needs `GROQ_API_KEY`).
 
 ---
 

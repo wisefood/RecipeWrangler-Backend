@@ -1,0 +1,27 @@
+name: recipe-wrangler-api
+services:
+  recipe-wrangler-api:
+    image: wisefood/recipe-wrangler:matching-2026-11-04-v31
+    container_name: recipe-wrangler-api
+    network_mode: host
+    # Bound to localhost after the 2026-11-09 Elasticsearch wipe; reach it via ssh -L 8001:localhost:8001
+    command: ["python", "-m", "uvicorn", "recipe_wrangler.api.main:app", "--host", "127.0.0.1", "--port", "8001"]
+    restart: unless-stopped
+    environment:
+      NUTRITION_MATCHER_MODE: ${NUTRITION_MATCHER_MODE:-new}
+      NUTRITION_MATCHING_RELEASE: ${NUTRITION_MATCHING_RELEASE:-2026-10-27-v11}
+      MATCHING_PROJECTION_WORKER_ENABLED: ${MATCHING_PROJECTION_WORKER_ENABLED:-1}
+      NUTRITION_MATCHING_ASSET_ROOT: /app
+      HF_HUB_OFFLINE: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      OMP_NUM_THREADS: "4"
+    volumes:
+      - ../.env:/app/.env:ro
+      - ../data/generated_recipe_images:/app/data/generated_recipe_images:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; r=json.load(urllib.request.urlopen('http://127.0.0.1:8001/health/matching',timeout=5)); assert r['mode']==r['runtime_mode']"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3

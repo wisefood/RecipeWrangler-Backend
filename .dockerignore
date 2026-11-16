@@ -76,7 +76,3 @@ htmlcov/
 .claude/
 .codex
 
-# Packaging metadata points to this file.
-!docs/
-docs/*
-!docs/README.md

@@ -5,9 +5,14 @@ services:
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?run with --env-file ../.env}
+      - ES_JAVA_OPTS=-Xms4g -Xmx4g
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
     ports:
-      - 9200:9200
+      - "127.0.0.1:9200:9200"
     networks:
       - elastic
 
@@ -15,11 +20,14 @@ services:
     image: docker.elastic.co/kibana/kibana:8.15.0
     container_name: kibana
     ports:
-      - 5601:5601
+      - "127.0.0.1:5601:5601"
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     networks:
       - elastic
+
+volumes:
+  es-data:
 
 networks:
   elastic:

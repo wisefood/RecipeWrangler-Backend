@@ -13,7 +13,7 @@ PLI_SOURCE_DIR = RAW_DIR / "eurostat"
 FISH_SOURCE_DIR = RAW_DIR / "eumofa" / "monthly"
 PROCESSED_DIR = COST_DIR / "processed"
 ARTIFACT_DIR = REPOSITORY_ROOT / "artifacts" / "pricing"
-DOCS_DIR = REPOSITORY_ROOT / "docs"
+DOCS_DIR = REPOSITORY_ROOT / "analysis" / "pricing"
 
 WINDOW_START = "2025-08-01"
 WINDOW_END = "2026-07-31"

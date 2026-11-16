@@ -279,7 +279,19 @@ def split_ingredient_lines(lines: List[str]) -> tuple[List[str], List[str]]:
 
 
 _NUTRITION_STATE_CONTEXT = (
+    (re.compile(r"\bsemi[- ]skimmed\b", re.I), "semi-skimmed"),
+    (re.compile(r"(?<!semi-)(?<!semi )\bskimmed\b", re.I), "skimmed"),
+    (re.compile(r"\blow[- ]fat\b", re.I), "low-fat"),
+    (re.compile(r"\breduced[- ]fat\b", re.I), "reduced-fat"),
+    (re.compile(r"\bfull[- ]fat\b", re.I), "full-fat"),
+    (re.compile(r"\b(?:wholegrain|wholemeal|whole[- ]wheat)\b", re.I), "wholegrain"),
+    (re.compile(r"\bno[- ]added[- ]sugar\b", re.I), "no-added-sugar"),
+    (re.compile(r"\b(?:sugar[- ]free|no[- ]sugar)\b", re.I), "sugar-free"),
+    (re.compile(r"\blow[- ]sugar\b", re.I), "low-sugar"),
+    (re.compile(r"\breduced[- ]sugar\b", re.I), "reduced-sugar"),
+    (re.compile(r"\b(?:gluten[- ]free|no[- ]gluten)\b", re.I), "gluten-free"),
     (re.compile(r"\b(?:reduced|low)[ -]sodium\b|\b(?:reduced|low)[ -]salt\b", re.I), "reduced-sodium"),
+    (re.compile(r"\blow[- ]sugar\s+and\s+salt\b", re.I), "low-sodium"),
     (re.compile(r"\bno[ -]added[ -]salt\b", re.I), "no-added-salt"),
     (
         re.compile(
@@ -293,6 +305,7 @@ _NUTRITION_STATE_CONTEXT = (
     ),
     (re.compile(r"\bsmoked\b", re.I), "smoked"),
     (re.compile(r"\bpickled\b", re.I), "pickled"),
+    (re.compile(r"\bfresh\b", re.I), "fresh"),
     (re.compile(r"\bfrozen\b", re.I), "frozen"),
     (re.compile(r"\bdried\b", re.I), "dried"),
     (re.compile(r"\b(?:cooked|boiled)\b", re.I), "cooked"),
@@ -497,6 +510,7 @@ def Recipe_Profiling_Chain_Structured(
     region: str = "IE",
     debug: bool = False,
     weights: Optional[List[float]] = None,
+    portion_inputs: Optional[list[dict]] = None,
 ):
     """
     Run weight estimation and nutrition/sustainability profiling on pre-structured
@@ -519,6 +533,9 @@ def Recipe_Profiling_Chain_Structured(
         weights: Pre-computed per-ingredient weights in grams (one per name).
             Weights are region-independent, so multi-region reprofiling passes
             the first region's weights here to skip re-estimation.
+        portion_inputs: Optional aligned food IDs and portion facet constraints.
+            Selects ranked facet matching without generic/LLM fallbacks;
+            match_mode="strict" disables approximate matches for audits.
     """
     graph = build_pipeline_without_parse()
     normalized_region = (region or "IE").strip().upper()
@@ -537,6 +554,7 @@ def Recipe_Profiling_Chain_Structured(
             else ingredient_names
         ),
         measurements=measurements,
+        portion_inputs=portion_inputs,
         weights=list(weights) if weights else [],
         serves=float(serves),
         total_time=float(total_time) if total_time is not None else None,

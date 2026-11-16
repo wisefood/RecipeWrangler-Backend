@@ -11,6 +11,10 @@ from recipe_wrangler.utils.env_loader import load_runtime_env
 load_runtime_env()
 
 from recipe_wrangler.utils.neo4j_utils import run_query
+from recipe_wrangler.utils.es_recipe_evidence import allergen_filter_values
+from recipe_wrangler.utils.diet_tags import ALLERGEN_ABSENCE_RULES
+from recipe_wrangler.utils.consumer_suitability import PESCATARIAN_CLASSIFICATION_VERSION
+from recipe_wrangler.catalog.diets import canonical_diet
 from recipe_wrangler.utils.recipe_status import NEO4J_NOT_DISABLED
 
 
@@ -101,8 +105,14 @@ def _build_where_clause(
 ) -> tuple[str, dict[str, Any]]:
     include_ingredients = _normalize_terms(filters.include_ingredients)
     exclude_ingredients = _normalize_terms(filters.exclude_ingredients)
-    exclude_allergens = _normalize_terms(filters.exclude_allergens)
-    diet_tags = _normalize_terms(filters.diet_tags)
+    exclude_allergens = allergen_filter_values(filters.exclude_allergens)
+    diet_tags = [canonical_diet(tag) or tag for tag in _normalize_terms(filters.diet_tags)]
+    pescatarian = "pescatarian" in diet_tags
+    exclude_allergens = allergen_filter_values([
+        *exclude_allergens,
+        *(allergen for tag in diet_tags for allergen in ALLERGEN_ABSENCE_RULES.get(tag, [])),
+    ])
+    diet_tags = [tag for tag in diet_tags if tag not in ALLERGEN_ABSENCE_RULES and tag != "pescatarian"]
     sources = _normalize_sources(filters.sources)
     dish_types = _normalize_terms(filters.dish_types)
     limit = max(1, min(int(filters.limit), 100))
@@ -110,6 +120,15 @@ def _build_where_clause(
 
     predicates: list[str] = list(extra_predicates or [])
     params: dict[str, Any] = {"limit": limit, "offset": offset}
+
+    if pescatarian:
+        predicates.append(
+            "EXISTS { MATCH (r)-[s:SUITABILITY_FOR]->(:ConsumerGroup {name:'pescatarian'}) "
+            "WHERE s.status='suitable' AND s.classification_version=$pescatarian_version } AND "
+            "NOT EXISTS { MATCH (r)-[s:SUITABILITY_FOR]->(:ConsumerGroup {name:'pescatarian'}) "
+            "WHERE coalesce(s.status,'unknown')<>'suitable' AND s.classification_version=$pescatarian_version }"
+        )
+        params["pescatarian_version"] = PESCATARIAN_CLASSIFICATION_VERSION
 
     if include_ingredients:
         predicates.append(
@@ -131,6 +150,19 @@ def _build_where_clause(
 
     if exclude_allergens:
         predicates.append(
+            "NONE(label IN coalesce(r.declared_allergens, []) WHERE toLower(label) IN $exclude_allergens) AND "
+            "NOT EXISTS { MATCH (r)-[:HAS_ALLERGEN]->(a:Allergen) "
+            "WHERE toLower(a.name) IN $exclude_allergens } AND "
+            "NOT EXISTS { "
+            "MATCH (r)-[:HAS_DECLARATION]->(d:AllergenDeclaration)-[:CONCERNS]->(a:Allergen) "
+            "WHERE toLower(a.name) IN $exclude_allergens "
+            "AND toLower(coalesce(d.presence, 'contains')) IN ['contains', 'present', ''] "
+            "} AND "
+            "NOT EXISTS { "
+            "MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_DECLARATION]->(d:AllergenDeclaration)-[:CONCERNS]->(a:Allergen) "
+            "WHERE toLower(a.name) IN $exclude_allergens "
+            "AND toLower(coalesce(d.presence, 'contains')) IN ['contains', 'present', ''] "
+            "} AND "
             "NOT EXISTS { "
             "MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen) "
             "WHERE toLower(al.name) IN $exclude_allergens "

@@ -6,6 +6,9 @@ from typing import Any, Dict, List, Optional, Union, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
+from recipe_wrangler.utils.es_recipe_evidence import recipe_allergen_fields
+from recipe_wrangler.matching.portions.core import PortionInput
+
 
 class IngredientProfile(BaseModel):
     # extra="allow": this model silently dropped every field the nutrition
@@ -50,7 +53,9 @@ class RecipeState(BaseModel):
     # DEPRECATED (kept optional for upstream nodes)
     ingredient_names: List[str] = Field(default_factory=list)
     ingredient_match_names: List[str] = Field(default_factory=list)
+    ingredient_original_texts: List[str] = Field(default_factory=list)
     measurements: List[str] = Field(default_factory=list)
+    portion_inputs: Optional[List[PortionInput]] = None
     weights: Union[List[float], Dict[str, Any]] = Field(default_factory=list)
 
     # NEW canonical container
@@ -75,7 +80,7 @@ class RecipeState(BaseModel):
     total_carbohydrate_g: Optional[float] = None
     total_energy_kcal: Optional[float] = None
 
-    profiling_totals: Dict[str, float] = Field(default_factory=dict)
+    profiling_totals: Dict[str, Optional[float]] = Field(default_factory=dict)
     full_profile: Dict[str, Any] = Field(default_factory=dict)
     pipeline_trace: Dict[str, Any] = Field(default_factory=dict)
     cost_profile: Dict[str, Any] = Field(default_factory=dict)
@@ -86,6 +91,7 @@ class RecipeState(BaseModel):
 
     # optional inputs if available
     serves: Optional[float] = None
+    trusted_serves: Optional[float] = Field(default=None, gt=0)
     serving_size_g: Optional[float] = None
     min_similarity: Optional[float] = None
 
@@ -96,6 +102,8 @@ class RecipeState(BaseModel):
     nutrition_serves: Optional[float] = None
     nutritional_totals: Optional[Dict[str, Any]] = None
     nutritional_details: Optional[List[Dict[str, Any]]] = None
+    nutrition_completeness: Optional[Dict[str, Any]] = None
+    matching_metadata: Optional[Dict[str, Any]] = None
 
     # profiling quality flags (set by Recipe_Profiling_Node)
     serves_source: Optional[str] = None            # "given" | "estimated"
@@ -118,7 +126,7 @@ class RecipeSearchRequest(BaseModel):
 
     question: str = Field(
         default="",
-        description="Natural language recipe question. Empty means unconstrained random search.",
+        description="Natural language recipe question. Empty text applies explicit filters without model extraction; an unconfigured request returns random landing recipes.",
     )
     exclude_allergens: List[str] = Field(
         default_factory=list,
@@ -126,8 +134,8 @@ class RecipeSearchRequest(BaseModel):
     )
     diet_tags: List[str] = Field(
         default_factory=list,
-        description="Member dietary groups (e.g. ['vegan']) applied as soft ranking boosts; "
-                    "diet stated in the question itself is extracted by the LLM and filtered hard.",
+        description="Member dietary groups (e.g. ['vegan']) applied as hard filters, together "
+                    "with any diet stated in the question or `require_diet_tags`.",
     )
     preferred_ingredients: List[str] = Field(
         default_factory=list,
@@ -182,9 +190,9 @@ class RecipeSearchRequest(BaseModel):
     )
     require_diet_tags: List[str] = Field(
         default_factory=list,
-        description="Diet groups the recipe must carry — a hard filter, unlike "
-                    "`diet_tags`, which are the member's profile preferences applied "
-                    "as soft boosts. Use this for a diet the caller explicitly chose.",
+        description="Diet groups the recipe must carry — a hard filter, merged with "
+                    "the member's profile `diet_tags`. Use this for a diet the caller "
+                    "explicitly chose.",
     )
     include_disabled: bool = Field(
         default=False,
@@ -378,7 +386,10 @@ class RecipeUpdateRequest(BaseModel):
     source_id: Optional[str] = None
     expert_recipe: Optional[bool] = None
     title: Optional[str] = None
-    allergens: Optional[List[str]] = None
+    allergens: Optional[List[str]] = Field(
+        default=None,
+        description="Replace this recipe's declared positive allergens. An empty list clears only these declarations; detected ingredient conflicts remain.",
+    )
     tags: Optional[List[str]] = None
     duration: Optional[float] = Field(default=None, gt=0)
     seasonality: Optional[List[Literal["autumn", "summer", "spring", "winter"]]] = None
@@ -389,6 +400,10 @@ class RecipeUpdateResponse(BaseModel):
     updated_fields: List[str]
     tags: List[str] = Field(default_factory=list)
     allergens: List[str] = Field(default_factory=list)
+    allergen_uncertainty: bool = True
+    allergen_assessment: Dict[str, Any] = Field(
+        default_factory=lambda: recipe_allergen_fields()["allergen_assessment"]
+    )
     message: str = "Recipe updated successfully"
 
 
@@ -501,6 +516,10 @@ class RecipeCreateResponse(BaseModel):
     """Confirmation returned after a new recipe is created."""
 
     recipe_id: str
+    allergen_uncertainty: bool = True
+    allergen_assessment: Dict[str, Any] = Field(
+        default_factory=lambda: recipe_allergen_fields()["allergen_assessment"]
+    )
     allergens: List[str] = Field(default_factory=list)
     allergen_evidence: List[Dict[str, Any]] = Field(default_factory=list)
     message: str = "Recipe created successfully"
@@ -537,6 +556,12 @@ class RecipeCardResponse(BaseModel):
     """Slim recipe representation for card/list rendering — no nutrition data."""
 
     recipe_id: Optional[str]
+    suitable_for: List[str] = Field(default_factory=list)
+    consumer_suitability: List[Dict[str, Any]] = Field(default_factory=list)
+    allergen_uncertainty: bool = True
+    allergen_assessment: Dict[str, Any] = Field(
+        default_factory=lambda: recipe_allergen_fields()["allergen_assessment"]
+    )
     title: Optional[str]
     url: Optional[str] = None
     source: Optional[str] = None
@@ -556,6 +581,12 @@ class RecipeDetailResponse(BaseModel):
     """Detailed recipe representation from Elasticsearch plus stored profiles."""
 
     recipe_id: Optional[str]
+    suitable_for: List[str] = Field(default_factory=list)
+    consumer_suitability: List[Dict[str, Any]] = Field(default_factory=list)
+    allergen_uncertainty: bool = True
+    allergen_assessment: Dict[str, Any] = Field(
+        default_factory=lambda: recipe_allergen_fields()["allergen_assessment"]
+    )
     title: Optional[str]
     url: Optional[str] = None
     source: Optional[str] = None
@@ -626,17 +657,21 @@ class RecipeCardNutrition(BaseModel):
     """
 
     recipe_id: str
+    allergen_uncertainty: bool = True
+    allergen_assessment: Dict[str, Any] = Field(
+        default_factory=lambda: recipe_allergen_fields()["allergen_assessment"]
+    )
     title: Optional[str] = None
     image_url: Optional[str] = None
     duration: Optional[float] = None
     tags: List[str] = Field(default_factory=list)
     dish_types: List[str] = Field(default_factory=list)
-    # The recipe's own dietary tags, from the same two Neo4j tag categories the
-    # search filters on. Without them a caller could ask for `vegetarian` and
-    # had no way to CHECK that what came back was vegetarian — which is exactly
-    # the kind of constraint worth checking rather than trusting.
+    # Dietary labels remain visible; composition eligibility is represented by
+    # suitable_for and the explicit three-state consumer_suitability fields.
     diet_tags: List[str] = Field(default_factory=list)
     allergens: List[str] = Field(default_factory=list)
+    suitable_for: List[str] = Field(default_factory=list)
+    consumer_suitability: List[Dict[str, Any]] = Field(default_factory=list)
     kcal_per_serving: Optional[float] = None
     protein_g_per_serving: Optional[float] = None
     carbs_g_per_serving: Optional[float] = None
@@ -752,6 +787,12 @@ class FoodChatNutrition(BaseModel):
 
 class FoodChatRecipeItem(BaseModel):
     recipe_id: str
+    suitable_for: List[str] = Field(default_factory=list)
+    consumer_suitability: List[Dict[str, Any]] = Field(default_factory=list)
+    allergen_uncertainty: bool = True
+    allergen_assessment: Dict[str, Any] = Field(
+        default_factory=lambda: recipe_allergen_fields()["allergen_assessment"]
+    )
     title: str
     ingredients: str
     directions: str

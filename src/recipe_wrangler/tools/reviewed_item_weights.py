@@ -35,11 +35,14 @@ _UNIT_ALIASES = {
     "sheets": "sheet", "scoops": "scoop", "sprigs": "sprig", "leaves": "leaf", "leafs": "leaf",
     "drops": "drop", "few drops": "drop", "pieces": "piece", "balls": "ball", "shells": "shell",
     "cloves": "clove", "blocks": "block", "boxes": "box", "packages ": "package", "stems": "stem",
-    "sausages": "each", "chips": "chip",
+    "sausages": "each", "chips": "chip", "nests": "nest", "baskets": "basket",
 }
 
 # (regex, {unit: grams}, source). "each" rows may add "sizes": {size: grams} via a tuple third element.
 _ROWS: tuple = (
+    # Exact dried-white tablespoon; sifted cup and fresh whites are different forms.
+    (r"^(?:egg,?\s+whites?,?\s+(?:dried|powdered)|(?:dried|powdered)\s+egg\s+whites?)$",
+     {"tablespoon": 7.0}, "USDA Foundation 2026-10, FDC 323793"),
     # ---- fruit / veg counts -------------------------------------------------------------
     (r"\blychees?\b", {"each": 10.0}, "convention"),
     (r"\bclementines?\b", {"each": 74.0}, "USDA"),
@@ -49,7 +52,7 @@ _ROWS: tuple = (
     (r"\bplantains?\b", {"each": 180.0}, "convention"),
     (r"\bjicama\b", {"each": 300.0}, "convention"),
     (r"\bkohlrabi\b", {"each": 190.0}, "convention"),
-    (r"\bceleriac\b", {"each": 500.0}, "convention"),
+    (r"\bceleriac\b|\bcelery root\b|\bturnip[- ]rooted celery\b", {"each": 500.0}, "convention"),
     (r"\bwatermelon radish\b", {"each": 150.0}, "convention"),
     (r"\bbeet(?:s|root|roots)?\b(?!.*(?:canned|baby|bunch))", {"each": 82.0, "slice": 15.0, "pack": 250.0}, "USDA"),
     (r"\bcanned beet(?:root)?\b", {"slice": 15.0}, "convention"),
@@ -73,7 +76,7 @@ _ROWS: tuple = (
     (r"\bgreen beans\b", {"each": 5.5, "bunch": 250.0, "handful": 60.0}, "USDA"),
     (r"\bspring onions?\b|\bscallions?\b|\bgreen onions?\b", {"each": 15.0, "stalk": 15.0, "spring": 15.0}, "USDA"),
     (r"\bred (?:chill?ies|chillis?)\b|\bchill?ies\b", {"each": 45.0}, "USDA"),
-    (r"\bcapiscums?\b|\bcapsicums?\b|\bbell peppers?\b", {"each": 119.0}, "USDA"),
+    (r"\bcapiscums?\b|\bcapsicums?\b|\bbell peppers?\b|^(?:(?:red|green|yellow|orange|sweet)\s+)?peppers?$", {"each": 119.0, "sizes": {"small": 74.0, "medium": 119.0, "large": 164.0}}, "USDA"),
     (r"\bmushrooms?\b", {"slice": 5.0}, "convention"),
     (r"\bgarlic\b", {"clove": 3.0, "each": 5.0}, "USDA"),
     (r"\bginger\b", {"chunk": 20.0, "each": 15.0, "piece": 15.0}, "convention"),
@@ -199,7 +202,7 @@ _ROWS: tuple = (
     # ---- second pass: remaining one-offs -----------------------------------------------
     (r"\bcucumber\b", {"each": 301.0}, "USDA"),
     (r"\bbacon\b", {"each": 25.0, "strip": 25.0, "slice": 25.0}, "convention"),
-    (r"\bchicken breast fillets?\b", {"each": 174.0}, "USDA"),
+    (r"\bchicken (?:breast )?fillets?\b", {"each": 174.0, "fillet": 174.0}, "USDA"),
     (r"\bcelery\b", {"rib": 40.0}, "convention"),
     (r"\bwalnuts?\b", {"each": 2.5}, "convention"),
     (r"\bsalmon darnes?\b", {"each": 175.0}, "convention"),
@@ -228,6 +231,7 @@ _ROWS: tuple = (
     (r"\bparsley root\b", {"each": 100.0}, "convention"),
     (r"\bwhey protein\b", {"scoop": 30.0}, "convention"),
     (r"\bnoodles\b.*\bnests?\b|\bwholewheat noodles\b", {"nest": 60.0}, "convention"),
+    (r"\bnoodles?\b", {"nest": 60.0, "basket": 60.0}, "convention"),
     (r"\bcoconut milk\b", {"tin": 400.0, "can": 400.0}, "convention"),
     (r"\bmixed beans\b|\bchickpeas\b|\bkidney beans\b|\bbeans\b", {"tin": 400.0, "can": 400.0}, "convention"),
     (r"\btuna\b", {"tin": 120.0, "can": 120.0}, "convention"),

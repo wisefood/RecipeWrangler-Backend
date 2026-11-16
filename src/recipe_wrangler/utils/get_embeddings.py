@@ -1,9 +1,13 @@
 # Purpose: Embedding helpers (single and batch) using HuggingFace models.
 
+from __future__ import annotations
+
 import os
 from functools import lru_cache
-from typing import List, Optional
-from langchain_huggingface import HuggingFaceEmbeddings
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    from langchain_huggingface import HuggingFaceEmbeddings
 from recipe_wrangler.utils.env_loader import load_runtime_env
 
 load_runtime_env()
@@ -28,6 +32,8 @@ WARM_ON_IMPORT = os.getenv("EMBED_WARM_ON_IMPORT", "").strip().lower() in {
 @lru_cache(maxsize=None)
 def _get_embedder(model_name: str = DEFAULT_MODEL_NAME) -> HuggingFaceEmbeddings:
     """Load the embedding model once and cache it (keyed by model name)."""
+    from langchain_huggingface import HuggingFaceEmbeddings
+
     return HuggingFaceEmbeddings(
         model_name=model_name or DEFAULT_MODEL_NAME,
         model_kwargs=MODEL_KWARGS,

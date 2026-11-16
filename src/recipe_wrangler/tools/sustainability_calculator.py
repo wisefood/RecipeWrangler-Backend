@@ -1,5 +1,6 @@
 # Purpose: Compute sustainability/carbon footprint totals via Elasticsearch matches.
 
+import math
 import re
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
@@ -11,6 +12,9 @@ from recipe_wrangler.repositories.vector_matchers import (
     query_sustainability_candidates as query_sustainability_db,
 )
 from recipe_wrangler.repositories.vector_matchers import get_vector_collection_page
+from recipe_wrangler.repositories.sustainability_references import (
+    POLICY_VERSION, complete_recipe_selection, lookup_references, normalize as reference_normalize,
+)
 from recipe_wrangler.tools.nutrition_match import (
     clean_query as _nm_clean,
     classes_compatible as _nm_compat,
@@ -281,6 +285,14 @@ def sustainability_tool_vector(
     """
     details: List[Dict] = []
     total_sustainability = 0.0
+    if len(ingredient_names) != len(weights):
+        raise ValueError("Sustainability ingredients and gram weights must have equal lengths.")
+    weights = [float(weight) for weight in weights]
+    if any(not math.isfinite(weight) or weight < 0 for weight in weights):
+        raise ValueError("Sustainability weights must be finite, nonnegative grams.")
+    selected, reference_status = lookup_references(ingredient_names)
+    use_references = complete_recipe_selection(ingredient_names, weights, selected)
+    recipe_source = "AGRIBALYSE" if use_references else SOURCE_SUSTAINABILITY
 
     serves_value: Optional[float] = None
     if serves is not None:
@@ -292,7 +304,23 @@ def sustainability_tool_vector(
             serves_value = None
 
     for ing_name, weight_g in zip(ingredient_names, weights):
-        cf_val, matched_name, conf = best_sustainability_match(ing_name)
+        reference = selected.get(ing_name)
+        if use_references:
+            cf_val = reference["metrics"]["climate_change"]["value"] if reference else 0.0
+            matched_name = reference["name"] if reference else None
+            conf = ("source_exact" if reference_normalize(ing_name) == reference_normalize(matched_name)
+                    else "source_reviewed") if reference else "zero_weight"
+        else:
+            cf_val, matched_name, conf = best_sustainability_match(ing_name)
+        provenance = {
+            "sustainability_policy": POLICY_VERSION if use_references else "legacy_v1",
+            "sustainability_reference_status": reference_status,
+            "sustainability_reference": reference if use_references else None,
+            "alternative_sustainability_reference": reference if not use_references else None,
+            "sustainability_provenance_status": "source_verified" if use_references else "legacy_unverified",
+            "sustainability_calculation_status": "matched" if cf_val is not None else "missing_factor_partial_total",
+            "sustainability_scope": "FR consumer-product estimate; recipe cooking excluded" if use_references else "legacy lifecycle scope unverified",
+        }
 
         if cf_val is None:
             details.append({
@@ -303,7 +331,8 @@ def sustainability_tool_vector(
                 "distance": None,
                 "contribution": 0.0,
                 "sustainability_match_confidence": conf,
-                "source_sustainability": SOURCE_SUSTAINABILITY,
+                "source_sustainability": recipe_source,
+                **provenance,
             })
             continue
 
@@ -317,7 +346,8 @@ def sustainability_tool_vector(
             "distance": None,
             "contribution": float(contribution),
             "sustainability_match_confidence": conf,
-            "source_sustainability": SOURCE_SUSTAINABILITY,
+            "source_sustainability": recipe_source,
+            **provenance,
         })
 
     # Normalize to kg CO2e per kg of prepared recipe (optional)
@@ -334,6 +364,10 @@ def sustainability_tool_vector(
     if serves_value:
         total_sustainability_per_serving = total_sustainability / serves_value
 
+    recipe_status = "partial" if any(d["cf_val"] is None and d["weight_g"] > 0 for d in details) else "complete_estimate"
+    for detail in details:
+        detail["recipe_sustainability_status"] = recipe_status
+
     return {
         "title": title,
         "details": details,
@@ -345,7 +379,10 @@ def sustainability_tool_vector(
         if sustainability_per_kg is None
         else float(sustainability_per_kg),
         "serves": serves_value,
-        "source_sustainability": SOURCE_SUSTAINABILITY,
+        "source_sustainability": recipe_source,
+        "sustainability_policy": POLICY_VERSION if use_references else "legacy_v1",
+        "sustainability_status": recipe_status,
+        "sustainability_reference_status": reference_status,
     }
 
 
@@ -375,10 +412,8 @@ def Sustainability_Node(state: RecipeState) -> RecipeState:
     except (TypeError, ValueError) as e:
         raise ValueError("Sustainability_Node: all weights must be numeric (grams).") from e
 
-    # Ensure equal lengths (tool zips the two lists)
-    n = min(len(ingredient_names), len(weights_g))
-    ingredient_names = ingredient_names[:n]
-    weights_g = weights_g[:n]
+    if len(ingredient_names) != len(weights_g):
+        raise ValueError("Sustainability_Node: ingredient and weight counts differ.")
 
     res = sustainability_tool_vector.invoke({
         "title": state.title,

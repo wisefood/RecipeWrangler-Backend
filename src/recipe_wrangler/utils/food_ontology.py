@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 
-CLASSIFICATION_VERSION = "fato-foodon-v1"
+CLASSIFICATION_VERSION = "fato-foodon-v8"
 FATO_NAMESPACE = "http://www.w3id.org/FATO/"
 FATO_ALLERGEN_CLASS_IRI = f"{FATO_NAMESPACE}Allergen"
 FATO_ALLERGEN_DECLARATION_CLASS_IRI = (
@@ -66,11 +66,13 @@ ALLERGEN_ONTOLOGY_MAPPINGS: dict[str, AllergenOntologyMapping] = {
 # consumer_suitability.py so a name like "feta" is caught consistently
 # everywhere, not just wherever someone happened to add it first.
 DAIRY_PRODUCT_KEYWORDS: list[str] = [
+    "buttered",
     "quark", "halloumi", "feta", "ricotta", "paneer", "mascarpone",
     "mozzarella", "buttermilk", "creme fraiche", "crème fraîche", "labneh",
     "burrata", "brie", "camembert", "cheddar", "gouda", "parmesan",
     "parmigiano", "provolone", "gruyere", "gruyère", "edam", "stilton",
     "roquefort",
+    "crème fraiche", "creme fraîche",
 ]
 
 MEAT_PRODUCT_KEYWORDS: list[str] = [
@@ -84,6 +86,23 @@ MEAT_PRODUCT_KEYWORDS: list[str] = [
 # repositories/neo4j_recipes.py (per-recipe detection at creation time) so
 # the two paths detect exactly the same things instead of silently drifting
 # apart the way the batch job and the API allergen list once did.
+# Wheat-based products contain gluten (Regulation 1169/2011 Annex II item 1),
+# so both groups share them. Gluten-free variants are removed by
+# GLUTEN_SAFE_REGEXES before keywords are applied.
+_WHEAT_PRODUCT_KEYWORDS: tuple[str, ...] = (
+    "flour", "bread", "breadcrumbs", "breading", "batter", "pasta", "noodle",
+    "couscous", "semolina", "penne", "spaghetti", "macaroni", "fusilli",
+    "lasagne", "lasagna", "linguine", "fettuccine", "tagliatelle", "rigatoni",
+    "farfalle", "orzo", "ravioli", "tortellini", "cannelloni", "pancake mix",
+    "waffle mix", "sponge cake", "biscuit", "pastry", "filo", "phyllo",
+    "sourdough", "toast", "bagel", "pitta", "pita", "crispbread", "cracker",
+    "bun", "buns", "dough", "pretzel", "croissant", "crouton", "panko",
+    "english muffin", "cake mix", "brownie mix", "muffin mix", "biscuit mix",
+    "stuffing mix", "wonton wrapper", "egg roll wrapper",
+    "baguette", "breadstick", "bread stick", "crescent roll", "pizza crust",
+    "kaiser roll", "sub roll", "waffle", "angel food cake",
+)
+
 ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
     "milk": {
         "roots": [
@@ -93,8 +112,9 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
             "FOODON_00001118",  # cattle dairy food product
         ],
         "keywords": [
-            "milk", "cheese", "butter", "cream", "yogurt", "whey", "casein",
-            "lactose", "ghee", "curd", "kefir", *DAIRY_PRODUCT_KEYWORDS,
+            "milk", "cheese", "butter", "cream", "yogurt", "yoghurt", "whey",
+            "casein", "lactose", "ghee", "curd", "kefir", "pesto", "white chocolate",
+            *DAIRY_PRODUCT_KEYWORDS,
         ],
     },
     "egg": {
@@ -104,8 +124,8 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
             "FOODON_02010002",  # animal egg
         ],
         "keywords": [
-            "egg", "egg white", "egg yolk", "omelet", "mayonnaise", "aioli",
-            "meringue", "albumen",
+            "egg", "egg white", "egg yolk", "omelet", "mayonnaise", "mayo", "aioli",
+            "meringue", "albumen", "sponge cake",
         ],
     },
     "peanut": {
@@ -132,7 +152,8 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
         ],
         "keywords": [
             "almond", "walnut", "pecan", "cashew", "pistachio", "hazelnut",
-            "macadamia", "brazil nut", "pine nut", "romesco", "praline",
+            "macadamia", "brazil nut", "romesco", "praline", "marzipan",
+            "nut", "mixed nuts",
         ],
     },
     "wheat": {
@@ -147,9 +168,8 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
         ],
         "keywords": [
             "wheat", "whole wheat", "durum", "semolina", "farina", "graham",
-            "spelt", "bulgur", "couscous", "seitan", "gluten", "flour",
-            "bread", "breadcrumbs", "breading", "batter", "roux", "pasta",
-            "noodle",
+            "spelt", "bulgur", "seitan", "gluten", "roux",
+            *_WHEAT_PRODUCT_KEYWORDS,
         ],
     },
     "soy": {
@@ -169,7 +189,7 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
             "soy", "soya", "soybean", "edamame", "tofu", "tempeh", "miso",
             "soy sauce", "tamari", "shoyu", "soy lecithin", "lecithin (soy)",
             "textured vegetable protein", "tvp", "soy protein", "soy isolate",
-            "soy flour", "soy oil", "soy milk", "soy yogurt", "natto",
+            "soy flour", "soy oil", "soy milk", "soymilk", "soy yogurt", "natto",
         ],
     },
     "fish": {
@@ -185,7 +205,11 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
         "keywords": [
             "fish", "cod", "bass", "flounder", "salmon", "tuna", "haddock",
             "tilapia", "anchovy", "sardine", "trout", "mackerel", "halibut",
-            "pollock", "catfish", "swordfish", "fish sauce",
+            "pollock", "catfish", "swordfish", "hoki", "hake", "gurnard",
+            "tarakihi", "snapper", "whiting", "plaice", "monkfish", "bream",
+            "herring", "kipper", "pilchard", "sprat", "mullet", "john dory",
+            "barramundi", "kingfish", "ling", "perch", "pike", "carp",
+            "fish sauce", "nam pla", "nuoc mam",
             "worcestershire sauce", "worcester sauce", "caesar dressing",
         ],
     },
@@ -197,7 +221,7 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
             "FOODON_00002239",  # shrimp food product
         ],
         "keywords": [
-            "crab", "lobster", "shrimp", "prawn", "crustacean", "langostino",
+            "crab", "crabmeat", "lobster", "shrimp", "brownshrimp", "prawn", "crustacean", "langostino",
         ],
     },
     "sesame": {
@@ -211,6 +235,7 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
         ],
         "keywords": [
             "sesame", "tahini", "sesame oil", "sesame seed", "sesame paste",
+            "hummus", "houmous", "halva",
         ],
     },
     "gluten": {
@@ -222,16 +247,16 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
             "FOODON_03302452",  # gluten bread
             "FOODON_03302453",  # gluten flour
             "FOODON_03306200",  # gluten noodle
-            "FOODON_00001275",  # wheat (big three)
-            "FOODON_00001217",  # barley (big three)
-            "FOODON_00001272",  # rye (big three)
-            "FOODON_00001254",  # oats (cross-contamination risk)
+            "FOODON_00001141",  # wheat food product
+            "FOODON_00001191",  # barley food product
+            "FOODON_00001190",  # rye food product
+            "FOODON_00001189",  # oat food product (existing non-certified-oat policy)
         ],
         "keywords": [
             "gluten", "wheat", "barley", "rye", "spelt", "kamut", "farro",
             "durum", "bulgur", "malt", "soy sauce", "seitan",
             "brewer's yeast", "modified food starch", "roux", "gravy",
-            "oats",
+            "oats", *_WHEAT_PRODUCT_KEYWORDS,
         ],
     },
     "celery": {
@@ -248,8 +273,7 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
         ],
     },
     "sulphites": {
-        # Sulphites are additives rather than a FoodOn food-product branch,
-        # so they are detected from explicit ingredient/additive names only.
+        # Additive names and the owner's named-grape-wine default; no FoodOn branch.
         "roots": [],
         "keywords": [
             "sulphite", "sulphites", "sulfite", "sulfites",
@@ -257,7 +281,7 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
             "metabisulfite", "bisulphite", "bisulfite", "sodium sulphite",
             "sodium sulfite", "potassium sulphite", "potassium sulfite",
             "e220", "e221", "e222", "e223", "e224", "e225", "e226", "e227",
-            "e228",
+            "e228", "wine", "champagne", "vermouth",
         ],
     },
     "lupin": {
@@ -271,14 +295,33 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
         "roots": ["FOODON_00002044"],  # mollusc food product
         "keywords": [
             "mollusc", "mollusk", "clam", "mussel", "oyster", "scallop",
-            "squid", "octopus", "cuttlefish", "whelk", "cockle", "abalone",
+            "squid", "calamari", "octopus", "cuttlefish", "whelk", "cockle", "abalone",
             "snail",
         ],
     },
 }
 
+# Product names suggest these allergens, but do not establish their formulation.
+# These retain the owner's possible policy; named grape wine has a separate default.
+ALLERGEN_POSSIBLE_KEYWORDS: dict[str, list[str]] = {
+    "milk": ["pesto", "dark chocolate", "spread", "stock", "broth"],
+    "egg": ["aioli", "stock", "broth"],
+    "peanut": ["mole sauce", "mole paste", "nut", "mixed nuts"],
+    "tree_nut": ["nut", "mixed nuts", "romesco", "praline", "pesto"],
+    "wheat": ["soy sauce", "stock", "broth", "tortilla"],
+    "gluten": ["soy sauce", "stock", "broth", "tortilla", "modified food starch"],
+    "fish": ["caesar dressing"],
+    "sesame": ["hummus", "houmous"],
+    "celery": ["stock", "broth"],
+    "sulphites": [
+        "mirin", "sherry", "cider", "wine vinegar", "raisins", "raisin",
+        "sultanas", "sultana", "dried apricot", "dried cranberries", "dried fruit",
+        "dried prunes", "dried apple",
+    ],
+}
+
 MILK_PLANT_EXCLUSION_REGEXES: list[str] = [
-    r".*\b(coconut|soy|soya|almond|oat|rice|cashew|hazelnut|hemp|pea)"
+    r".*\b(coconut|soy|soya|almond|oat|rice|cashew|hazelnut|hemp|pea|nut)"
     r"([ -]+(flavoured|flavored))?[ -]+(milk|cream|yogurt|yoghurt)\b.*",
     r".*\b(milk|cream|yogurt|yoghurt)[ -]+alternative\b.*",
     r".*\bnon[ -]*dairy\b.*",
@@ -294,6 +337,10 @@ MILK_PLANT_EXCLUSION_REGEXES: list[str] = [
     r"^(powdered butter|cream rice|cream parsley|milk rice|coconut paste milk"
     r"|butter almond|oil cocoa butter|butter paper)$",
     r"^cream sherry$",
+    r".*\bcream[ -]+of[ -]+tartar\b.*",
+    r".*\bcream[ -]+of[ -]+coconut\b.*",
+    r".*\b(cocoa|cacao|apple)[ -]+butter\b.*",
+    r".*\b(cashew|almond|soy|soya|oat)[ -]+cheese\b.*",
 ]
 
 GLUTEN_SAFE_REGEXES: list[str] = [
@@ -302,10 +349,12 @@ GLUTEN_SAFE_REGEXES: list[str] = [
     r"^gluten[ -]+(baking flour|self raising flour|flour|soy sauce|bread|"
     r"pasta|flour almond coconut|flour mix|bread mix)$",
     r".*\bbuckwheat\b.*",
-    r".*\b(rice|tapioca|potato|almond|coconut|besan|chickpea|corn|maize|"
-    r"quinoa|cassava|arrowroot)[ -]+flour\b.*",
+    r".*\b(rice|tapioca|potato|almond|coconut|besan|chickpea|garbanzo|corn|maize|"
+    r"quinoa|cassava|arrowroot|pumpkin[ -]+seed)[ -]+(?:garbanzo[ -]+)?flour\b.*",
     r".*\b(rice|pulse|chickpea|corn|maize|quinoa)[ -]+"
     r"(noodles?|pasta|spaghetti)\b.*",
+    r".*\b(edamame|mung[ -]+bean)[ -]+fettuccine\b.*",
+    r".*\b(rice|mung[ -]+bean)[ -]+vermicelli([ -]+noodles?)?\b.*",
     r".*\btamari\b.*",
     r"^(ground|minced|fresh|crystallized|crystallised|pickled|glace)?"
     r"[ -]*ginger$",

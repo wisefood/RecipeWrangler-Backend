@@ -103,7 +103,7 @@ Confidence is a point score based on source-country count, observation count, re
 - Base-product target-country rows: **{len(base_lookup):,}**
 - Canonical base products: **{base_lookup['ingredient_id'].nunique():,}**
 
-The canonical classified output is `ingredient_prices_classified.csv` (and Parquet), with its frozen thresholds and version in `cost_classification_metadata.json`. The validation tables are in `cost_classification_validation/`, and the human-readable scientific review is `docs/COST_CLASSIFICATION_VALIDATION.md`. Fish-specific review tables include `eumofa_fish_latest_prices`, `fish_price_lookup`, `fish_price_reference`, `fish_price_base_lookup`, `fish_price_base_reference`, and `fish_prices_classified`. The unified ingredient tables contain the same fish rows alongside all other food groups.
+The canonical classified output is `ingredient_prices_classified.csv` (and Parquet), with its frozen thresholds and version in `cost_classification_metadata.json`. The validation tables are in `cost_classification_validation/`, and the generated review is `analysis/pricing/COST_CLASSIFICATION_VALIDATION.md`. The maintained workflow guide is `docs/COST.md`. Fish-specific review tables include `eumofa_fish_latest_prices`, `fish_price_lookup`, `fish_price_reference`, `fish_price_base_lookup`, `fish_price_base_reference`, and `fish_prices_classified`. The unified ingredient tables contain the same fish rows alongside all other food groups.
 
 ### Rejection summary
 

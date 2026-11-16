@@ -21,6 +21,7 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 from recipe_wrangler.utils.env_loader import load_runtime_env  # noqa: E402
+from recipe_wrangler.utils.elastic_auth import elastic_request
 
 load_runtime_env()
 DUMPS_ROOT = REPO_ROOT / "dumps" / "sent"
@@ -84,7 +85,7 @@ def _write_latest(pointer: Path, text: str) -> None:
 
 def _es_request(base_url: str, path: str, *, method: str = "GET", body: Any | None = None) -> dict[str, Any]:
     data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = Request(f"{base_url.rstrip('/')}{path}", data=data, method=method)
+    req = elastic_request(f"{base_url.rstrip('/')}{path}", data=data, method=method)
     req.add_header("Content-Type", "application/json")
     try:
         with urlopen(req, timeout=120) as resp:

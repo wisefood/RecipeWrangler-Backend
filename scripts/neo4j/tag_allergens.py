@@ -1,7 +1,7 @@
 """Materialize ingredient-allergen evidence in Neo4j.
 
-FoodOn ancestry is preferred when available; conservative keyword rules cover
-ingredients without ontology links. The operation is idempotent but writes on
+FoodOn ancestry and contextual keyword rules contribute inferred evidence.
+The keyword pass streams bounded ingredient batches. The operation is idempotent but writes on
 every run; use ``--allergens`` to limit its scope.
 """
 
@@ -11,7 +11,9 @@ import re
 from typing import Optional
 from pathlib import Path
 
-from neo4j import GraphDatabase
+from neo4j import GraphDatabase, Query
+from recipe_wrangler.utils.foodon_matching import ingredient_link_batches
+from recipe_wrangler.repositories.neo4j_recipes import _allergen_keyword_evidence
 from recipe_wrangler.utils.food_ontology import (
     ALLERGEN_DETECTION_RULES as ALLERGENS,
     ALLERGEN_EXCLUSION_REGEXES,
@@ -80,7 +82,10 @@ def _ontology_params(allergen_name: str) -> dict[str, str | None]:
 
 def _tag_by_foodon(driver, allergen_name: str, roots: list[str]) -> int:
     query = """
+    UNWIND $supported_links AS item
     MATCH (i:Ingredient)-[:HAS_CLASS]->(f:FoodOnClass)
+    WHERE elementId(i) = item.element_id AND i.name = item.name
+      AND f.foodon_id IN item.class_ids
     MATCH (f)-[:SUBCLASS_OF*0..]->(a:FoodOnClass)
     WHERE a.foodon_id IN $roots
       AND none(pattern IN $name_exclusions
@@ -134,51 +139,41 @@ def _tag_by_foodon(driver, allergen_name: str, roots: list[str]) -> int:
     MERGE (declaration)-[:CONCERNS]->(al)
     RETURN count(distinct i) AS tagged
     """
+    count = 0
     with driver.session() as session:
-        result = session.run(
-            query,
-            allergen_name=allergen_name,
-            roots=roots,
-            milk_exclusions=MILK_PLANT_EXCLUSION_REGEXES,
-            name_exclusions=ALLERGEN_EXCLUSION_REGEXES.get(
-                allergen_name, []
-            ),
-            **_ontology_params(allergen_name),
-        )
-        return int(result.single()["tagged"])
+        for batch in ingredient_link_batches(session):
+            links = [item for item in batch if item["class_ids"]]
+            if not links:
+                continue
+            result = session.run(
+                Query(query, timeout=60),
+                supported_links=links,
+                allergen_name=allergen_name,
+                roots=roots,
+                milk_exclusions=MILK_PLANT_EXCLUSION_REGEXES,
+                name_exclusions=ALLERGEN_EXCLUSION_REGEXES.get(allergen_name, []),
+                **_ontology_params(allergen_name),
+            )
+            count += int(result.single()["tagged"])
+    return count
 
 
-def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
-    keywords = [k.strip().casefold() for k in keywords if k.strip()]
-    keyword_regexes = [_keyword_regex(keyword) for keyword in keywords]
+KEYWORD_READ_QUERY = """
+MATCH (i:Ingredient)
+WHERE i.name IS NOT NULL AND elementId(i) > $after
+RETURN elementId(i) AS element_id, i.name AS name
+ORDER BY element_id
+LIMIT $limit
+"""
+
+
+def _tag_by_keyword(driver, allergen_name: str) -> int:
+    """Use the analysis/create detector; bound reads and writes to 100 nodes."""
     query = """
-    MATCH (i:Ingredient)
-    WHERE i.name IS NOT NULL
-      AND (
-        ($allergen_name IN ['milk', 'gluten', 'wheat']
-         AND any(pattern IN $keyword_regexes
-                 WHERE toLower(i.name) =~ pattern))
-        OR
-        (NOT $allergen_name IN ['milk', 'gluten', 'wheat']
-         AND any(pattern IN $keyword_regexes
-                 WHERE toLower(i.name) =~ pattern))
-      )
-      AND none(pattern IN $name_exclusions
-               WHERE toLower(i.name) =~ pattern)
-      AND (
-        $allergen_name <> 'milk'
-        OR none(pattern IN $milk_exclusions
-                WHERE toLower(i.name) =~ pattern)
-      )
-    WITH i, [idx IN range(0, size($keywords) - 1)
-             WHERE (
-               ($allergen_name IN ['milk', 'gluten', 'wheat']
-                AND toLower(i.name) =~ $keyword_regexes[idx])
-               OR
-               (NOT $allergen_name IN ['milk', 'gluten', 'wheat']
-                AND toLower(i.name) =~ $keyword_regexes[idx])
-             ) |
-             $keywords[idx]] AS hits
+    UNWIND $ingredient_hits AS candidate
+    MATCH (i:Ingredient {name: candidate.name})
+    WHERE elementId(i) = candidate.element_id
+    WITH i, candidate
     MERGE (al:Allergen {name: $allergen_name})
     SET al.canonical_id = $allergen_name,
         al.eu_label = $eu_label,
@@ -186,6 +181,7 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
         al.fato_class_iri = $fato_class_iri,
         al.foodon_label_claim_id = $foodon_label_claim_id,
         al.classification_version = $classification_version
+    FOREACH (_ IN CASE candidate.presence WHEN 'contains' THEN [1] ELSE [] END |
     MERGE (i)-[r:HAS_ALLERGEN]->(al)
     SET r.sources = CASE
             WHEN r.sources IS NULL THEN ["keyword"]
@@ -193,13 +189,14 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
             ELSE r.sources + ["keyword"]
         END,
         r.keyword_matches = CASE
-            WHEN r.keyword_matches IS NULL THEN hits
-            ELSE r.keyword_matches + [x IN hits WHERE NOT x IN r.keyword_matches]
+            WHEN r.keyword_matches IS NULL THEN candidate.hits
+            ELSE r.keyword_matches + [x IN candidate.hits WHERE NOT x IN r.keyword_matches]
         END,
         r.presence = "contains",
         r.evidence_status = "inferred",
         r.classification_version = $classification_version
-    WITH i, al, r
+    )
+    WITH i, al, candidate
     SET i.canonical_id = coalesce(i.canonical_id, randomUUID())
     MERGE (declaration:AllergenDeclaration {
         declaration_id:
@@ -209,12 +206,12 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
     })
     ON CREATE SET declaration.created_at = datetime()
     SET declaration.declaration_type = "inferred_ingredient_presence",
-        declaration.presence = r.presence,
-        declaration.evidence_status = r.evidence_status,
-        declaration.sources = r.sources,
-        declaration.foodon_ids = coalesce(r.foodon_ids, []),
-        declaration.foodon_labels = coalesce(r.foodon_labels, []),
-        declaration.keyword_matches = r.keyword_matches,
+        declaration.presence = CASE WHEN declaration.presence = 'contains'
+                                   THEN 'contains' ELSE candidate.presence END,
+        declaration.evidence_status = 'inferred',
+        declaration.sources = coalesce(declaration.sources, [])
+            + CASE WHEN 'keyword' IN coalesce(declaration.sources, []) THEN [] ELSE ['keyword'] END,
+        declaration.keyword_matches = candidate.hits,
         declaration.fato_class_iri = $fato_declaration_class_iri,
         declaration.classification_version = $classification_version,
         declaration.updated_at = datetime()
@@ -222,19 +219,31 @@ def _tag_by_keyword(driver, allergen_name: str, keywords: list[str]) -> int:
     MERGE (declaration)-[:CONCERNS]->(al)
     RETURN count(distinct i) AS tagged
     """
+    tagged = 0
+    after = ""
     with driver.session() as session:
-        result = session.run(
-            query,
-            allergen_name=allergen_name,
-            keywords=keywords,
-            keyword_regexes=keyword_regexes,
-            milk_exclusions=MILK_PLANT_EXCLUSION_REGEXES,
-            name_exclusions=ALLERGEN_EXCLUSION_REGEXES.get(
-                allergen_name, []
-            ),
-            **_ontology_params(allergen_name),
-        )
-        return int(result.single()["tagged"])
+        while True:
+            rows = list(session.run(Query(KEYWORD_READ_QUERY, timeout=60), after=after, limit=100))
+            if not rows:
+                break
+            next_after = rows[-1]["element_id"]
+            if next_after <= after:
+                raise RuntimeError("Ingredient pagination did not advance")
+            after = next_after
+            ingredient_hits = [
+                {"element_id": row["element_id"], "name": row["name"], "hits": result[0], "presence": result[1]}
+                for row in rows
+                if (result := _allergen_keyword_evidence(row["name"], allergen_name))[0]
+            ]
+            if ingredient_hits:
+                result = session.run(
+                    Query(query, timeout=60),
+                    allergen_name=allergen_name,
+                    ingredient_hits=ingredient_hits,
+                    **_ontology_params(allergen_name),
+                )
+                tagged += int(result.single()["tagged"])
+    return tagged
 
 
 def _clear_allergen_edges(driver, allergen_names: set[str]) -> tuple[int, int]:
@@ -318,9 +327,7 @@ def main() -> None:
             foodon_tagged = _tag_by_foodon(
                 driver, allergen_name, config["roots"]
             )
-            keyword_tagged = _tag_by_keyword(
-                driver, allergen_name, config["keywords"]
-            )
+            keyword_tagged = _tag_by_keyword(driver, allergen_name)
             print(f"{allergen_name}: foodon={foodon_tagged}, keyword={keyword_tagged}")
     finally:
         driver.close()

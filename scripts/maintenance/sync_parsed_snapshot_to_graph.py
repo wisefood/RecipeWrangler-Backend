@@ -86,6 +86,21 @@ def _raw_positions(raw_lines: list[str]) -> tuple[list[str], list[int]]:
     return lines, index
 
 
+def _choice_props(entry: dict) -> dict[str, object]:
+    choice = entry.get("choice") or {}
+    alternatives = choice.get("alternatives") or []
+    selected_index = int(choice.get("selected_index") or 0)
+    if not alternatives or not 0 <= selected_index < len(alternatives):
+        return {}
+    return {
+        "choice_alternatives": [str(item.get("name") or "").strip() for item in alternatives],
+        "selected_alternative": str(alternatives[selected_index].get("name") or "").strip(),
+        "alternative_selection_policy": str(
+            choice.get("selection_policy") or "first_listed_default"
+        ),
+    }
+
+
 def build_rows(recipe: dict, raw_lines: list[str]) -> list[dict]:
     """Post-split rows (what the audit weighed) with weights, provenance and the raw-line position."""
     entries = recipe.get("ingredients") or []
@@ -123,21 +138,23 @@ def build_rows(recipe: dict, raw_lines: list[str]) -> list[dict]:
         if position is None:
             position, next_free = next_free, next_free + 1
         detail = details[k]
+        props = {
+            "measurement": str(measurement),
+            "unit": detail.get("parsed_unit"),
+            "quantity": _to_float(detail.get("parsed_quantity")),
+            "weight_grams": float(weights[k]),
+            "weight_match_type": detail.get("match_type"),
+            "blank_quantity_policy": detail.get("blank_quantity_policy"),
+            "display": str(entry.get("display") or ""),
+            "note": str(entry.get("note") or ""),
+            "projection_method": PROJECTION_METHOD,
+            "projection_version": PROJECTION_VERSION,
+        }
+        props.update(_choice_props(entry))
         rows.append({
             "name": name.strip(),
             "position": int(position),
-            "props": {
-                "measurement": str(measurement),
-                "unit": detail.get("parsed_unit"),
-                "quantity": _to_float(detail.get("parsed_quantity")),
-                "weight_grams": float(weights[k]),
-                "weight_match_type": detail.get("match_type"),
-                "blank_quantity_policy": detail.get("blank_quantity_policy"),
-                "display": str(entry.get("display") or ""),
-                "note": str(entry.get("note") or ""),
-                "projection_method": PROJECTION_METHOD,
-                "projection_version": PROJECTION_VERSION,
-            },
+            "props": props,
         })
     return rows
 

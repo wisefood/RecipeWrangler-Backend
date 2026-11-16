@@ -35,12 +35,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
+from recipe_wrangler.utils.elastic_auth import elastic_request
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 logger = logging.getLogger("dump_all_lite")
 
-ES_ALIASES = ("recipes", "ingredient_vectors")
+ES_ALIASES = ("recipes", "ingredient_vectors", "sustainability_references")
+# The matching search index exists only in Elasticsearch; it was missing from every dump before 2026-11-11.
 
 STAGING_IMAGE = "neo4j:5.24-enterprise"  # same family as neo4j-docker/Dockerfile
 STAGING_NAME = "neo4j-dump-staging"
@@ -89,7 +91,7 @@ def _docker(*args: str, env: dict | None = None, **kwargs) -> subprocess.Complet
 
 def _es(path: str, body: dict | None = None, method: str = "GET") -> dict:
     data = json.dumps(body).encode() if body is not None else None
-    req = Request(f"{ES_URL}{path}", data=data, method=method)
+    req = elastic_request(f"{ES_URL}{path}", data=data, method=method)
     req.add_header("Content-Type", "application/json")
     with urlopen(req, timeout=120) as resp:
         return json.loads(resp.read().decode())
@@ -97,7 +99,8 @@ def _es(path: str, body: dict | None = None, method: str = "GET") -> dict:
 
 def dump_elastic(out: Path) -> dict[str, int]:
     counts: dict[str, int] = {}
-    for alias in ES_ALIASES:
+    matching = "matching-" + ENV.get("NUTRITION_MATCHING_RELEASE", "2026-10-27-v11").strip("\x27\"").lower().replace("_", "-")
+    for alias in (*ES_ALIASES, matching):
         mapping = _es(f"/{alias}/_mapping")
         (out / f"elastic-{alias}.mapping.json").write_text(
             json.dumps(mapping, indent=2, sort_keys=True)
@@ -239,7 +242,7 @@ def _staging_start():
         "-e", "NEO4J_AUTH=none",
         "-e", "NEO4J_ACCEPT_LICENSE_AGREEMENT=yes",
         "-e", 'NEO4J_PLUGINS=["apoc"]',
-        "-p", f"{STAGING_BOLT_PORT}:7687",
+        "-p", f"127.0.0.1:{STAGING_BOLT_PORT}:7687",  # auth is off: never publish beyond localhost
         "-v", f"{STAGING_DATA_DIR.resolve()}:/data",
         STAGING_IMAGE,
     )

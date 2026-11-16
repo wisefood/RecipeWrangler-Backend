@@ -13,6 +13,7 @@ from sqlalchemy import text
 
 from recipe_wrangler.utils.env_loader import load_runtime_env
 from recipe_wrangler.utils.nutrition_postgres import get_connection
+from recipe_wrangler.utils.elastic_auth import elastic_request
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,7 +53,7 @@ def _catalog_counts() -> tuple[int, dict[str, int], dict[str, int]]:
         },
     }
     url = f"{os.getenv('ELASTIC_URL', 'http://localhost:9200').rstrip('/')}/recipes/_search"
-    request = Request(
+    request = elastic_request(
         url,
         data=json.dumps(query).encode(),
         headers={"Content-Type": "application/json"},

@@ -133,23 +133,20 @@ def _parse_duration_minutes(value: object) -> float | None:
         s.replace("–", "-")
         .replace("—", "-")
         .replace(" to ", "-")
-        .replace("mins", "minutes")
-        .replace("min", "minute")
-        .replace("hrs", "hours")
-        .replace("hr", "hour")
     )
 
     total = 0.0
     found = False
     for match in re.finditer(
-        r"(\d+(?:\.\d+)?)(?:\s*-\s*(\d+(?:\.\d+)?))?\s*(hour|hours|minute|minutes)\b",
+        r"(\d+(?:\.\d+)?)(?:\s*-\s*(\d+(?:\.\d+)?))?\s*"
+        r"(hours?|hrs?|minutes?|mins?)\b",
         normalized,
     ):
         low = float(match.group(1))
         high = float(match.group(2)) if match.group(2) is not None else low
         value_num = (low + high) / 2.0
         unit = match.group(3)
-        if unit.startswith("hour"):
+        if unit.startswith(("hour", "hr")):
             value_num *= 60.0
         total += value_num
         found = True
@@ -326,6 +323,8 @@ def main() -> None:
                 session.execute_write(_merge_recipe, recipe_id, recipe, title_key)
                 for pos, ingredient_text in enumerate(_as_list(recipe.get("ingredients"))):
                     session.execute_write(_merge_ingredient, recipe_id, pos, ingredient_text)
+                session.run('''MATCH (r:Recipe {recipe_id:$id})
+                    SET r.matching_input_revision=randomUUID()''', {'id':recipe_id}).consume()
                 imported += 1
     finally:
         driver.close()

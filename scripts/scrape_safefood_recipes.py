@@ -171,6 +171,11 @@ def _container_items(soup: BeautifulSoup, selector: str) -> list[str]:
 
 
 _METHOD_NUMBER_RE = re.compile(r"^\s*\d+\s*[.)]\s*")
+_METHOD_END_RE = re.compile(
+    r"^(?:what you will need|equipment|serving suggestions?|nutritional? "
+    r"information|food safety|healthy eating|related recipes?)\b",
+    re.IGNORECASE,
+)
 
 
 def _method_text(element) -> list[str]:
@@ -216,8 +221,13 @@ def _parse_method(soup: BeautifulSoup) -> list[str]:
             if not getattr(sibling, "name", None):
                 continue
             classes = set(sibling.get("class") or [])
-            if sibling.name in {"h1", "h2", "h3", "h4"} or "detail-title" in classes:
-                break
+            is_heading = sibling.name in {"h1", "h2", "h3", "h4"} or "detail-title" in classes
+            if is_heading:
+                if _METHOD_END_RE.search(_clean(sibling.get_text(" ", strip=True))):
+                    break
+                # Component headings such as "For the sauce" and "Final
+                # Preparation" are part of the method, not its boundary.
+                continue
             steps.extend(_method_text(sibling))
         if steps:
             return steps

@@ -120,6 +120,56 @@ def parse_minutes(s: str | None) -> float:
     return total
 
 
+_DURATION_RE = re.compile(
+    r"(?:\d+(?:\.\d+)?(?:[¼½¾])?|[¼½¾])"
+    r"(?:\s*(?:/|–|-)\s*(?:\d+(?:\.\d+)?(?:[¼½¾])?|[¼½¾]))?"
+    r"\s*(?:hours?|hrs?|minutes?|mins?)"
+    r"(?:\s+(?:and\s+)?(?:\d+(?:\.\d+)?(?:[¼½¾])?|[¼½¾])"
+    r"\s*(?:hours?|hrs?|minutes?|mins?))?",
+    re.IGNORECASE,
+)
+_TIMED_ACTION_RE = re.compile(
+    r"\b(?P<action>preheat|bake|boil|cook|fry|grill|roast|simmer|steam|"
+    r"chill|cool|leave|marinate|refrigerate|rest|rise|soak|stand)\w*\b",
+    re.IGNORECASE,
+)
+_ACTIVE_COOKING_ACTIONS = frozenset(
+    {"bake", "boil", "cook", "fry", "grill", "roast", "simmer", "steam"}
+)
+
+
+def infer_active_cooking_minutes(instructions: list[str]) -> float:
+    """Return the longest explicit active-cooking interval in the method."""
+    durations: list[float] = []
+    for instruction in instructions:
+        for duration in _DURATION_RE.finditer(instruction):
+            actions = list(_TIMED_ACTION_RE.finditer(instruction, 0, duration.start()))
+            if not actions:
+                continue
+            action = actions[-1].group("action").casefold()
+            action = next(
+                (base for base in _ACTIVE_COOKING_ACTIONS if action.startswith(base)),
+                action,
+            )
+            if action in _ACTIVE_COOKING_ACTIONS:
+                minutes = parse_minutes(duration.group(0))
+                if minutes <= 360:
+                    durations.append(minutes)
+    return max(durations, default=0.0)
+
+
+def resolve_duration(rec: dict) -> float:
+    """Resolve total elapsed minutes, conservatively repairing missing cook time."""
+    total = parse_minutes(rec.get("total_time"))
+    if total:
+        return total
+    prep = parse_minutes(rec.get("prep_time"))
+    cook = parse_minutes(rec.get("cook_time"))
+    if not cook:
+        cook = infer_active_cooking_minutes(rec.get("method") or [])
+    return prep + cook
+
+
 def _num(s) -> float | None:
     """First number in a string like '273kcal' / '1.1g' → float."""
     if s is None:
@@ -227,10 +277,7 @@ def process_recipe(rec: dict, write: bool) -> str:
     url = rec.get("url")
     image_url = rec.get("image_url")
     serves = _num(rec.get("serves")) or 1.0
-    duration = (
-        parse_minutes(rec.get("total_time"))
-        or (parse_minutes(rec.get("prep_time")) + parse_minutes(rec.get("cook_time")))
-    )
+    duration = resolve_duration(rec)
     ingredient_lines = [str(x).strip() for x in (rec.get("ingredients") or []) if str(x).strip()]
     instructions = [str(x).strip() for x in (rec.get("method") or []) if str(x).strip()]
     if not ingredient_lines:

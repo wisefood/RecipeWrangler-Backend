@@ -97,13 +97,26 @@ def _duration_minutes(value: object) -> float | None:
     text = _as_text(value)
     if not text:
         return None
-    m = re.search(r"(\d+(?:\.\d+)?)", text)
-    if not m:
-        return None
-    try:
-        return float(m.group(1))
-    except ValueError:
-        return None
+    normalized = (
+        text.lower()
+        .replace("–", "-")
+        .replace("—", "-")
+        .replace(" to ", "-")
+    )
+    total = 0.0
+    for match in re.finditer(
+        r"(\d+(?:\.\d+)?)(?:\s*-\s*(\d+(?:\.\d+)?))?\s*"
+        r"(hours?|hrs?|minutes?|mins?)\b",
+        normalized,
+    ):
+        low = float(match.group(1))
+        high = float(match.group(2) or low)
+        minutes = (low + high) / 2.0
+        total += minutes * 60 if match.group(3).startswith(("hour", "hr")) else minutes
+    if total:
+        return total
+    match = re.search(r"\d+(?:\.\d+)?", normalized)
+    return float(match.group(0)) if match else None
 
 
 def _serves_value(value: object) -> float:
@@ -219,9 +232,9 @@ def run_foodhero_import(
         nutrition_source_key = profile_result.get("nutrition_source_key") or nutrition_source
         suffix = f"_{nutrition_source_key}"
         totals = profile_result.get("profiling_totals") or {}
-        clean_totals = _extract_clean_totals(totals, suffix)
+        clean_totals = _extract_clean_totals(totals, suffix,allow_missing=True)
         clean_per_serving = (
-            {k: v / serves for k, v in clean_totals.items()}
+            {k:v / serves if v is not None else None for k,v in clean_totals.items()}
             if clean_totals and serves else None
         )
 

@@ -243,43 +243,20 @@ def _normalize_categories(cats: List[str]) -> List[str]:
 
 
 def _instructions_from_jsonld(j: Dict[str, Any]) -> List[str]:
-    ri = j.get("recipeInstructions")
-    if not ri:
-        return []
+    def flatten(value: Any) -> List[str]:
+        if isinstance(value, str):
+            return [part.strip() for part in value.splitlines() if part.strip()]
+        if isinstance(value, list):
+            return [text for item in value for text in flatten(item)]
+        if not isinstance(value, dict):
+            return []
+        for key in ("itemListElement", "steps", "recipeInstructions"):
+            if value.get(key) is not None:
+                return flatten(value[key])
+        text = value.get("text") or value.get("name")
+        return [text.strip()] if isinstance(text, str) and text.strip() else []
 
-    if isinstance(ri, str):
-        parts = [p.strip() for p in ri.splitlines() if p.strip()]
-        return parts or [ri.strip()]
-
-    if isinstance(ri, list):
-        out: List[str] = []
-        for step in ri:
-            if isinstance(step, str):
-                s = step.strip()
-                if s:
-                    out.append(s)
-            elif isinstance(step, dict):
-                txt = (step.get("text") or step.get("name") or "").strip()
-                if txt:
-                    out.append(txt)
-        return out
-
-    if isinstance(ri, dict):
-        elems = ri.get("itemListElement")
-        if isinstance(elems, list):
-            out: List[str] = []
-            for e in elems:
-                if isinstance(e, str):
-                    s = e.strip()
-                    if s:
-                        out.append(s)
-                elif isinstance(e, dict):
-                    txt = (e.get("text") or e.get("name") or "").strip()
-                    if txt:
-                        out.append(txt)
-            return out
-
-    return []
+    return flatten(j.get("recipeInstructions"))
 
 
 @dataclass

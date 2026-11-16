@@ -40,6 +40,7 @@ import time
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+from recipe_wrangler.utils.elastic_auth import elastic_request
 
 logger = logging.getLogger("restore_all_lite")
 
@@ -66,7 +67,7 @@ def _es(base: str, path: str, body=None, method: str = "GET", ndjson: str | None
     else:
         data = json.dumps(body).encode() if body is not None else None
         ctype = "application/json"
-    req = Request(f"{base}{path}", data=data, method=method)
+    req = elastic_request(f"{base}{path}", data=data, method=method)
     req.add_header("Content-Type", ctype)
     with urlopen(req, timeout=300) as resp:
         raw = resp.read().decode()

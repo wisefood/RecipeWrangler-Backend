@@ -106,7 +106,7 @@ GROUP_RULES: dict[str, dict[str, list[str]]] = {
         "blocking_allergens": ["gluten", "wheat"],
         "blocking_roots": [
             "FOODON_03420177", "FOODON_00001907", "FOODON_03310809",
-            "FOODON_00001275", "FOODON_00001217", "FOODON_00001272",
+            "FOODON_00001141", "FOODON_00001191", "FOODON_00001190",
         ],
         "blocking_keywords": [
             "gluten", "wheat", "barley", "rye", "spelt", "kamut", "farro",

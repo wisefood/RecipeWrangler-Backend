@@ -27,6 +27,8 @@ level, and if the result is empty the answer is genuinely empty.
 
 from __future__ import annotations
 
+import time
+
 import logging
 from typing import Any, Literal
 
@@ -34,6 +36,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
 
 from recipe_wrangler.api.error_mapping import map_dependency_error
+from recipe_wrangler.api.activity import report_search
 from recipe_wrangler.api.identity import Caller, get_caller, redact
 from recipe_wrangler.catalog import diets as D
 from recipe_wrangler.catalog import foodchat as F
@@ -107,6 +110,14 @@ class MealSlotRequest(BaseModel):
     course_types: list[str] = Field(
         default_factory=list,
         description="Override the default course types for this slot.",
+    )
+    food_groups: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Food groups this slot's recipes must contain, e.g. ['fruit'] for "
+            "a snack. Per slot on purpose: the plan-level `food_groups` applies "
+            "to every meal, which cannot express 'fruit for the snack'."
+        ),
     )
 
 
@@ -221,12 +232,20 @@ def _filters(
     accepted: dict[str, list[str]],
     course_types: tuple[str, ...],
     dropped: set[str],
+    slot_food_groups: tuple[str, ...] = (),
 ) -> list[dict[str, Any]]:
     """Build the Elasticsearch filter list for one slot at one relaxation level."""
     filters: list[dict[str, Any]] = []
 
     if course_types:
         filters.append({"terms": {"course_types": list(course_types)}})
+
+    # This slot's own food groups, which the plan-level filter cannot express:
+    # "fruit for the snack" is about one meal, and applying it to all of them
+    # asks for a fruit dinner. Relaxed with the plan-level `food_groups`, in the
+    # same step, because it is the same kind of soft preference.
+    if slot_food_groups and "food_groups" not in dropped:
+        filters.append({"terms": {"food_groups": list(slot_food_groups)}})
 
     # Planning eligibility. A recipe can be perfectly findable by a person and
     # still be a poor thing to put in someone's week unattended — missing
@@ -446,6 +465,17 @@ def tool_manifest() -> dict[str, Any]:
         "vocabularies": {
             "meal_slots": sorted(SLOT_COURSE_TYPES),
             "course_types": list(S.COURSE_TYPES),
+            # Which corpora a plan is built from, and which of them are curated.
+            #
+            # Derived from `catalog.sources`, never listed here: duplicating
+            # that registry is what left five sources unfilterable for a
+            # release (see the source-filter fix). A planner that wants to
+            # prefer the living-lab collections has to be able to ASK which
+            # they are, and this is the only place it can.
+            "sources": [
+                {"slug": s.slug, "name": s.display_name, "curated": s.curated}
+                for s in S.active_sources()
+            ],
             "cuisines": list(V.CUISINES),
             "moods": list(V.MOODS),
             "flavor_profiles": list(V.FLAVOR_PROFILES),
@@ -466,6 +496,12 @@ def tool_manifest() -> dict[str, Any]:
                 # hand-maintained list would drift from the model the first
                 # time someone added a field.
                 "accepts": sorted(MealPlanRequest.model_fields),
+                # The SLOT entry's fields, which `accepts` above cannot show:
+                # it lists the request's top level, and `food_groups` on a slot
+                # lives a level down. A caller has no safe way to try an
+                # optional field here — `extra="forbid"` makes a guess a 422 —
+                # so anything it might send has to be advertised somewhere.
+                "accepts_per_slot": sorted(MealSlotRequest.model_fields),
                 "description": (
                     "Fill named meal slots across one or more days, honouring "
                     "cuisine/mood/flavour preferences, dietary requirements and "
@@ -621,7 +657,14 @@ def plan_meals(
                 # Relaxation ladder: try the full constraint set, then shed one
                 # soft preference at a time until something comes back.
                 for step in range(len(RELAXATION_ORDER) + 1):
-                    filters = _filters(payload, accepted, course_types, dropped)
+                    filters = _filters(
+                        payload, accepted, course_types, dropped,
+                        tuple(V.canonical_food_groups(slot_req.food_groups))
+                        if hasattr(V, "canonical_food_groups")
+                        else tuple(
+                            g for g in slot_req.food_groups if g in V.FOOD_GROUPS
+                        ),
+                    )
                     filters.append(
                         {"bool": {"must_not": [{"terms": {"recipe_id": sorted(used)}}]}}
                         if used
@@ -900,6 +943,7 @@ class FindRecipesRequest(MealPlanRequest):
 def find_recipes(
     payload: FindRecipesRequest, caller: Caller = Depends(get_caller)
 ) -> dict[str, Any]:
+    started = time.perf_counter()
     entity = recipe_entity()
     accepted, rejected = _validate_options(payload)
     course_types = tuple(S.canonical_course_types(payload.course_types))
@@ -941,4 +985,19 @@ def find_recipes(
 
     found["results"] = [_plan_card(r) for r in found.get("results", [])]
     found["rejected_options"] = rejected
+    # Recorded on its own surface, not merged with the human ones: this is the
+    # agent tool FoodChat calls while composing a plan, and letting it into
+    # "trending queries" would report the planner's vocabulary as the users'.
+    report_search(
+        surface="tools",
+        raw_query=payload.q or None,
+        filters={
+            "course_types": list(course_types),
+            "rejected_options": rejected,
+        },
+        first_pass=len(found["results"]),
+        final=len(found["results"]),
+        started=started,
+        caller=caller,
+    )
     return redact(found, caller)

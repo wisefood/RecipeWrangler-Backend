@@ -206,3 +206,6 @@ SECURITY_INCIDENT_*.md
 !/evaluation/*/results/*.csv
 /evaluation/matching/data/*.csv
 /evaluation/matching/results/*.csv
+
+# Temporary Neo4j data written by scripts/maintenance/dump_all_lite.py
+/.neo4j-dump-staging/

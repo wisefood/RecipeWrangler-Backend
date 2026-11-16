@@ -24,6 +24,7 @@ from typing import Any, Iterable
 
 from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog import vocabularies as V
+from recipe_wrangler.utils.model_registry import from_env
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ MODEL_FACETS: tuple[str, ...] = (
 )
 DERIVED_FACETS: tuple[str, ...] = ("food_groups",)
 
-DEFAULT_MODEL = os.getenv("ANNOTATION_MODEL", "llama-3.3-70b-versatile")
+DEFAULT_MODEL = from_env("ANNOTATION_MODEL", default="openai/gpt-oss-120b")
 
 
 def vocabulary_block() -> str:

@@ -56,7 +56,7 @@ def test_missing_router_credentials_fail_before_request(monkeypatch, key):
 
 
 @pytest.mark.parametrize("source,model,key", [("vllm", "qwen3-32b", "none"),
-                                            ("groq", "llama-3.1-8b-instant", "groq-key")])
+                                            ("groq", "openai/gpt-oss-20b", "groq-key")])
 def test_existing_provider_defaults_are_preserved(monkeypatch, source, model, key):
     monkeypatch.setenv("ADAPT_LLM_SOURCE", source)
     monkeypatch.setenv("GROQ_API_KEY", "groq-key")

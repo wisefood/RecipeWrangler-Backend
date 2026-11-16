@@ -18,7 +18,9 @@ from typing import Any
 
 from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.catalog import diets as D
+from recipe_wrangler.catalog.sources import SOURCES as _REGISTERED_SOURCES
 from recipe_wrangler.catalog.sources import canonical_course_type
+from recipe_wrangler.catalog.vocabularies import SOURCE_CUISINE_PRIOR
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
 from recipe_wrangler.utils.es_recipe_evidence import recipe_allergen_fields, known_allergen_exclusions, recipe_consumer_fields
@@ -33,6 +35,26 @@ _REGION_ALIASES = {
     "hungarian": "hu",
     "si": "slovenian",
     "slovenian": "slovenian",
+}
+# The cuisine a region's members should meet first. Keyed on the resolved
+# region suffix, valued on the `cuisines` annotation as vocabularies.py writes
+# it. EU is deliberately absent -- it is not a cuisine and has nothing to
+# prefer.
+_REGION_CUISINE = {
+    "ie": "irish",
+    "hu": "hungarian",
+    "slovenian": "slovenian",
+}
+# The sources that carry each cuisine, inverted from SOURCE_CUISINE_PRIOR so
+# there is one list to maintain -- adding a regional source to the annotator's
+# priors makes it rank here too. It earns its keep by inheriting that map's
+# exclusions as well: Irish Heart Foundation sounds regional and is only 6%
+# `irish`, so it is deliberately not in either.
+_CUISINE_SOURCES: dict[str, list[str]] = {
+    cuisine: sorted(
+        source for source, c in SOURCE_CUISINE_PRIOR.items() if c == cuisine
+    )
+    for cuisine in sorted(set(SOURCE_CUISINE_PRIOR.values()))
 }
 # Deprecated compatibility name. Keep it on the live alias, never on a concrete
 # generation: recipes_v4 contains the annotation history that recipes_v2 lacks.
@@ -130,26 +152,46 @@ class ResultWindowExceededError(Exception):
 
 
 # Canonical source slugs (the API/UI filter contract, matching the Neo4j
-# canonicalization) mapped to the raw `source` keyword values in recipes_v2.
-_SOURCE_SLUG_TO_RAW: dict[str, list[str]] = {
-    "healthyfoods": ["HealthyFoods"],
-    "foodhero": ["FoodHero"],
-    "myplate": ["MyPlate"],
-    "irish_safefood": ["Curated Irish Recipes"],
-    "safefood": ["Curated Irish Recipes"],
-    "irish safefood": ["Curated Irish Recipes"],
-    "hungarian": ["Curated Hungarian Recipes"],
-    "slovenian": ["Curated Slovenian Recipes"],
-}
+# canonicalization) mapped to the raw `source` keyword values in the index.
+#
+# Derived from the `catalog.sources` registry rather than written out here.
+# These two dicts were hand-maintained and fell five sources behind it: the
+# registry gained Slovenian Kitchen, Irish Heart Foundation, Best of Hungary,
+# SuperValu and The Hungary Soul, the maps did not, and because an unmapped
+# slug falls through to itself the filter became `source: ["slovenian_kitchen"]`
+# against an index storing "Slovenian Kitchen". `source` is a keyword field, so
+# that is an exact-match miss — the UI offered five filters that returned zero
+# recipes and no error. Deriving both directions means adding a source to the
+# registry is now the only step.
+def _build_source_slug_to_raw() -> dict[str, list[str]]:
+    mapping: dict[str, list[str]] = {}
+    for source in _REGISTERED_SOURCES:
+        mapping[source.slug] = [source.raw]
+        # Alternative spellings the filter contract has always accepted
+        # ("safefood" for irish_safefood). `_norm` lowercases the incoming
+        # value, so every key must be lowercase to be reachable.
+        for alias in source.aliases:
+            key = str(alias).strip().lower()
+            if key:
+                mapping.setdefault(key, [source.raw])
+    return mapping
 
-_RAW_SOURCE_TO_SLUG: dict[str, str] = {
-    "healthyfoods": "healthyfoods",
-    "foodhero": "foodhero",
-    "myplate": "myplate",
-    "curated irish recipes": "irish_safefood",
-    "curated hungarian recipes": "hungarian",
-    "curated slovenian recipes": "slovenian",
-}
+
+def _build_raw_source_to_slug() -> dict[str, str]:
+    """Reverse direction, for folding facet buckets back onto slugs.
+
+    Keyed on the lowercased raw value because the facet path lowercases the
+    bucket key before looking it up.
+    """
+    return {
+        str(source.raw).strip().lower(): source.slug
+        for source in _REGISTERED_SOURCES
+    }
+
+
+_SOURCE_SLUG_TO_RAW: dict[str, list[str]] = _build_source_slug_to_raw()
+
+_RAW_SOURCE_TO_SLUG: dict[str, str] = _build_raw_source_to_slug()
 
 # The index carries spelling variants per dish type (main-dish/main_dish,
 # desserts/dessert, snacks/snack). Filters expand the canonical value to all
@@ -211,8 +253,20 @@ def normalize_recipe_title(value: object) -> str:
     return " ".join(words.split())
 
 
-def _title_should_queries(title_query: str) -> list[dict[str, Any]]:
-    """Build descending-confidence title clauses for a submitted search."""
+def _title_should_queries(
+    title_query: str, match_any: bool = False
+) -> list[dict[str, Any]]:
+    """Build descending-confidence title clauses for a submitted search.
+
+    With `match_any`, the word-level clauses ask for any word rather than all
+    of them. This is the middle rung of the relaxation ladder: the strict pass
+    requires every word in the title, and before this existed the only way
+    down from it was to drop the title entirely — which stops constraining at
+    all and returns the whole corpus. "comforting dinners" matched no title
+    containing both words, so it came back as 7,628 recipes over 636 pages
+    with two relevant ones on top. Asking for either word gives a set that is
+    actually about the question.
+    """
     normalized = normalize_recipe_title(title_query)
     clauses: list[dict[str, Any]] = []
     if normalized:
@@ -240,7 +294,7 @@ def _title_should_queries(title_query: str) -> list[dict[str, Any]]:
                 "match": {
                     "title": {
                         "query": title_query,
-                        "operator": "and",
+                        "operator": "or" if match_any else "and",
                         "boost": 5,
                     }
                 }
@@ -249,7 +303,7 @@ def _title_should_queries(title_query: str) -> list[dict[str, Any]]:
                 "match": {
                     "title": {
                         "query": title_query,
-                        "operator": "and",
+                        "operator": "or" if match_any else "and",
                         "fuzziness": "AUTO",
                         "prefix_length": 0,
                         "max_expansions": 50,
@@ -596,7 +650,7 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
 
     title_query = str(c.title_query or "").strip()
     if title_query:
-        should.extend(_title_should_queries(title_query))
+        should.extend(_title_should_queries(title_query, match_any=c.title_match_any))
 
     # Ranking-only text. Added when the caller supplied a question but the
     # extractor turned it into filters alone; contributes score without ever
@@ -605,6 +659,24 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     apply_rank_query = bool(rank_query) and not title_query
     if apply_rank_query:
         should.extend(_rank_should_queries(_strip_rank_stopwords(rank_query)))
+
+    # Regional relevance. Searching "vegan meals" from Ireland buried the
+    # curated Irish recipes under the rest of the corpus and they had to be
+    # found by hand (Round 2 row 4). This boosts them, never filters: a recipe
+    # from any other cuisine still qualifies and still ranks on its merits.
+    #
+    # Only alongside a text search. On a plain browse the sort below already
+    # leads with source_rank, which puts curated sources first on its own, and
+    # a `should` clause there would switch branches and displace it.
+    region_cuisine = _REGION_CUISINE.get(region)
+    if region_cuisine and (title_query or apply_rank_query):
+        # Source outranks cuisine. `source` is exact ingest metadata; `cuisines`
+        # is a model annotation that covers 79-97% of those same sources, so on
+        # its own it misses roughly one curated Irish recipe in five.
+        regional_sources = _CUISINE_SOURCES.get(region_cuisine)
+        if regional_sources:
+            should.append({"terms": {"source": regional_sources, "boost": 12.0}})
+        should.append({"term": {"cuisines": {"value": region_cuisine, "boost": 8.0}}})
 
     limit = max(1, min(int(c.limit), 100))
     offset = max(0, int(c.offset))

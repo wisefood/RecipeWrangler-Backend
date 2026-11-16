@@ -1,6 +1,7 @@
 # Purpose: LLM-based parser from raw recipe text to structured fields.
 
 from typing import Any, List, Optional
+import logging
 import os
 import re
 import unicodedata
@@ -14,6 +15,9 @@ from pydantic import BaseModel, Field, ValidationError
 
 from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.utils.seasoning_quantities import salt_and_pepper_parts as _salt_and_pepper_parts
+from recipe_wrangler.utils.model_registry import from_env
+
+logger = logging.getLogger(__name__)
 
 
 def _plain_recipe_text(text: str) -> str:
@@ -25,19 +29,51 @@ def _plain_recipe_text(text: str) -> str:
     return re.sub(r"(?:(\d)\s*)?([½⅓⅔¼¾⅛⅜⅝⅞])", fraction, text)
 
 
-def _parser_llm(model_name: str):
+def _is_budget_exhausted(exc: Exception) -> bool:
+    """Whether *exc* is the provider refusing a document it had no room to finish.
+
+    Matched on the message rather than the type: langchain wraps the provider
+    error, and the same condition reaches us as `BadRequestError` from Groq and
+    as a plain `ValueError` from an OpenAI-compatible server. The two markers
+    are the error code Groq returns and the text it puts in `failed_generation`.
+    """
+    text = str(exc).lower()
+    return (
+        "json_validate_failed" in text
+        or "max completion tokens reached" in text
+        or ("max_tokens" in text and "reached" in text)
+    )
+
+
+#: Completion budget for one parse.
+#
+# Groq's `json_schema` mode must emit the WHOLE document inside this budget, and
+# openai/gpt-oss-20b is a reasoning model whose thinking is charged against the
+# same allowance — the failure `ingredient_weight_llm_tool` documents for a
+# single number, here spread over three index-aligned lists plus directions.
+# With no cap set the provider applied its own, and a long recipe came back as
+#   400 json_validate_failed:
+#   "max completion tokens reached before generating a valid document"
+#
+# The Groq SDK does not retry that: `_should_retry` covers 408, 409, 429 and
+# 5xx only, so `max_retries=2` never applied and a single overflow was a hard
+# 503 from POST /recipes/profile — the third distinct cause of a 503 on this
+# endpoint, after the 8b model omitting `directions` and Groq retiring
+# llama-3.3-70b. max_tokens is a cap rather than a charge, so a generous value
+# costs nothing on the recipes that never approach it.
+#
+# The cap also has to stay explicit for the vLLM backend: a stuck request that
+# never hits a stop token can sit "Running" on the server for minutes, and
+# every other queued request then times out client-side with no server-side
+# error at all. An explicit ceiling turns that into a fast, visible failure
+# for the one bad request instead of stalling everything behind it.
+_MAX_TOKENS = int(os.getenv("PARSE_LLM_MAX_TOKENS", "8192"))
+
+
+def _parser_llm(model_name: str, max_tokens: int | None = None):
     """Build the configured parser model and structured-output method."""
+    max_tokens = max_tokens or _MAX_TOKENS
     source = os.getenv("WEIGHT_LLM_SOURCE", "groq").strip().lower()
-    # Output is always a short structured-JSON entry list — a handful of
-    # ingredients at ~40-60 tokens each. No real recipe needs anywhere close
-    # to 2000 completion tokens. Capping it bounds a runaway generation (seen
-    # in practice: a single stuck request that never hits a stop token can
-    # sit "Running" on the vLLM server for many minutes, during which every
-    # OTHER queued request just times out client-side with no server-side
-    # error at all — cascading silent failures across dozens of unrelated
-    # recipes). A hard ceiling here turns that into a fast, visible failure
-    # for the one bad request instead of stalling everything behind it.
-    max_tokens = 2000
     if source == "vllm":
         llm = ChatOpenAI(
             model=model_name,
@@ -65,7 +101,12 @@ def _parser_llm(model_name: str):
         )
         return llm, "function_calling"
     if source == "groq":
-        llm = ChatGroq(model=model_name, temperature=0.0, max_retries=2, max_tokens=max_tokens)
+        llm = ChatGroq(
+            model=model_name,
+            temperature=0.0,
+            max_retries=2,
+            max_tokens=max_tokens,
+        )
         method = (
             os.getenv("PARSE_LLM_STRUCTURED_METHOD", "json_schema").strip()
             or "json_schema"
@@ -193,20 +234,34 @@ _RECIPE_TEXT_SYSTEM_PROMPT = (
 @tool
 def parse_recipe_tool(recipe: str) -> dict:
     """Parses a raw recipe text into structured fields."""
-    model_name = (os.getenv("PARSE_LLM") or "llama-3.3-70b-versatile").strip()
+    # NOT llama-3.1-8b-instant, which was the previous default: `ParsedRecipe`
+    # requires all seven fields with min_length=1, and the 8b model routinely
+    # returns without `directions`, so Groq rejects the tool call with
+    #   "parameters for tool ParsedRecipe did not match schema:
+    #    errors: [missing properties: 'directions']"
+    # That surfaced as a 503 "Parse pipeline request failed" on every call to
+    # POST /recipes/profile and on any create that needed profiling — i.e.
+    # recipe creation was broken, not merely degraded.
+    #
+    # Verified working against the schema above: openai/gpt-oss-20b. The
+    # previous default, llama-3.3-70b-versatile, also satisfied it until Groq
+    # retired it on 2026-08-16 — after which every call to this tool returned
+    # a provider 404 and this endpoint answered 503.
+    model_name = from_env("PARSE_LLM", default="openai/gpt-oss-20b")
     if model_name == "meta-llama/llama-4-maverick-17b-128e-instruct":
         # Legacy value kept in some environments; remap to a model we can serve.
-        model_name = "llama-3.1-8b-instant"
+        model_name = "openai/gpt-oss-20b"
     llm, structured_method = _parser_llm(model_name)
     prompt = ChatPromptTemplate.from_messages(
         [("system", _RECIPE_TEXT_SYSTEM_PROMPT), ("human", "Recipe: {recipe}")]
     )
     chain = prompt | llm.with_structured_output(ParsedRecipeText, method=structured_method)
     fallback_chain = prompt | llm.with_structured_output(ParsedRecipeText, method="function_calling")
+    request = {"recipe": _plain_recipe_text(recipe)}
     last_exc: Optional[Exception] = None
     for attempt in range(2):
         try:
-            sections = (chain if last_exc is None else fallback_chain).invoke({"recipe": _plain_recipe_text(recipe)})
+            sections = (chain if last_exc is None else fallback_chain).invoke(request)
             break
         except ValidationError as exc:
             last_exc = exc
@@ -214,6 +269,22 @@ def parse_recipe_tool(recipe: str) -> dict:
             # json_schema is not supported by every Groq model.
             if structured_method == "json_schema" and "response format `json_schema`" in str(exc):
                 last_exc = exc
+            elif _is_budget_exhausted(exc):
+                # The document was still being written when the budget ran out. The
+                # provider returns 400, which its SDK does not retry, so without
+                # this the caller got a 503 for a recipe that is merely long.
+                # Retry once with room to finish, then once more with
+                # `function_calling`, which can still return a usable document.
+                logger.warning("parse hit the %d-token budget; retrying with %d", _MAX_TOKENS, _MAX_TOKENS * 2)
+                wider, wider_method = _parser_llm(model_name, max_tokens=_MAX_TOKENS * 2)
+                try:
+                    sections = (prompt | wider.with_structured_output(ParsedRecipeText, method=wider_method)).invoke(request)
+                except Exception as retry_exc:
+                    if not _is_budget_exhausted(retry_exc):
+                        raise
+                    logger.warning("parse still over budget at %d tokens; trying function_calling", _MAX_TOKENS * 2)
+                    sections = (prompt | wider.with_structured_output(ParsedRecipeText, method="function_calling")).invoke(request)
+                break
             else:
                 raise
     else:
@@ -1975,7 +2046,7 @@ def parse_ingredient_lines(
     if not lines:
         raise ValueError("ingredient_lines must contain at least one non-empty line")
 
-    model_name = (os.getenv("PARSE_LLM") or "llama-3.3-70b-versatile").strip()
+    model_name = from_env("PARSE_LLM", default="openai/gpt-oss-20b")
     llm, structured_method = _parser_llm(model_name)
 
     prompt = ChatPromptTemplate.from_messages(

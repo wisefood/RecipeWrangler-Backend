@@ -193,7 +193,7 @@ Config (read at call time, env vars):
 |---|---|---|---|
 | `ADAPT_LLM_SOURCE` | `vllm` | `groq` | `openrouter` |
 | `ADAPT_LLM_BASE_URL` | `http://localhost:8005/v1` | `https://api.groq.com/openai/v1` | `$OPENROUTER_BASE_URL` or `https://openrouter.ai/api/v1` |
-| `ADAPT_LLM_MODEL` | `qwen3-32b` | `llama-3.1-8b-instant` | `qwen/qwen3-32b` |
+| `ADAPT_LLM_MODEL` | `qwen3-32b` | `openai/gpt-oss-20b` | `qwen/qwen3-32b` |
 | `ADAPT_LLM_API_KEY` | `none` | `$GROQ_API_KEY` | `$OPENROUTER_API_KEY` (required) |
 | `ADAPT_LLM_TIMEOUT` | `90` (seconds) | `90` | `90` |
 

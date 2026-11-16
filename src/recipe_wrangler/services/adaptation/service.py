@@ -28,6 +28,7 @@ from recipe_wrangler.utils.nutri_score import (
 )
 from recipe_wrangler.utils.nutrition_postgres import (
     fetch_recipe_profiling_trace_by_id,
+    fetch_recipe_profiling_traces_by_id,
 )
 
 from .llm_judge import rerank_with_llm
@@ -173,6 +174,18 @@ def _load_profile(recipe_id: str, region: str) -> dict[str, Any]:
     source = _region_to_source(region)
     row = fetch_recipe_profiling_trace_by_id(recipe_id, nutrition_source=source)
     if not row:
+        # Fall back to whatever region the recipe *was* profiled in, exactly as
+        # the recipe-detail endpoint does when the requested region has no row.
+        #
+        # Without this the two disagreed: a Slovenian recipe asked for in US
+        # rendered fine (detail falls back to its `eu` profile) but every
+        # adaptation call 404d, so the "Improve" button appeared on recipes it
+        # could never work for. Coverage is per (recipe, region) and is
+        # genuinely partial, so an exact-match requirement here is a promise
+        # the corpus does not keep.
+        rows = fetch_recipe_profiling_traces_by_id(recipe_id) or []
+        row = next((candidate for candidate in rows if candidate), None)
+    if not row:
         raise HTTPException(
             status_code=404,
             detail=f"No profile found for recipe '{recipe_id}' in region '{region}'. "
@@ -190,6 +203,19 @@ def _load_profile(recipe_id: str, region: str) -> dict[str, Any]:
             detail=f"Profile for '{recipe_id}' (region '{region}') has no nutrition_profiling_details.",
         )
     return row
+
+
+def _profile_source(row: dict[str, Any], region: str) -> str:
+    """The nutrition source the loaded profile row was actually computed with.
+
+    Call sites used to re-derive this from the region, which was fine only while
+    `_load_profile` refused anything but an exact regional match. Now that it
+    falls back, deriving it from the region again would recompute per-ingredient
+    details against one region's tables while `nutri_score_breakdown` on the same
+    row came from another's — a breakdown and a detail list that disagree.
+    """
+    stored = str(row.get("nutrition_source") or "").strip().lower()
+    return stored or _region_to_source(region)
 
 
 def _recompute_ingredient_details(
@@ -1267,7 +1293,7 @@ def _generate_consumer_suggestions(
     # Vegan adaptation returns a complete recalculated recipe, so a regional
     # source profile is mandatory rather than optional.
     profile_row = _load_profile(recipe_id, region)
-    nutrition_source = _region_to_source(region)
+    nutrition_source = _profile_source(profile_row, region)
     profile_details = _recompute_ingredient_details(
         profile_row,
         nutrition_source,
@@ -1552,12 +1578,14 @@ def _evaluate_sustainability_candidate(
     # If the candidate has no composition match we can't judge nutrition — keep it
     # (the CO2e benefit is known; the LLM judge is a further backstop).
     cand_profile = _fetch_candidate_profile(candidate["name"], source)
+    delta_per_serving: dict[str, float] | None = None
     if cand_profile:
+        cand_per_100g = _candidate_per_100g_map(cand_profile)
         _t, guard_per_100g, _w = _recipe_per_100g(
             details,
             swap_original_name=offender["name"],
             swap_weight_g=offender["weight_g"],
-            swap_candidate_per_100g=_candidate_per_100g_map(cand_profile),
+            swap_candidate_per_100g=cand_per_100g,
         )
         try:
             guard_breakdown = compute_nutri_score_breakdown_from_values(
@@ -1567,6 +1595,15 @@ def _evaluate_sustainability_candidate(
                 return None
         except Exception:
             pass
+        # The grade guard only fires when a swap costs a whole letter. Condensed
+        # milk for milk keeps the letter and still adds ~12 g of sugar a serving,
+        # so carry the per-nutrient picture through to the judge as well.
+        scale = float(offender["weight_g"]) / 100.0
+        delta_per_serving = {}
+        for abs_k, per100g_k in ALL_INGREDIENT_KEYS:
+            original_contrib = float(offender["detail"].get(abs_k) or 0.0)
+            candidate_contrib = scale * float(cand_per_100g.get(per100g_k) or 0.0)
+            delta_per_serving[abs_k] = (candidate_contrib - original_contrib) / (serves or 1.0)
 
     # Recompute total CO2e with the swap applied at the same weight.
     orig_lower = offender["name"].strip().lower()
@@ -1599,6 +1636,7 @@ def _evaluate_sustainability_candidate(
         "new_per_serving_co2e_kg": new_total_co2e_kg / (serves or 1.0),
         "reduction_per_serving_kg": reduction_per_serving_kg,
         "reduction_total_kg": reduction_total_kg,
+        "delta_per_serving": delta_per_serving,
         "introduces_allergen": bool(new_allergens),
         "new_allergens": new_allergens,
     }
@@ -1633,7 +1671,7 @@ def _generate_sustainability_suggestions(
     """Sustainability-mode orchestrator: target the top CO2e contributor with substitutes."""
 
     row = _load_profile(recipe_id, region)
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
     details = _enrich_with_co2e(details)
     serves = _serves_from_row(row)
@@ -1738,6 +1776,7 @@ def _generate_sustainability_suggestions(
             "co2e_reduction_pct": e["reduction_pct"],
             "original_cf_kg_co2e_per_kg": e["original_cf"],
             "candidate_cf_kg_co2e_per_kg": e["candidate_cf"],
+            "nutrient_delta_per_serving": e.get("delta_per_serving"),
         })
 
     # Optional LLM filter+rerank, fail-open.
@@ -2004,7 +2043,7 @@ def _generate_cost_suggestions(
     """Cost-mode orchestrator: target the top cost contributor with same-category, cheaper substitutes."""
 
     row = _load_profile(recipe_id, region)
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
     details = _enrich_with_cost(details, region)
     serves = _serves_from_row(row)
@@ -2184,7 +2223,7 @@ def _generate_reduce_quantity_suggestions(
 
     row = _load_profile(recipe_id, region)
     breakdown = row["nutri_score_breakdown"]
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
 
     target = _identify_target_nutrient(breakdown)
@@ -2317,7 +2356,7 @@ def _generate_portion_suggestion(
     if target_serves is None:
         raise HTTPException(status_code=422, detail="target_serves is required for portion mode")
     row = _load_profile(recipe_id, region)
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
     current_serves = _serves_from_row(row)
     factor = float(target_serves) / current_serves
@@ -2425,7 +2464,7 @@ def generate_suggestions(
 
     row = _load_profile(recipe_id, region)
     breakdown = row["nutri_score_breakdown"]
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
 
     target = _identify_target_nutrient(breakdown, _normalize_goal_nutrients(goal_nutrients))
@@ -2600,7 +2639,7 @@ def simulate_swap(
 ) -> dict[str, Any]:
     row = _load_profile(recipe_id, region)
     breakdown = row["nutri_score_breakdown"]
-    source = _region_to_source(region)
+    source = _profile_source(row, region)
     details = _recompute_ingredient_details(row, source)
 
     # Locate original ingredient in the profile.

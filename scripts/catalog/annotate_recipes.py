@@ -58,7 +58,9 @@ from recipe_wrangler.utils.env_loader import load_runtime_env
 load_runtime_env()
 
 from recipe_wrangler.catalog import vocabularies as V
-# Derivation lives in the catalog core so the commit path shares it.
+# Derivation lives in the catalog core so the commit path shares it, and so
+# does the model default: one owner for which model classifies a recipe.
+from recipe_wrangler.catalog.annotation import DEFAULT_MODEL as ANNOTATION_DEFAULT_MODEL
 from recipe_wrangler.catalog.annotation import derive_food_groups
 from recipe_wrangler.catalog.elastic import get_catalog_client
 from recipe_wrangler.catalog.entities import recipe_entity
@@ -268,16 +270,18 @@ def main() -> None:
              "ones a previous run failed on. e.g. --retry-missing cuisines",
     )
     # Groq, per the rest of the stack. Deliberately NOT SEARCH_MAIN_MODEL:
-    # that setting is shared with query-time constraint extraction, wants a fast
-    # small model, and its current default (meta-llama/llama-4-scout-17b-16e-
-    # instruct) returns 404 model_not_found on this workspace's key. Annotation
-    # is an offline batch job that wants the larger model — the 8b instant one
-    # returns noticeably more out-of-vocabulary values, which are then discarded
-    # and the call wasted.
+    # that setting is shared with query-time constraint extraction and wants a
+    # fast small model. Annotation wants the larger model — small models return
+    # noticeably more out-of-vocabulary values, which are then discarded and
+    # the call wasted. The default is owned by `catalog.annotation`, so this
+    # script, the main-dish audit and `POST /recipes/profile` cannot disagree
+    # about which model classifies a recipe, and it is read through the
+    # retirement registry: the hardcoded llama-3.3-70b-versatile this used to
+    # carry has been failing with 404 since Groq withdrew it on 2026-08-16.
     ap.add_argument(
         "--model",
-        default=os.getenv("ANNOTATION_MODEL", "llama-3.3-70b-versatile"),
-        help="Groq model id (env: ANNOTATION_MODEL).",
+        default=ANNOTATION_DEFAULT_MODEL,
+        help=f"Groq model id (env: ANNOTATION_MODEL; default {ANNOTATION_DEFAULT_MODEL}).",
     )
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument(

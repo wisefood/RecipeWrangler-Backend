@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from uuid import uuid4
 
 import re
@@ -30,6 +30,7 @@ from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.utils.line_allergens import extra_line_evidence
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 
+from recipe_wrangler.api.activity import report_search
 from recipe_wrangler.api.identity import Caller, get_caller, redact
 from recipe_wrangler.catalog.sources import (
     canonical_course_type,
@@ -85,6 +86,7 @@ from recipe_wrangler.repositories.postgres_nutrition import (
     get_recipe_profile_traces,
     save_recipe_profile_trace,
 )
+from recipe_wrangler.utils.measurement_scaling import scale_measurement
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 from recipe_wrangler.utils.nutrition_claims import (
     compute_nutrition_claim_tags,
@@ -129,6 +131,8 @@ from recipe_wrangler.schemas import (
     RecipeDetailsBatchRequest,
     RecipeDetailsBatchResponse,
     RecipeProfileRequest,
+    RecipeScaleRequest,
+    RecipeScaleResponse,
     RecipeSearchFilters,
     RecipeSearchRequest,
     RecipeSubstituteRequest,
@@ -604,12 +608,55 @@ def _extract_nutrient_value(total_nutrients: object, names: list[str]) -> float 
 
 
 def _per_serving(value: float | None, serves: object) -> float | None:
+    """Divide a whole-recipe total by the serving count.
+
+    Returns None when the serving count is unknown. It used to return the
+    total unchanged, which published a whole recipe's nutrition under a "per
+    serving" label -- a 7-serving loaf reading 1,670 kcal where the regions
+    that did know its serving count read 240. That is also why the same recipe
+    could differ wildly between EU, IE, HU and SI: the profiles are stored one
+    row per region and only some of them carry a per-serving block.
+
+    A number that is wrong by a factor of the serving count is worse than no
+    number, so this declines rather than guesses.
+    """
     if value is None:
         return None
     servings = _coerce_float(serves)
     if servings is None or servings <= 0:
-        return value
+        return None
     return value / servings
+
+
+def _serving_weight_g(
+    profile_details: list[dict[str, Any]] | None, serves: object
+) -> float | None:
+    """What one serving actually weighs, or None when we cannot say honestly.
+
+    Round 2 asked what "per serving" means. It is the profiled ingredient
+    weight divided by the serving count -- raw weight in, so it reads high for
+    anything that loses water in the pan, which is why it is published as an
+    approximation.
+
+    An ingredient the profiler failed to weigh comes back as 0 g, and summing
+    over it would quietly understate the serving instead of admitting the gap.
+    A partial answer here is worse than none, so any missing or zero weight
+    returns None and the UI says nothing at all.
+    """
+    if not profile_details:
+        return None
+    servings = _coerce_float(serves)
+    if servings is None or servings <= 0:
+        return None
+    total = 0.0
+    for detail in profile_details:
+        weight = _coerce_float(detail.get("weight_g"))
+        if weight is None or weight <= 0:
+            return None
+        total += weight
+    if total <= 0:
+        return None
+    return total / servings
 
 
 def _coerce_nutri_score(nutri_score: object) -> float | None:
@@ -1047,10 +1094,12 @@ def _healthyfoods_ground_truth_nutrition(recipe: dict[str, Any]) -> dict[str, An
 def recipe_autocomplete(
     q: str = Query("", min_length=0, max_length=120),
     limit: int = Query(8, ge=1, le=20),
+    caller: Caller = Depends(get_caller),
 ) -> dict[str, Any]:
     query = q.strip()
     if len(query) < 2:
         return {"suggestions": {}}
+    autocomplete_started = time.perf_counter()
 
     settings = get_settings()
     search_payload = {
@@ -1161,6 +1210,16 @@ def recipe_autocomplete(
         seen.add(key)
         suggestions[rid] = normalized
 
+    # What people start typing, and whether anything came back — the earliest
+    # signal there is that the catalogue is missing something they want.
+    report_search(
+        surface="autocomplete",
+        raw_query=query,
+        first_pass=len(suggestions),
+        final=len(suggestions),
+        started=autocomplete_started,
+        caller=caller,
+    )
     return {"suggestions": suggestions}
 
 
@@ -1349,6 +1408,9 @@ def get_recipe(
     payload["calculation_disclaimer"] = _calculation_disclaimer(
         profiling_quality, profile_details
     )
+    payload["serving_weight_g"] = _serving_weight_g(
+        profile_details, payload.get("serves")
+    )
 
     if profile_details:
         payload["nutrition_profiling_details"] = profile_details
@@ -1373,10 +1435,12 @@ def get_recipe(
         nutri_score_payload = _coerce_nutri_score_payload(nutrition.get("nutri_score"))
         total_nutrients = _as_dict(nutrition.get("total_nutrients"))
         total_nutrients_per_serving = _as_dict(nutrition.get("total_nutrients_per_serving"))
+        has_per_serving = (
+            isinstance(total_nutrients_per_serving, dict)
+            and bool(total_nutrients_per_serving)
+        )
         nutrient_basis = (
-            total_nutrients_per_serving
-            if isinstance(total_nutrients_per_serving, dict)
-            else total_nutrients
+            total_nutrients_per_serving if has_per_serving else total_nutrients
         )
         serves = payload.get("serves")
         payload.update(
@@ -1447,7 +1511,14 @@ def get_recipe(
                 ),
             }
         )
-        if not isinstance(total_nutrients_per_serving, dict):
+        # When the stored profile has no per-serving block, the basis above is
+        # the whole recipe and every field has to be divided down.
+        payload["nutrition_basis"] = (
+            "per_serving"
+            if has_per_serving or _coerce_float(serves) not in (None, 0)
+            else "unknown"
+        )
+        if not has_per_serving:
             payload["total_kcal_per_serving"] = _per_serving(
                 payload.get("total_kcal_per_serving"), serves
             )
@@ -1764,7 +1835,7 @@ def _build_card_nutrition(
         total_nutrients_per_serving = _as_dict(nutrition.get("total_nutrients_per_serving"))
         nutrient_basis = (
             total_nutrients_per_serving
-            if isinstance(total_nutrients_per_serving, dict)
+            if isinstance(total_nutrients_per_serving, dict) and total_nutrients_per_serving
             else total_nutrients
         )
         kcal = _extract_nutrient_value(
@@ -1780,7 +1851,7 @@ def _build_card_nutrition(
             nutrient_basis,
             ["Total lipid (fat)", "Fat", "Total fat"],
         )
-        if not isinstance(total_nutrients_per_serving, dict):
+        if not (isinstance(total_nutrients_per_serving, dict) and total_nutrients_per_serving):
             serves = recipe.get("serves")
             kcal = _per_serving(kcal, serves)
             protein = _per_serving(protein, serves)
@@ -1889,6 +1960,88 @@ def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetail
     return RecipeDetailsBatchResponse(results=results)
 
 
+def _report_failed_search(question, constraints, started, caller, exc) -> None:
+    """Record a search that raised, with no result counts to report.
+
+    `result_count_*` stay None rather than 0: "the search failed" and "the
+    search found nothing" are different facts, and a zero here would inflate
+    the zero-result rate with outages.
+    """
+    try:
+        report_search(
+            surface="recipes",
+            raw_query=question,
+            filters={**(constraints or {}), "error": exc.__class__.__name__},
+            first_pass=None,
+            final=None,
+            started=started,
+            caller=caller,
+        )
+    except Exception:  # pragma: no cover - never mask the real error
+        pass
+
+
+#: Fields of `base_constraints` that say nothing about whether the *question*
+#: was understood, and so cannot count as signal for the lexical fallback.
+#:
+#: Stated as an exclusion list rather than an allow-list on purpose. It used to
+#: be an allow-list, and it silently went stale the moment the extractor
+#: learned to fill more facets: `sources`, `convenience`, `nutrition_claims`,
+#: `nutri_scores` and `flavor_profiles` became question-derived, the allow-list
+#: still ignored them, and a question the extractor had understood perfectly
+#: was treated as unparsed. That forced the raw text in as a mandatory title
+#: query and pushed searches like "quick recipes" — now convenience, not a
+#: mood — through the relaxation path to the whole corpus.
+#:
+#: Everything not named here counts. A facet the extractor gains tomorrow
+#: counts on the day it is added, with nothing to remember.
+#: Fields that make the result set smaller, other than the title.
+#:
+#: Used to decide whether abandoning the title is survivable. Dropping it
+#: leaves whatever else is filtering; if nothing else is, that is the entire
+#: corpus, and "zzzz qqqq" answered with 7,628 recipes is not a relaxed search
+#: but a broken one. Boosts are absent on purpose — they reorder without
+#: excluding, so they cannot rescue a query that has stopped constraining.
+_NARROWING_FIELDS = (
+    "include_ingredients", "exclude_ingredients", "exclude_allergens",
+    "diet_tags", "dish_types", "sources", "cuisines", "moods",
+    "flavor_profiles", "food_groups", "convenience", "nutrition_claims",
+    "nutri_scores", "title_keywords", "max_duration_minutes", "min_servings",
+)
+
+
+def _still_narrows(constraints: Mapping[str, Any]) -> bool:
+    """Whether anything besides the title would keep the result set bounded."""
+    return any(
+        constraints.get(field) not in (None, [], "") for field in _NARROWING_FIELDS
+    )
+
+
+_NOT_QUESTION_SIGNAL = frozenset({
+    # Always set to the question itself, so it is never evidence of anything.
+    "rank_query",
+    # The caller's, not the question's: profile allergens and preference
+    # boosts. Allergens the *question* stated are read from the extractor
+    # separately, so a "peanut-free" question still counts. Profile diets are
+    # hard filters merged into diet_tags, so there is no boost_tags field here.
+    "exclude_allergens", "boost_ingredients",
+    # Plumbing.
+    "limit", "offset", "region", "include_disabled", "include_facets",
+})
+
+
+def question_yielded_nothing(question_signals: Mapping[str, Any]) -> bool:
+    """Whether the question produced no constraint of any kind.
+
+    When it did not, the raw text has to be used as the title query or the
+    Elasticsearch query carries no lexical clause at all and matches the whole
+    corpus in a fixed order — which is the same list for every question asked.
+    """
+    return not any(
+        value not in (None, [], "") for value in question_signals.values()
+    )
+
+
 @router.post(
     "/search",
     response_model=None,
@@ -1897,6 +2050,7 @@ def get_recipe_details_batch(request: RecipeDetailsBatchRequest) -> RecipeDetail
 )
 async def recipe_search(
     payload: RecipeSearchRequest,
+    caller: Caller = Depends(get_caller),
 ) -> dict[str, Any]:
     """Interpret a recipe question and retrieve matching recipes."""
 
@@ -2088,6 +2242,26 @@ async def recipe_search(
             "recipe_search recovered food groups %s", base_constraints["food_groups"]
         )
 
+    # What the *question* yielded, captured before caller selections are merged
+    # in below.
+    #
+    # This is the input to the lexical fallback, and keeping the two apart is
+    # the whole point. A facet the caller clicked narrows the corpus; it says
+    # nothing about whether the question was understood. Counting it as a
+    # signal used to disable the fallback, so "pasta" with any chip active sent
+    # `rank_query` alone — which by design never filters — and the search
+    # returned the entire facet-filtered corpus in alphabetical order for every
+    # query anyone typed. Allergens are read from the extractor rather than
+    # from base_constraints for the same reason: that field already has the
+    # caller's profile allergens merged into it, so a member with a nut allergy
+    # would never have got the fallback either.
+    question_signals = {
+        key: value
+        for key, value in base_constraints.items()
+        if key not in _NOT_QUESTION_SIGNAL
+    }
+    question_signals["allergens"] = constraints.get("allergens") or []
+
     # Explicit caller selections override everything inferred above.
     #
     # The recovery passes exist because the extractor drops course, mood and
@@ -2134,16 +2308,7 @@ async def recipe_search(
     # minutes" legitimately yields only a duration filter, and forcing the
     # question text in as a title query would add minimum_should_match=1 and
     # wrongly exclude everything that does not contain those words.
-    _signal_keys = (
-        "include_ingredients", "exclude_ingredients", "exclude_allergens",
-        "diet_tags", "dish_types", "sources", "title_keywords", "title_query",
-        "cuisines", "moods", "flavor_profiles", "food_groups", "convenience",
-        "nutrition_claims", "nutri_scores",
-        "max_duration_minutes", "min_servings", "sort_by",
-    )
-    lexical_fallback = not any(
-        base_constraints.get(key) not in (None, [], "") for key in _signal_keys
-    )
+    lexical_fallback = question_yielded_nothing(question_signals)
     if lexical_fallback:
         base_constraints["title_query"] = question
         title_query = question
@@ -2155,10 +2320,16 @@ async def recipe_search(
 
     es_started = time.perf_counter()
     relaxed = False
+    # The count *before* the retries below. Without it the returned total hides
+    # the original miss, and "the corpus has nothing" cannot be told apart from
+    # "the extractor produced an unsatisfiable constraint set" — different
+    # problems with different fixes.
+    first_pass_count: int | None = None
     try:
         es_out = await run_in_threadpool(
             search_recipes_es, RecipeSearchConstraints(**base_constraints)
         )
+        first_pass_count = len(es_out["results"])
         if (
             not es_out["results"]
             and not title_query
@@ -2187,18 +2358,43 @@ async def recipe_search(
             # without excluding anything, so the user gets the vegetarian
             # curries they asked for rather than an empty page.
             relaxed = True
-            demoted = dict(base_constraints)
-            demoted["title_query"] = None
-            demoted["rank_query"] = question
+            # Any word rather than every word, before giving up on the title.
+            #
+            # Dropping the title outright stops constraining at all: the query
+            # keeps only the facet filters, matches everything that satisfies
+            # them, and reports it as the result count. "comforting dinners"
+            # came back as 7,628 recipes over 636 pages, two of them relevant,
+            # which reads as broken rather than as relaxed. Asking for either
+            # word first gives a set that is still about the question.
+            loosened = dict(base_constraints)
+            loosened["title_match_any"] = True
             es_out = await run_in_threadpool(
-                search_recipes_es, RecipeSearchConstraints(**demoted)
+                search_recipes_es, RecipeSearchConstraints(**loosened)
             )
+            # Last resort: give up on the title and keep whatever else
+            # filters. Only worth doing when something else does — otherwise
+            # this is not a relaxation but a reset to the whole catalogue,
+            # which answered "zzzz qqqq" with 7,628 recipes over 636 pages.
+            # An honest empty page is the better answer, and the caller can
+            # see from `relaxed` that we tried.
+            if not es_out["results"] and _still_narrows(base_constraints):
+                demoted = dict(base_constraints)
+                demoted["title_query"] = None
+                demoted["rank_query"] = question
+                es_out = await run_in_threadpool(
+                    search_recipes_es, RecipeSearchConstraints(**demoted)
+                )
     except ResultWindowExceededError as exc:
         # Deep paging past Elasticsearch's result window. A 400 telling the
         # client to narrow is honest; the alternative is a 503 blaming the
         # search cluster for a request it correctly refused.
+        _report_failed_search(question, base_constraints, es_started, caller, exc)
         raise InvalidError(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
+        # Recorded before it is re-raised: a search that failed is a search the
+        # user ran. Reporting only successes makes an Elasticsearch outage look
+        # like nobody searching, which is the opposite of the truth.
+        _report_failed_search(question, base_constraints, es_started, caller, exc)
         raise map_dependency_error("Elasticsearch", exc) from exc
     logger.info(
         "recipe_search question=%r extract=%.2fs es=%.2fs results=%d "
@@ -2217,6 +2413,25 @@ async def recipe_search(
             }
         ),
     )
+    # Everything a trending report needs was already computed above and, until
+    # now, formatted into the log line and thrown away.
+    report_search(
+        surface="recipes",
+        raw_query=question,
+        filters={
+            key: value
+            for key, value in base_constraints.items()
+            if value not in (None, [], "") and key not in ("limit", "offset")
+        },
+        first_pass=first_pass_count,
+        final=len(es_out["results"]),
+        relaxed=relaxed,
+        lexical_fallback=lexical_fallback,
+        # The whole search as the user experienced it, not just the ES leg:
+        # constraint extraction is an LLM call and usually the larger half.
+        latency_ms=(extract_seconds + (time.perf_counter() - es_started)) * 1000.0,
+        caller=caller,
+    )
     return {
         "results": [_es_card(card) for card in es_out["results"]],
         "total": es_out.get("total", 0),
@@ -2230,9 +2445,13 @@ async def recipe_search(
     tags=["recipes"],
     summary="Deterministic parameter-based Elasticsearch recipe search",
 )
-def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
+def param_search(
+    payload: RecipeSearchFilters,
+    caller: Caller = Depends(get_caller),
+) -> dict[str, Any]:
     """Run deterministic parameter-based recipe search and return results."""
 
+    param_started = time.perf_counter()
     try:
         es_out = search_recipes_es(
             RecipeSearchConstraints(
@@ -2262,6 +2481,23 @@ def param_search(payload: RecipeSearchFilters) -> dict[str, Any]:
         raise InvalidError(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         raise map_dependency_error("Elasticsearch", exc) from exc
+    # No free text here: this is the filter panel, so the facets *are* the
+    # query. Recorded with a null raw_query so filter usage can be reported
+    # without pretending someone typed something.
+    report_search(
+        surface="param",
+        raw_query=None,
+        filters={
+            key: value
+            for key, value in payload.model_dump(exclude_none=True).items()
+            if value not in (None, [], "")
+            and key not in ("limit", "offset", "include_facets")
+        },
+        first_pass=len(es_out["results"]),
+        final=len(es_out["results"]),
+        started=param_started,
+        caller=caller,
+    )
     return {
         "results": [_es_card(card) for card in es_out["results"]],
         "total": es_out.get("total", 0),
@@ -2449,6 +2685,38 @@ def _generate_user_recipe_id(title: str, ingredients: list[str]) -> str:
     """Generate a UUID for a newly created user recipe."""
     _ = (title, ingredients)  # keep signature compatibility for existing call sites
     return str(uuid4())
+
+
+@router.post(
+    "/scale",
+    response_model=RecipeScaleResponse,
+    tags=["recipes"],
+    summary="Rewrite measurements for a different serving count",
+)
+def recipe_scale(payload: RecipeScaleRequest) -> RecipeScaleResponse:
+    """Rewrite each measurement for ``to_serves`` instead of ``from_serves``.
+
+    A recipe serves what its author decided it serves, and a member cooking
+    for six had no way to ask for six (Round 2 row 10).
+
+    Stateless, and pure arithmetic over strings -- no catalog read, nothing
+    persisted, nothing re-profiled. A measurement that cannot be parsed comes
+    back unchanged, because "salt to taste" does not double and a wrong
+    quantity is worse than an unscaled one.
+
+    Nutrition is not part of the response. Per-serving values are unchanged by
+    definition -- scaling changes how many servings there are, not how big one
+    is -- and the totals are a linear multiply by ``factor``.
+    """
+    factor = float(payload.to_serves) / float(payload.from_serves)
+    return RecipeScaleResponse(
+        from_serves=payload.from_serves,
+        to_serves=payload.to_serves,
+        factor=factor,
+        measurements=[
+            scale_measurement(measurement, factor) for measurement in payload.measurements
+        ],
+    )
 
 
 @router.post(

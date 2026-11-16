@@ -19,8 +19,8 @@ Configuration (read at call time, not module import — env reloads cleanly):
     ADAPT_LLM_SOURCE   "vllm" | "groq" | "openrouter"   default: vllm
     ADAPT_LLM_BASE_URL OpenAI-compatible URL    default: http://localhost:8005/v1
                                                 (or https://api.groq.com/openai/v1 for groq)
-    ADAPT_LLM_MODEL    Model ID                 default: qwen3-32b (vllm) or llama-3.1-8b-instant (groq)
-    ADAPT_LLM_API_KEY  Bearer token override; otherwise provider key (OPENROUTER_API_KEY for OpenRouter)
+    ADAPT_LLM_MODEL    Model ID                 default: qwen3-32b (vllm), openai/gpt-oss-20b (groq) or qwen/qwen3-32b (openrouter)
+    ADAPT_LLM_API_KEY  Bearer token override; otherwise provider key (GROQ_API_KEY or OPENROUTER_API_KEY)
     ADAPT_LLM_TIMEOUT  HTTP timeout seconds     default: 90
 """
 
@@ -45,7 +45,7 @@ _DEFAULTS: dict[str, dict[str, str]] = {
     },
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
-        "model": "llama-3.1-8b-instant",
+        "model": "openai/gpt-oss-20b",
         "api_key_env": "GROQ_API_KEY",
     },
     "openrouter": {
@@ -98,6 +98,15 @@ def llm_failure_reason(error: Exception, fallback: str) -> str:
     return fallback
 
 
+def _format_deltas(deltas: dict[str, Any] | None) -> str:
+    """Per-serving nutrient deltas as one compact prompt line; "" when there are none."""
+    if not deltas:
+        return ""
+    return ", ".join(
+        f"{k}: {float(v):+.1f}" for k, v in deltas.items() if abs(float(v)) > 0.05
+    )
+
+
 def _build_prompt(
     recipe_title: str,
     recipe_ingredients: list[dict[str, Any]],
@@ -120,13 +129,19 @@ def _build_prompt(
                 f" (introduces allergens: {', '.join(c.get('new_allergens') or [])})"
                 if c.get("introduces_allergen") else ""
             )
+            delta_str = _format_deltas(c.get("nutrient_delta_per_serving"))
+            nutrition_line = (
+                f"\n     per-serving nutrition change: {delta_str}"
+                if delta_str
+                else "\n     per-serving nutrition change: (no composition match — unknown)"
+            )
             cand_lines.append(
                 f"  {c['rank']}. {c['substitute_name']}  "
                 f"[source: {c['source']}, "
                 f"CF {c['original_cf_kg_co2e_per_kg']:.2f} → {c['candidate_cf_kg_co2e_per_kg']:.2f} kg CO2e/kg, "
                 f"saves {c['co2e_reduction_per_serving_kg'] * 1000:.0f} g CO2e/serving "
                 f"({c['co2e_reduction_pct'] * 100:.0f}% lower CF)]"
-                f"{allergen_str}"
+                f"{allergen_str}{nutrition_line}"
             )
         target_block = (
             f"OFFENDING INGREDIENT: '{offending_ingredient}' "
@@ -179,10 +194,7 @@ def _build_prompt(
     else:
         cand_lines = []
         for c in candidates:
-            deltas = c.get("nutrient_delta_per_serving") or {}
-            delta_str = ", ".join(
-                f"{k}: {v:+.1f}" for k, v in deltas.items() if abs(v) > 0.05
-            )
+            delta_str = _format_deltas(c.get("nutrient_delta_per_serving"))
             allergen_str = (
                 f" (introduces allergens: {', '.join(c.get('new_allergens') or [])})"
                 if c.get("introduces_allergen") else ""
@@ -227,7 +239,14 @@ def _build_prompt(
         "  - is offal/organ meat when the dish calls for muscle meat,\n"
         "  - changes the dish's core identity (e.g. fruit replacing nut paste, sauce replacing fat),\n"
         "  - is a specialty/exotic ingredient when an everyday equivalent exists in the list,\n"
-        "  - would require a different cooking technique to work.\n\n"
+        "  - would require a different cooking technique to work,\n"
+        "  - is too vague to shop for — a category rather than a product a shop actually "
+        "sells (e.g. 'milk drink', 'vegetable fat', 'meat product'). Name the specific "
+        "product or reject the candidate,\n"
+        "  - is nutritionally worse in a way a dietitian would object to, when the "
+        "per-serving nutrition change is shown. A sweetened or concentrated form of the "
+        "same food (condensed milk for milk, syrup for fruit) is NOT an acceptable swap "
+        "however much CO2e it saves.\n\n"
         f"RECIPE: {recipe_title}\n"
         f"INGREDIENTS:\n{ing_lines}\n\n"
         f"{target_block}\n\n"

@@ -78,6 +78,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 testpaths = ["tests"]
+markers = ["asyncio: async test, run with asyncio.run by tests/conftest.py"]
 
 [dependency-groups]
 dev = [

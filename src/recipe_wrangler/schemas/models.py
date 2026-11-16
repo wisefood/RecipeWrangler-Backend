@@ -338,6 +338,38 @@ class ParseRecipeResponse(BaseModel):
     total_time: Optional[float] = None
 
 
+class RecipeScaleRequest(BaseModel):
+    """Rewrite a recipe's measurements for a different serving count.
+
+    Stateless on purpose: it takes the measurements rather than a recipe id,
+    so a serving stepper never touches Elasticsearch or Neo4j and the caller
+    can hold the result. Nutrition is deliberately absent -- per-serving
+    values do not change when the serving count does (a serving is the same
+    size either way) and totals are a linear multiply the caller can do.
+    """
+
+    measurements: List[str] = Field(
+        ...,
+        max_length=200,
+        description="Measurement strings in recipe order, e.g. ['2 cups', '1 tbsp'].",
+    )
+    from_serves: float = Field(
+        ..., gt=0, le=1000, description="The serving count the measurements are written for."
+    )
+    to_serves: float = Field(
+        ..., gt=0, le=1000, description="The serving count to rewrite them for."
+    )
+
+
+class RecipeScaleResponse(BaseModel):
+    """Scaled measurements, index-aligned with the request."""
+
+    from_serves: float
+    to_serves: float
+    factor: float
+    measurements: List[str]
+
+
 class RecipeProfileRequest(BaseModel):
     """Incoming payload for the recipe profiling endpoint."""
 
@@ -615,6 +647,13 @@ class RecipeDetailResponse(BaseModel):
     duration: Optional[float]
     serves: Optional[float]
     cost_category: Optional[str] = None
+    # Approximate raw weight of one serving, in grams. None whenever any
+    # ingredient weight is missing, rather than a total that silently omits it.
+    serving_weight_g: Optional[float] = None
+    # "per_serving" when the per-serving figures are real; "unknown" when the
+    # serving count is missing, in which case they are absent rather than the
+    # whole recipe's totals wearing a per-serving label.
+    nutrition_basis: Optional[str] = None
     total_kcal_per_serving: Optional[float] = None
     total_protein_g_per_serving: Optional[float] = None
     total_carbs_g_per_serving: Optional[float] = None

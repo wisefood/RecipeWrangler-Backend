@@ -449,7 +449,7 @@ def resolve_ingredient_allergen_conflicts(
 class RecipeConstraintExtractor:
     """Extract recipe-search constraints without initializing Neo4j."""
 
-    model: str = "llama-3.1-8b-instant"
+    model: str = "openai/gpt-oss-20b"
     temperature: float = 0.0
     source: str = "groq"
     structured_output_method: str = "function_calling"
@@ -468,6 +468,7 @@ class RecipeConstraintExtractor:
                     "https://openrouter.ai/api/v1",
                 ),
                 api_key=os.getenv("OPENROUTER_API_KEY", ""),
+                callbacks=self._usage_callbacks(source),
             )
         elif source == "groq":
             from langchain_groq import ChatGroq
@@ -476,11 +477,29 @@ class RecipeConstraintExtractor:
                 model=self.model,
                 temperature=self.temperature,
                 max_retries=2,
+                callbacks=self._usage_callbacks(source),
             )
         else:
             raise ValueError("source must be 'groq' or 'openrouter'")
         self._structured_extraction_enabled = True
         self._build_chains()
+
+    @staticmethod
+    def _usage_callbacks(source: str) -> list:
+        """Report what this extractor costs.
+
+        It runs on every natural-language recipe search, and it has a silent
+        fallback chain — so without this, "search got slow and expensive" and
+        "the structured-output chain is failing over on every call" look
+        identical from the outside.
+        """
+        try:
+            from recipe_wrangler.api.activity import usage_callback
+
+            handler = usage_callback("recipe_constraint_extraction", provider=source)
+            return [handler] if handler else []
+        except Exception:  # pragma: no cover - never block client construction
+            return []
 
     def _build_chains(self) -> None:
         extract_prompt = ChatPromptTemplate.from_messages(

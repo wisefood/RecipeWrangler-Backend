@@ -14,6 +14,7 @@ from recipe_wrangler.utils.env_loader import load_runtime_env
 # Load env once before importing modules that resolve settings at import time.
 load_runtime_env()
 
+from . import obs_context, wf_telemetry
 from .config import get_settings
 
 
@@ -30,14 +31,25 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Adopt the gateway's X-Request-Id (or mint one for a direct caller). Added
+    # last, so it sits outermost and the id exists before anything else logs —
+    # including the one INFO line `recipe_search` already emits per search.
+    app.add_middleware(obs_context.RequestContextMiddleware)
     return app
 
 
-from .routers import catalog, health, recipes, tools
+from .routers import catalog, health, ingest, recipes, tools
 
 # Get settings
 settings = get_settings()
 logsys.configure()
+# Every log line carries the correlation id of the request that caused it.
+obs_context.install_log_filter()
+# Report searches and model spend back to the gateway, which owns the
+# analytics store. No-op unless ANALYTICS_ENABLED and an ingest secret
+# are both set.
+wf_telemetry.TELEMETRY.start(app="recipewrangler")
 
 app = create_app()
 install_error_handler(app)
@@ -60,6 +72,7 @@ app.include_router(catalog.router)
 # capabilities for FoodChat and other LLM callers, rather than a query
 # language they would have to learn.
 app.include_router(tools.router)
+app.include_router(ingest.router)
 
 # Adaptation endpoints (adapt/suggestions, adapt/simulate). The router carries
 # its own /api/v1/recipes prefix; it also remains runnable standalone via

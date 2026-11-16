@@ -1,0 +1,157 @@
+{
+ "state": "13 Nov 2026, Living Lab recipes (Irish, Hungarian, Slovenian), each in its native regional profile; unsaved drafts, nothing deployed",
+ "nutrition": {
+  "recipes": 537,
+  "outcomes": {
+   "adapted": 363,
+   "no_sensible_adaptation": 174
+  },
+  "adapted_policy_split": {
+   "passes_strict_meaningful_nutrient_v1_rounding_guards": 13,
+   "passes_only_with_relaxed_materiality": 350,
+   "letter_flip_only": 23,
+   "small_gain_only": 245,
+   "b_and_below_relative_gain_only": 39,
+   "more_veg_fallback": 102,
+   "meets_meaningful_nutrient_v1_floors": 95,
+   "adapted_recipe_has_baseline_pitfall_elsewhere": 37
+  },
+  "adapted_by_category": {
+   "wholemeal_pasta": 23,
+   "similar_part": 8,
+   "REPLACE_INGREDIENT": 79,
+   "more_veg": 102,
+   "sugar": 29,
+   "REPLACE_PRODUCT_VARIANT": 27,
+   "brown_rice": 9,
+   "wholemeal_bread": 5,
+   "light_coconut_milk": 1,
+   "half_wholemeal_flour": 18,
+   "salty_condiment": 17,
+   "sauce": 9,
+   "protein_swap": 9,
+   "reduced_salt_stock": 2,
+   "wholemeal_wrap": 8,
+   "nut_butter": 3,
+   "low_fat_yogurt": 5,
+   "lean_bacon": 2,
+   "chocolate": 3,
+   "light_mozzarella": 2,
+   "butter_to_oil_for_frying": 2,
+   "semi_skimmed_milk": 1
+  },
+  "adapted_by_number_of_changes": {
+   "1": 362,
+   "2": 1
+  },
+  "adapted_by_baseline_grade": {
+   "A": 231,
+   "B": 76,
+   "D": 23,
+   "C": 33
+  },
+  "no_adaptation_by_baseline_grade": {
+   "A": 117,
+   "C": 14,
+   "B": 37,
+   "D": 6
+  },
+  "grade_shifts": {
+   "A->A": 231,
+   "B->A": 33,
+   "D->D": 16,
+   "C->B": 17,
+   "B->B": 43,
+   "C->C": 10,
+   "C->A": 6,
+   "D->C": 6,
+   "D->B": 1
+  },
+  "adapted_by_operation": {
+   "SWAP_FOOD": 95,
+   "REPLACE_INGREDIENT": 79,
+   "INCREASE_VEG": 102,
+   "REDUCE_AMOUNT": 61,
+   "REPLACE_PRODUCT_VARIANT": 27
+  },
+  "b_and_below_near_misses_not_counted": 9,
+  "failed_reasons": {},
+  "by_region": {
+   "hungarian": {
+    "no_sensible_adaptation": 54,
+    "adapted": 84
+   },
+   "irish": {
+    "adapted": 218,
+    "no_sensible_adaptation": 90
+   },
+   "slovenian": {
+    "adapted": 61,
+    "no_sensible_adaptation": 30
+   }
+  }
+ },
+ "cost": {
+  "recipes_with_suggestion": 48,
+  "example": {
+   "recipe_id": "eb48319a-3f82-5fc7-863c-a6db53966fcf",
+   "title": "Grilled salmon cutlets",
+   "change": "salmon -> trout",
+   "cost_eur_per_serving": [
+    3.8,
+    1.91
+   ],
+   "nutri_score": [
+    "A",
+    "A"
+   ],
+   "diet": "still pescatarian"
+  }
+ },
+ "sustainability": {
+  "recipes_scored": 433,
+  "recipes_with_sensible_candidate": 150,
+  "example": {
+   "recipe_id": "1fdb7597-d963-5d96-9691-8b7b58d1dc64",
+   "title": "Roast lamb",
+   "change": "lamb -> turkey",
+   "co2e_kg_per_serving_pipeline": [
+    1.82,
+    0.23
+   ],
+   "nutri_score": [
+    "A",
+    "A"
+   ]
+  }
+ },
+ "time": {
+  "recipes_with_overlap_candidate": 49,
+  "by_region": {
+   "irish": 43,
+   "hungarian": 6,
+   "slovenian": 0
+  },
+  "blocked_existing_parallelism": 69,
+  "blocked_multi_timer_step": 14,
+  "example": {
+   "recipe_id": "5d62b5ed-1a20-5dfa-936d-e2085d623f39",
+   "title": "Roast pork with ratatouille",
+   "suggestion": "Do step 3 while step 2 cooks",
+   "tip": "Dice the vegetables while the potatoes roast instead of afterwards, so dinner is ready 5-8 minutes sooner.",
+   "minutes_saved": {
+    "low": 5,
+    "high": 8,
+    "basis": "model estimate of hands-on prep, capped by the source cooking window",
+    "window_minutes": 20.0,
+    "prep_estimate": [
+     5,
+     8
+    ]
+   },
+   "status": "ok",
+   "adapted_step_3": "While the potatoes roast, dice the tomatoes. Trim the courgettes and celery and cut both into 2cm slices. Peel the onion and roughly chop. Peel the garlic and use a garlic crusher or grate on the fine side of a box grater.",
+   "llm_calls": 1
+  }
+ }
+}

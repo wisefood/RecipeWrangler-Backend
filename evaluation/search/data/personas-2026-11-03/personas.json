@@ -1,0 +1,773 @@
+{
+  "version": "personas-v1",
+  "created": "2026-11-03",
+  "contract": "profile.diet_tags, profile.exclude_allergens, profile.nutrition_claims and profile.convenience are hard filters; profile.preferred_ingredients are soft boosts. Payload fields map 1:1 onto RecipeSearchRequest.",
+  "query_kinds": {
+    "generic": "ordinary request; judge relevance and profile fit",
+    "title": "named dish; compliance still required",
+    "conflict": "request names a food/dish the hard profile forbids; any violating card is a hard fail. expected_outcome: alternatives_exist = compliant versions exist in the corpus and should be returned; no_compliant_version = empty or a different compliant dish, never the forbidden one"
+  },
+  "personas": [
+    {
+      "id": "vegan",
+      "description": "Adult vegan, likes legumes and tofu.",
+      "profile": {
+        "diet_tags": [
+          "vegan"
+        ],
+        "exclude_allergens": [],
+        "preferred_ingredients": [
+          "lentils",
+          "chickpeas",
+          "tofu"
+        ],
+        "region": "EU"
+      },
+      "queries": [
+        {
+          "q": "quick dinner",
+          "kind": "generic"
+        },
+        {
+          "q": "high protein lunch",
+          "kind": "generic"
+        },
+        {
+          "q": "chocolate dessert",
+          "kind": "generic"
+        },
+        {
+          "q": "chicken curry",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "5285654647",
+            "72322097-0815-5f3a-ae48-58d38a33bd61",
+            "7707821466",
+            "9129169711"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "creamy pasta",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "9285931897"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "beef stew",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        }
+      ]
+    },
+    {
+      "id": "peanut_allergy",
+      "description": "Adult with peanut allergy, likes Asian food.",
+      "profile": {
+        "diet_tags": [],
+        "exclude_allergens": [
+          "peanut"
+        ],
+        "preferred_ingredients": [
+          "chicken",
+          "noodles",
+          "ginger"
+        ],
+        "region": "IE"
+      },
+      "queries": [
+        {
+          "q": "stir fry",
+          "kind": "generic"
+        },
+        {
+          "q": "thai dinner",
+          "kind": "generic"
+        },
+        {
+          "q": "satay chicken",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        },
+        {
+          "q": "pad thai",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        },
+        {
+          "q": "peanut butter cookies",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        }
+      ]
+    },
+    {
+      "id": "coeliac",
+      "description": "Coeliac disease: gluten-free diet plus gluten/wheat exclusion.",
+      "profile": {
+        "diet_tags": [
+          "gluten_free"
+        ],
+        "exclude_allergens": [
+          "gluten",
+          "wheat"
+        ],
+        "preferred_ingredients": [
+          "potato",
+          "rice"
+        ],
+        "region": "IE"
+      },
+      "queries": [
+        {
+          "q": "family dinner",
+          "kind": "generic"
+        },
+        {
+          "q": "breakfast",
+          "kind": "generic"
+        },
+        {
+          "q": "pasta bake",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "2231524009",
+            "9220185553",
+            "2357170293",
+            "2262547700"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "pancakes",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "5831571390",
+            "9826215290",
+            "0406c75a-d7f7-5dd7-b4b6-dc4b08a38d7a",
+            "1152975452",
+            "1342122531",
+            "0791041852",
+            "4841581106",
+            "5860973135",
+            "6008747403",
+            "4925583438",
+            "0999182625",
+            "70600bfb-34bc-55a7-9358-4effc16edb0b"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "Irish soda bread",
+          "kind": "title"
+        }
+      ]
+    },
+    {
+      "id": "milk_allergy_child",
+      "description": "Parent cooking for a child with cow's milk allergy.",
+      "profile": {
+        "diet_tags": [],
+        "exclude_allergens": [
+          "milk"
+        ],
+        "preferred_ingredients": [
+          "pasta",
+          "chicken"
+        ],
+        "region": "SI"
+      },
+      "queries": [
+        {
+          "q": "kids lunch",
+          "kind": "generic"
+        },
+        {
+          "q": "soup",
+          "kind": "generic"
+        },
+        {
+          "q": "risotto",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "3f1397f3-fcc2-57ea-a6fb-0429661321f3",
+            "ESSRG_117",
+            "fd653d65-0188-4030-9397-0e8d2cb1cf7a",
+            "1365716687",
+            "5869527624",
+            "8290458883",
+            "6304696413",
+            "7168944261",
+            "2976714692",
+            "3118318969"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "mac and cheese",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        },
+        {
+          "q": "cheesecake",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        }
+      ]
+    },
+    {
+      "id": "pescatarian",
+      "description": "Eats fish and seafood, no meat or poultry.",
+      "profile": {
+        "diet_tags": [
+          "pescatarian"
+        ],
+        "exclude_allergens": [],
+        "preferred_ingredients": [
+          "salmon",
+          "prawns"
+        ],
+        "region": "EU"
+      },
+      "queries": [
+        {
+          "q": "light dinner",
+          "kind": "generic"
+        },
+        {
+          "q": "mediterranean lunch",
+          "kind": "generic"
+        },
+        {
+          "q": "paella",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        },
+        {
+          "q": "burger",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        },
+        {
+          "q": "steak with chips",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        }
+      ]
+    },
+    {
+      "id": "high_protein_athlete",
+      "description": "Athlete targeting high-protein, low-fat meals.",
+      "profile": {
+        "diet_tags": [],
+        "exclude_allergens": [],
+        "nutrition_claims": [
+          "high_protein",
+          "low_fat"
+        ],
+        "preferred_ingredients": [
+          "chicken",
+          "eggs",
+          "beans"
+        ],
+        "region": "EU"
+      },
+      "queries": [
+        {
+          "q": "post workout meal",
+          "kind": "generic"
+        },
+        {
+          "q": "breakfast",
+          "kind": "generic"
+        },
+        {
+          "q": "quick lunch",
+          "kind": "generic"
+        },
+        {
+          "q": "chicken salad",
+          "kind": "title"
+        },
+        {
+          "q": "chocolate cake",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        }
+      ]
+    },
+    {
+      "id": "weight_loss",
+      "description": "Adult reducing energy intake.",
+      "profile": {
+        "diet_tags": [],
+        "exclude_allergens": [],
+        "nutrition_claims": [
+          "low_calorie"
+        ],
+        "preferred_ingredients": [
+          "vegetables",
+          "fish"
+        ],
+        "region": "HU"
+      },
+      "queries": [
+        {
+          "q": "dinner",
+          "kind": "generic"
+        },
+        {
+          "q": "soup",
+          "kind": "generic"
+        },
+        {
+          "q": "comfort food",
+          "kind": "generic"
+        },
+        {
+          "q": "dessert",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        }
+      ]
+    },
+    {
+      "id": "busy_parent",
+      "description": "Time-poor parent, quick meals only.",
+      "profile": {
+        "diet_tags": [],
+        "exclude_allergens": [],
+        "convenience": [
+          "quick"
+        ],
+        "preferred_ingredients": [
+          "pasta",
+          "chicken",
+          "rice"
+        ],
+        "region": "IE"
+      },
+      "queries": [
+        {
+          "q": "dinner for the family",
+          "kind": "generic"
+        },
+        {
+          "q": "pasta",
+          "kind": "generic"
+        },
+        {
+          "q": "kids lunchbox",
+          "kind": "generic"
+        },
+        {
+          "q": "slow cooked beef stew",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        }
+      ]
+    },
+    {
+      "id": "hungarian_home_cook",
+      "description": "Control persona: no hard constraints, Hungarian tastes only.",
+      "profile": {
+        "diet_tags": [],
+        "exclude_allergens": [],
+        "preferred_ingredients": [
+          "paprika",
+          "sour cream",
+          "pork"
+        ],
+        "region": "HU"
+      },
+      "queries": [
+        {
+          "q": "soup",
+          "kind": "generic"
+        },
+        {
+          "q": "stew",
+          "kind": "generic"
+        },
+        {
+          "q": "goulash",
+          "kind": "title"
+        },
+        {
+          "q": "sunday lunch",
+          "kind": "generic"
+        }
+      ]
+    },
+    {
+      "id": "vegetarian_multi_allergy",
+      "description": "Vegetarian with tree-nut, egg and sesame allergies.",
+      "profile": {
+        "diet_tags": [
+          "vegetarian"
+        ],
+        "exclude_allergens": [
+          "tree_nut",
+          "egg",
+          "sesame"
+        ],
+        "preferred_ingredients": [
+          "cheese",
+          "mushrooms"
+        ],
+        "region": "EU"
+      },
+      "queries": [
+        {
+          "q": "dinner",
+          "kind": "generic"
+        },
+        {
+          "q": "cake",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "2638631410",
+            "5385794043",
+            "6000424986",
+            "2792622521",
+            "8587030612",
+            "0911870987",
+            "1794683159",
+            "7770190424",
+            "3662469308",
+            "4676011111",
+            "5a202a9e-63f5-599e-a12d-09fd1815556d",
+            "9872279742",
+            "2231524009",
+            "2300617115",
+            "3120202093",
+            "3181069067",
+            "3340908536",
+            "3856303440",
+            "4499620084",
+            "5436680270",
+            "8655031641",
+            "2005424874",
+            "4920787149",
+            "5181692538",
+            "8184736705",
+            "9608637f-e4ac-5816-9b4e-e252331f5a92",
+            "4224020009",
+            "5074237772",
+            "6872150137",
+            "8997886878",
+            "9cbcf873-9615-5cbe-950e-95afdc96f4de",
+            "1624035757",
+            "6449652682",
+            "9740365842",
+            "b89400e6-754e-517d-b9d5-61884dee4e34",
+            "1759732473"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "pesto pasta",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "97ae65f4-5702-5b81-9d51-41084503e533",
+            "2448107082",
+            "3043741677"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "hummus",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "4328298491",
+            "9b3cc48f-9c84-57e7-94e9-d59bd0d16d93",
+            "9814951635",
+            "4530243635",
+            "7102976077",
+            "7775456863"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "omelette",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        }
+      ]
+    },
+    {
+      "id": "vegan_gluten_free",
+      "description": "Stress persona: vegan and coeliac with soy allergy.",
+      "profile": {
+        "diet_tags": [
+          "vegan",
+          "gluten_free"
+        ],
+        "exclude_allergens": [
+          "gluten",
+          "wheat",
+          "soy"
+        ],
+        "preferred_ingredients": [
+          "lentils",
+          "rice"
+        ],
+        "region": "EU"
+      },
+      "queries": [
+        {
+          "q": "dinner",
+          "kind": "generic"
+        },
+        {
+          "q": "baking",
+          "kind": "generic"
+        },
+        {
+          "q": "tofu stir fry",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        },
+        {
+          "q": "bread",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "2826578763",
+            "5165503641"
+          ],
+          "labels_reviewed": false
+        }
+      ]
+    },
+    {
+      "id": "seafood_allergy",
+      "description": "Adult allergic to fish, crustaceans and molluscs.",
+      "profile": {
+        "diet_tags": [],
+        "exclude_allergens": [
+          "fish",
+          "crustacean_shellfish",
+          "molluscs"
+        ],
+        "preferred_ingredients": [
+          "chicken",
+          "rice"
+        ],
+        "region": "IE"
+      },
+      "queries": [
+        {
+          "q": "dinner",
+          "kind": "generic"
+        },
+        {
+          "q": "paella",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "0603582804",
+            "acd3172c-2e81-5f3e-b9ec-3241d23a7770",
+            "1224946159",
+            "3092805255",
+            "5796343200",
+            "4760639022",
+            "6777571282"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "fish pie",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "5246479152",
+            "9254598213"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "seafood pasta",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        },
+        {
+          "q": "caesar salad",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "1319898272",
+            "7352050309",
+            "cecbc1db-4f37-5424-81fb-f3cc8f4e9911"
+          ],
+          "labels_reviewed": false
+        }
+      ]
+    },
+    {
+      "id": "celery_mustard_sulphite_lupin_allergy",
+      "description": "Adult allergic to celery, mustard, sulphites and lupin.",
+      "profile": {
+        "diet_tags": [],
+        "exclude_allergens": [
+          "celery",
+          "mustard",
+          "sulphites",
+          "lupin"
+        ],
+        "preferred_ingredients": [
+          "potato",
+          "chicken"
+        ],
+        "region": "HU"
+      },
+      "queries": [
+        {
+          "q": "lunch",
+          "kind": "generic"
+        },
+        {
+          "q": "vegetable soup",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "4949175305",
+            "5031202171",
+            "7184088820",
+            "8789675575",
+            "2603833350",
+            "7337257164",
+            "7582014875",
+            "3718367269",
+            "5167458017",
+            "5726471641",
+            "5998858826",
+            "4598299033",
+            "5dcfeb0f-2d9e-5e1f-8333-deaf6dfe1622",
+            "1223664190",
+            "5302910189",
+            "3164122677",
+            "6221065945",
+            "1133928485",
+            "0159232369",
+            "4095522129",
+            "b0f1975b-fb6b-5e3b-9ac1-474c5aa613a3"
+          ],
+          "labels_reviewed": false
+        },
+        {
+          "q": "honey mustard chicken",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        },
+        {
+          "q": "beef stew with red wine",
+          "kind": "conflict",
+          "expected_outcome": "no_compliant_version",
+          "compliant_ids": [],
+          "labels_reviewed": false
+        },
+        {
+          "q": "potato salad",
+          "kind": "conflict",
+          "expected_outcome": "alternatives_exist",
+          "compliant_ids": [
+            "7669498352",
+            "0197176208",
+            "3597406304",
+            "bfb276ad-0ce0-4b34-85bb-aed467362068",
+            "08c2ff51-e55c-50d6-8eee-15a2535b42f4",
+            "3406237350",
+            "5453089476",
+            "9640038839",
+            "1594709488",
+            "2297024279",
+            "4226038256",
+            "0520105609",
+            "1017426272",
+            "6914046997",
+            "7090743515",
+            "0040183569",
+            "3802740943",
+            "5737955149",
+            "2771400428",
+            "6291776666",
+            "44af8b7e-63fb-5add-8c3d-90f3302886b6",
+            "6589098930",
+            "01732bfc-ab6d-4992-9102-79490b2b1b31",
+            "3056805905",
+            "54830186-ed14-5eb3-8329-71924123949b",
+            "7205222390",
+            "3622795782",
+            "9426840904",
+            "9544497881",
+            "1238310216",
+            "1813515879",
+            "6672489122",
+            "6742679239",
+            "7720541576",
+            "0877250242",
+            "1481218529",
+            "29c7697b-b3a6-5d77-afa6-fadb5f30906c",
+            "5185070578",
+            "7789963220",
+            "0048318203",
+            "1567222988",
+            "2728128630",
+            "6932000682",
+            "7316903534",
+            "8767054765",
+            "ESSRG_124",
+            "1500428190",
+            "1725764642",
+            "1893444463",
+            "3600970626"
+          ],
+          "labels_reviewed": false
+        }
+      ]
+    }
+  ]
+}

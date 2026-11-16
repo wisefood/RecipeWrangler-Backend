@@ -1,0 +1,1535 @@
+[
+{
+"case_id": "tasteset:664",
+"original_lines": [
+"1 cup strawberry",
+"1 ½ cups romaine lettuce",
+"½ red beet, peeled, diced",
+"1 piece ginger, 1-inch (2 1/2 cm), peeled",
+"1 ½ cups ice"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:33",
+"original_lines": [
+"2 cups watermelon",
+"3 tablespoons sugar",
+"8 mint leaves",
+"3 tablespoons lemon juice",
+"3 ice cubes"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:829",
+"original_lines": [
+"16 hot dogs (cut into 1/4-inch slices)",
+"30 ounces green beans (with liquid)",
+"29 ounces tomatoes with juice (stewed)",
+"2 cups shredded mozzarella cheese"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:760",
+"original_lines": [
+"1.5 ounces Cazadores Blanco Tequila",
+"0.75 ounces sweet white vermouth",
+"0.25 ounces lemon juice",
+"2 dashes orange bitters",
+"lemon twist"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:633",
+"original_lines": [
+"8 ounces cream cheese (room temperature)",
+"1 cup colby jack cheese (shredded)",
+"1/2 cup sour cream",
+"2 tablespoons taco seasoning",
+"2 green onions (diced 1 inch into the green)",
+"2 tablespoons pickled jalapeños (diced)",
+"5 flour tortillas (10 inch tortillas)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:363",
+"original_lines": [
+"6 half ears corn, cleaned, husked",
+"2 tablespoons butter, softened",
+"½ cup parmesan cheese, grated",
+"salt, to taste",
+"pepper, to taste"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:456",
+"original_lines": [
+"2 pounds skinless chicken breasts (boneless, diced in 1-inch pieces)",
+"21.5 ounces condensed cream of chicken soup (see my recipe below this card for my homemade cream of chicken soup)",
+"1 cup milk",
+"6 ounces Stove Top Chicken Stuffing Mix",
+"1 1/2 cups chicken broth"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:327",
+"original_lines": [
+"4 egg yolks",
+"1/2 cup granulated sugar",
+"1 cup whole milk",
+"1 cup heavy cream",
+"2 teaspoons vanilla extract (or vanilla bean paste)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:414",
+"original_lines": [
+"2 cups French bread, cut into 1-inch cubes",
+"1⁄2 teaspoon garlic powder",
+"2 garlic cloves, minced",
+"1⁄4 cup parmesan cheese, grated",
+"1⁄4 teaspoon salt",
+"1⁄4 teaspoon black pepper",
+"3 tablespoons olive oil"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:937",
+"original_lines": [
+"1 jar pasta sauce, your favorite flavor",
+"soft tortilla",
+"mozzarella cheese, shredded"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "unknown"
+},
+"reference_reason": "Favorite-flavour pasta sauce is unspecified and can include meat; mandatory mozzarella blocks vegan."
+},
+{
+"case_id": "tasteset:540",
+"original_lines": [
+"2 slices white bread",
+"¼ cup creamy peanut butter",
+"2 tablespoons grape jelly"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "suitable"
+},
+"reference_reason": "White-bread formulation can include milk/egg; other named foods are plant foods."
+},
+{
+"case_id": "tasteset:162",
+"original_lines": [
+"32 large marshmallows (1 bag)",
+"1 lb almond bark (white)",
+"16 sturdy wooden skewers (long)",
+"1 cup royal icing",
+"paste food coloring"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "unknown"
+},
+"reference_reason": "Marshmallows, almond bark and royal icing have unspecified formulations; do not invent gelatin/egg absence."
+},
+{
+"case_id": "tasteset:445",
+"original_lines": [
+"1 sheet puff pastry, thawed",
+"6 hot dogs",
+"6 slices cheddar cheese"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:258",
+"original_lines": [
+"1 blade roast, cut about 4 inches thick and weighing about 5 lbs.",
+"1 teaspoon salt",
+"1⁄8 teaspoon pepper",
+"1 cup water",
+"6 medium carrots, peeled and cut in 2 inch cubes",
+"6 medium potatoes, peeled and quartered",
+"3 medium onions, peeled and quartered"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:896",
+"original_lines": [
+"1 cup watermelon, cubed",
+"1 lime, juiced",
+"½ cup water",
+"2 cups ice"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:463",
+"original_lines": [
+"1 cup balsamic vinegar",
+"1 tablespoon brown sugar"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:825",
+"original_lines": [
+"1⁄2 cup kraft Greek salad dressing",
+"2 tablespoons kraft real mayo mayonnaise",
+"1 1⁄2 lbs boneless skinless chicken breasts, cut into 1-inch pieces",
+"1 red onion, cut into small wedges",
+"1 lemon, halved",
+"you may also substitute 1/2 cup kraft zesty italian dressing mixed with 2 tsp. dried oregano leaves Greek salad dressing"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:464",
+"original_lines": [
+"3 lbs ground beef",
+"3 cups favorite pasta sauce (can use more, my pasta sauce Kittencal's Italian Tomato Pasta Sauce and Parmesan Meatballs works well for this)",
+"flour, for dipping",
+"8 -10 hamburger buns",
+"1 1⁄2 cups grated cheddar cheese",
+"1⁄3 cup grated parmesan cheese"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:352",
+"original_lines": [
+"2 ounces unsweetened pineapple juice",
+"1 ounce cream of coconut",
+"1⁄2 cup ice"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:130",
+"original_lines": [
+"1 (7 ounce) can solid white tuna packed in water, drained",
+"¼ cup creamy salad dressing (such as Miracle Whip™)",
+"1 tablespoon sweet pickle relish, or to taste"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:865",
+"original_lines": [
+"2 eggs",
+"2 slices hot toast, buttered",
+"2 teaspoons vegemite"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:772",
+"original_lines": [
+"1/3 English cucumber",
+"1 sheet bread (lavash)",
+"1 tablespoon cream cheese (at room)",
+"4 fresh basil leaves",
+"3 slices turkey",
+"4 fresh spinach leaves"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:81",
+"original_lines": [
+"fudge (optional)",
+"vanilla ice cream (about 2 coups)",
+"1/4 cup milk (plus more if needed)",
+"1 graham cracker (– crushed)",
+"1/4 chocolate bar (a Milk, – chopped)",
+"1/4 cup mini marshmallows (or larger marshmallows torn into pieces)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "unknown"
+},
+"reference_reason": "Milk/ice cream are mandatory; marshmallow gelatin origin is unspecified."
+},
+{
+"case_id": "tasteset:296",
+"original_lines": [
+"3/4 cup butter",
+"2 cups brown sugar",
+"2 3/4 cups flour",
+"2 1/2 teaspoons baking powder",
+"3 eggs",
+"1 bag chocolate chips",
+"1 teaspoon vanilla"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:670",
+"original_lines": [
+"milk",
+"water",
+"1 cup flour",
+"1 teaspoon salt",
+"1 teaspoon pepper",
+"2 cups meat drippings (reserved)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:283",
+"original_lines": [
+"1 tablespoon balsamic vinegar",
+"1⁄2 tablespoon honey",
+"1⁄4 cup chicken stock",
+"1 -2 teaspoon olive oil",
+"1 garlic clove",
+"1 medium carrot, sliced into rounds",
+"fresh ground black pepper"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:594",
+"original_lines": [
+"1⁄2 cup Italian dressing",
+"1⁄2 cup soy sauce",
+"6 bone-in chicken breast halves, with skin",
+"onion powder",
+"garlic powder",
+"salt"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:660",
+"original_lines": [
+"1 ounce Kahlua",
+"1 ounce Baileys Irish Cream",
+"1⁄2 ounce Crown Royal whiskey, whisky"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:50",
+"original_lines": [
+"2 pounds flank steak",
+"1 lime",
+"3 tablespoons steak seasoning (Canadian)",
+"2 tablespoons olive oil"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:425",
+"original_lines": [
+"500 grams hamburger (lean)",
+"10 milliliters seasoning mix (Italian, Cajun, Greek, BBQ rub, Steak Spice or your favourite)",
+"25 milliliters butter (cold)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:328",
+"original_lines": [
+"2 lbs zucchini (approx 1 kg)",
+"2 shallots, thinly sliced or 1 small onion, thinly sliced and diced",
+"1 tablespoon chopped fresh parsley",
+"2 tablespoons extra virgin olive oil",
+"1 pinch salt"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:812",
+"original_lines": [
+"9 eggs",
+"1/2 cup milk",
+"1 cup shredded cheddar cheese (you could sub other cheeses like mozzarella, fresh Parm, swiss, or pepper jack)",
+"1 cup chopped ham (or cooked breakfast sausage)",
+"1/4 teaspoon pepper",
+"2 teaspoons dried parsley (crushed in your hand or 2 tablespoons fresh parsley, minced)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:587",
+"original_lines": [
+"2 ounces agave tequila, blanco",
+"1 ounce orange liqueur (Triple Sec or Cointreau)",
+"2 limes, juice of (small limes and to taste)",
+"1⁄2 lemon, juice of",
+"1 -2 tablespoon agave nectar (I like mine on the sweet side)",
+"nectarine juice or satsuma juice",
+"ice cube"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:559",
+"original_lines": [
+"2 cups water",
+"1 1⁄2 teaspoons garlic salt",
+"1 tablespoon margarine",
+"3⁄4 cup milk",
+"2 cups instant potato flakes"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:36",
+"original_lines": [
+"4 cups flour",
+"1/2 teaspoon salt",
+"1 teaspoon baking soda",
+"1 3/4 cups milk"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:850",
+"original_lines": [
+"2 tablespoons low sodium soy sauce",
+"2 teaspoons toasted sesame oil"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:836",
+"original_lines": [
+"1 cauliflower (medium)",
+"2 tablespoons olive oil",
+"1/2 cup onion (finely chopped)",
+"2 cups mixed vegetables (Green Giant™, thawed)",
+"salt",
+"pepper"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:12",
+"original_lines": [
+"5 eggs",
+"150 grams sugar (/, 5 1/3 ounces)",
+"100 grams all purpose flour (/, 3 1/2 ounces)",
+"1 teaspoon baking powder"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:172",
+"original_lines": [
+"3 tablespoons unsalted butter (divided)",
+"3 cups onion (thinly sliced, about 10 ounces)",
+"4 cups russet potatoes (peeled and thinly sliced, about 1-1/4 pounds)",
+"1 cup Dubliner cheese (shredded, 4 ounces)",
+"1/2 teaspoon kosher salt",
+"1/8 teaspoon freshly ground black pepper"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:48",
+"original_lines": [
+"3 quarts popped popcorn, remove unpopped kernels",
+"3⁄4 cup butter",
+"1⁄4 cup vegetable oil",
+"1 (16 ounce) bag miniature marshmallows",
+"1 (8 ounce) container roasted unsalted peanuts",
+"1 (16 ounce) bag M&M's plain chocolate candy (I use orange and black candy corn for Halloween and no nuts.)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "unknown"
+},
+"reference_reason": "Butter is mandatory; marshmallow/candy formulations can include animal gelatin."
+},
+{
+"case_id": "tasteset:951",
+"original_lines": [
+"10 ounces bittersweet chocolate or 10 ounces semisweet chocolate, chopped into small pieces",
+"1⁄2 - 3⁄4 1/2-3/4 cup half-and-half (or 1/2 to 3/4 cup milk plus 2 tablespoons unsalted butter) or 1/2-3/4 cup heavy cream (or 1/2 to 3/4 cup milk plus 2 tablespoons unsalted butter)",
+"1⁄2 teaspoon vanilla extract"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:119",
+"original_lines": [
+"1/2 cup coconut oil",
+"1/2 cup organic cane sugar (plus more for dusting, optional)",
+"2 tablespoons nut milk (or water)",
+"1 teaspoon vanilla",
+"1 3/4 cups gluten free baking flour (such as Bob’s Red Mill)",
+"1/4 teaspoon baking soda",
+"1/8 teaspoon salt"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:14",
+"original_lines": [
+"15 oz garbanzo beans, 1 can, drained and rinsed",
+"¼ teaspoon salt",
+"1 clove garlic",
+"½ teaspoon ground cumin",
+"½ cup basil pesto",
+"1 tablespoon lemon juice",
+"2 tablespoons water"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "suitable"
+},
+"reference_reason": "Pesto can include dairy; no meat/fish ingredient is stated."
+},
+{
+"case_id": "tasteset:926",
+"original_lines": [
+"cupcakes (CHOCOLATE)",
+"1 cup all purpose flour",
+"1 teaspoon vanilla extract"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "unknown"
+},
+"reference_reason": "Prepared chocolate cupcake composition is unspecified."
+},
+{
+"case_id": "tasteset:241",
+"original_lines": [
+"3 packages fresh basil",
+"1 cup pine nuts",
+"2 garlic cloves",
+"3/4 teaspoon lemon juice",
+"1/4 teaspoon salt",
+"1/2 cup extra virgin olive oil (separated)"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:800",
+"original_lines": [
+"6 cups pancake mix, prepared",
+"strawberry, for decoration",
+"blueberry, for decoration",
+"banana, for decoration",
+"chocolate chip, for decoration",
+"maple syrup, to top, optional"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "unknown"
+},
+"reference_reason": "Prepared pancake mix and chocolate toppings have unspecified full composition."
+},
+{
+"case_id": "tasteset:252",
+"original_lines": [
+"1 banana, peeled, cut into 2 inch chunks (fresh or frozen)",
+"1 cup blueberries (frozen or fresh)",
+"1⁄2 cup silken soft tofu (or soy yogurt) (optional)",
+"3⁄4 cup soymilk (or rice milk or almond milk, (to taste)",
+"1 tablespoon ground flax seeds",
+"1 teaspoon agave nectar, to taste (or honey or maple syrup)",
+"1⁄2 cup ice cube (optional)"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "suitable"
+},
+"reference_reason": "Agave/honey/maple alternatives differ for vegan; all named foods are vegetarian."
+},
+{
+"case_id": "tasteset:706",
+"original_lines": [
+"1 (20 ounce) box brownie mix, prepared according to package instructions (like Duncan Hines)",
+"12 aluminum foil, muffin cups",
+"1⁄2 gallon ice cream, slightly softened",
+"1 (16 ounce) chocolate cake icing or (16 ounce) frosting"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "unknown"
+},
+"reference_reason": "Ice cream is mandatory; prepared frosting/brownie composition is unspecified."
+},
+{
+"case_id": "tasteset:403",
+"original_lines": [
+"6 -8 beets",
+"1⁄3 cup vinegar",
+"1⁄4 cup sugar",
+"1⁄4 cup water",
+"1⁄2 teaspoon cinnamon",
+"1⁄4 teaspoon salt",
+"1⁄4 teaspoon ground cloves"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:471",
+"original_lines": [
+"15 ounces pitted dark cherries in juice",
+"1 teaspoon cornstarch",
+"2 tablespoons brown sugar",
+"2 tablespoons kirsch (optional) or 2 tablespoons brandy (optional)",
+"2 cups non-fat vanilla frozen yogurt"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:589",
+"original_lines": [
+"1 slice bread",
+"1 avocado",
+"2 cherry tomatoes, sliced",
+"1 egg"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:96",
+"original_lines": [
+"1 (13 lb) goose, giblets and neck discarded",
+"3 cloves garlic, thinly sliced",
+"8 gala apples or 8 golden delicious apples, peeled,each cut into 6 wedges",
+"1⁄4 cup fresh lemon juice",
+"6 tablespoons sugar",
+"1⁄4 cup calvados",
+"1 1⁄2 teaspoons ground cinnamon"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:959",
+"original_lines": [
+"1 1⁄2 cups confectioners' sugar",
+"2 tablespoons vanilla-flavored soymilk",
+"1⁄4 cup earth balance vegan butter, softened",
+"1 teaspoon vanilla extract"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:330",
+"original_lines": [
+"2 cloves garlic (minced)",
+"1/2 tablespoon Dijon mustard",
+"1 tablespoon lemon juice (or more to taste)",
+"3 tablespoons extra-virgin olive oil",
+"salt (to taste)",
+"ground black pepper (Freshly, to taste)"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:484",
+"original_lines": [
+"1/2 cup plain greek yogurt (113 g: $.87)",
+"1 teaspoon maple syrup (purple, 7 g: $.14)",
+"1/4 cup blackberries (36 g: $.42)",
+"2 large eggs (hard-boiled, 100 g: $.30)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:368",
+"original_lines": [
+"6 egg whites",
+"260 grams powdered sugar",
+"240 grams ground almonds",
+"30 grams cocoa powder",
+"200 grams caster sugar",
+"Nutella (® 400g)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:359",
+"original_lines": [
+"125 g butter",
+"1 cup sugar",
+"225 g flour",
+"50 g sultanas",
+"1 egg",
+"1 teaspoon baking powder",
+"1 teaspoon vanilla essence"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:522",
+"original_lines": [
+"2 cups unsalted butter (452 grams, 1 pound)",
+"2 cups sugar",
+"1/4 teaspoon salt",
+"2 cups chocolate chips (340 grams, 1 bag semi-sweet, or chopped chocolate)",
+"1 cup pecans (finely chopped)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:599",
+"original_lines": [
+"1 cup beaten egg",
+"1 cup plain flour",
+"1⁄2 cup milk",
+"1⁄2 cup water",
+"salt",
+"pepper",
+"1 -2 tablespoon cooking oil or 1 -2 tablespoon dripping"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "unknown"
+},
+"reference_reason": "Egg/milk mandatory; oil-or-dripping choice can introduce animal fat."
+},
+{
+"case_id": "tasteset:870",
+"original_lines": [
+"1 lb sirloin steak, cut into 1-inch (2 1/2 cm) chunks",
+"2 cups asparagus, cut into 1-inch (2 1/2 cm) pieces",
+"salt, to taste",
+"pepper, to taste",
+"3 tablespoons canola oil",
+"bamboo skewer, 6-inch (15cm)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:833",
+"original_lines": [
+"8 eggs (chilled)",
+"16 ounces bittersweet chocolate (chopped)",
+"1 cup unsalted butter (cut into small cubes)",
+"1/4 cup brewed coffee (at room temperature)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:78",
+"original_lines": [
+"1⁄2 ounce Amaretto",
+"1⁄2 ounce grenadine",
+"1⁄2 ounce melon liqueur (Midori)",
+"3 ounces orange juice",
+"3 ounces pineapple juice",
+"1⁄2 ounce Southern Comfort"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:65",
+"original_lines": [
+"2 tablespoons oil (divided)",
+"12 ounces portobello mushrooms (cut into 1/2-inch strips)",
+"1 onion (medium, cut into thin strips)",
+"1 bell pepper (medium, cut into thin strips)",
+"1/4 cup water",
+"1 package fajita seasoning mix (McCormick® Organics)",
+"8 tortillas (6-inch, warmed)"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "unknown"
+},
+"reference_reason": "Purchased tortilla and seasoning formulations are unspecified; tortillas may contain animal fat."
+},
+{
+"case_id": "tasteset:965",
+"original_lines": [
+"1 cake (Devils Food, baked)",
+"16 ounces whipped cream (Stabilized, or whipped topping)",
+"1 jar caramel sauce (or homemade [buttery caramel sauce|http://www.ashleemarie.com/buttery-caramel-sauce-recipe/})",
+"1 can sweetened condensed milk",
+"6 skor bars (/ heath bars chopped)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "unknown"
+},
+"reference_reason": "Dairy mandatory; stabilized cream and prepared cake/frosting may have animal-derived stabilizers."
+},
+{
+"case_id": "tasteset:849",
+"original_lines": [
+"18 1⁄2 ounces chocolate cake mix",
+"8 ounces sour cream",
+"1 ounce instant chocolate pudding mix",
+"1 cup chocolate chips",
+"3⁄4 cup oil",
+"4 eggs",
+"1 cup water"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:583",
+"original_lines": [
+"2 acorn squash",
+"boiling water",
+"2 apples, peeled, cored and chopped into 1/4 inch pieces",
+"1⁄2 cup dried cranberries",
+"1 teaspoon cinnamon",
+"2 tablespoons grapeseed oil (though if you can do dairy, butter works just as well)"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:233",
+"original_lines": [
+"1 1/2 cups salted butter (softened)",
+"1 cup confectioners' sugar (icing sugar or powdered sugar)",
+"3 cups all-purpose flour"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:730",
+"original_lines": [
+"1 cup long-grain jasmine rice",
+"1 1⁄4 cups water",
+"1⁄4 teaspoon salt",
+"1 teaspoon olive oil",
+"zest of half a lemon",
+"1⁄2 teaspoon lemon juice"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:605",
+"original_lines": [
+"3 slices bacon",
+"1 egg",
+"1 slice American cheese",
+"2 pieces bread",
+"garlic salt",
+"mayonnaise"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:97",
+"original_lines": [
+"1 fluid ounce heavy whipping cream (or for a little lighter you can use half and half)",
+"1 fluid ounce spiced rum (Captain Morgans is great)",
+"1⁄2 fluid ounce pumpkin spice syrup",
+"nutmeg",
+"cinnamon",
+"whipped whipping cream"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:179",
+"original_lines": [
+"1/2 cup beef broth (no-salt-added)",
+"7 garlic cloves (minced and divided in half)",
+"olive oil spray",
+"1 pound round tip steak (lean beef, sliced thin across the grain)",
+"4 green onions (chopped)",
+"2 broccoli (bundles of, chopped)",
+"1 head cauliflower (chopped)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:83",
+"original_lines": [
+"1 tablespoon butter",
+"1 pound white fish (I used frozen tilapia)",
+"12 ounces salad (jar Aldi artichoke, or other brand equivalent)",
+"1/3 cup sundried tomatoes (chopped)",
+"1 cup baby spinach (densely packed fresh, chopped)",
+"1 teaspoon crushed garlic",
+"2 tablespoons capers"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:662",
+"original_lines": [
+"2 tablespoons butter",
+"8 flour tortillas (8- inch)",
+"ketchup (or salsa for dipping)",
+"8 hot dogs",
+"1 cup shredded cheddar cheese (1/8 cup per wrap)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:410",
+"original_lines": [
+"1 cup frozen spinach (thawed and drained well.)",
+"1 jar artichoke hearts",
+"4 ounces whipped cream cheese",
+"1 1/2 cups cheese",
+"2 slices pepper jack"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:961",
+"original_lines": [
+"3 eggs or 1 egg and 6 egg white",
+"2 tablespoons low-fat milk",
+"1⁄4 teaspoon baking powder",
+"salt and pepper",
+"2 (12 inch) soft tortillas",
+"1⁄2 avocado, pitted, peeled and sliced"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:578",
+"original_lines": [
+"2 lbs pork roast",
+"1 (27 ounce) can sauerkraut, rinsed and drained",
+"1 (1 1/4 ounce) package dry onion soup mix",
+"2 cups water",
+"1⁄2 cup brown sugar"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:913",
+"original_lines": [
+"1⁄4 lb sliced bacon, cut into 1-inch pieces",
+"3 (14 1/2 ounce) cans green beans, with liquid",
+"1⁄4 yellow onion, peeled and chopped",
+"1 teaspoon granulated sugar",
+"1⁄2 teaspoon salt",
+"1⁄2 teaspoon fresh ground black pepper"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:88",
+"original_lines": [
+"1 cup rolled oats",
+"1 cup pitted date (finely chopped)",
+"1/4 cup cocoa powder (divided)",
+"1/2 cup almond butter",
+"2 teaspoons pure vanilla extract",
+"1 pinch grated nutmeg",
+"1 pinch ground cinnamon"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:216",
+"original_lines": [
+"2 frozen bananas",
+"3 scoops dairy-free vanilla ice cream",
+"2 tablespoons cocoa powder",
+"¼ cup mint leaf",
+"⅔ cup dairy-free milk",
+"¼ cup ice cube"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "suitable"
+},
+"reference_reason": "Dairy-free ice cream is not an explicit egg-free/vegan declaration; base ingredients otherwise vegetarian."
+},
+{
+"case_id": "tasteset:927",
+"original_lines": [
+"1 (10 ounce) package frozen cut broccoli in cheese sauce",
+"1 cup egg white",
+"minced shallot",
+"salt",
+"cayenne pepper",
+"butter-flavored cooking spray"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:218",
+"original_lines": [
+"6 cups fresh basil leaves",
+"1 1/2 cups extra virgin olive oil",
+"1 cup chopped walnuts",
+"1 cup cheese (grano padano, or parmigiano reggiano cheese, grated)",
+"2 cloves garlic (roughly chopped)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:598",
+"original_lines": [
+"8 tablespoons cream cheese",
+"1⁄2 cup mayonnaise (Kraft Miracle Whip is preferred)",
+"7 1⁄2 ounces canned crabmeat, drained or 7 1/2 ounces use fresh crabmeat",
+"4 tablespoons minced onions",
+"1 tablespoon fresh lemon juice",
+"1⁄8 teaspoon Tabasco sauce or 1/8 teaspoon red hot sauce"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:993",
+"original_lines": [
+"4 (1/8 ounce) packages unsweetened strawberry drink mix",
+"2 (46 fluid ounce) cans pineapple juice",
+"3 cups white sugar",
+"4 quarts water",
+"2 liters ginger ale"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "unknown"
+},
+"reference_reason": "Strawberry drink mix and ginger-ale formulations are unspecified."
+},
+{
+"case_id": "tasteset:311",
+"original_lines": [
+"1 pint grape tomatoes (I like to use both red and yellow tomatoes, you can also use cherry tomatoes)",
+"3 tablespoons extra virgin olive oil",
+"1 teaspoon kosher salt or 1 teaspoon sea salt",
+"freshly ground black pepper",
+"2 tablespoons fresh basil, chopped or 2 teaspoons dried basil"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:618",
+"original_lines": [
+"2 cups pasta, cooked al dente",
+"¾ cup onion, chopped",
+"1 cup marinara sauce",
+"⅓ cup fresh basil, chopped",
+"1 teaspoon salt",
+"1 teaspoon pepper",
+"mozzarella cheese, optional"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "suitable"
+},
+"reference_reason": "Mozzarella is optional; pasta can include egg. No meat/fish ingredient stated."
+},
+{
+"case_id": "tasteset:918",
+"original_lines": [
+"6 boneless chicken breasts",
+"1 large onion, chopped",
+"1⁄4 lb shredded cheddar cheese",
+"1 (10 1/2 ounce) can undiluted cheddar cheese soup",
+"1 1⁄4 teaspoons chili powder",
+"1 (10 1/2 ounce) can undiluted cream of chicken soup",
+"2 (14 1/2 ounce) cans Rotel Tomatoes"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:222",
+"original_lines": [
+"1 unbaked canned biscuit",
+"2 tablespoons marinara sauce",
+"1 pinch of garlic powder",
+"2 pinches dried basil, divided",
+"2 tablespoons shredded mozzarella cheese",
+"8 mini pepperonis"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "not_suitable"
+},
+"reference_reason": "Source contains mandatory meat, fish, shellfish or meat-derived stock/drippings. This overrides uncertainty in other ingredients; all listed animal alternatives still block."
+},
+{
+"case_id": "tasteset:266",
+"original_lines": [
+"2 slices focaccia (Italian, or ciabatta bread, sliced)",
+"1 tablespoon mayonnaise",
+"4 leaves fresh basil",
+"salt",
+"pepper",
+"1/3 cup shredded Italian cheese (or 3 thin slices fresh mozzarella cheese)",
+"1 tablespoon butter"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:137",
+"original_lines": [
+"3 cups frozen blackberries (or peaches or canned apple pie filling, etc.)",
+"1 cup all-purpose flour",
+"1 cup sugar",
+"1 egg",
+"3/4 cup butter (melted)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:339",
+"original_lines": [
+"10 cups apples (cored and chopped)",
+"3/4 cup dark brown sugar",
+"1 tablespoon cinnamon"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+},
+{
+"case_id": "tasteset:349",
+"original_lines": [
+"1 avocado (finely chopped Whole Foods — 5 ea For $5.00 thru 02/09)",
+"3/4 cup canned black beans (rinsed)",
+"1/2 cup frozen corn (thawed)",
+"1/2 cup TACO BELL Thick & Chunky Mild Salsa",
+"1 pound sweet mini peppers (assorted, cut lengthwise in half, seeded)",
+"1 cup KRAFT Mexican Style Finely Shredded Four Cheese",
+"2 tablespoons chopped fresh cilantro"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:223",
+"original_lines": [
+"15 Oreo cookies",
+"1 tablespoon milk",
+"8 -9 ice cream sandwiches, depending on size",
+"1 pint mint chocolate chip ice cream",
+"1 pint vanilla frozen yogurt",
+"1 pint strawberry ice cream or 1 pint frozen yogurt",
+"1 (8 ounce) container frozen whipped topping, thawed"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:687",
+"original_lines": [
+"spinach (Wrap, or wrap of your choice)",
+"hummus (I used traditional, but any flavor will do)",
+"cucumber (diced)",
+"red pepper (diced)",
+"shredded carrots",
+"tomato (diced)",
+"lettuce (shredded)"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "suitable"
+},
+"reference_reason": "Wrap and hummus flavour formulations are unspecified for vegan; named dish is vegetarian."
+},
+{
+"case_id": "tasteset:699",
+"original_lines": [
+"14 ounces artichoke hearts (drained and chopped)",
+"10 ounces frozen spinach (chopped, thawed and drained)",
+"1 cup mayonnaise",
+"1 cup grated Parmesan cheese",
+"2 1/2 cups shredded Monterey Jack cheese"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:989",
+"original_lines": [
+"4 eggs (beaten)",
+"3 tablespoons dashi soup stock",
+"2 tablespoons sugar (adjust the sweetness to your taste but watch for burning.)"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "unknown"
+},
+"reference_reason": "Egg mandatory; dashi can be fish-based or plant-based."
+},
+{
+"case_id": "tasteset:34",
+"original_lines": [
+"2 ounces unsweetened baking chocolate",
+"14 ounces sweetened condensed milk",
+"4 cups water",
+"1 teaspoon vanilla"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:307",
+"original_lines": [
+"12 large strawberries",
+"2 cups champagne",
+"8 oz white chocolate",
+"½ teaspoon canola oil",
+"gold luster dust, for decorating",
+"gold sprinkle, for decorating",
+"12 miniature culinary pipettes"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "unknown"
+},
+"reference_reason": "White chocolate is dairy; colour/decorating formulations are unspecified."
+},
+{
+"case_id": "tasteset:940",
+"original_lines": [
+"Wilton candy melts (in Red, White and Royal Blue)",
+"OREO® Cookies",
+"4 lollipop (Sticks)",
+"sprinkles (Assorted, I used small stars, large stars and patriotic nonpareils)"
+],
+"expected": {
+"vegan": "unknown",
+"vegetarian": "unknown"
+},
+"reference_reason": "Candy melts, cookies and sprinkles have unspecified colour/dairy/gelatin formulation."
+},
+{
+"case_id": "tasteset:862",
+"original_lines": [
+"2 small bananas",
+"1 cup frozen strawberries",
+"1 (8 ounce) container low-fat vanilla yogurt",
+"3⁄4 cup 2% low-fat milk"
+],
+"expected": {
+"vegan": "not_suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source contains mandatory dairy/egg/honey, which block vegan and are allowed by the named-ingredient vegetarian policy; no explicit meat/fish/animal gelatin/animal rennet. Unstated processing aids are not certified."
+},
+{
+"case_id": "tasteset:199",
+"original_lines": [
+"2 tablespoons mint (finely chopped)",
+"1 passion fruit",
+"8 tablespoons jicama (chopped)",
+"4 tablespoons sugar",
+"6 avocados (ripe)",
+"1 tablespoon sweetened coconut (grated)",
+"1 pomegranate"
+],
+"expected": {
+"vegan": "suitable",
+"vegetarian": "suitable"
+},
+"reference_reason": "Source lists named plant/mineral foods or explicitly vegan alternatives; no mandatory animal ingredient. Processing aids and cross-contact are outside this named-composition policy. The butter aside in case 65 describes a variant, not the specified grapeseed oil."
+}
+]

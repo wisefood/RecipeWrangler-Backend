@@ -1,0 +1,1301 @@
+recipe_id,split,title,source,link,csv_line,primary_allergens,broad_allergens,quality_flags
+1435832,pilot,Hand-Cut Spaetzle,Gathered,www.myrecipes.com/recipe/hand-cut-spaetzle,19076,celery; eggs; gluten; milk,celery; eggs; gluten; milk,
+1246917,pilot,Taco Stroganoff,Gathered,www.food.com/recipe/taco-stroganoff-255665,14478,eggs; gluten; milk,eggs; gluten; milk,
+587981,pilot,Champagne Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1029207,38902,gluten; milk; sulphites,gluten; milk,primary_not_subset_of_all_possible
+960864,pilot,Cracker Cookies - Also Known As Pms Cookies,Gathered,www.food.com/recipe/cracker-cookies-also-known-as-pms-cookies-455793,6710,gluten; milk; peanuts,gluten; milk; peanuts,
+1026478,pilot,Mexican Beef Spaghetti Pie,Gathered,www.food.com/recipe/mexican-beef-spaghetti-pie-11693,8526,eggs; gluten; milk,eggs; gluten; milk,
+1536494,pilot,Orange-Glazed Chicken,Gathered,www.tasteofhome.com/recipes/orange-glazed-chicken/,49286,gluten,gluten,
+1212246,pilot,Spicy Idaho Potato And Chicken Croquettes,Gathered,www.food.com/recipe/spicy-idaho-potato-and-chicken-croquettes-274095,13553,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+1975910,pilot,Cheddar Salsa Biscuit Bites,Recipes1M,www.food.com/recipe/cheddar-salsa-biscuit-bites-158748,29341,gluten; milk,gluten; milk,
+2206256,pilot,Noodle Cake,Recipes1M,www.foodnetwork.com/recipes/noodle-cake-recipe.html,55394,eggs; gluten; milk,eggs; gluten; milk,
+1843911,pilot,Snail Strudel,Recipes1M,cooking.nytimes.com/recipes/10107,26845,gluten; milk; molluscs; sulphites,gluten; milk,primary_not_subset_of_all_possible
+85343,pilot,Swedish Pudding,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=536429,449,eggs; gluten; milk,eggs; gluten; milk,
+1553207,pilot,Tempeh Reuben,Gathered,tastykitchen.com/recipes/breads/tempeh-reuben/,49418,gluten; soy,gluten; mustard; soy,
+1057258,pilot,Lamb Tikka,Gathered,www.food.com/recipe/lamb-tikka-354458,9380,milk,milk,
+2179325,pilot,Pumpkin Bread Pudding with Rum Sauce,Recipes1M,www.foodnetwork.com/recipes/pumpkin-bread-pudding-with-rum-sauce-recipe.html,33116,eggs; gluten; milk,eggs; gluten; milk,
+1183237,pilot,Persian Spiced Baklava Rolls With Orange Blossom Syrup,Gathered,www.food.com/recipe/persian-spiced-baklava-rolls-with-orange-blossom-syrup-450944,12773,gluten; milk; tree_nuts,gluten; milk; tree_nuts,
+1110150,pilot,Paneer Tawa Masala,Gathered,www.food.com/recipe/paneer-tawa-masala-302545,10816,milk,milk,
+1813762,pilot,Ahi Tuna,Recipes1M,www.foodnetwork.com/recipes/ahi-tuna-recipe.html,51672,fish; gluten; soy,fish; soy,primary_not_subset_of_all_possible
+1263966,pilot,Turkey Breast And Feta Pizza,Gathered,recipes-plus.com/api/v2.0/recipes/17375,14947,gluten; milk,gluten; milk,
+1998454,pilot,Lobster Risotto,Recipes1M,cooking.nytimes.com/recipes/4602,53425,crustaceans; fish; sulphites,crustaceans; fish; milk; sulphites,
+389752,pilot,White Lasagne,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=985539,37459,celery; eggs; gluten; milk; sulphites,celery; eggs; gluten; milk; sulphites,
+2014390,pilot,Tunisian Eggplant Omelet,Recipes1M,www.food.com/recipe/tunisian-eggplant-omelet-503212,30020,eggs; milk,eggs; milk,
+1093362,pilot,Lattice Coffee Cake,Gathered,www.food.com/recipe/bread-machine-lattice-coffee-cake-93117,10368,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+1947435,pilot,Strawberry Yogurt Dip,Recipes1M,www.food.com/recipe/strawberry-yogurt-dip-25595,52932,milk,milk,
+350605,pilot,Grilled Pepperoni Pizza Sandwich,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=674879,1889,gluten; milk,gluten; milk,
+940440,pilot,High Protein Bread,Gathered,www.allrecipes.com/recipe/22963/high-protein-bread/,41553,gluten; soy,gluten; soy,
+1454600,pilot,Toasted Coconut Rice,Gathered,www.myrecipes.com/recipe/toasted-coconut-rice,48486,milk,milk,
+1178408,pilot,Chicken Salad With Sage Biscuits,Gathered,www.food.com/recipe/chicken-salad-with-sage-biscuits-293088,12652,celery; eggs; gluten; milk,celery; eggs; gluten; milk,
+990219,pilot,Indonesian Beef Curry With Coconut Rice,Gathered,www.food.com/recipe/indonesian-beef-curry-with-coconut-rice-331636,7513,,,
+990636,pilot,Chicken Satay With Almond Sauce,Gathered,www.food.com/recipe/chicken-satay-with-almond-sauce-493160,7525,sesame; soy; sulphites; tree_nuts,milk; sesame; soy; sulphites; tree_nuts,
+1272,pilot,Baked Fish Fillets,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=767171,34031,fish; gluten; milk,fish; gluten; milk,
+1183153,pilot,Fresh Bruschetta,Gathered,www.food.com/recipe/fresh-bruschetta-280462,12771,gluten; milk,gluten; milk,
+1206597,pilot,Turkey Burger,Gathered,www.food.com/recipe/turkey-burger-206367,44861,eggs,eggs,
+986599,pilot,Lemon Hummus With Pine Nuts,Gathered,www.food.com/recipe/lemon-hummus-with-pine-nuts-403579,7413,,tree_nuts,
+21465,pilot,Margisi Kofta,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=751310,109,eggs; gluten,eggs; gluten,
+929612,pilot,Pie For Breakfast Shake,Gathered,www.allrecipes.com/recipe/235558/pie-for-breakfast-shake/,5794,milk; tree_nuts,milk; tree_nuts,
+1235767,pilot,Korean Sauerkraut - Kimchi,Gathered,www.food.com/recipe/korean-sauerkraut-kimchi-406267,14196,milk,milk,
+731953,pilot,Texas Crab Grass,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=695490,39889,crustaceans; milk,crustaceans; milk,
+1415942,pilot,Grilled Buttermilk Chicken,Gathered,www.myrecipes.com/recipe/grilled-buttermilk-chicken,47903,milk,milk,
+1876006,pilot,Crispy Potato Chicken,Recipes1M,www.food.com/recipe/crispy-potato-chicken-259506,52251,mustard,mustard,
+230888,pilot,Taco Meatballs,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=626060,36217,eggs,eggs,
+2114456,pilot,Gujarati Paneer Korma,Recipes1M,www.kraftrecipes.com/recipes/gujarati-paneer-korma-127881.aspx,31910,milk; peanuts,milk; peanuts,
+1418567,pilot,White Bean Bruschetta,Gathered,www.myrecipes.com/recipe/white-bean-bruschetta-0,47948,gluten,gluten,
+1590786,pilot,Zesty Taco Soup,Gathered,tastykitchen.com/recipes/soups/zesty-taco-soup/,21793,milk,,primary_not_subset_of_all_possible
+1987660,pilot,Chicken Chow Mein With Vegetables,Recipes1M,cookpad.com/us/recipes/347828-chicken-chow-mein-with-vegetables-%F0%9F%8D%9C,29551,gluten; milk; soy,gluten; milk; soy,
+2018580,pilot,Khoresht-e Sib,Recipes1M,www.epicurious.com/recipes/food/views/khoresht-e-sib-373537,30098,milk,milk,
+1553469,pilot,Taco Salad With Catalina Dressing,Gathered,tastykitchen.com/recipes/salads/taco-salad-with-catalina-dressing/,49421,milk,milk,
+1110811,pilot,Polish Cheesecake,Gathered,www.food.com/recipe/polish-cheesecake-8122,43657,eggs; gluten; milk,eggs; gluten; milk,
+1441273,pilot,Veggie Sandwich With Roasted Garlic-Shallot Spread,Gathered,www.myrecipes.com/recipe/veggie-sandwich-with-roasted-garlic-shallot-spread,19182,gluten,gluten,
+1716031,pilot,Fruity Tofu Parfait with Granola,Recipes1M,allrecipes.com/recipe/fruity-tofu-parfait-with-granola/,24530,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+1113372,pilot,Pesto Bread,Gathered,www.food.com/recipe/pesto-bread-291443,43694,gluten; milk,gluten; milk; tree_nuts,
+208584,pilot,Baked Spaghetti,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=983584,36014,gluten; milk,gluten; milk,
+1220288,pilot,Mexican Gumbo,Gathered,www.food.com/recipe/mexican-gumbo-289189,45030,,,
+1459091,pilot,Chipotle Chicken,Gathered,www.myrecipes.com/recipe/chipotle-chicken,48559,,,
+1249364,pilot,Whiting Tempura,Gathered,recipes-plus.com/api/v2.0/recipes/35589,14549,eggs; fish; gluten; soy,eggs; gluten; soy,primary_not_subset_of_all_possible
+1493087,pilot,Three-Cheese Rice Lasagna,Gathered,www.tasteofhome.com/recipes/three-cheese-rice-lasagna/,20060,eggs; milk,eggs; gluten; milk,
+284566,pilot,Swiss Steak Supreme,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=949799,36643,celery; gluten; milk,celery; gluten; milk,
+1330132,pilot,Sichuan Salt ,Gathered,www.epicurious.com/recipes/food/views/sichuan-salt-51241850,16287,,,
+1295827,pilot,My Spanakopita ,Gathered,www.epicurious.com/recipes/member/views/my-spanakopita-52550401,15619,eggs; milk,eggs; gluten; milk; tree_nuts,
+1414327,pilot,Thai Chicken Noodle Bowls,Gathered,www.myrecipes.com/recipe/thai-chicken-noodle-bowls,18595,fish; gluten; peanuts; soy; sulphites,fish; peanuts; soy; sulphites,primary_not_subset_of_all_possible
+1528114,pilot,Chutney Chicken Spread,Gathered,www.tasteofhome.com/recipes/chutney-chicken-spread/,49206,eggs; gluten; milk,eggs; gluten; milk,
+972423,pilot,Urap Malaysian Salad With Kaffir Lime Dressing,Gathered,www.food.com/recipe/urap-malaysian-salad-with-kaffir-lime-dressing-524568,41973,,,
+2138134,pilot,Thai Tofu Stew,Recipes1M,www.vegetariantimes.com/recipe/thai-tofu-stew/,32348,soy,soy,
+902902,pilot,Teriyaki Rib Eye Steaks,Gathered,www.allrecipes.com/recipe/107586/teriyaki-rib-eye-steaks/,5051,fish; gluten; soy,fish; soy,primary_not_subset_of_all_possible
+1890041,pilot,Zucchini and Olive Pizza,Recipes1M,www.epicurious.com/recipes/food/views/zucchini-and-olive-pizza-386850,27714,gluten; milk,gluten; milk,
+1251213,pilot,Indonesian Chicken Soup,Gathered,recipes-plus.com/api/v2.0/recipes/24203,45429,gluten; peanuts; soy,peanuts,primary_not_subset_of_all_possible
+969921,pilot,Bbq Chicken With Sesame-Chili Sauce,Gathered,www.food.com/recipe/bbq-chicken-with-sesame-chili-sauce-89240,6967,gluten; sesame; soy,gluten; sesame; soy,
+1128365,pilot,African Dessert,Gathered,www.food.com/recipe/african-dessert-173242,11311,milk,milk,
+277255,pilot,Jamaican Cook Up,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=362898,1475,crustaceans; milk,crustaceans; milk,
+1323753,pilot,Good Morning Breakfast Casserole ,Gathered,www.epicurious.com/recipes/member/views/good-morning-breakfast-casserole-53005681,46867,eggs; gluten; milk,eggs; gluten; milk,
+1349044,pilot,Larson Lasagne ,Gathered,www.epicurious.com/recipes/member/views/larson-lasagne-1200100,16666,celery; eggs; gluten; milk,celery; eggs; gluten; milk,
+1122547,pilot,Nigerian Groundnut Stew,Gathered,www.food.com/recipe/nigerian-groundnut-stew-171970,11150,peanuts,peanuts,
+1502248,pilot,Cheesy Skillet Pizza Dip,Gathered,www.tasteofhome.com/recipes/cheesy-skillet-pizza-dip/,20243,eggs; gluten; milk,eggs; gluten; milk,
+2206449,pilot,Veggie Burger Pockets,Recipes1M,www.foodnetwork.com/recipes/food-network-kitchens/veggie-burger-pockets-recipe.html,33570,eggs; gluten; milk,eggs; gluten; milk,
+1577392,pilot,Honey Oat Bread,Gathered,tastykitchen.com/recipes/breads/honey-oat-bread/,49563,eggs; gluten,eggs; gluten,
+2076724,pilot,Chicken and Green Chile Cornbread Casserole,Recipes1M,tastykitchen.com/recipes/main-courses/chicken-and-green-chile-cornbread-casserole/,31175,eggs; gluten; milk,eggs; gluten; milk,
+932199,pilot,Chicken Chow Mein Salad,Gathered,www.allrecipes.com/recipe/244608/chicken-chow-mein-salad/,5877,celery; sulphites; tree_nuts,celery; sulphites; tree_nuts,
+1834333,pilot,Nasi Goreng With Chicken,Recipes1M,online-cookbook.com/goto/cook/rpage/000A8F,51878,gluten; soy,soy,primary_not_subset_of_all_possible
+704923,pilot,Chili Salsa Dip,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=765681,3854,celery; fish,celery; fish,
+1519881,pilot,Ham And Sausage Breakfast Pizza,Gathered,www.tasteofhome.com/recipes/ham-and-sausage-breakfast-pizza/,20666,eggs; gluten; milk,eggs; gluten; milk,
+1634295,pilot,Palestinian Chicken Wraps,Gathered,www.yummly.com/recipe/Palestinian-Chicken-Wraps-1668813,23007,gluten,gluten; tree_nuts,
+1545136,pilot,Turkish Poached Pumpkin Dessert,Gathered,tastykitchen.com/recipes/desserts/turkish-poached-pumpkin-dessert/,21150,tree_nuts,tree_nuts,
+1618353,pilot,Celery Schnitzel,Gathered,www.yummly.com/recipe/Celery-Schnitzel-1192286,22583,celery; milk,celery; milk,
+1430669,pilot,Tofu Pita With Peanut Sauce,Gathered,www.myrecipes.com/recipe/tofu-pita-with-peanut-sauce,18969,gluten; peanuts; sesame; soy,peanuts; sesame; soy,primary_not_subset_of_all_possible
+1511687,pilot,Avocado Gyro Burgers,Gathered,www.tasteofhome.com/recipes/avocado-gyro-burgers/,20451,gluten; milk; sulphites,milk; sulphites,primary_not_subset_of_all_possible
+988509,pilot,Swiss Cream,Gathered,www.food.com/recipe/swiss-cream-128199,7465,milk,milk,
+90956,pilot,Finger Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=676862,34936,eggs; gluten; milk,eggs; gluten; milk,
+1917571,pilot,Bengali Garam Marsala,Recipes1M,recipeland.com/recipe/v/bengali-garam-marsala-5109,28251,,,
+1799916,pilot,Bagel Souffle,Recipes1M,www.vegetariantimes.com/recipe/bagel-souffle/,26057,eggs; gluten; milk; soy,eggs; milk; soy,primary_not_subset_of_all_possible
+548311,pilot,Silver Tea Cookies,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=537891,3004,eggs; gluten; tree_nuts,eggs; gluten; tree_nuts,
+1862092,pilot,Bruschetta Breakfast Pizza,Recipes1M,www.landolakes.com/recipe/3134/bruschetta-breakfast-pizza,27197,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1349142,pilot,Cider Chicken Stew ,Gathered,www.epicurious.com/recipes/member/views/cider-chicken-stew-50156748,16670,celery; gluten; milk; sulphites,celery; gluten; milk,primary_not_subset_of_all_possible
+1146213,pilot,Carrot Lasagne,Gathered,www.food.com/recipe/carrot-lasagne-196009,11764,eggs; gluten; milk,eggs; gluten; milk,
+616282,pilot,Coffee Can Pumpkin Bread,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=132815,39111,eggs; gluten; tree_nuts,eggs; gluten,primary_not_subset_of_all_possible
+399586,pilot,French Crumb Cake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=194198,2170,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+397116,pilot,Parmesan Oven-Fried Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=582426,37507,gluten; milk,gluten; milk,
+1903362,pilot,Breakfast Grilled Cheese & Links,Recipes1M,www.kraftrecipes.com/recipes/breakfast-grilled-cheese-links-58721.aspx,52513,gluten; milk; soy,gluten; milk,primary_not_subset_of_all_possible
+1499786,pilot,Danish Christmas Cake,Gathered,www.tasteofhome.com/recipes/danish-christmas-cake/,20189,eggs; gluten; milk,gluten; milk,primary_not_subset_of_all_possible
+1444506,pilot,Shrimp Burger,Gathered,www.myrecipes.com/recipe/shrimp-burger,48331,crustaceans; eggs; gluten; milk,crustaceans; eggs; gluten; milk,
+2214492,pilot,Creamy Tuna Deluxe,Recipes1M,www.food.com/recipe/creamy-tuna-deluxe-244712,55472,celery; fish; gluten; milk,celery; fish; gluten; milk,
+1277470,pilot,Marinara Sauce,Gathered,www.epicurious.com/recipes/member/views/basic-marinara-sauce-51172291,46004,sulphites,sulphites,
+1526736,random_test,Spareribs Cantonese,Gathered,www.tasteofhome.com/recipes/spareribs-cantonese/,20803,gluten; soy,soy,primary_not_subset_of_all_possible
+1800849,random_test,Portuguese rice,Recipes1M,cookpad.com/us/recipes/359692-portuguese-rice,51549,,,
+996137,random_test,Vegetarian Mushroom Soup,Gathered,www.food.com/recipe/vegetarian-mushroom-soup-371002,42243,gluten; milk,gluten; milk,
+1864321,random_test,Red Pepper Quiche,Recipes1M,www.food.com/recipe/red-pepper-quiche-457906,27255,eggs; milk,eggs; milk,
+950140,random_test,Fajita Chili With Knorr Rice Sides,Gathered,www.allrecipes.com/recipe/246351/fajita-chili-with-knorr-rice-sides/,6408,milk,milk,
+1829611,random_test,Peachy Pecan Bread,Recipes1M,www.food.com/recipe/peachy-pecan-bread-166271,51832,eggs; gluten; tree_nuts,eggs; gluten; tree_nuts,
+2047364,random_test,Indian Spice Mix,Recipes1M,cookpad.com/us/recipes/348892-indian-spice-mix,53899,gluten,gluten,
+555103,random_test,Creamsicle Punch,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=412505,38662,eggs; milk,eggs; milk,
+836895,random_test,Salmon-Noodle Bake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=723282,4556,eggs; gluten; milk; mustard,eggs; gluten; milk; mustard,
+186820,random_test,Hearty Beef-Macaroni Soup,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=353393,990,celery; gluten,celery; gluten,
+320374,random_test,Broccoli Tortellini Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=863942,36912,eggs; gluten; milk; sulphites,gluten; milk,primary_not_subset_of_all_possible
+229674,random_test,Croissant Sandwich,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=77918,1211,gluten; milk,gluten; milk,
+1243113,random_test,Gorkhali Stuffed Naan,Gathered,www.food.com/recipe/gorkhali-stuffed-naan-87677,14379,gluten; milk,gluten; milk,
+1153661,random_test,Shrimp And Chicken Over Pasta,Gathered,www.food.com/recipe/shrimp-and-chicken-over-pasta-146018,11964,crustaceans; gluten,crustaceans; gluten,
+240336,random_test,Mini Fruit Pizza,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=30543,36281,eggs; gluten; milk,eggs; gluten; milk,
+1164979,random_test,Cyprus - Souvlakia - Pork Kebab,Gathered,www.food.com/recipe/cyprus-souvlakia-pork-kebab-202472,12288,gluten,gluten,
+2063656,random_test,Mango Bread With Nuts and Coconut,Recipes1M,www.food.com/recipe/mango-bread-with-nuts-and-coconut-435145,30928,eggs; gluten; milk; sulphites; tree_nuts,eggs; gluten; milk; sulphites; tree_nuts,
+1202391,random_test,Kudzu Rice Quiche,Gathered,www.food.com/recipe/kudzu-rice-quiche-94289,13295,eggs; milk,eggs; milk,
+1361142,random_test,Vegan Mozarella ,Gathered,www.epicurious.com/recipes/member/views/vegan-mozarella-5d0a8b7aa0c6e301c8f5996e,16914,sulphites,sulphites,
+807404,random_test,Teriyaki Winger Dingers,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=603801,4396,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+2126759,random_test,Veggie-rific Noodle-Free Lasagna,Recipes1M,www.foodnetwork.com/recipes/veggie-rific-noodle-free-lasagna-recipe.html,54633,eggs; milk; soy,milk; soy,primary_not_subset_of_all_possible
+1415742,random_test,Roast Chicken With Citrus Wild Rice,Gathered,www.myrecipes.com/recipe/roast-chicken-with-citrus-wild-rice,18635,,,
+1394952,random_test,Curried Leek & Chickpea Soup,Gathered,food52.com/recipes/20336-curried-leek-chickpea-soup,17979,,,
+1239969,random_test,Keema Paratha,Gathered,www.food.com/recipe/keema-paratha-261669,14306,gluten,gluten,
+1841978,random_test,Saag Tofu,Recipes1M,www.food.com/recipe/saag-tofu-299253,26817,milk; soy,milk; soy,
+1164987,random_test,Spicy Veggie Dip,Gathered,www.food.com/recipe/spicy-veggie-dip-536691,12290,milk,milk,
+1230173,random_test,Crab Stuffed Mushroom Caps,Gathered,www.food.com/recipe/crab-stuffed-mushroom-caps-216134,45154,crustaceans; eggs; gluten; milk,crustaceans; eggs; gluten; milk,
+1427269,random_test,Fruited Mint Tea,Gathered,www.myrecipes.com/recipe/fruited-mint-tea,48083,,,
+1817275,random_test,Indian Lentils,Recipes1M,www.food.com/recipe/indian-lentils-418944,51706,,,
+1042543,random_test,Peruvian Rice,Gathered,www.food.com/recipe/peruvian-rice-310204,8984,,,
+1943095,random_test,West Indian Shrimp,Recipes1M,recipeland.com/recipe/v/west-indian-shrimp-36512,28744,crustaceans; milk,crustaceans; milk,
+1017350,random_test,Austrian Coffee Cake,Gathered,www.food.com/recipe/austrian-coffee-cake-174390,8254,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+917214,random_test,Tex-Mex Tilapia,Gathered,www.allrecipes.com/recipe/143298/tex-mex-tilapia/,5407,fish,fish,
+1534201,random_test,Overnight Cherry Danish,Gathered,www.tasteofhome.com/recipes/overnight-cherry-danish/,20955,eggs; gluten; milk,eggs; gluten; milk,
+1280987,random_test,Sweet Potato Pancakes With Salsa Dip ,Gathered,www.epicurious.com/recipes/food/views/sweet-potato-pancakes-with-salsa-dip-233362,15325,eggs; gluten; milk,eggs; gluten; milk,
+295560,random_test,Pizza Strata,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=523806,36732,eggs; gluten; milk,eggs; gluten; milk,
+1216031,random_test,Lithuanian Coffee Cake,Gathered,www.food.com/recipe/lithuanian-coffee-cake-513847,13651,eggs; gluten; milk; sulphites; tree_nuts,eggs; gluten; milk; soy; sulphites; tree_nuts,
+574526,random_test,Vegetable Hot Dish,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=988108,38805,gluten; milk,gluten; milk,
+1037955,random_test,Teriyaki Salmon Burger,Gathered,www.food.com/recipe/teriyaki-salmon-burger-281045,42753,eggs; fish; gluten; soy,eggs; fish; gluten; soy,
+1112713,random_test,Pakistani Chili,Gathered,www.food.com/recipe/pakistani-chili-44178,10881,,,
+1022840,random_test,Provencal Terrine,Gathered,www.food.com/recipe/provencal-terrine-219996,8409,sulphites,sulphites,
+1338092,random_test,Classic Cabbage Kimchi ,Gathered,www.epicurious.com/recipes/food/views/classic-cabbage-kimchi-56389571,16452,crustaceans; fish,crustaceans; fish,
+1213709,random_test,Eggplant & Feta Flat Bread Pizza,Gathered,www.food.com/recipe/eggplant-feta-flat-bread-pizza-287599,13581,gluten; milk,gluten; milk,
+1864784,random_test,Shredded Adobo Roasted Pork Sandwiches,Recipes1M,www.food.com/recipe/shredded-adobo-roasted-pork-sandwiches-152570,27261,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1327204,random_test,Pizza White Sauce ,Gathered,www.epicurious.com/recipes/member/views/pizza-white-sauce-51728401,16223,gluten; milk,milk,primary_not_subset_of_all_possible
+953532,random_test,Applesauce Spice Cake,Gathered,www.allrecipes.com/recipe/15497/applesauce-spice-cake/,41747,eggs; gluten; sulphites; tree_nuts,eggs; gluten; sulphites; tree_nuts,
+1668943,random_test,Beef Satay with Chinese Spices and Cucumber Relish,Recipes1M,www.foodandwine.com/recipes/beef-satay-with-chinese-spices-and-cucumber-relish,23721,gluten; peanuts; sesame; soy; sulphites,peanuts; sesame; soy; sulphites,primary_not_subset_of_all_possible
+1276869,random_test,Savory Quiche ,Gathered,www.epicurious.com/recipes/member/views/savory-quiche-1216408,15230,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+548030,random_test,Hearty Ham And Waffle Sandwich,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=22896,3000,eggs; gluten; milk,milk,primary_not_subset_of_all_possible
+597200,random_test,Taco Spread,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1061764,38971,milk,milk,
+1123647,random_test,Sicilian Steak,Gathered,www.food.com/recipe/sicilian-steak-112768,43824,eggs; gluten; milk,eggs; gluten; milk,
+584081,random_test,Chinese Oriental Pea Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=724252,3196,celery; eggs; gluten; milk; tree_nuts,celery; eggs; gluten; milk; tree_nuts,
+1999037,random_test,Chimichurri Rojo,Recipes1M,www.epicurious.com/recipes/food/views/chimichurri-rojo-107673,29748,sulphites,sulphites,
+968496,random_test,Toasted Coconut Bread,Gathered,www.food.com/recipe/toasted-coconut-bread-37652,41927,eggs; gluten; milk,eggs; gluten; milk,
+1714126,random_test,Curried Shrimp And Macaroni Salad,Recipes1M,recipeland.com/recipe/v/curried-shrimp-macaroni-salad-2164,24489,crustaceans; eggs; gluten,crustaceans; eggs; gluten,
+1695192,random_test,Pizza Dough/Rolls,Recipes1M,www.food.com/recipe/pizza-dough-rolls-391072,24162,gluten,gluten,
+1138759,random_test,Savory Ham-And-Swiss Breakfast Pie,Gathered,www.food.com/recipe/savory-ham-and-swiss-breakfast-pie-280820,11584,eggs; milk,eggs; milk,
+1047659,random_test,North African Chicken Noodle Soup,Gathered,www.food.com/recipe/north-african-chicken-noodle-soup-184336,9129,eggs; gluten; sulphites,eggs; gluten; sulphites,
+884088,random_test,Cold Senegalese Soup,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=620904,4790,gluten; milk,gluten; milk,
+1231141,random_test,Date Chocolate Chip Cake,Gathered,www.food.com/recipe/date-chocolate-chip-cake-246574,45161,eggs; gluten; milk; tree_nuts,eggs; gluten; tree_nuts,primary_not_subset_of_all_possible
+1936165,random_test,Every Herb Pesto,Recipes1M,www.foodnetwork.com/recipes/every-herb-pesto.html,28615,milk; tree_nuts,milk; tree_nuts,
+1687080,random_test,Tabbouleh Primavera,Recipes1M,www.vegetariantimes.com/recipe/tabbouleh-primavera-3/,50468,gluten,gluten,
+1110139,random_test,Vegan Sticky Buns,Gathered,www.food.com/recipe/vegan-sticky-buns-537386,10815,gluten; tree_nuts,gluten; tree_nuts,
+475364,random_test,Mexican Dipper,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=850266,38097,milk,milk,
+1472667,random_test,Salmon With Moroccan Tomato Relish,Gathered,www.myrecipes.com/recipe/salmon-with-moroccan-tomato-relish,19877,fish; sulphites,fish,primary_not_subset_of_all_possible
+2202511,random_test,Salmon Pasta Salad with Spinach Pesto,Recipes1M,www.food.com/recipe/salmon-pasta-salad-with-spinach-pesto-57191,33514,fish; gluten,fish; gluten,
+1230714,random_test,Szechuan Garlic Chicken,Gathered,www.food.com/recipe/szechuan-garlic-chicken-276796,14039,eggs; gluten; sesame; soy; sulphites,eggs; sesame; soy; sulphites,primary_not_subset_of_all_possible
+1976297,random_test,Hungarian Tarts,Recipes1M,recipeland.com/recipe/v/hungarian-tarts-34951,29346,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+1089106,random_test,Bacon Egg And Cheese Breakfast Pizza,Gathered,www.food.com/recipe/bacon-egg-and-cheese-breakfast-pizza-424752,10242,eggs; gluten; milk,eggs; gluten; milk,
+308583,random_test,Bavarian Pudding,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=325917,1660,eggs; gluten; milk,milk,primary_not_subset_of_all_possible
+1202718,random_test,Indian Samosa Wraps,Gathered,www.food.com/recipe/indian-samosa-wraps-497801,44820,gluten,gluten,
+1975313,random_test,Refreshing Chinese-style Eggplant Salad,Recipes1M,cookpad.com/us/recipes/170097-refreshing-chinese-style-eggplant-salad,29333,gluten; sesame; soy; sulphites,sesame; soy; sulphites,primary_not_subset_of_all_possible
+1853048,random_test,Pizza Bites,Recipes1M,www.food.com/recipe/pizza-bites-43173,52056,gluten; milk,milk; tree_nuts,primary_not_subset_of_all_possible
+1317080,random_test,Hot Crab Dip With Crisp Pita Wedges ,Gathered,www.epicurious.com/recipes/member/views/hot-crab-dip-with-crisp-pita-wedges-50026453,16008,crustaceans; fish; gluten; milk; molluscs,crustaceans; fish; gluten; milk; molluscs,
+1571903,random_test,Greek Orzo Salad,Gathered,tastykitchen.com/recipes/salads/greek-orzo-salad-3/,49531,gluten; milk,gluten; milk,
+356349,random_test,Lebanese Meatballs,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=354519,37199,eggs; gluten; milk,eggs; gluten; milk,
+1344124,random_test,Sicilian Tuna ,Gathered,www.epicurious.com/recipes/food/views/sicilian-tuna-355420,16570,celery; fish,celery; fish,
+1103350,random_test,Cheesy Tuna Casserole,Gathered,www.food.com/recipe/cheesy-tuna-casserole-189570,43552,fish; gluten; milk; mustard,fish; gluten; milk; mustard,
+899429,random_test,Cuban Chicken,Gathered,www.allrecipes.com/recipe/234357/cuban-chicken/,40960,sulphites,sulphites,
+1459601,random_test,Deep-Dish Chicken Pot Pie,Gathered,www.myrecipes.com/recipe/deep-dish-chicken-pot-pie,48572,gluten; milk; sulphites,gluten; milk,primary_not_subset_of_all_possible
+2092972,random_test,Tomato Soup,Recipes1M,cooking.nytimes.com/recipes/1013383,54304,celery; gluten; milk,celery; gluten; milk,
+1866684,random_test,Turkey Meatball Subs,Recipes1M,www.food.com/recipe/turkey-meatball-subs-481457,52172,eggs; gluten; milk; soy,eggs; milk; soy,primary_not_subset_of_all_possible
+1404375,random_test,Kale Sushi Salad,Gathered,food52.com/recipes/21817-kale-sushi-salad,18270,gluten; sesame; soy; sulphites,sesame; soy; sulphites,primary_not_subset_of_all_possible
+1870796,random_test,Taco Tot Hotdish,Recipes1M,www.food.com/recipe/taco-tot-hotdish-366073,27352,milk,milk,
+986371,random_test,Norwegian Spaghetti Salad With Shrimp,Gathered,www.food.com/recipe/norwegian-spaghetti-salad-with-shrimp-427079,7405,crustaceans; eggs; gluten; milk,crustaceans; eggs; gluten; milk,
+1912587,random_test,Blueberry Tart,Recipes1M,www.food.com/recipe/blueberry-tart-24058,52602,gluten; milk; tree_nuts,gluten; milk; tree_nuts,
+1539293,random_test,Danish Turkey Dumpling Soup,Gathered,www.tasteofhome.com/recipes/danish-turkey-dumpling-soup/,21068,celery; eggs; gluten; milk,celery; eggs; gluten; milk,
+1433088,random_test,Mint Chocolate Chip Cupcakes,Gathered,www.myrecipes.com/recipe/mint-chocolate-chip-cupcakes,48170,eggs; gluten; milk,eggs; gluten; milk,
+160800,random_test,Chicken Fried Rice,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=761300,846,celery; gluten; soy,celery; soy,primary_not_subset_of_all_possible
+627750,random_test,Chicken Rice Roger,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=99506,39196,gluten; milk,milk,primary_not_subset_of_all_possible
+1257598,random_test,Pork And Chutney Pastry Rolls,Gathered,recipes-plus.com/api/v2.0/recipes/25214,14782,eggs; gluten,eggs; gluten,
+1258881,random_test,Peking Duck Rolls,Gathered,recipes-plus.com/api/v2.0/recipes/18188,14815,gluten; soy,gluten; soy,
+1846518,random_test,Spicy Vietnamese Lemongrass Tofu,Recipes1M,tastykitchen.com/recipes/special-dietary-needs/vegetarian/spicy-vietnamese-lemongrass-tofu/,26888,fish; soy,fish; soy,
+1936158,random_test,Bean and Vegetable Soup,Recipes1M,www.food.com/recipe/bean-and-vegetable-soup-445793,52827,,,
+1130775,random_test,Tunisian Eggs & Peppers,Gathered,www.food.com/recipe/tunisian-eggs-peppers-232060,11365,eggs,eggs,
+1162339,random_test,Types Of Sushi Rolls,Gathered,www.food.com/recipe/types-of-sushi-rolls-261412,12204,,,
+1813570,random_test,Oriental Chinese Salad,Recipes1M,www.food.com/recipe/oriental-chinese-salad-341269,51669,gluten; sesame; soy; tree_nuts,gluten; sesame; sulphites; tree_nuts,primary_not_subset_of_all_possible
+885850,random_test,Emerald Souffle,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=683847,4800,eggs; gluten; milk,eggs; gluten; milk; soy,
+1217151,random_test,Moroccan Anise Bread,Gathered,www.food.com/recipe/moroccan-anise-bread-503189,13678,eggs; gluten; sesame,eggs; gluten; sesame,
+1505269,random_test,Souffle,Gathered,www.tasteofhome.com/recipes/simple-souffle/,20298,eggs; gluten; milk,eggs; gluten; milk,
+1825607,random_test,Vermicelli Timbal,Recipes1M,www.food.com/recipe/vermicelli-timbal-354481,26511,gluten; milk,milk,primary_not_subset_of_all_possible
+814932,random_test,Pineapple Chicken Stir-Fry,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=100326,40420,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+388034,random_test,Taco Bell Nachos,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=628670,2095,milk,milk,
+1683227,random_test,Chile Pesto,Recipes1M,www.food.com/recipe/chile-pesto-134208,23973,,tree_nuts,
+190505,random_test,Pizza Cups,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=262953,35869,gluten; milk,gluten; milk,
+1826205,random_test,Spicy Chicken Noodle,Recipes1M,www.food.com/recipe/spicy-chicken-noodle-315880,26519,,,
+1725129,random_test,Strawberry Rhubarb Sauce,Recipes1M,www.foodnetwork.com/recipes/strawberry-rhubarb-sauce-recipe.html,50847,,,
+1866449,random_test,Chinese Prawns on Toast,Recipes1M,www.food.com/recipe/chinese-prawns-on-toast-14143,27287,crustaceans; eggs; gluten,crustaceans; eggs; gluten,
+1835530,random_test,Eggplant Noodle Salad,Recipes1M,www.foodandwine.com/recipes/eggplant-noodle-salad,51887,gluten; soy,gluten; soy,
+1594155,random_test,Hot Dog And French Fries Pizza,Gathered,www.yummly.com/recipe/Hot-Dog-and-French-Fries-Pizza-531766,21884,gluten; milk,gluten; milk,
+1525489,random_test,Taco Salad Waffles,Gathered,www.tasteofhome.com/recipes/taco-salad-waffles/,49186,eggs; gluten; milk,,primary_not_subset_of_all_possible
+1022891,random_test,Omelet Burrito,Gathered,www.food.com/recipe/omelet-burrito-517767,8411,eggs; milk,eggs; milk,
+2225616,random_test,Asian Soba Salad,Recipes1M,www.foodnetwork.com/recipes/asian-soba-salad-recipe.html,55561,crustaceans; gluten; peanuts; sesame; soy; sulphites,crustaceans; peanuts; sesame; soy; sulphites,primary_not_subset_of_all_possible
+1920676,random_test,Vegan Apple Shake,Recipes1M,www.food.com/recipe/vegan-apple-shake-93367,28302,,,
+2213728,random_test,Cheesy chicken noodle casserole,Recipes1M,cookpad.com/us/recipes/350983-cheesy-chicken-noodle-casserole,55458,celery; eggs; gluten; milk; tree_nuts,celery; eggs; gluten; milk; tree_nuts,
+1014585,random_test,Thai Black Rice Salad,Gathered,www.food.com/recipe/thai-black-rice-salad-440060,8166,fish; tree_nuts,fish; soy; tree_nuts,
+1732914,random_test,Chili-Rice Dinner,Recipes1M,www.food.com/recipe/chili-rice-dinner-360662,50912,milk; mustard,milk; mustard,
+1394015,random_test,Zucchini Noodles W/Kale-Walnut Pesto,Gathered,food52.com/recipes/31293-zucchini-noodles-w-kale-walnut-pesto,17947,milk; tree_nuts,gluten; milk; tree_nuts,
+1090517,random_test,Garlic Herb Fondue,Gathered,www.food.com/recipe/garlic-herb-fondue-129605,10282,fish; milk,fish; milk,
+840179,random_test,Rice Krispy Bars,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=417982,40571,gluten; milk; peanuts,peanuts,primary_not_subset_of_all_possible
+286984,random_test,Crispix Snack,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=691776,36661,gluten; milk; peanuts,milk; peanuts,primary_not_subset_of_all_possible
+1762784,random_test,Toasted Sesame Hummus,Recipes1M,tastykitchen.com/recipes/appetizers-and-snacks/toasted-sesame-hummus/,25402,sesame,sesame,
+2016809,random_test,Casbah Couscous Pudding,Recipes1M,www.foodgeeks.com/recipes/16566,30062,eggs; gluten; milk,eggs; gluten; milk,
+1306791,random_test,Beef Rendang Jo ,Gathered,www.epicurious.com/recipes/member/views/beef-rendang-jo-52955581,15834,,,
+1372346,random_test,Burrito Rolls,Gathered,food52.com/recipes/30428-burrito-rolls,17281,eggs,eggs,
+926143,random_test,Strawberry Spinach Salad Breakfast Wrap,Gathered,www.allrecipes.com/recipe/261554/strawberry-spinach-salad-breakfast-wrap/,5681,gluten; milk; tree_nuts,gluten; milk; tree_nuts,
+1753101,random_test,Grilled Thai Pork Skewers,Recipes1M,www.food.com/recipe/grilled-thai-pork-skewers-350495,25236,crustaceans; fish,fish,primary_not_subset_of_all_possible
+915430,random_test,Malaysian Fried Chicken,Gathered,www.allrecipes.com/recipe/17108/simple-malaysian-fried-chicken/,5361,molluscs,molluscs,
+1217078,random_test,Marinated Shrimp Kabobs,Gathered,www.food.com/recipe/marinated-shrimp-kabobs-431691,44991,crustaceans; mustard,crustaceans; mustard,
+1024738,random_test,Croatian Squid With Rice,Gathered,www.food.com/recipe/croatian-squid-with-rice-364827,8462,milk; molluscs,milk; molluscs,
+2058674,random_test,Rosemary Couscous,Recipes1M,www.foodnetwork.com/recipes/rosemary-couscous-recipe.html,30838,gluten,gluten,
+1994879,random_test,Ladybug Onigiri Bento,Recipes1M,cookpad.com/us/recipes/157224-ladybug-onigiri-bento,29677,crustaceans; fish; gluten; milk,crustaceans; milk,primary_not_subset_of_all_possible
+1389116,random_test,Masala Chai Tea Latte Ice Cream,Gathered,food52.com/recipes/40269-masala-chai-tea-latte-ice-cream,17799,milk,milk,
+1074624,random_test,Chicken Pot Pie With Biscuit Topping,Gathered,www.food.com/recipe/chicken-pot-pie-with-biscuit-topping-109116,43195,celery; eggs; gluten; milk,celery; eggs; gluten; milk,
+2172118,random_test,Chicken Milanese,Recipes1M,www.foodnetwork.com/recipes/ree-drummond/chicken-milanese.html,55071,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+742409,random_test,Chicken Salad Sandwich,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=240358,39969,celery; eggs; gluten,celery; eggs; gluten,
+1344859,random_test,Adobo Seasoned Baked Chicken Wings ,Gathered,www.epicurious.com/recipes/member/views/adobo-seasoned-baked-chicken-wings-50071507,16585,,,
+1043087,random_test,Fish In Persian Sweet-And-Sour Sauce,Gathered,www.food.com/recipe/fish-in-persian-sweet-and-sour-sauce-443922,8996,fish,fish,
+1150403,random_test,Indian Ratatouille,Gathered,www.food.com/recipe/indian-ratatouille-95437,44136,,,
+190210,random_test,Ranch Rice,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=967902,35865,gluten; milk,milk,primary_not_subset_of_all_possible
+1402404,random_test,Lamb Kebab With Yogurt Mint Chutney,Gathered,food52.com/recipes/18047-lamb-kebab-with-yogurt-mint-chutney,18203,milk,milk,
+188693,random_test,Indian Muffins,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=348133,1005,eggs; gluten; milk,eggs; gluten; milk,
+1856698,random_test,Pizza stuffed burgers,Recipes1M,cookpad.com/us/recipes/357395-pizza-stuffed-burgers,27087,eggs; gluten; milk,eggs; gluten; milk,
+2089376,random_test,Mexican Chocolate,Recipes1M,www.food.com/recipe/mexican-chocolate-342837,54273,milk,milk,
+1121981,random_test,Vegan Mexican Lasagna,Gathered,www.food.com/recipe/vegan-mexican-lasagna-225488,11135,gluten; soy,gluten; milk,primary_not_subset_of_all_possible
+697640,random_test,Chicken Casserole With Crescent Rolls,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=835417,3811,gluten; milk,gluten; milk,
+1467861,random_test,Old Glory Cheesecake Bars,Gathered,www.myrecipes.com/recipe/old-glory-cheesecake-bars,48707,eggs; gluten; milk,eggs; gluten; milk,
+2031664,random_test,Cherry Tomato Salad,Recipes1M,www.foodandwine.com/recipes/cherry-tomato-salad,53743,sulphites,sulphites,
+1773900,random_test,Tropical Snack Mix,Recipes1M,www.food.com/recipe/tropical-snack-mix-189269,51282,milk; sulphites; tree_nuts,milk; tree_nuts,primary_not_subset_of_all_possible
+1296174,random_test,Tomato Tortellini Soup ,Gathered,www.epicurious.com/recipes/member/views/tomato-tortellini-soup-50137041,46350,eggs; gluten; milk,gluten; milk,primary_not_subset_of_all_possible
+2121527,random_test,Thai Peanut Sauce Pasta,Recipes1M,tastykitchen.com/recipes/main-courses/thai-peanut-sauce-pasta/,32041,gluten; peanuts; soy,gluten; peanuts,primary_not_subset_of_all_possible
+1892032,random_test,Satay Meatloaf,Recipes1M,www.kraftrecipes.com/recipes/satay-meatloaf-103443.aspx,27748,eggs; gluten; peanuts; soy,eggs; gluten; peanuts,primary_not_subset_of_all_possible
+1886917,random_test,Thai Chicken Salad with Cellophane Noodles,Recipes1M,www.foodnetwork.com/recipes/thai-chicken-salad-with-cellophane-noodles.html,27646,gluten; peanuts; soy,gluten; peanuts; soy,
+1752057,random_test,Taco Egg Cups,Recipes1M,www.food.com/recipe/taco-egg-cups-363600,25222,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1354302,random_test,Korean Egg Bread ,Gathered,www.epicurious.com/recipes/food/views/korean-egg-bread-gyeran-bbang,16782,eggs; gluten; milk,eggs; gluten; milk,
+1328795,random_test,Taco Roast ,Gathered,www.epicurious.com/recipes/member/views/taco-roast-53064951,16258,,,
+1620445,random_test,Pesto Siciliano,Gathered,www.yummly.com/recipe/Pesto-Siciliano-1668156,22641,milk; tree_nuts,milk; tree_nuts,
+994716,random_test,Raspberry Danish Dessert,Gathered,www.food.com/recipe/raspberry-danish-dessert-113092,7644,gluten; milk; tree_nuts,gluten; milk,primary_not_subset_of_all_possible
+703393,random_test,Coffee Bar Cookies,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=281956,3845,eggs; gluten; milk; sulphites; tree_nuts,eggs; gluten; milk; sulphites,primary_not_subset_of_all_possible
+1296508,random_test,Ginger Salmon Teriyaki ,Gathered,www.epicurious.com/recipes/member/views/ginger-salmon-teriyaki-1209565,15635,fish; soy,fish; gluten; soy,
+818435,random_test,Blushin Russian,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=211251,4457,eggs,eggs,
+948093,random_test,Cuban Bowl,Gathered,www.allrecipes.com/recipe/268660/cuban-bowl/,6348,,,
+938984,random_test,Shandong Chinese Chicken,Gathered,www.allrecipes.com/recipe/46849/shandong-chinese-chicken/,6070,eggs; milk; sulphites,eggs; milk,primary_not_subset_of_all_possible
+1406628,random_test,Korean Pickled Ramps,Gathered,food52.com/recipes/81430-korean-pickled-ramps,18350,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+1621492,random_test,Chocolate Lentil Cake,Gathered,www.yummly.com/recipe/Chocolate-Lentil-Cake-1469728,22675,eggs; gluten,eggs; gluten,
+1696517,random_test,Basil Focaccia,Recipes1M,recipeland.com/recipe/v/basil-focaccia-47475,24186,gluten,gluten,
+2117591,random_test,Shanghai Tang,Recipes1M,www.food.com/recipe/shanghai-tang-113058,31966,,,
+132774,random_test,Beef Garden Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=518043,35313,gluten,,primary_not_subset_of_all_possible
+1989815,random_test,Hearty Beef Soup,Recipes1M,www.food.com/recipe/hearty-beef-soup-227540,53343,celery; gluten; milk,celery; milk,primary_not_subset_of_all_possible
+1160536,random_test,Festive Cranberry Salad,Gathered,www.food.com/recipe/festive-cranberry-salad-33046,44263,milk; tree_nuts,milk; tree_nuts,
+1110396,random_test,Krompir Juha – Croatian Potato Soup,Gathered,www.food.com/recipe/krompir-juha-ndash-croatian-potato-soup-458133,10824,gluten,,primary_not_subset_of_all_possible
+1706166,random_test,Ww Saag Paneer,Recipes1M,www.food.com/recipe/ww-saag-paneer-232217,24361,milk,milk,
+27502,random_test,Eclair Cake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=352826,34320,gluten; milk,gluten; milk,
+1201535,random_test,Pesto Snacks,Gathered,www.food.com/recipe/pesto-snacks-402382,13268,gluten; milk,gluten; milk; tree_nuts,
+1625451,random_test,Squid Teriyaki,Gathered,www.yummly.com/recipe/Squid-Teriyaki-1673025,22784,gluten; molluscs; soy; sulphites,molluscs; soy; sulphites,primary_not_subset_of_all_possible
+1439498,random_test,Pan-Fried Trout With Cornbread Salad,Gathered,www.myrecipes.com/recipe/pan-fried-trout-with-cornbread-salad,19144,fish; gluten; sulphites,fish; sulphites,primary_not_subset_of_all_possible
+1312283,random_test,Lumpia Sauce ,Gathered,www.epicurious.com/recipes/member/views/lumpia-sauce-50133380,46661,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+1898783,random_test,Very Veggie Omelet,Recipes1M,www.food.com/recipe/very-veggie-omelet-43503,52470,eggs; milk,eggs; milk,
+1496439,random_test,Beef Pizza Burgers,Gathered,www.tasteofhome.com/recipes/beef-pizza-burgers/,20122,gluten; milk,milk,primary_not_subset_of_all_possible
+1438365,random_test,Tuna-Pecan Salad Sandwiches,Gathered,www.myrecipes.com/recipe/tuna-pecan-salad-sandwiches-0,48254,celery; eggs; fish; tree_nuts,celery; eggs; fish; tree_nuts,
+712583,random_test,Marlys' Lasagne,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=253393,3892,gluten; milk,gluten; milk,
+1881511,random_test,Chipotle Beef Taco Bites,Recipes1M,tastykitchen.com/recipes/appetizers-and-snacks/chipotle-beef-taco-bites/,27546,gluten; milk,milk,primary_not_subset_of_all_possible
+1753362,random_test,Antioxident Granola Bars,Recipes1M,www.food.com/recipe/antioxident-granola-bars-416540,25243,gluten; milk; peanuts,gluten; milk; peanuts,
+1382291,random_test,Caroline Choe'S Kimchi Mac & Cheese,Gathered,food52.com/recipes/69269-caroline-choe-s-kimchi-mac-cheese,17570,gluten; milk; mustard,gluten; milk; mustard,
+1042653,random_test,Skillet Lasagna Rolls,Gathered,www.food.com/recipe/skillet-lasagna-rolls-220085,8987,gluten; milk,gluten; milk,
+1695346,random_test,Chorizo Quiche,Recipes1M,www.epicurious.com/recipes/food/views/chorizo-quiche-386985,50550,eggs; gluten; milk,eggs; gluten; milk,
+1206452,random_test,Turkish Cream Filled Apricots,Gathered,www.food.com/recipe/turkish-cream-filled-apricots-233828,13399,milk; sulphites; tree_nuts,milk; sulphites; tree_nuts,
+1081148,random_test,Thai Fish Salad,Gathered,www.food.com/recipe/thai-fish-salad-128018,10030,fish; peanuts,fish; peanuts,
+1016325,random_test,Kung Pao Noodles And Chicken,Gathered,www.food.com/recipe/kung-pao-noodles-and-chicken-186820,8214,eggs; gluten; peanuts; soy,eggs; gluten; peanuts; soy,
+1678440,random_test,Steak Roll-Ups,Recipes1M,recipeland.com/recipe/v/steak-roll-ups-39165,50383,celery; gluten; milk,celery; gluten; milk,
+1600598,random_test,Teriyaki Chicken Burger With Asian Slaw,Gathered,www.yummly.com/recipe/Teriyaki-Chicken-Burger-with-Asian-Slaw-1674611,22084,gluten; sesame; soy; sulphites,gluten; sesame; soy; sulphites,
+1922780,random_test,Inside-Out Ravioli,Recipes1M,www.foodgeeks.com/recipes/3198,52705,eggs; gluten; milk,eggs; gluten; milk,
+1924140,random_test,Paneer Cutlets,Recipes1M,www.foodgeeks.com/recipes/5142,28381,eggs; gluten; milk,eggs; gluten; milk,
+1252163,random_test,Asian Beef And Noodle Salad,Gathered,recipes-plus.com/api/v2.0/recipes/22200,45456,fish; gluten; soy,gluten; soy,primary_not_subset_of_all_possible
+1710562,random_test,Japanese Frites,Recipes1M,www.food.com/recipe/japanese-frites-244963,24429,eggs,eggs,
+1311710,random_test,Onion Gravy ,Gathered,www.epicurious.com/recipes/food/views/onion-gravy-231663,46650,fish; gluten; milk,fish; gluten; milk,
+39421,random_test,Pink Lady Punch,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1035311,34439,,,
+1318498,random_test,"Chickpea, Red Pepper And Quinoa Soup ",Gathered,www.epicurious.com/recipes/member/views/chickpea-red-pepper-and-quinoa-soup-52744891,16043,celery; sulphites,celery; sulphites,
+1925782,random_test,Crab Burgers with Tiger Slaw,Recipes1M,www.foodnetwork.com/recipes/crab-burgers-with-tiger-slaw-recipe.html,28419,crustaceans; eggs; gluten; milk; mustard; sulphites,crustaceans; eggs; gluten; mustard; sulphites,primary_not_subset_of_all_possible
+195781,random_test,Italian Trash,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=94745,1040,gluten; peanuts,gluten; peanuts,
+1241484,random_test,Cheese Quiche,Gathered,www.food.com/recipe/cheese-quiche-344610,45297,eggs; gluten; milk,eggs; gluten; milk,
+1987552,random_test,Mexican Mash,Recipes1M,www.epicurious.com/recipes/food/views/mexican-mash-14809,29548,milk,milk,
+1569976,random_test,Enchilada Gravy,Gathered,tastykitchen.com/recipes/condiments/enchilada-gravy/,21528,,,
+2061970,random_test,Vegan Macaroons,Recipes1M,www.food.com/recipe/vegan-macaroons-258770,54037,gluten; soy; tree_nuts,gluten; soy; tree_nuts,
+1885595,random_test,Stir-Fried Udon with Pork and Shrimp,Recipes1M,www.epicurious.com/recipes/food/views/stir-fried-udon-with-pork-and-shrimp-385905,27615,crustaceans; gluten; peanuts; soy,crustaceans; gluten; peanuts; soy,
+1097373,random_test,Ravioli Cookies,Gathered,www.food.com/recipe/ravioli-cookies-147734,10472,eggs; gluten; milk; peanuts; soy; tree_nuts,gluten,primary_not_subset_of_all_possible
+1340286,random_test,Vietnamese Steak Sandwiches ,Gathered,www.epicurious.com/recipes/member/views/vietnamese-steak-sandwiches-50137279,47202,fish; gluten,fish,primary_not_subset_of_all_possible
+1682645,random_test,Casserole Souffle,Recipes1M,www.food.com/recipe/casserole-souffle-358048,23963,eggs; gluten; milk,crustaceans; eggs; gluten; milk,
+945381,random_test,Fried Chicken Wings,Gathered,www.allrecipes.com/recipe/241152/fried-chicken-wings/,41624,gluten,gluten,
+1399198,random_test,Black Chana Chat,Gathered,food52.com/recipes/37559-black-chana-chat,18109,,,
+2092962,random_test,Avocado Dressing,Recipes1M,www.epicurious.com/recipes/food/views/avocado-dressing-384626,54303,eggs; fish; milk,eggs; fish; milk,
+1409630,random_test,Red Pozole,Gathered,food52.com/recipes/8275-red-pozole,18463,,,
+1860460,random_test,Remoulade Sauce,Recipes1M,www.food.com/recipe/remoulade-sauce-46957,52115,celery; eggs; fish; mustard,celery; eggs; fish; mustard,
+1501226,random_test,Halibut Chowder,Gathered,www.tasteofhome.com/recipes/halibut-chowder/,48943,fish; gluten; milk,fish; gluten; milk,
+1900127,random_test,Shrimp Ramen,Recipes1M,www.foodnetwork.com/recipes/food-network-kitchens/shrimp-ramen.html,27913,crustaceans; fish; gluten; soy,crustaceans; fish; gluten; soy,
+1938508,random_test,Flaky Pastry,Recipes1M,www.cookstr.com/recipes/flaky-pastry-i,28666,gluten,gluten,
+180868,random_test,Chinese Little Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=179958,961,eggs; gluten; soy,eggs; gluten; soy,
+2129514,random_test,Greek Rice Toss,Recipes1M,www.food.com/recipe/greek-rice-toss-50260,32187,milk,milk,
+954051,random_test,Pakistani Potato Chicken,Gathered,www.allrecipes.com/recipe/8955/pakistani-potato-chicken/,6518,milk,milk,
+1753365,random_test,Beef steak philippine stlye,Recipes1M,cookpad.com/us/recipes/344498-beef-steak-philippine-stlye,25244,gluten; soy,soy,primary_not_subset_of_all_possible
+1563692,random_test,Cornmeal Upma,Gathered,tastykitchen.com/recipes/breakfastbrunch/cornmeal-upma/,21449,milk; mustard,milk; mustard,
+1751189,random_test,Pesto Chicken Noodle Soup,Recipes1M,www.foodandwine.com/recipes/pesto-chicken-noodle-soup,25206,gluten; milk,gluten; milk; tree_nuts,
+453642,random_test,Chow Mein Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=68898,37923,celery; gluten; milk; soy,celery; gluten; milk; soy,
+1024268,random_test,Chilled Vegetable Pizza Appetizer,Gathered,www.food.com/recipe/chilled-vegetable-pizza-appetizer-198050,8449,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+972413,random_test,Hawaiian Bread Ham & Cheese Rolls,Gathered,www.food.com/recipe/hawaiian-bread-ham-cheese-rolls-429393,7013,fish; gluten; milk; mustard,fish; gluten; milk; mustard,
+1329860,random_test,Tom Yum Noodle Soup With Seafood ,Gathered,www.epicurious.com/recipes/member/views/tom-yum-noodle-soup-with-seafood-50182229,16280,crustaceans; fish; molluscs,crustaceans; fish; gluten; molluscs,
+1050987,random_test,Chickpea Eggplant Dip,Gathered,www.food.com/recipe/chickpea-eggplant-dip-456740,9203,,,
+1159913,random_test,Turkey Hummus Sandwiches On Bagels,Gathered,www.food.com/recipe/turkey-hummus-sandwiches-on-bagels-275985,12141,gluten; sesame,sesame,primary_not_subset_of_all_possible
+1911002,random_test,Moist and Soft Cocoa Chiffon Cake,Recipes1M,cookpad.com/us/recipes/156673-moist-and-soft-cocoa-chiffon-cake,28114,eggs; gluten; milk,eggs; gluten; milk,
+1185047,random_test,Apricot Strudel,Gathered,www.food.com/recipe/apricot-strudel-253847,44585,gluten; milk; tree_nuts,gluten; milk; tree_nuts,
+1882887,random_test,Spring Vegetable Paella,Recipes1M,www.epicurious.com/recipes/food/views/spring-vegetable-paella-106419,52322,sulphites,sulphites,
+1532824,random_test,Pesto Spaghetti,Gathered,www.tasteofhome.com/recipes/pesto-spaghetti/,20926,gluten; milk; tree_nuts,gluten; milk; tree_nuts,
+1671748,random_test,Thai Spicy Shrimp,Recipes1M,www.foodnetwork.com/recipes/robert-irvine/thai-spicy-shrimp-recipe.html,23771,crustaceans; gluten,crustaceans; gluten,
+1044961,random_test,Muffuletta Sandwich,Gathered,www.food.com/recipe/muffuletta-sandwich-215696,42839,celery; gluten; milk; sulphites,celery; gluten; milk; sesame; sulphites,
+918044,random_test,Vegan Coconut Tempeh With Mushrooms,Gathered,www.allrecipes.com/recipe/268359/vegan-coconut-tempeh-with-mushrooms/,5438,gluten; soy,soy,primary_not_subset_of_all_possible
+1335899,random_test,Greek Baclava ,Gathered,www.epicurious.com/recipes/member/views/greek-baclava-50128182,47110,gluten; milk; tree_nuts,gluten; milk; tree_nuts,
+2196689,random_test,Chicken & Couscous Salad,Recipes1M,www.food.com/recipe/chicken-couscous-salad-105943,33404,gluten; sulphites; tree_nuts,gluten; sulphites; tree_nuts,
+909162,random_test,Vegan Roasted Vegetable Hummus,Gathered,www.allrecipes.com/recipe/262484/vegan-roasted-vegetable-hummus/,5212,,,
+1077335,random_test,Vegetable Hummus Dip,Gathered,www.food.com/recipe/vegetable-hummus-dip-264973,9913,gluten; milk; sesame,gluten; milk; sesame,
+1267318,random_test,Satay Chicken And King Prawns,Gathered,recipes-plus.com/api/v2.0/recipes/32101,15036,crustaceans; gluten; soy,crustaceans; soy,primary_not_subset_of_all_possible
+1696399,random_test,Hummus the Healthy Way,Recipes1M,www.food.com/recipe/hummus-the-healthy-way-220019,24183,sesame,sesame,
+1098182,random_test,Black Bean And Spinach Pie,Gathered,www.food.com/recipe/black-bean-and-spinach-pie-282923,10494,eggs; gluten; milk,eggs; gluten; milk; tree_nuts,
+1734532,random_test,Biscuits and Gravy Breakfast Casserole,Recipes1M,cookpad.com/us/recipes/350190-biscuits-and-gravy-breakfast-casserole,24902,eggs; gluten; milk,eggs; gluten; milk,
+1971642,random_test,Cheesy Veggie Potato,Recipes1M,www.kraftrecipes.com/recipes/cheesy-veggie-potato-59494.aspx,53165,milk,milk,
+269138,random_test,Blintzes Souffle,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=497301,1441,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1870820,random_test,Meatless Bratwurst,Recipes1M,www.kraftrecipes.com/recipes/meatless-bratwurst-59534.aspx,52213,gluten; milk,milk,primary_not_subset_of_all_possible
+1247726,random_test,Black Bean Soup Dip,Gathered,www.food.com/recipe/black-bean-soup-dip-82328,14496,eggs; fish; milk,eggs; fish; milk,
+1891316,random_test,Korean BBQ Beef Skewers,Recipes1M,www.foodnetwork.com/recipes/korean-bbq-beef-skewers-recipe.html,27734,fish; gluten; soy,gluten; soy,primary_not_subset_of_all_possible
+1166664,random_test,Thin Swedish Pancakes,Gathered,www.food.com/recipe/thin-swedish-pancakes-307561,44343,eggs; gluten; milk,eggs; gluten; milk,
+1017300,random_test,Cantonese Pork,Gathered,www.food.com/recipe/cantonese-pork-349848,42517,fish,fish,
+1172544,random_test,Spicy Thai Peanut Vegetable Curry,Gathered,www.food.com/recipe/spicy-thai-peanut-vegetable-curry-501763,12498,crustaceans; peanuts,peanuts,primary_not_subset_of_all_possible
+155334,random_test,Hungarian Goo-Lauch,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=784131,821,gluten,gluten,
+1166482,random_test,Mediterranean Veggie Pita,Gathered,www.food.com/recipe/mediterranean-veggie-pita-474542,12330,gluten; milk; sesame,gluten; milk; sesame,
+1286906,random_test,Cherry Tomato And Lentil Couscous Salad ,Gathered,www.epicurious.com/recipes/member/views/cherry-tomato-and-lentil-couscous-salad-1274254,15439,gluten; sulphites,gluten; sulphites,
+1298773,random_test,Pork Schnitzel With Mushroom Gravy ,Gathered,www.epicurious.com/recipes/member/views/pork-schnitzel-with-mushroom-gravy-53007801,15688,gluten; milk; soy,gluten; milk; soy,
+2202617,random_test,Greek Edamame Salad,Recipes1M,www.food.com/recipe/greek-edamame-salad-498900,33519,milk; soy,milk; soy,
+993924,random_test,Chicken And Cheese French Bread Pizza,Gathered,www.food.com/recipe/chicken-and-cheese-french-bread-pizza-28607,7625,gluten; milk,gluten; milk,
+1363442,random_test,Korean Mini Taco Boats With Spicy Asian Slaw,Gathered,food52.com/recipes/67304-korean-mini-taco-boats-with-spicy-asian-slaw,16974,gluten; mustard; sesame; soy; sulphites,mustard; sesame; soy; sulphites,primary_not_subset_of_all_possible
+958837,random_test,Indonesian Sweet And Sour Tofu With Vegetables,Gathered,www.food.com/recipe/indonesian-sweet-and-sour-tofu-with-vegetables-187213,6652,celery; gluten; soy; sulphites,celery; soy; sulphites,primary_not_subset_of_all_possible
+79183,random_test,Turkey Pie,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=970017,34824,celery; gluten; milk,celery; gluten; milk,
+2231080,random_test,Konnyaku Okonomiyaki,Recipes1M,cookpad.com/us/recipes/158958-konnyaku-okonomiyaki,34018,eggs; fish; gluten; soy,eggs; fish; gluten,primary_not_subset_of_all_possible
+1099323,random_test,Pizza Meatloaf,Gathered,www.food.com/recipe/pizza-meatloaf-31080,43504,eggs; gluten; milk,eggs; gluten; milk,
+1861315,random_test,Chicken & Shrimp Tortilla Soup,Recipes1M,www.food.com/recipe/simple-chicken-shrimp-tortilla-soup-452944,27177,celery; crustaceans,crustaceans,primary_not_subset_of_all_possible
+2039292,random_test,BOM Quiche,Recipes1M,www.foodgeeks.com/recipes/21389,30489,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+2027915,random_test,Breakfast Sausage White Cheese Pizza,Recipes1M,allrecipes.com/recipe/breakfast-sausage-white-cheese-pizza/,30275,gluten; milk,milk,primary_not_subset_of_all_possible
+1294770,random_test,Spicy Sichuan Pork Stew ,Gathered,www.epicurious.com/recipes/member/views/spicy-sichuan-pork-stew-52785291,15591,gluten; soy; sulphites,gluten; soy; sulphites,
+938660,random_test,Thai Mango-Prawn Salad,Gathered,www.allrecipes.com/recipe/265780/thai-mango-prawn-salad/,6056,crustaceans; fish; gluten; peanuts; soy; sulphites; tree_nuts,crustaceans; fish; peanuts; soy; sulphites; tree_nuts,primary_not_subset_of_all_possible
+936701,random_test,Asian Mushroom Soup,Gathered,www.allrecipes.com/recipe/78015/asian-mushroom-soup/,41495,gluten; soy,gluten; soy,
+1426231,random_test,Pan-Grilled Thai Tuna Salad,Gathered,www.myrecipes.com/recipe/pan-grilled-thai-tuna-salad,18867,fish; sesame; sulphites,fish; sesame; sulphites,
+59073,random_test,Southwest Spaghetti Pie,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=361695,34622,eggs; gluten; milk,eggs; gluten; milk,
+1770187,random_test,Korean Seafood Omelette,Recipes1M,www.food.com/recipe/my-korean-seafood-omelette-169721,25534,crustaceans; eggs; fish; gluten; molluscs; soy,crustaceans; eggs; fish; gluten; molluscs; soy,
+1375472,random_test,Carrot Cake Breakfast Smash,Gathered,food52.com/recipes/55604-carrot-cake-breakfast-smash,17376,sulphites; tree_nuts,sulphites; tree_nuts,
+49591,random_test,Tomato Relish,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=495255,34542,sulphites,sulphites,
+1290034,random_test,Bruschetta Margarita ,Gathered,www.epicurious.com/recipes/member/views/bruschetta-margarita-5b8eaadc64455e2da315abed,46250,gluten; milk,gluten; milk,
+598870,random_test,Taco Corn Bread Pizza,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=52295,3274,gluten; milk,milk,primary_not_subset_of_all_possible
+1579351,random_test,Moroccan Orange Couscous,Gathered,tastykitchen.com/recipes/salads/moroccan-orange-couscous/,21659,gluten; sulphites; tree_nuts,gluten; sulphites; tree_nuts,
+1088053,random_test,Texas Quiche,Gathered,www.food.com/recipe/texas-quiche-44640,43367,eggs; gluten; milk,eggs; gluten; milk,
+412151,random_test,Macaroon Pie,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=365034,37621,eggs; gluten; tree_nuts,eggs; gluten; tree_nuts,
+1078585,random_test,Wisconsin Tuna Cake With Lemon-Dill Sauce,Gathered,www.food.com/recipe/wisconsin-tuna-cake-with-lemon-dill-sauce-167464,9954,eggs; fish; gluten; milk,eggs; fish; gluten; milk,
+2190084,random_test,mini blini's,Recipes1M,cookpad.com/us/recipes/335348-mini-blinis,55242,gluten; milk,gluten; milk,
+1392463,random_test,Lasagna Soup,Gathered,food52.com/recipes/39676-lasagna-soup,47727,gluten; milk,gluten; milk,
+2152182,random_test,Ceviche Snacks,Recipes1M,www.kraftrecipes.com/recipes/ceviche-snacks-62645.aspx,32585,celery; crustaceans; sulphites,celery; crustaceans,primary_not_subset_of_all_possible
+1144290,random_test,Gyro Casserole,Gathered,www.food.com/recipe/gyro-casserole-254409,11723,gluten; milk,milk,primary_not_subset_of_all_possible
+1904990,random_test,Vietnamese Swordfish Stew with Scallions,Recipes1M,www.foodandwine.com/recipes/vietnamese-swordfish-stew-with-scallions,28003,fish; soy; sulphites; tree_nuts,fish; soy; sulphites; tree_nuts,
+307423,random_test,Baked Rice Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1064156,36822,gluten; milk,milk,primary_not_subset_of_all_possible
+1025557,random_test,Shanghai Bbq Sauce,Gathered,www.food.com/recipe/shanghai-bbq-sauce-269474,8487,gluten; milk; soy; sulphites,gluten; milk; soy; sulphites,
+1851719,random_test,Steamed Fish,Recipes1M,www.food.com/recipe/steamed-fish-368017,52032,fish; gluten; sesame; soy; sulphites,fish; sesame; soy; sulphites,primary_not_subset_of_all_possible
+1056481,random_test,Bolo Burger,Gathered,www.food.com/recipe/bolo-burger-372985,42975,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1712296,random_test,Vietnamese Wraps,Recipes1M,www.vegetariantimes.com/recipe/vietnamese-wraps/,24455,gluten; peanuts; soy,gluten; peanuts; soy,
+1149006,random_test,Danish Chocolate Bars,Gathered,www.food.com/recipe/danish-chocolate-bars-395639,11844,eggs; gluten; milk,eggs; gluten; milk,
+1380829,random_test,Morrocan Lamb Tagine,Gathered,food52.com/recipes/34172-morrocan-lamb-tagine,17523,sulphites; tree_nuts,sulphites; tree_nuts,
+1331471,random_test,Lamb Risotto ,Gathered,www.epicurious.com/recipes/member/views/lamb-risotto-50064866,16319,milk; sulphites,milk; sulphites,
+963015,random_test,Gyro Sauce,Gathered,www.food.com/recipe/gyro-sauce-57747,6772,milk; mustard,milk; mustard,
+1369114,random_test,Chickpea And Fall Vegetable Tagine,Gathered,food52.com/recipes/62768-chickpea-and-fall-vegetable-tagine,17176,,mustard,
+1080728,random_test,Black Forest Ice Cream Shake,Gathered,www.food.com/recipe/black-forest-ice-cream-shake-218900,10020,milk,milk,
+1440285,random_test,Moroccan Summer Vegetable And Sausage Stew,Gathered,www.myrecipes.com/recipe/moroccan-summer-vegetable-sausage-stew,48287,gluten; milk; sulphites,gluten; milk; sulphites,
+698042,random_test,Corned Beef Hash Casserole With Noodles,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=387247,3813,gluten; milk,gluten; milk,
+1822011,random_test,Chicken in Peanut Sauce,Recipes1M,allrecipes.com/recipe/chicken-in-peanut-sauce/,51749,gluten; peanuts; soy,peanuts; soy,primary_not_subset_of_all_possible
+446350,random_test,Caramel Nut Popcorn,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=948610,37850,milk; peanuts,milk; peanuts,
+993298,random_test,Watts Tea Shop Chicken Salad,Gathered,www.food.com/recipe/watts-tea-shop-chicken-salad-372440,7601,celery; eggs,celery; eggs,
+1252892,random_test,Chocolate Dessert Risotto With Berry Sauce,Gathered,recipes-plus.com/api/v2.0/recipes/29389,14664,milk,milk,
+69432,random_test,Breakfast Balls,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=866638,34733,eggs; gluten,eggs,primary_not_subset_of_all_possible
+1527790,random_test,Pork Sausage Brunch Pizza,Gathered,www.tasteofhome.com/recipes/pork-sausage-brunch-pizza/,20818,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+922416,random_test,Thai Curry Noodle Bowl,Gathered,www.allrecipes.com/recipe/244592/thai-curry-noodle-bowl/,5580,gluten; peanuts; soy,gluten; peanuts,primary_not_subset_of_all_possible
+1735852,random_test,Vegan Corn Bread,Recipes1M,cookpad.com/us/recipes/338084-vegan-corn-bread,50936,gluten,gluten,
+1109543,random_test,Epicure Hummus,Gathered,www.food.com/recipe/epicure-hummus-267935,10795,sesame,sesame,
+1135953,random_test,Toffee Sandwich Cookies,Gathered,www.food.com/recipe/toffee-sandwich-cookies-113949,43964,eggs; gluten; milk,eggs; gluten; milk; tree_nuts,
+759265,random_test,Chicken Dumplins,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=871511,40074,gluten,gluten,
+1294182,random_test,Spiced Chickpeas And Greens Frittata ,Gathered,www.epicurious.com/recipes/food/views/spiced-chickpeas-and-greens-frittata,15578,eggs; milk,eggs; milk; mustard,
+1212101,random_test,Skillet Taco Pie,Gathered,www.food.com/recipe/skillet-taco-pie-108890,44936,gluten; milk,gluten; milk,
+1126221,random_test,Sausage & Apple Breakfast Bread Pudding,Gathered,www.food.com/recipe/sausage-apple-breakfast-bread-pudding-200576,11244,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1369965,random_test,Persian New Year'S Noodle Soup,Gathered,food52.com/recipes/32708-persian-new-year-s-noodle-soup,17202,gluten,gluten,
+505695,random_test,Char Siu Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=405932,38310,gluten; soy,gluten; soy,
+2115165,random_test,Feta-Stuffed Lamb Burger with Mediterranean Spread,Recipes1M,www.kraftrecipes.com/recipes/feta-stuffed-lamb-burger-mediterranean-spread-115019.aspx,54522,gluten; milk,gluten; milk,
+624316,random_test,Seafood Appetizer Cheesecake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=910,3416,eggs; fish; gluten; milk,eggs; fish; gluten; milk,
+245004,random_test,Fruited Tea,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=825739,36317,,,
+1283098,random_test,Spicy Salmon ,Gathered,www.epicurious.com/recipes/member/views/spicy-salmon-1221700,46118,fish,fish,
+1212643,random_test,Greek Meat Rolls In Tomato-Wine Sauce,Gathered,www.food.com/recipe/greek-meat-rolls-in-tomato-wine-sauce-107587,44941,eggs; gluten; sulphites,eggs; gluten; sulphites,
+1036274,random_test,Indonesian Spiced Chicken With Rujak,Gathered,www.food.com/recipe/indonesian-spiced-chicken-with-rujak-34291,8811,gluten; soy,soy,primary_not_subset_of_all_possible
+1831650,random_test,Red Lentils with Rice,Recipes1M,www.epicurious.com/recipes/food/views/red-lentils-with-rice-385823,26628,,,
+1915021,random_test,Tunisian Eggplant Tacos,Recipes1M,www.vegetariantimes.com/recipe/tunisian-eggplant-tacos/,28194,,,
+1470285,random_test,Turkey Alfredo Pizza,Gathered,www.myrecipes.com/recipe/turkey-alfredo-pizza-0,48737,gluten; milk,milk,primary_not_subset_of_all_possible
+1233819,random_test,Cinnamon Sugar Popcorn,Gathered,www.food.com/recipe/cinnamon-sugar-popcorn-504385,45199,milk,milk,
+1272601,random_test,Russian Wedding Tea Cookies ,Gathered,www.epicurious.com/recipes/member/views/russian-wedding-tea-cookies-52554401,15138,gluten; milk; tree_nuts,gluten; milk; tree_nuts,
+707056,random_test,California Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=640171,39700,gluten; milk,gluten; milk,
+515664,random_test,Fondue Burgers,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=974841,2835,fish; gluten; milk; mustard,fish; gluten; milk; mustard,
+2206938,random_test,Cretian Stifado Stew,Recipes1M,tastykitchen.com/recipes/main-courses/cretian-stifado-stew/,33575,sulphites,gluten; sulphites,
+1516657,random_test,Rice Medley,Gathered,www.tasteofhome.com/recipes/rice-medley/,49087,,,
+2064463,random_test,Mushroom Confit,Recipes1M,www.foodnetwork.com/recipes/emeril-lagasse/mushroom-confit-recipe.html,30937,eggs; gluten; milk,gluten; milk,primary_not_subset_of_all_possible
+1841284,random_test,Garden Bruschetta,Recipes1M,www.food.com/recipe/garden-bruschetta-237730,51935,gluten; milk,gluten; milk,
+52027,random_test,Cracker Spread,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1012177,34566,gluten; milk,gluten; milk,
+925289,random_test,German Rice,Gathered,www.allrecipes.com/recipe/219325/german-rice/,41325,sulphites,sulphites,
+343093,random_test,Classic Spinach Dip,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=879247,37103,celery; eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1040363,random_test,Saffron Potato Tagine,Gathered,www.food.com/recipe/saffron-potato-tagine-194334,8924,sulphites,sulphites,
+1607459,random_test,Masala Fettuccini,Gathered,www.yummly.com/recipe/Masala-Fettuccini-1059334,22274,eggs; gluten,,primary_not_subset_of_all_possible
+906915,random_test,Korean Barbequed Beef,Gathered,www.allrecipes.com/recipe/50723/korean-barbequed-beef/,5152,gluten; sesame; soy; sulphites,sesame; soy; sulphites,primary_not_subset_of_all_possible
+807764,random_test,Salmon And Noodle Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=482738,4398,fish; gluten; milk,fish; gluten; milk,
+1192826,random_test,Algerian Beghrir Pancake,Gathered,www.food.com/recipe/algerian-beghrir-pancake-518064,13019,eggs; gluten; milk,eggs; gluten; milk,
+1672909,random_test,Huevos Rancheros Breakfast Pizza,Recipes1M,www.food.com/recipe/huevos-rancheros-breakfast-pizza-322060,23794,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+778212,random_test,Chow Mein Noodle Candy Haystacks,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=119905,4246,gluten; peanuts,gluten; peanuts,
+1511877,random_test,Antipasto Cups,Gathered,www.tasteofhome.com/recipes/antipasto-cups/,20456,milk; sulphites,milk; sulphites,
+224913,random_test,Stir-Fry Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=709595,36169,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+1650260,random_test,Chocolate-Chip Cookies,Recipes1M,cooking.nytimes.com/recipes/10972,50113,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+1621483,random_test,Lebanese Grape Leaf Rolls,Gathered,www.yummly.com/recipe/Lebanese-Grape-Leaf-Rolls-1662000,22674,,,
+980724,random_test,Lobster Curry With Rice,Gathered,www.food.com/recipe/lobster-curry-with-rice-347045,7241,crustaceans; milk,crustaceans; milk,
+56498,random_test,Fluffy Peanut Butter Pie,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=962441,34607,gluten; milk; peanuts,gluten; milk; peanuts,
+1192024,random_test,Finnish Cucumber Salad,Gathered,www.food.com/recipe/finnish-cucumber-salad-423367,44670,sulphites,sulphites,
+1836580,random_test,Salmon Pesto,Recipes1M,www.food.com/recipe/salmon-pesto-361370,26729,fish; milk,fish; milk; tree_nuts,
+262695,random_test,Jamaican Jungle Bread,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1066551,36472,eggs; gluten; tree_nuts,eggs; gluten; tree_nuts,
+1972559,random_test,Korean Kalbi,Recipes1M,www.epicurious.com/recipes/food/views/korean-kalbi-391335,53177,fish; gluten; sesame; soy,sesame; soy,primary_not_subset_of_all_possible
+1718388,random_test,Thai Meatloaf,Recipes1M,cookpad.com/us/recipes/355710-thai-meatloaf,24581,eggs; fish; gluten,eggs; fish,primary_not_subset_of_all_possible
+1159302,random_test,Hungarian Pastry,Gathered,www.food.com/recipe/hungarian-pastry-120092,44248,eggs; gluten; milk; tree_nuts,eggs; gluten; milk,primary_not_subset_of_all_possible
+1384687,random_test,Bulgarian Benedict,Gathered,food52.com/recipes/35903-bulgarian-benedict,17659,eggs; milk; sulphites,eggs; milk,primary_not_subset_of_all_possible
+1168773,random_test,Vegan Pastry Cream,Gathered,www.food.com/recipe/vegan-pastry-cream-70943,12397,gluten; soy,gluten; soy,
+2222562,random_test,"Duck Tacos, Radish-Lime Salad, Cumin-Roasted Squash",Recipes1M,cookpad.com/us/recipes/363639-duck-tacos-radish-lime-salad-cumin-roasted-squash,33853,milk,milk,
+1075701,random_test,The Greek Lantern,Gathered,www.food.com/recipe/the-greek-lantern-428605,9873,,,
+1260419,random_test,Grilled Vegetable Frittata,Gathered,recipes-plus.com/api/v2.0/recipes/36194,14862,eggs; milk,eggs; milk,
+1269913,random_test,Chocolate Zucchini Cake ,Gathered,www.epicurious.com/recipes/member/views/chocolate-zucchini-cake-1252669,45872,eggs; gluten; milk,eggs; gluten; milk,
+1028860,random_test,Low Carb Pepperoni Pizza Frittata,Gathered,www.food.com/recipe/low-carb-pepperoni-pizza-frittata-204898,8590,eggs; milk,eggs; milk,
+1289939,random_test,Cajun Hummus ,Gathered,www.epicurious.com/recipes/member/views/cajun-hummus-50010254,15501,celery; sesame,celery; sesame,
+414257,random_test,Tuna Noodle Soup,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=4649,2258,eggs; fish; gluten; milk,eggs; fish; gluten; milk,
+245866,random_test,Water Whip Pastry,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=873902,1315,gluten; milk,gluten; milk,
+1143967,random_test,Garlic Rice,Gathered,www.food.com/recipe/garlic-rice-24366,44051,milk,milk,
+1864170,random_test,Ramen in Minutes,Recipes1M,www.kraftrecipes.com/recipes/ramen-in-minutes-179034.aspx,52143,eggs; gluten; milk,eggs; gluten; milk,
+1021911,random_test,Turkey Goulash,Gathered,www.food.com/recipe/turkey-goulash-443330,42564,eggs; gluten; milk,eggs; gluten; milk,
+836055,random_test,Broccoli Lasagna Au Gratin,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=405369,4549,eggs; gluten; milk,eggs; gluten; milk,
+1047117,random_test,Norwegian Chicken & Gjetost Sauce,Gathered,www.food.com/recipe/norwegian-chicken-gjetost-sauce-292999,9108,milk; sulphites,milk; sulphites,
+1043987,random_test,Norwegian Rice Cream With Strawberry Sauce,Gathered,www.food.com/recipe/norwegian-rice-cream-with-strawberry-sauce-137201,9023,milk,milk,
+1593625,random_test,Thai Buddha Bowl,Gathered,www.yummly.com/recipe/THAI-BUDDHA-BOWL-1424700,21867,soy,soy,
+2169052,random_test,Hot Dog Fried Rice,Recipes1M,www.foodnetwork.com/recipes/katie-lee/hot-dog-fried-rice.html,55045,eggs; gluten; sesame; soy,eggs; sesame; soy,primary_not_subset_of_all_possible
+1855067,random_test,Vietnamese Chicken Lettuce Cups,Recipes1M,www.food.com/recipe/vietnamese-chicken-lettuce-cups-449001,27052,,,
+1438629,random_test,Oyster Dressing,Gathered,www.myrecipes.com/recipe/oyster-dressing-2,48257,celery; eggs; gluten; milk; molluscs,celery; eggs; gluten; milk; molluscs,
+1047461,random_test,Golden Fried Tofu Bites,Gathered,www.food.com/recipe/golden-fried-tofu-bites-101891,9122,gluten; peanuts; soy,gluten; peanuts; soy,
+106750,random_test,Holiday Cranberry Punch,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=956775,35088,milk,milk,
+977232,random_test,Greek Bouyourdi,Gathered,www.food.com/recipe/greek-bouyourdi-503142,7163,milk,milk,
+1899111,random_test,Fried Rice,Recipes1M,recipeland.com/recipe/v/fried-rice-205,52475,eggs; gluten; peanuts; soy,eggs; peanuts; soy,primary_not_subset_of_all_possible
+1117725,random_test,"Duck Soup, Chinese Style",Gathered,www.food.com/recipe/duck-soup-chinese-style-465035,11018,eggs; sesame,eggs; gluten; sesame,
+1413110,random_test,Thai Shrimp With Coconut-Almond Rice,Gathered,www.myrecipes.com/recipe/thai-shrimp-with-coconut-almond-rice,47855,crustaceans; tree_nuts,crustaceans; tree_nuts,
+543867,random_test,Thai Egg Rolls,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1067050,38593,celery; eggs; gluten,celery; crustaceans; eggs,primary_not_subset_of_all_possible
+1373464,random_test,Bulgogi Kimchi Burrito,Gathered,food52.com/recipes/42036-bulgogi-kimchi-burrito,17312,gluten; sesame; soy,sesame; soy,primary_not_subset_of_all_possible
+2096217,random_test,Saffron Couscous,Recipes1M,www.food.com/recipe/vs-saffron-couscous-295827,31553,gluten,gluten,
+1964374,random_test,Creamy Hummus and Smoked Turkey Sandwich,Recipes1M,www.foodnetwork.com/recipes/food-network-kitchens/creamy-hummus-and-smoked-turkey-sandwich-recipe.html,29128,gluten; milk; sesame,gluten; sesame,primary_not_subset_of_all_possible
+2147251,random_test,Salad Pizza,Recipes1M,www.kraftrecipes.com/recipes/-2452.aspx,54830,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1047464,random_test,Spicy Vegetable Bruschetta,Gathered,www.food.com/recipe/spicy-vegetable-bruschetta-263500,9123,,,
+1185785,random_test,Turkish Lentil Soup,Gathered,www.food.com/recipe/turkish-lentil-soup-408585,44598,,,
+1036297,random_test,Vegetarian Chorizo Breakfast Casserole,Gathered,www.food.com/recipe/vegetarian-chorizo-breakfast-casserole-479665,8812,eggs; milk; soy,eggs; milk; soy,
+861984,random_test,No-Roll Pastry,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=952304,40720,gluten; milk,gluten; milk,
+25348,random_test,Broccoli Rice Bake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=883279,34300,celery; gluten; milk,celery; gluten; milk,
+1012868,random_test,Ceviche Verde,Gathered,www.food.com/recipe/ceviche-verde-266655,42459,fish,fish,
+372107,random_test,Quiche Bars,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=946835,2010,eggs; gluten; milk,eggs; gluten; milk,
+1293212,random_test,Vegetarian Tacos ,Gathered,www.epicurious.com/recipes/member/views/vegetarian-tacos-50123753,46307,gluten; milk,milk,primary_not_subset_of_all_possible
+1623233,random_test,Blueberry Danish,Gathered,www.yummly.com/recipe/Blueberry-Danish-1649668,22735,eggs; gluten; milk,eggs; gluten; milk,
+1463446,random_test,Grilled Jumbo Shrimp With Kimchi-Miso Butter,Gathered,www.myrecipes.com/recipe/grilled-jumbo-shrimp,19679,crustaceans; milk; sesame; soy,crustaceans; milk; sesame; soy,
+895030,random_test,Cream Cheese Roll-Ups,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=293303,40917,gluten; milk,gluten; milk,
+1513517,random_test,Chicken Spinach Dip Bread Bowls,Gathered,www.tasteofhome.com/recipes/chicken-spinach-dip-bread-bowls/,20501,gluten; milk,gluten; milk,
+1224605,random_test,Gazpacho Dip,Gathered,www.food.com/recipe/gazpacho-dip-96881,45096,sulphites,sulphites,
+315855,random_test,Mexican Beef Hash,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=350485,1699,,,
+2150728,random_test,Peachy Sourdough French Toast Casserole,Recipes1M,www.food.com/recipe/peachy-sourdough-french-toast-casserole-431351,32565,eggs; gluten; milk,eggs; gluten; milk,
+1279635,random_test,Cucumber Kimchi ,Gathered,www.epicurious.com/recipes/member/views/cucumber-kimchi-50124499,46056,gluten; soy; sulphites,sulphites,primary_not_subset_of_all_possible
+1330310,random_test,Winter Miso Soup ,Gathered,www.epicurious.com/recipes/member/views/winter-miso-soup-1256902,16292,celery; sesame; soy,celery; sesame; soy,
+1207938,random_test,Southwestern Corn Chowder,Gathered,www.food.com/recipe/southwestern-corn-chowder-285103,44883,,,
+988845,random_test,Cod Poached In Cider,Gathered,www.food.com/recipe/cod-poached-in-cider-495661,42160,fish; milk,fish; milk,
+1103043,random_test,Warm Spinach Dip In A Bread Bowl,Gathered,www.food.com/recipe/warm-spinach-dip-in-a-bread-bowl-107701,10631,eggs; gluten; milk,eggs; gluten; milk,
+784504,random_test,Roast Beef And Noodles,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=129600,40218,gluten; soy,gluten,primary_not_subset_of_all_possible
+1220007,random_test,Chocolate Tofu Milkshake,Gathered,www.food.com/recipe/chocolate-tofu-milkshake-372206,13750,soy,milk; soy,
+914038,random_test,Chinese Egg Dumplings,Gathered,www.allrecipes.com/recipe/82204/chinese-egg-dumplings/,5322,eggs; gluten; sesame; soy; sulphites,eggs; sesame; soy; sulphites,primary_not_subset_of_all_possible
+1742338,random_test,Four Cheese Lasagna Rolls,Recipes1M,www.food.com/recipe/four-cheese-lasagna-rolls-407978,25034,gluten; milk,gluten; milk,
+1617776,random_test,Beef Potato Moussaka,Gathered,www.yummly.com/recipe/Beef-Potato-Moussaka-1647782,49838,eggs; milk,eggs; milk,
+1296109,random_test,Cinnamon-Swirl Breakfast Bread Pudding ,Gathered,www.epicurious.com/recipes/member/views/cinnamon-swirl-breakfast-bread-pudding-52671651,15626,eggs; gluten; milk,eggs; gluten; milk,
+1437029,random_test,Chicken-Tomato Chutney Pizza,Gathered,www.myrecipes.com/recipe/chicken-tomato-chutney-pizza,19097,gluten; milk,milk,primary_not_subset_of_all_possible
+1728582,random_test,Pizza Steak Sandwiches,Recipes1M,tastykitchen.com/recipes/main-courses/pizza-steak-sandwiches/,24775,gluten; milk,milk,primary_not_subset_of_all_possible
+1801134,random_test,Tunisian Potato Omelet,Recipes1M,www.epicurious.com/recipes/food/views/tunisian-potato-omelet-377100,26083,eggs; milk,eggs; milk,
+948058,random_test,French Salad With Russian Dressing,Gathered,www.allrecipes.com/recipe/65161/french-salad-with-russian-dressing/,6346,eggs,eggs,
+1882550,random_test,Potato and Mayonnaise Bread Rolls,Recipes1M,cookpad.com/us/recipes/167969-potato-and-mayonnaise-bread-rolls,27568,eggs; gluten; milk,eggs; gluten; milk,
+925137,random_test,Bruschetta,Gathered,www.allrecipes.com/recipe/20993/bruschetta-i/,5649,,,
+1259767,random_test,Korean Beef Short Ribs,Gathered,recipes-plus.com/api/v2.0/recipes/34396,45648,gluten; sesame; soy,sesame; soy,primary_not_subset_of_all_possible
+1085524,random_test,Mall Teriyaki Chicken,Gathered,www.food.com/recipe/mall-teriyaki-chicken-520865,10145,gluten; soy; sulphites,gluten; soy; sulphites,
+1282273,random_test,Spicy Korean Steak Tacos With Kimchi ,Gathered,www.epicurious.com/recipes/food/views/spicy-korean-steak-tacos-with-kimchi,15344,eggs; fish; gluten; molluscs; sulphites,eggs; gluten; molluscs; sulphites,primary_not_subset_of_all_possible
+972037,random_test,Adobo Bbq Chicken,Gathered,www.food.com/recipe/adobo-bbq-chicken-308663,7005,,,
+1047993,random_test,Lime Jalapeno Hummus,Gathered,www.food.com/recipe/lime-jalapeno-hummus-421169,9137,peanuts,peanuts,
+382870,random_test,West Indies Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=604971,37404,crustaceans; sulphites,crustaceans; sulphites,
+1239472,random_test,Crunchy Pea Salad,Gathered,www.food.com/recipe/crunchy-pea-salad-20288,45264,celery; milk; tree_nuts,celery; milk; tree_nuts,
+1772070,random_test,Santa Fe Brunch Pizza,Recipes1M,www.landolakes.com/recipe/898/santa-fe-brunch-pizza,25575,eggs; gluten; milk,eggs; gluten; milk,
+1092259,random_test,Turkey Salsa Meatloaf,Gathered,www.food.com/recipe/turkey-salsa-meatloaf-395719,43427,eggs; gluten,eggs; gluten,
+889203,random_test,Green Chili Stew,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=288268,40873,,,
+39076,random_test,Coconut Chinese Chews,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=226780,203,eggs; gluten; tree_nuts,eggs; gluten,primary_not_subset_of_all_possible
+409711,random_test,Beef Noodle Marzetti,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=846937,2226,eggs; gluten; milk,eggs; gluten; milk,
+1108425,random_test,Apple Chicken,Gathered,www.food.com/recipe/apple-chicken-39705,43627,sulphites,sulphites,
+2161833,random_test,Malay Onion Sambal,Recipes1M,www.foodandwine.com/recipes/malay-onion-sambal,32777,sulphites,sulphites,
+1294331,random_test,Marinated Turkey Breast ,Gathered,www.epicurious.com/recipes/member/views/marinated-turkey-breast-50157083,46325,gluten; soy,soy,primary_not_subset_of_all_possible
+944323,random_test,Azteca Cocoa Rice Pudding,Gathered,www.allrecipes.com/recipe/240209/azteca-cocoa-rice-pudding/,6234,milk,milk,
+1220433,random_test,Philippine Lumpias,Gathered,www.food.com/recipe/philippine-lumpias-333488,45035,eggs; gluten; sulphites,eggs; sulphites,primary_not_subset_of_all_possible
+2081786,random_test,Potato Cheddar Soup,Recipes1M,www.food.com/recipe/potato-cheddar-soup-452363,54212,gluten; milk,gluten; milk,
+1140963,random_test,Shanghai Stewed Noodles,Gathered,www.food.com/recipe/shanghai-stewed-noodles-66805,11638,celery; eggs; gluten; sesame,celery; eggs; gluten; sesame,
+1448833,random_test,Green Vegetable Soup With Lemon-Basil Pesto,Gathered,www.myrecipes.com/recipe/green-vegetable-soup,19354,celery; gluten; milk,celery; gluten; milk,
+1242891,random_test,Tomato Beef Chow Mein,Gathered,www.food.com/recipe/tomato-beef-chow-mein-431878,45310,gluten; sesame; soy; sulphites,gluten; sesame; soy; sulphites,
+219836,random_test,Quiche Scandia,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=212967,1172,eggs; gluten; milk,eggs; gluten; milk,
+1678025,random_test,Fish Stuffing,Recipes1M,www.food.com/recipe/fish-stuffing-25063,50377,celery; gluten; milk,celery; gluten; milk,
+2172594,random_test,Layered Zucchini and Ricotta Omelet Cake,Recipes1M,www.foodnetwork.com/recipes/rachael-ray/layered-zucchini-and-ricotta-omelet-cake-recipe.html,32975,eggs; milk,eggs; milk,
+306653,random_test,Tomato Pudding,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=459081,36816,gluten; milk,gluten; milk,
+1516873,random_test,Sausage Bread Sandwiches,Gathered,www.tasteofhome.com/recipes/sausage-bread-sandwiches/,20587,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+219863,random_test,Chinese Tuna Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=221933,36119,celery; eggs; fish; gluten; soy,celery; eggs; fish; gluten; soy,
+1985274,random_test,Vegetable Enchilada Casserole,Recipes1M,www.food.com/recipe/vegetable-enchilada-casserole-144095,53297,milk,milk,
+793582,random_test,Herb Vermicelli,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=262668,4317,gluten; milk,gluten; milk,
+2192526,random_test,African Peanut Chicken Stew,Recipes1M,tastykitchen.com/recipes/main-courses/african-peanut-chicken-stew/,33336,gluten; peanuts; sesame; tree_nuts,gluten; peanuts; sesame; tree_nuts,
+1442486,random_test,Carolina Chicken Burgers With Ancho Slaw,Gathered,www.myrecipes.com/recipe/carolina-chicken-burgers-ancho-slaw,19213,eggs; gluten; mustard; sesame,eggs; mustard; sesame,primary_not_subset_of_all_possible
+1723569,random_test,Chicken Skewers,Recipes1M,www.cookstr.com/recipes/chicken-skewers,50834,gluten; sesame; soy; sulphites,sesame; soy; sulphites,primary_not_subset_of_all_possible
+247216,random_test,Greek Beans,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=738571,36334,,,
+1191780,random_test,Korean Chicken In Hot Chili Sauce,Gathered,www.food.com/recipe/korean-chicken-in-hot-chili-sauce-279407,12995,gluten; sesame; soy,sesame; soy,primary_not_subset_of_all_possible
+1230672,random_test,Vegan Lentil Flour Pancake,Gathered,www.food.com/recipe/vegan-lentil-flour-pancake-304724,14035,,gluten,
+264257,random_test,Marinated Beef Brisket,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=113105,36479,fish; gluten; mustard; sulphites,fish; gluten; mustard,primary_not_subset_of_all_possible
+484267,random_test,Chinese Pick-Up Sticks,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=675237,2652,celery; gluten; milk; soy,celery; gluten; milk; soy,
+1338521,random_test,Tequila Lime Shrimp ,Gathered,www.epicurious.com/recipes/member/views/tequila-lime-shrimp-51512211,47171,crustaceans,crustaceans,
+1231808,random_test,Sushi Bake,Gathered,www.food.com/recipe/sushi-bake-521407,14071,crustaceans; eggs; fish; milk,crustaceans; eggs; milk,primary_not_subset_of_all_possible
+1999329,random_test,Tuscan Turkey Wrap,Recipes1M,www.kraftrecipes.com/recipes/tuscan-turkey-wrap-114191.aspx,53433,gluten; milk,gluten; milk,
+975814,random_test,Vegan Chickpea Korma,Gathered,www.food.com/recipe/vegan-chickpea-korma-271664,7111,,,
+2219392,random_test,Pilaf with Cilantro and Pine Nuts,Recipes1M,www.vegetariantimes.com/recipe/pilaf-with-cilantro-and-pine-nuts/,33790,,tree_nuts,
+807593,random_test,German Hutzet Brot,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=792317,4397,gluten; sulphites,gluten; sulphites,
+1251913,random_test,Hot & Sour Shrimp Noodle Soup,Gathered,recipes-plus.com/api/v2.0/recipes/35861,14634,crustaceans; fish,crustaceans; fish; gluten,
+2055765,random_test,Grilled Sausage and Egg Breakfast Sandwiches,Recipes1M,www.foodnetwork.com/recipes/bobby-flay/grilled-sausage-and-egg-breakfast-sandwiches-recipe.html,30789,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1279481,random_test,Mango Kulfi ,Gathered,www.epicurious.com/recipes/member/views/mango-kulfi-52824551,46050,milk; tree_nuts,milk; tree_nuts,
+1447663,random_test,Halibut Sandwiches With Tartar Sauce,Gathered,www.myrecipes.com/recipe/halibut-sandwiches-with-tartar-sauce,19325,eggs; fish; gluten,eggs; fish,primary_not_subset_of_all_possible
+1819139,random_test,Tex Mex Sliders`,Recipes1M,cookpad.com/us/recipes/351178-tex-mex-sliders,26388,eggs,eggs,
+1353293,random_test,Asparagus Soup ,Gathered,www.epicurious.com/recipes/member/views/asparagus-soup-52815891,47406,milk; sulphites,milk; sulphites,
+1367260,random_test,Mango Salad And Scallop Avocado Sandwich,Gathered,food52.com/recipes/29623-mango-salad-and-scallop-avocado-sandwich,17097,molluscs; sulphites,molluscs; sulphites,
+1588026,random_test,Hungarian Diamonds,Gathered,tastykitchen.com/recipes/desserts/hungarian-diamonds/,21748,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+1405116,random_test,Moroccan Spiced Burger,Gathered,food52.com/recipes/9785-moroccan-spiced-burger,18295,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1422611,random_test,Chicken And Oyster Gumbo,Gathered,www.myrecipes.com/recipe/chicken-oyster-gumbo,18788,gluten; molluscs,gluten; molluscs,
+434027,random_test,Vegetable Chowder,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=770775,37778,celery; gluten; milk,celery; milk,primary_not_subset_of_all_possible
+1182348,random_test,Chinese Seafood Soup,Gathered,www.food.com/recipe/chinese-seafood-soup-15352,12745,crustaceans; gluten; molluscs; soy; sulphites,crustaceans; gluten; molluscs; soy; sulphites,
+2108882,random_test,Chickpea Masala,Recipes1M,www.food.com/recipe/chickpea-masala-480450,31792,,,
+2224510,random_test,Vietnamese Tuna Seviche,Recipes1M,www.foodandwine.com/recipes/vietnamese-tuna-seviche,33888,fish; gluten; soy; sulphites,fish; soy; sulphites,primary_not_subset_of_all_possible
+25359,random_test,Polish Soup,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=821609,34301,gluten,gluten,
+1109975,random_test,Turkey Burger Pizza,Gathered,www.food.com/recipe/turkey-burger-pizza-466739,10807,gluten; milk,milk,primary_not_subset_of_all_possible
+2012327,random_test,Nettle Pesto,Recipes1M,www.epicurious.com/recipes/food/views/nettle-pesto-383876,29985,milk,milk; tree_nuts,
+1047154,random_test,Chana -Veggie Pie,Gathered,www.food.com/recipe/chana-veggie-pie-284682,9110,eggs; gluten; milk; soy,eggs; gluten; milk; soy,
+954920,random_test,Greek Flank Steak,Gathered,www.allrecipes.com/recipe/259355/greek-flank-steak/,6553,milk,milk,
+1272129,random_test,Pork Tenderloin Diane ,Gathered,www.epicurious.com/recipes/member/views/pork-tenderloin-diane-51341631,45912,fish; milk; mustard,fish; milk; mustard,
+1395787,random_test,Overnight Cranberry Orange French Toast Casserole,Gathered,food52.com/recipes/65661-overnight-cranberry-orange-french-toast-casserole,18006,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+2148447,random_test,Beef Tapa,Recipes1M,cookpad.com/us/recipes/351555-beef-tapa,54844,gluten; soy,soy; sulphites,primary_not_subset_of_all_possible
+1969623,random_test,Ham & Mayonnaise Rolls,Recipes1M,cookpad.com/us/recipes/142842-ham-mayonnaise-rolls,29219,eggs; gluten; milk,eggs; gluten; milk,
+1215939,random_test,Italian Cucumber Tea Sandwiches,Gathered,www.food.com/recipe/italian-cucumber-tea-sandwiches-251435,13648,eggs; gluten; milk,eggs; gluten; milk,
+1446854,random_test,French Broth,Gathered,www.myrecipes.com/recipe/french-broth,19304,milk,milk,
+1685808,random_test,Tuna Rice Salad,Recipes1M,www.food.com/recipe/tuna-rice-salad-99165,50457,eggs; fish; sulphites,eggs; fish; sulphites,
+1521201,random_test,Spinach-Corn Bread Bites,Gathered,www.tasteofhome.com/recipes/spinach-corn-bread-bites/,20694,eggs; gluten; milk,eggs; gluten; milk,
+2015966,random_test,Vegetable Summer Rolls,Recipes1M,www.foodnetwork.com/recipes/vegetable-summer-rolls-recipe.html,53589,peanuts; sulphites,gluten; peanuts; sulphites,
+1253522,random_test,Coleslaw With Pretzel Sandwiches,Gathered,recipes-plus.com/api/v2.0/recipes/16378,14675,gluten; milk; sulphites,milk; sulphites,primary_not_subset_of_all_possible
+952240,random_test,Welsh Tea Cakes,Gathered,www.allrecipes.com/recipe/10411/welsh-tea-cakes/,41731,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+710161,random_test,Spinach Risotto,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=869459,39722,milk; sulphites,milk; sulphites,
+1733138,random_test,Stir-Fried Konnyaku with Bonito Flakes and Kimchi,Recipes1M,cookpad.com/us/recipes/168220-stir-fried-konnyaku-with-bonito-flakes-and-kimchi,24873,fish; gluten; sesame; soy,fish; sesame; soy,primary_not_subset_of_all_possible
+1366532,random_test,Penne Salad,Gathered,food52.com/recipes/35639-penne-salad,17079,eggs; gluten; peanuts; sulphites,eggs; gluten; peanuts; sulphites,
+2152256,random_test,Family Fondue,Recipes1M,www.food.com/recipe/family-fondue-365711,32586,gluten; milk,gluten; milk,
+2033258,random_test,Vegan Chocolate Cookies,Recipes1M,www.foodnetwork.com/recipes/food-network-kitchens/vegan-chocolate-cookies.html,53765,gluten; sulphites,gluten; sulphites,
+1386771,random_test,Versatile Moussaka,Gathered,food52.com/recipes/21212-versatile-moussaka,17716,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+2171605,random_test,Shanghai Meatballs,Recipes1M,www.foodnetwork.com/recipes/emeril-lagasse/shanghai-meatballs-recipe.html,32965,eggs; gluten; peanuts; sesame; soy; sulphites,eggs; gluten; peanuts; sesame; soy; sulphites,
+1220875,random_test,Greek Steak Pitas,Gathered,www.food.com/recipe/greek-steak-pitas-372557,45039,gluten; milk; sulphites,gluten; milk; sulphites,
+2133931,random_test,Banh Mi,Recipes1M,tastykitchen.com/recipes/main-courses/banh-mi-2/,54698,eggs; fish; gluten; soy,eggs; fish; gluten; soy,
+2192520,random_test,Pork Roast With Coffee-Orange Gravy,Recipes1M,www.food.com/recipe/pork-roast-with-coffee-orange-gravy-282016,33335,mustard; sulphites,mustard; sulphites,
+1550906,random_test,Tzatziki Biscuits,Gathered,tastykitchen.com/recipes/breads/tzatziki-biscuits/,21238,eggs; gluten; milk,eggs; gluten; milk,
+397092,random_test,Shrimp And Macaroni Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=403221,37506,crustaceans; eggs; gluten; milk,crustaceans; eggs; gluten; milk,
+1092384,random_test,Vegan Hot Dog,Gathered,www.food.com/recipe/vegan-hot-dog-530660,10338,gluten,gluten,
+1140678,random_test,Ham & Swiss Soup,Gathered,www.food.com/recipe/ham-swiss-soup-236600,11633,gluten; milk,gluten; milk,
+1730285,random_test,Channa Masala,Recipes1M,www.food.com/recipe/ss-channa-masala-422943,24809,,,
+1140313,random_test,Thai Peanut Curry Sauce,Gathered,www.food.com/recipe/thai-peanut-curry-sauce-420049,11625,peanuts,peanuts,
+1371462,random_test,Israeli Farro Salad,Gathered,food52.com/recipes/29059-israeli-farro-salad,17250,gluten; milk,milk,primary_not_subset_of_all_possible
+2087327,random_test,Spicy Lentil & Kale Soup,Recipes1M,www.kraftrecipes.com/recipes/spicy-lentil-kale-soup-129885.aspx,31374,milk; sulphites,milk,primary_not_subset_of_all_possible
+1208490,random_test,Crepe Meets Funnel Cake-Style Pancakes,Gathered,www.food.com/recipe/crepe-meets-funnel-cake-style-pancakes-530499,13451,eggs; gluten; milk,eggs; gluten; milk,
+1058259,random_test,Swedish Chicken Breasts,Gathered,www.food.com/recipe/swedish-chicken-breasts-372347,9403,milk; sulphites,milk; sulphites,
+2106223,random_test,Vegetarian Breakfast Smoothie,Recipes1M,www.food.com/recipe/vegetarian-breakfast-smoothie-358798,31747,milk; peanuts,milk; peanuts,
+905797,random_test,Buffalo Chicken Soup,Gathered,www.allrecipes.com/recipe/202716/buffalo-chicken-soup/,41048,celery; gluten; milk,celery; gluten; milk,
+1327366,random_test,Risotto With Lentils Ala Sophia Loren ,Gathered,www.epicurious.com/recipes/member/views/risotto-with-lentils-ala-sophia-loren-50088112,16227,milk,milk,
+702877,random_test,Inexpensive Punch,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=962845,39673,,,
+484724,random_test,Corned Beef Bread Dip,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=934712,2655,celery; eggs; milk,eggs; milk,primary_not_subset_of_all_possible
+741383,random_test,Ruby Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=781257,39962,milk; tree_nuts,milk; tree_nuts,
+1838545,random_test,Toasted Couscous Tabbouleh,Recipes1M,www.epicurious.com/recipes/food/views/toasted-couscous-tabbouleh-392559,26755,gluten,gluten,
+1402001,random_test,Pea And Lentil Soup,Gathered,food52.com/recipes/21877-pea-and-lentil-soup,18184,,,
+1120482,random_test,Seasoned Noodle Mix,Gathered,www.food.com/recipe/seasoned-noodle-mix-80804,11085,eggs; gluten; milk,eggs; gluten; milk,
+1127540,random_test,Smoked Salmon And Prosciutto Pasta Sauce,Gathered,www.food.com/recipe/smoked-salmon-and-prosciutto-pasta-sauce-509648,11285,fish; milk,fish; milk,
+1637686,random_test,Chinese Jicama Dumplings,Gathered,www.yummly.com/recipe/Chinese-Jicama-Dumplings-1650460,23093,crustaceans; gluten; molluscs; soy,crustaceans; gluten; molluscs; soy,
+1092933,random_test,Bread Pudding And Sauce,Gathered,www.food.com/recipe/bread-pudding-and-sauce-501853,43438,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+179327,random_test,Chipped Beef Dip,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=198703,35770,milk,milk,
+1709210,random_test,Danish Aebleskivers,Recipes1M,www.food.com/recipe/danish-aebleskivers-351795,50695,eggs; gluten; milk,eggs; gluten; milk,
+2180675,random_test,Chicken/Fish/ Prawn Chaat,Recipes1M,www.food.com/recipe/chicken-fish-prawn-chaat-331710,33132,crustaceans,crustaceans,
+1526033,random_test,Spanish Rice Turkey Casserole,Gathered,www.tasteofhome.com/recipes/spanish-rice-turkey-casserole/,49191,gluten; milk,gluten; milk,
+1882684,random_test,Orange Souffle,Recipes1M,www.foodnetwork.com/recipes/orange-souffle-recipe.html,52318,eggs; gluten; milk,eggs; gluten; milk,
+2036699,random_test,Soup for Ramen,Recipes1M,cookpad.com/us/recipes/172069-soup-for-ramen,30444,fish; gluten; sesame; soy,sesame; soy,primary_not_subset_of_all_possible
+1724914,random_test,Tofu and Walnut Stuffed Mushrooms,Recipes1M,www.food.com/recipe/tofu-and-walnut-stuffed-mushrooms-367109,50844,soy; sulphites; tree_nuts,soy; sulphites; tree_nuts,
+840347,random_test,Norwegian Nuts,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=877099,40575,eggs; milk; tree_nuts,eggs; milk; tree_nuts,
+833349,random_test,Chicken Philippine Style,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=673735,40535,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+1495655,random_test,Chicken Bites With Apricot Sauce,Gathered,www.tasteofhome.com/recipes/chicken-bites-with-apricot-sauce/,20106,eggs; gluten; milk; mustard,eggs; gluten; milk; mustard,
+1992154,random_test,Buffalo Chicken...Hummus,Recipes1M,tastykitchen.com/recipes/appetizers-and-snacks/buffalo-chickene280a6hummus/,29635,sesame,sesame,
+955365,random_test,Couscous Gourmet,Gathered,www.allrecipes.com/recipe/220423/couscous-gourmet/,6570,gluten; milk,gluten; milk,
+1659402,random_test,Halloween Pizza,Recipes1M,recipeland.com/recipe/v/halloween-pizza-52677,50186,gluten; milk,milk,primary_not_subset_of_all_possible
+824157,random_test,Dried Beef Cracker Spread,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=95213,4488,gluten; milk,gluten; milk,
+1166053,random_test,Vegetarian Couscous Paella,Gathered,www.food.com/recipe/vegetarian-couscous-paella-98509,12319,gluten; tree_nuts,gluten; tree_nuts,
+329361,random_test,Pumpkin Pecan Pie,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=757030,36982,eggs; gluten; tree_nuts,eggs; gluten; tree_nuts,
+2052649,random_test,Fiesta Appetizer,Recipes1M,www.foodgeeks.com/recipes/3108,53952,milk,milk,
+2024480,random_test,Vegan Granola Bars,Recipes1M,tastykitchen.com/recipes/special-dietary-needs/vegan-granola-bars/,53673,gluten; sulphites; tree_nuts,gluten; milk; soy; sulphites; tree_nuts,
+613404,random_test,Crab Ball,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=925187,39090,fish; gluten; milk,gluten; milk,primary_not_subset_of_all_possible
+1869240,random_test,SHAKE'N BAKE Fish and Baked Tomatoes,Recipes1M,www.kraftrecipes.com/recipes/shaken-bake-fish-baked-tomatoes-85100.aspx,27329,fish; gluten; milk,fish; gluten; milk,
+1508392,random_test,French Vanilla Bread Pudding,Gathered,www.tasteofhome.com/recipes/french-vanilla-bread-pudding/,20369,eggs; gluten; milk; sulphites; tree_nuts,eggs; gluten; milk; tree_nuts,primary_not_subset_of_all_possible
+185451,random_test,St. Paul Rice,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=830932,35820,celery; gluten,celery; gluten,
+2031807,random_test,Dessert Lokshen Kugel,Recipes1M,www.food.com/recipe/dessert-lokshen-kugel-322679,30353,eggs; gluten; milk; sulphites,eggs; gluten; milk,primary_not_subset_of_all_possible
+1034701,random_test,Macaroni & Zucchini Salad,Gathered,www.food.com/recipe/macaroni-zucchini-salad-276429,8785,eggs; gluten; milk; peanuts,eggs; gluten; milk; peanuts,
+1136253,random_test,Indian Spinach Salad,Gathered,www.food.com/recipe/indian-spinach-salad-466493,43967,mustard; peanuts; sulphites,mustard; peanuts; sulphites,
+14572,random_test,Great Northern Bean Stew,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=970777,34177,sulphites,sulphites,
+125193,random_test,Taco Dip - Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=507898,665,milk,milk,
+887569,random_test,Don'T Peek Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=843251,40862,celery; fish; gluten; milk,celery; fish; gluten; milk,
+1336351,random_test,Fresh Lemonade ,Gathered,www.epicurious.com/recipes/member/views/fresh-lemonade-50089352,47120,,,
+1232872,random_test,Lebanese Bulgur,Gathered,www.food.com/recipe/lebanese-bulgur-178437,14104,gluten,gluten,
+259400,random_test,Custard Filipino Style,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=461772,1383,eggs; milk,eggs; milk,
+1104267,random_test,Wisconsin Cheese Soup,Gathered,www.food.com/recipe/wisconsin-cheese-soup-311697,43580,celery; gluten; milk,celery; gluten; milk,
+1456385,random_test,Shrimp Succotash,Gathered,www.myrecipes.com/recipe/shrimp-succotash,48512,crustaceans; milk,crustaceans; milk,
+1523117,random_test,Scarecrow Veggie Pizza,Gathered,www.tasteofhome.com/recipes/scarecrow-veggie-pizza/,20733,eggs; gluten; milk,eggs; gluten; milk,
+182421,random_test,Cinnamon Breakfast Rolls,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=556161,35790,gluten; milk; tree_nuts,milk,primary_not_subset_of_all_possible
+1185076,random_test,Italian Sausage Sandwiches,Gathered,www.food.com/recipe/italian-sausage-sandwiches-400021,44588,gluten; milk,gluten; milk,
+858056,random_test,Molded Vegetable Relish,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=592718,40690,celery; sulphites,celery; sulphites,
+2197807,random_test,Goi Cuon,Recipes1M,www.epicurious.com/recipes/food/views/goi-cuon-385598,33423,crustaceans; gluten; peanuts; soy,crustaceans; peanuts,primary_not_subset_of_all_possible
+2158257,random_test,BBQ Spaghetti,Recipes1M,www.foodnetwork.com/recipes/bbq-spaghetti-recipe0.html,54928,gluten,gluten,
+1450154,random_test,Veggie Grilled Pizza,Gathered,www.myrecipes.com/recipe/veggie-grilled-pizza,19390,gluten; milk,gluten; milk,
+2191910,random_test,Cheesy Spinach Lasagna Rolls,Recipes1M,www.kraftrecipes.com/recipes/cheesy-spinach-lasagna-rolls-161331.aspx,33323,eggs; gluten; milk,eggs; gluten; milk,
+2041989,random_test,Dried Cherry-Chocolate Strudel Bars,Recipes1M,www.epicurious.com/recipes/food/views/dried-cherry-chocolate-strudel-bars-104339,30540,gluten; milk; sulphites; tree_nuts,gluten; milk; tree_nuts,primary_not_subset_of_all_possible
+1397505,random_test,Tropical Dessert Smoothie,Gathered,food52.com/recipes/30280-tropical-dessert-smoothie,18057,milk; sesame,milk; sesame,
+450174,random_test,Venison Sausage,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=973484,37892,,sulphites,
+391667,random_test,Pesto For Pasta,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=872582,2120,milk,milk,
+1079112,random_test,Greek Casserole,Gathered,www.food.com/recipe/greek-casserole-305729,43261,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+1148481,random_test,Moroccan Tuna Steaks,Gathered,www.food.com/recipe/moroccan-tuna-steaks-134633,44113,fish; milk,fish; milk,
+1760794,random_test,Pasta al Pomodoro,Recipes1M,tastykitchen.com/recipes/main-courses/pasta-al-pomodoro/,51163,gluten; milk,gluten; milk,
+1407475,random_test,Indian-Spiced Potatoes,Gathered,food52.com/recipes/401-indian-spiced-potatoes,18374,,,
+1042718,random_test,Chinese Chicken Manchurian,Gathered,www.food.com/recipe/chinese-chicken-manchurian-200726,8988,eggs; gluten; soy,eggs; gluten; soy,
+939621,random_test,Holiday Apricot Kugel,Gathered,www.allrecipes.com/recipe/212474/holiday-apricot-kugel/,6089,eggs; gluten; milk,eggs; gluten; milk,
+115652,random_test,Green Rice And Sausage Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=583150,617,eggs; gluten; milk,eggs; gluten; milk,
+1196649,random_test,Ramen Vegetable Steak Stir-Fry,Gathered,www.food.com/recipe/ramen-vegetable-steak-stir-fry-17447,44727,gluten; sesame; soy,gluten; sesame; soy,
+1922700,random_test,Steamed Cocoa Bread with Pancake Mix,Recipes1M,cookpad.com/us/recipes/143537-steamed-cocoa-bread-with-pancake-mix,28343,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1166061,random_test,Mango Summer Rolls & Thai Dipping Sauce,Gathered,www.food.com/recipe/mango-summer-rolls-thai-dipping-sauce-236528,12320,peanuts,gluten; peanuts; sulphites,
+1825360,random_test,Norwegian Egg Pancakes,Recipes1M,cookpad.com/us/recipes/341695-norwegian-egg-pancakes,26509,eggs; gluten; milk,eggs; gluten; milk,
+1617909,random_test,Turkish Hummus,Gathered,www.yummly.com/recipe/Turkish-Hummus-1675499,22572,sesame,sesame,
+1816553,random_test,Lauries Veggie Dip,Recipes1M,www.food.com/recipe/laurie-s-veggie-dip-130026,26338,eggs; milk,eggs; milk,
+158288,random_test,Danish Pineapple Cheesecake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=209638,833,eggs; gluten; milk,eggs; gluten; milk,
+1205422,random_test,Asian Seafood Noodle Soup,Gathered,www.food.com/recipe/asian-seafood-noodle-soup-499296,13373,crustaceans; gluten; molluscs; peanuts; sesame; soy,crustaceans; gluten; molluscs; peanuts; sesame; soy,
+1517385,random_test,Vietnamese Crunchy Chicken Salad,Gathered,www.tasteofhome.com/recipes/vietnamese-crunchy-chicken-salad/,20597,peanuts; sulphites,peanuts; sulphites,
+1634919,random_test,Soup Minestrone,Gathered,www.yummly.com/recipe/Soup-Minestrone-1670767,23025,celery; gluten,celery; gluten,
+1167374,random_test,Ham And Cheese Pizza Mini-Bagels,Gathered,www.food.com/recipe/ham-and-cheese-pizza-mini-bagels-365269,12359,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+553002,random_test,Vegetable Skillet Stew,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=285575,3029,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+1308172,random_test,Korean Bean Sprouts ,Gathered,www.epicurious.com/recipes/member/views/korean-bean-sprouts-1245764,46582,sesame,sesame,
+1817306,random_test,Lomi Salmon,Recipes1M,www.food.com/recipe/lomi-salmon-2920,51708,fish,fish,
+475086,random_test,Corn Pone Pie,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=749509,38090,fish; gluten,fish; gluten,
+107584,random_test,Pizza Dip,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=589096,35094,milk,milk,
+1020880,random_test,Vietnamese Avocado Shake,Gathered,www.food.com/recipe/vietnamese-avocado-shake-148702,8346,milk,milk,
+1470143,random_test,Korean Steak Sandwiches,Gathered,www.myrecipes.com/recipe/korean-steak-sandwiches,19824,eggs; gluten; sesame; soy; sulphites,eggs; sesame; soy; sulphites,primary_not_subset_of_all_possible
+1631910,random_test,Polish Donuts,Gathered,www.yummly.com/recipe/Polish-Donuts-1668458,22944,eggs; gluten; milk,eggs; gluten; milk,
+1034979,random_test,Spicy Chickpea Snack Mix,Gathered,www.food.com/recipe/spicy-chickpea-snack-mix-183670,8789,sulphites,,primary_not_subset_of_all_possible
+1363970,random_test,Miso-Yogurt Chicken Pasta,Gathered,food52.com/recipes/62541-miso-yogurt-chicken-pasta,16991,gluten; milk; soy,gluten; milk; soy,
+1427984,random_test,Turkey Burgers With Cranberry-Peach Chutney,Gathered,www.myrecipes.com/recipe/turkey-burgers-cranberry-chutney,48100,eggs,eggs,
+2145074,random_test,Cajun Creole Chicken Bites,Recipes1M,www.kraftrecipes.com/recipes/cajun-creole-chicken-bites-189523.aspx,32471,fish; gluten; milk,fish; gluten; milk,
+1201101,random_test,Mexican Chip Casserole,Gathered,www.food.com/recipe/mexican-chip-casserole-64441,44790,gluten; milk,gluten; milk,
+1621954,random_test,Chakalaka Salad,Gathered,www.yummly.com/recipe/Chakalaka-Salad-1651451,22693,,,
+768640,random_test,Apple Cider Bread,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=559876,40131,eggs; gluten; tree_nuts,eggs; gluten,primary_not_subset_of_all_possible
+1011120,random_test,Greek Phyllo Pizza,Gathered,www.food.com/recipe/greek-phyllo-pizza-59596,8074,gluten; milk,gluten; milk,
+2124535,random_test,Provencal Fish Stew,Recipes1M,cooking.nytimes.com/recipes/6470,54608,fish; molluscs; sulphites,fish; molluscs; sulphites,
+1465810,random_test,Clam Sauce,Gathered,www.myrecipes.com/recipe/clam-sauce,48676,gluten; molluscs; sulphites,gluten; molluscs; sulphites,
+153253,random_test,Swedish Coffee Twist,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=753868,810,eggs; gluten; milk,eggs; gluten; milk,
+1758764,random_test,Indian Prawn Patia,Recipes1M,www.food.com/recipe/indian-prawn-patia-90969,25336,crustaceans; milk; mustard; sulphites,crustaceans; milk; mustard; sulphites,
+541520,random_test,Sweet 'N Sour Pork,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=699038,38578,sulphites,sulphites,
+661179,random_test,Pierogi In A Shell,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=290343,3616,gluten; milk,gluten; milk,
+1259398,random_test,Pork Shish Kebab,Gathered,recipes-plus.com/api/v2.0/recipes/18051,45638,,,
+16822,random_test,Salisbury Steak,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=36880,34204,eggs; gluten; milk,eggs; gluten; milk,
+1819578,random_test,Asian Tuna Salad Sandwich,Recipes1M,tastykitchen.com/recipes/main-courses/asian-tuna-salad-sandwich/,26401,eggs; fish; gluten; sesame; soy,eggs; fish; gluten; sesame; soy,
+1905178,random_test,Beef-Less Burrito,Recipes1M,www.food.com/recipe/beef-less-burrito-473255,28007,gluten; sesame,gluten; sesame,
+1216853,random_test,Cuban Roast Beef,Gathered,www.food.com/recipe/cuban-roast-beef-11533,13669,,sulphites,
+1933005,random_test,BBQ Ranch Chicken Salad,Recipes1M,www.kraftrecipes.com/recipes/bbq-ranch-chicken-salad-50610.aspx,52792,eggs; gluten; milk,milk,primary_not_subset_of_all_possible
+1546853,random_test,Veggie Soup With Semolina Dumplings,Gathered,tastykitchen.com/recipes/soups/veggie-soup-with-semolina-dumplings/,21163,eggs; gluten,eggs; gluten,
+186286,random_test,Baked Lasagna,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=534976,35831,gluten; milk,gluten; milk,
+2088771,random_test,Crab Curry Dip,Recipes1M,www.food.com/recipe/crab-curry-dip-171533,31397,crustaceans; milk,crustaceans; milk,
+979673,random_test,Pop-Up Pizza,Gathered,www.food.com/recipe/pop-up-pizza-6866,42067,eggs; gluten; milk,eggs; gluten; milk,
+991558,random_test,Mediterranean Patio Pizza,Gathered,www.food.com/recipe/mediterranean-patio-pizza-294879,7552,gluten; milk; sulphites,milk; sulphites,primary_not_subset_of_all_possible
+390113,random_test,French Salad Dressing,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=97158,37460,fish; gluten; mustard; sulphites,fish; mustard; sulphites,primary_not_subset_of_all_possible
+785336,random_test,Pizza In A Skillet,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=428177,40226,gluten,,primary_not_subset_of_all_possible
+911600,random_test,Ceviche De Soya,Gathered,www.allrecipes.com/recipe/262594/ceviche-de-soya/,5266,soy,soy,
+1959289,random_test,Crescent Lasagna,Recipes1M,www.food.com/recipe/crescent-lasagna-122309,53045,eggs; gluten; milk; sesame,eggs; milk; sesame,primary_not_subset_of_all_possible
+226318,random_test,Beef Barley Vegetable Soup,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=526104,36182,celery; fish; gluten,celery; fish; gluten,
+882772,random_test,Zucchini Corn Bread,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=169590,40840,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1018626,random_test,Coffee Sauce,Gathered,www.food.com/recipe/coffee-sauce-99306,42532,milk,milk,
+1241829,random_test,Swedish Meatballs Soup,Gathered,www.food.com/recipe/swedish-meatballs-soup-118886,45300,eggs; gluten; milk,eggs; gluten; milk,
+2061267,random_test,Persian Carrot Soup,Recipes1M,cooking.nytimes.com/recipes/4070,30884,celery,celery,
+786514,random_test,Graham Cracker Pralines,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=60118,40239,gluten; milk; tree_nuts,gluten; milk; tree_nuts,
+961817,random_test,Frozen Pesto,Gathered,www.food.com/recipe/frozen-pesto-81307,6736,milk; tree_nuts,milk; tree_nuts,
+1573871,random_test,Crust-Free Quiche,Gathered,tastykitchen.com/recipes/breakfastbrunch/crust-free-quiche/,21582,eggs; milk,eggs; milk,
+1602472,random_test,Chicken Nihari,Gathered,www.yummly.com/recipe/Chicken-Nihari-1233546,22141,gluten,gluten,
+322293,random_test,Hamburger Noodle Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=616326,36925,gluten; milk,gluten; milk,
+1599992,random_test,Curry Chicken Naan 'Wraps',Gathered,www.yummly.com/recipe/Curry-Chicken-Naan-_wraps_-1653950,22069,gluten; milk,milk,primary_not_subset_of_all_possible
+1530177,random_test,Doughnut Snowman,Gathered,www.tasteofhome.com/recipes/doughnut-snowman/,20869,gluten; milk,gluten,primary_not_subset_of_all_possible
+1414732,random_test,Shrimp-And-Pork Spring Rolls,Gathered,www.myrecipes.com/recipe/shrimp-pork-spring-rolls,18608,crustaceans; eggs; gluten; sesame; soy,crustaceans; eggs; sesame; soy,primary_not_subset_of_all_possible
+1699452,random_test,Extra Rich & Cheesy Macaroni & Ham Casserole,Recipes1M,www.food.com/recipe/extra-rich-cheesy-macaroni-ham-casserole-449742,24245,gluten; milk,gluten; milk,
+907140,random_test,Gulab Jamun,Gathered,www.allrecipes.com/recipe/72467/gulab-jamun/,41067,gluten; milk,gluten; milk,
+1050138,random_test,Strawberry Rhubarb Coffee Cake,Gathered,www.food.com/recipe/strawberry-rhubarb-coffee-cake-121870,42896,eggs; gluten; milk,eggs; gluten; milk,
+1730899,random_test,Iranian Stuffed Aubergines With Coconut and Almond Sauce,Recipes1M,www.food.com/recipe/iranian-stuffed-aubergines-with-coconut-and-almond-sauce-237246,24828,milk; sulphites; tree_nuts,milk; tree_nuts,primary_not_subset_of_all_possible
+317855,random_test,Beef And Bagel Dip,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=79277,1715,eggs; milk,eggs; milk,
+640561,random_test,Hot Dog Fondue,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=960812,3502,fish; mustard; sulphites,fish; mustard; sulphites,
+1604503,random_test,Chicken Adobo In Coconut Milk,Gathered,www.yummly.com/recipe/Chicken-Adobo-In-Coconut-Milk-1650041,49752,,,
+1264627,random_test,New York Ramen Burger,Gathered,recipes-plus.com/api/v2.0/recipes/19204,45754,eggs; gluten; milk; soy,eggs; gluten; milk; soy,
+1811299,random_test,Ramen and Shrimp Soup,Recipes1M,www.food.com/recipe/ramen-and-shrimp-soup-101254,26250,crustaceans; gluten,crustaceans; gluten,
+1186441,random_test,Indian Cornbread,Gathered,www.food.com/recipe/indian-cornbread-125510,44604,eggs; gluten; milk,eggs; gluten; milk,
+1831978,random_test,Pepper Steak,Recipes1M,www.epicurious.com/recipes/food/views/pepper-steak-382039,51856,gluten; soy,soy,primary_not_subset_of_all_possible
+146221,random_test,Purple Lady Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=221967,35454,milk; tree_nuts,milk,primary_not_subset_of_all_possible
+876487,random_test,Scandinavian Fried Fish,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=819659,4751,eggs; fish; gluten,eggs; fish; gluten,
+1792580,random_test,Hickory Nut Cake,Recipes1M,cooking.nytimes.com/recipes/2163,51475,eggs; gluten; milk; tree_nuts,eggs; gluten; milk,primary_not_subset_of_all_possible
+1245528,random_test,Coconut Thai Chicken Zoodle Soup,Gathered,www.food.com/recipe/coconut-thai-chicken-zoodle-soup-537058,14438,fish,fish,
+66848,random_test,Macaroni And Vegetable Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=592440,34708,gluten; milk,gluten; milk,
+2083561,random_test,White Bean Salad,Recipes1M,www.foodnetwork.com/recipes/white-bean-salad-recipe.html,54225,celery; fish; sulphites,celery; fish; sulphites,
+144689,random_test,Sour Cream Cucumber Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=308279,35435,milk,milk,
+1001380,random_test,Maple French Toast,Gathered,www.food.com/recipe/maple-french-toast-81658,42309,eggs; gluten; milk,eggs; gluten; milk,
+2093469,random_test,No-fail Chickpea Falafel,Recipes1M,cookpad.com/us/recipes/282549-no-fail-chickpea-falafel,31500,gluten,gluten,
+1263673,random_test,Tempeh Stir-Fry With Mixed Vegetables And Peanuts,Gathered,recipes-plus.com/api/v2.0/recipes/22223,45733,gluten; peanuts; soy,peanuts; soy,primary_not_subset_of_all_possible
+116170,random_test,Mushroom Wild Rice,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=146290,35157,celery; milk; tree_nuts,celery; milk; tree_nuts,
+1381500,random_test,Korean Kimchi Omelette,Gathered,food52.com/recipes/30760-korean-kimchi-omelette,17548,eggs; sesame,eggs; sesame,
+1923248,random_test,Asian Chicken Lettuce Wraps,Recipes1M,tastykitchen.com/recipes/main-courses/asian-chicken-lettuce-wraps-3/,52712,gluten; peanuts; sesame; soy; sulphites,peanuts; sesame; soy; sulphites,primary_not_subset_of_all_possible
+1994752,random_test,Moroccan Bean Salad,Recipes1M,www.kraftrecipes.com/recipes/moroccan-bean-salad-89118.aspx,53379,eggs; milk; sulphites; tree_nuts,sulphites; tree_nuts,primary_not_subset_of_all_possible
+371576,random_test,Salmon Macaroni Dinner,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=82550,2008,celery; fish; gluten; milk,celery; fish; gluten; milk,
+158731,random_test,Pizza Roll,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=8001,35571,gluten; milk,gluten; milk,
+346483,random_test,Cookie Pizza,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=278262,37130,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+1377640,random_test,Sweet Salmon,Gathered,food52.com/recipes/58073-sweet-salmon,47640,fish; mustard; sulphites,fish; mustard; sulphites,
+2150073,random_test,Polka Dot Sandwich,Recipes1M,www.kraftrecipes.com/recipes/polka-dot-sandwich-110426.aspx,54861,gluten; milk; sulphites,gluten; milk; sulphites,
+605679,random_test,German Egg Noodles,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=493296,3323,eggs; gluten,eggs; gluten,
+760210,random_test,Cabbage Burger Bake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=754422,40080,,gluten,
+1819400,random_test,Sesame Ramen Cakes,Recipes1M,www.foodandwine.com/recipes/sesame-ramen-cakes,26394,eggs; gluten; sesame; soy,eggs; gluten; sesame; soy,
+901629,random_test,Sauerbraten,Gathered,www.allrecipes.com/recipe/20067/sauerbraten-iv/,5007,gluten; milk; sulphites,gluten; milk; sulphites,
+1009965,random_test,Breakfast Blt,Gathered,www.food.com/recipe/breakfast-blt-180203,42415,eggs; gluten,eggs; milk,primary_not_subset_of_all_possible
+1505470,random_test,Creamy Wild Rice Soup,Gathered,www.tasteofhome.com/recipes/creamy-wild-rice-soup/,48992,celery; gluten; milk,celery; gluten; milk,
+1312600,random_test,Jimmy Mac'S Turkey Taco Salad ,Gathered,www.epicurious.com/recipes/member/views/jimmy-macs-turkey-taco-salad-50184912,15935,milk,milk,
+1588090,random_test,Taco Fried Rice,Gathered,tastykitchen.com/recipes/sidedishes/taco-fried-rice/,21749,eggs; milk,eggs; milk,
+1025039,random_test,Chinese Long Soup,Gathered,www.food.com/recipe/chinese-long-soup-350282,8473,eggs; gluten; soy,eggs; gluten; soy,
+1250910,random_test,"Chicken, Noodle And Asparagus Frittata",Gathered,recipes-plus.com/api/v2.0/recipes/30180,14602,eggs; gluten; peanuts; soy,eggs; gluten; peanuts,primary_not_subset_of_all_possible
+289572,random_test,Slushy Punch,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=523571,36685,,,
+1953582,random_test,Sichuan Peppercorn Shrimp,Recipes1M,www.foodandwine.com/recipes/sichuan-peppercorn-shrimp,28924,crustaceans; sesame,sesame,primary_not_subset_of_all_possible
+1604399,random_test,Spanish Fondue,Gathered,www.yummly.com/recipe/Spanish-Fondue-1673688,22193,milk; sulphites,sulphites,primary_not_subset_of_all_possible
+1412107,random_test,Pork And Kimchi Dumplings,Gathered,www.myrecipes.com/recipe/pork-kimchi-dumplings,18537,gluten; mustard; sesame; soy; sulphites,mustard; sesame; soy; sulphites,primary_not_subset_of_all_possible
+2085896,random_test,Sausage Breakfast Biscuit,Recipes1M,www.kraftrecipes.com/recipes/-2077.aspx,31355,eggs; gluten; milk,eggs; gluten; milk,
+1602635,random_test,Satay With Peanut Sauce,Gathered,www.yummly.com/recipe/Satay-with-Peanut-Sauce-632109,22145,gluten; peanuts; soy,peanuts; soy,primary_not_subset_of_all_possible
+1126561,random_test,Provencal Raito,Gathered,www.food.com/recipe/provencal-raito-430479,11256,sulphites,sulphites,
+1259905,random_test,Spicy Seafood Soup,Gathered,recipes-plus.com/api/v2.0/recipes/26769,45652,crustaceans; fish; molluscs; sulphites,sulphites,primary_not_subset_of_all_possible
+2146375,random_test,Drunken Pork Chops,Recipes1M,tastykitchen.com/recipes/main-courses/drunken-pork-chops/,54822,gluten,gluten,
+2033075,random_test,Chilled Rice Salad,Recipes1M,www.food.com/recipe/chilled-rice-salad-433908,53762,sulphites; tree_nuts,sulphites; tree_nuts,
+2202683,random_test,Healthy Pasta Salad,Recipes1M,www.food.com/recipe/healthy-pasta-salad-422697,55353,gluten; sulphites,gluten; sulphites,
+1094142,random_test,Cabbage Rolls Stew - A Malaysian Eurasian Thing,Gathered,www.food.com/recipe/cabbage-rolls-stew-a-malaysian-eurasian-thing-386578,10394,eggs; gluten,eggs,primary_not_subset_of_all_possible
+1938306,random_test,Curry Lobster Risotto,Recipes1M,recipeland.com/recipe/v/curry-lobster-risotto-36828,28661,celery; crustaceans; milk; peanuts,celery; crustaceans; milk; peanuts,
+1393651,random_test,Swedish Almond Cake,Gathered,food52.com/recipes/74569-swedish-almond-cake,47734,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+894194,random_test,Souper Burger,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=405652,40908,gluten; mustard,mustard,primary_not_subset_of_all_possible
+1403367,random_test,Peach And Turkey Pizza Pie Bites,Gathered,food52.com/recipes/60283-peach-and-turkey-pizza-pie-bites,18235,gluten; milk; sulphites; tree_nuts,gluten; milk; sulphites; tree_nuts,
+1795131,random_test,Vegetable Relish/Ceviche,Recipes1M,www.food.com/recipe/vegetable-relish-ceviche-393146,25969,celery,celery,
+317827,random_test,Steak San Marco,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=293237,36892,gluten; sulphites,gluten; sulphites,
+670355,random_test,Sweet-Sour Sausage Appetizer,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=522111,39468,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+1471930,random_test,Ramen Casserole,Gathered,www.myrecipes.com/recipe/ramen-casserole,19858,eggs; gluten; sesame; soy,eggs; gluten; sesame; soy,
+1123845,random_test,Tuscan Meatloaf,Gathered,www.food.com/recipe/tuscan-meatloaf-249822,43825,fish; milk; sulphites,fish; milk; sulphites,
+667174,random_test,Swedish Thin Pancakes,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=440139,3649,eggs; gluten; milk,eggs; gluten; milk,
+1280481,random_test,Mixed Vegetable Risotto ,Gathered,www.epicurious.com/recipes/member/views/mixed-vegetable-risotto-1200278,15324,milk; sulphites,milk; sulphites,
+2090574,random_test,Cuban Corn,Recipes1M,www.foodnetwork.com/recipes/dave-lieberman/cuban-corn-recipe.html,31437,milk,milk,
+1198566,random_test,Paneer Balti Prawns,Gathered,www.food.com/recipe/paneer-balti-prawns-190391,13195,crustaceans; milk,crustaceans; milk,
+1778873,random_test,Curried Beef and Chicken Satay,Recipes1M,www.food.com/recipe/curried-beef-and-chicken-satay-503,25689,fish; gluten; peanuts; soy,fish; peanuts; soy,primary_not_subset_of_all_possible
+1616677,random_test,Chayote Salad With Five-Spice Marinated Tofu,Gathered,www.yummly.com/recipe/Chayote-Salad-With-Five-Spice-Marinated-Tofu-1650375,22537,sesame; soy,sesame; soy,
+938438,random_test,Romanov Piroshki,Gathered,www.allrecipes.com/recipe/21591/romanov-piroshki/,6050,eggs; gluten,eggs; gluten,
+1045883,random_test,Moroccan Spice Paste,Gathered,www.food.com/recipe/moroccan-spice-paste-377034,9085,,,
+1303926,random_test,Greek Scallops ,Gathered,www.epicurious.com/recipes/member/views/greek-scallops-50045262,15785,milk; molluscs; sulphites,milk; molluscs; sulphites,
+286069,random_test,Stir-Fried Beef Lo Mein,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=726026,1522,gluten; soy,gluten; peanuts; soy,
+65563,random_test,Swedish Cole Slaw,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=2539,34693,celery; mustard; sulphites,celery; mustard,primary_not_subset_of_all_possible
+1884349,random_test,Grilled Shrimp with Cocoa-Nib Romesco Sauce,Recipes1M,www.foodandwine.com/recipes/grilled-shrimp-with-cocoa-nib-romesco-sauce,27594,crustaceans; sulphites; tree_nuts,crustaceans; sulphites; tree_nuts,
+1146041,random_test,Chicken Delish,Gathered,www.food.com/recipe/chicken-delish-307856,44074,celery; gluten; milk; sulphites,celery; gluten; milk; sulphites,
+2007465,random_test,Shrimp Parmigiana,Recipes1M,www.epicurious.com/recipes/food/views/shrimp-parmigiana-385332,53519,crustaceans; eggs; gluten; milk,crustaceans; eggs; gluten; milk,
+1998849,random_test,Soy Meat Satay with Spicy Peanut Sauce,Recipes1M,www.vegetariantimes.com/recipe/soy-meat-satay-with-spicy-peanut-sauce/,29742,peanuts; soy,peanuts; soy,
+985517,random_test,New Orleans Mulate'S Catfish Jambalaya,Gathered,www.food.com/recipe/new-orleans-mulates-catfish-jambalaya-372829,7375,celery; fish; milk,celery; fish; milk,
+2046166,random_test,Gratin Potatoes,Recipes1M,www.foodnetwork.com/recipes/rachael-ray/gratin-potatoes-recipe.html,53891,milk,milk,
+1257122,random_test,Olive Polenta,Gathered,recipes-plus.com/api/v2.0/recipes/35659,14763,milk,milk,
+1771347,random_test,Pumpkin and Tofu Miso Soup,Recipes1M,allrecipes.com/recipe/pumpkin-and-tofu-miso-soup/,25558,gluten; sesame; soy,sesame; soy,primary_not_subset_of_all_possible
+956800,random_test,Country Goulash,Gathered,www.allrecipes.com/recipe/239705/country-goulash/,41791,gluten,gluten,
+1335869,random_test,Sweet-Bean Piroshki ,Gathered,www.epicurious.com/recipes/food/views/sweet-bean-piroshki-351014,16404,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1057483,random_test,Oven Baked Chow Mein,Gathered,www.food.com/recipe/oven-baked-chow-mein-216721,9386,celery; gluten; milk; soy,celery; gluten; milk; soy,
+1235043,random_test,Korean Sweet Potato Cake,Gathered,www.food.com/recipe/korean-sweet-potato-cake-405111,14178,eggs; gluten; milk,eggs; gluten; milk,
+1664227,random_test,Beer-Braised Shrimp with Louisiana Salsa & Rice,Recipes1M,www.epicurious.com/recipes/food/views/beer-braised-shrimp-with-louisiana-salsa-rice-377444,23633,celery; crustaceans; fish; gluten; milk,celery; crustaceans; fish; gluten; milk,
+1144098,random_test,Grilled Zucchini Hummus,Gathered,www.food.com/recipe/grilled-zucchini-hummus-487158,11719,sesame,sesame,
+486952,random_test,Mexican Build Up,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=397374,2667,milk; peanuts; sulphites,milk; peanuts; sulphites,
+2230404,random_test,Beef Sate with Spicy Szechuan Sauce,Recipes1M,www.foodnetwork.com/recipes/beef-sate-with-spicy-szechuan-sauce-recipe.html,34005,gluten; milk; soy,gluten; milk; soy,
+1979686,random_test,Hamburger Veggie Soup,Recipes1M,www.food.com/recipe/hamburger-veggie-soup-296309,53238,celery,celery,
+1456590,random_test,Praline Cheesecake,Gathered,www.myrecipes.com/recipe/praline-cheesecake,48518,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+1968977,random_test,Taco Light,Recipes1M,www.foodnetwork.com/recipes/taco-light-recipe.html,29211,milk,,primary_not_subset_of_all_possible
+1925258,random_test,Spinach-Rice Casserole,Recipes1M,www.food.com/recipe/spinach-rice-casserole-169858,52727,eggs; fish; milk,eggs; fish; milk,
+727230,random_test,Japanese Rice,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=615049,39845,celery; gluten; milk; soy,celery; milk; soy,primary_not_subset_of_all_possible
+1699088,random_test,Moroccan Spicy Carrots,Recipes1M,www.epicurious.com/recipes/food/views/moroccan-spicy-carrots-15132,24240,sulphites,sulphites,
+1043009,random_test,Bavarian Apple Strudel,Gathered,www.food.com/recipe/bavarian-apple-strudel-305962,42811,gluten; milk; sulphites,gluten; milk,primary_not_subset_of_all_possible
+1489561,random_test,Gingerbread-Pumpkin Cheesecake Bars,Gathered,www.tasteofhome.com/recipes/gingerbread-pumpkin-cheesecake-bars/,19982,eggs; gluten; milk,eggs; gluten; milk,
+1414346,random_test,Taco Pizza,Gathered,www.myrecipes.com/recipe/pillsbury-taco-pizza,18596,gluten; milk,milk,primary_not_subset_of_all_possible
+162414,random_test,Tuna-Rice Special Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=381109,851,celery; fish,celery; fish,
+993678,random_test,Turkey Breakfast Tacos,Gathered,www.food.com/recipe/turkey-breakfast-tacos-345387,7616,eggs; gluten; milk,eggs; gluten; milk,
+2209089,random_test,Sichuan Chicken Salad,Recipes1M,cooking.nytimes.com/recipes/4056,33608,celery; gluten; sesame; soy; sulphites,celery; sesame; soy; sulphites,primary_not_subset_of_all_possible
+934406,random_test,Swedish Nut Bars,Gathered,www.allrecipes.com/recipe/10634/swedish-nut-bars/,5932,eggs; tree_nuts,eggs; tree_nuts,
+241793,random_test,Taco Flower,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1023040,1291,milk,milk,
+707615,random_test,Snack Time Cheese Spread,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=972236,3866,milk; peanuts,milk; peanuts,
+1392509,random_test,Apple Yogurt Breakfast Cake,Gathered,food52.com/recipes/27436-apple-yogurt-breakfast-cake,17899,eggs; gluten; milk,eggs; gluten; milk,
+1383577,random_test,Moroccan Carrot And Chickpea Stew,Gathered,food52.com/recipes/33679-moroccan-carrot-and-chickpea-stew,17621,gluten; sulphites,gluten; sulphites,
+2109145,random_test,Wild Rice Dressing,Recipes1M,www.food.com/recipe/wild-rice-dressing-138625,54461,celery; gluten; milk,celery; gluten; milk,
+1255208,random_test,Vegetarian Nachos,Gathered,recipes-plus.com/api/v2.0/recipes/24325,45541,gluten; milk,gluten; milk,
+2187905,random_test,Oatmeal Chocolate Chip,Recipes1M,www.food.com/recipe/oatmeal-chocolate-chip-169290,55224,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+1647148,random_test,Leek Quiche,Recipes1M,www.cookstr.com/recipes/leek-quiche,50081,eggs; gluten; milk,eggs; gluten; milk,
+4765,random_test,Green Pepper Steak,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=796217,34076,celery; gluten; soy,celery; soy,primary_not_subset_of_all_possible
+615641,random_test,Cheese Strudel,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=846634,39108,gluten; milk,gluten; milk,
+868992,random_test,Lasagna Swirls,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=285346,4713,gluten; milk,gluten; milk,
+1362606,random_test,Elephant Croissant ,Gathered,www.epicurious.com/recipes/member/views/elephant-croissant-1249983,16948,gluten; milk,gluten; milk,
+1756519,random_test,Siomay mini Indonesian fast food,Recipes1M,cookpad.com/us/recipes/332249-siomay-mini-indonesian-fast-food,25295,crustaceans; eggs; gluten; sesame; soy,crustaceans; eggs; sesame; soy,primary_not_subset_of_all_possible
+1344618,random_test,Fall Ratatouille ,Gathered,www.epicurious.com/recipes/member/views/fall-ratatouille-1219816,47273,milk,milk,
+1974315,random_test,Korean Short Rib Lettuce Wraps,Recipes1M,tastykitchen.com/recipes/main-courses/korean-short-rib-lettuce-wraps/,29314,gluten; sesame; soy; sulphites,milk; sesame; soy; sulphites,primary_not_subset_of_all_possible
+1283135,random_test,Lamb Stew With Scones ,Gathered,www.epicurious.com/recipes/member/views/lamb-stew-with-scones-50064010,15366,eggs; gluten; milk,eggs; gluten; milk,
+1146197,random_test,Caribbean Sunrise,Gathered,www.food.com/recipe/caribbean-sunrise-232663,11763,,,
+149488,random_test,Tofu Patties,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1062773,35486,celery; eggs; gluten; milk; soy,celery; eggs; gluten; milk; soy,
+1042797,random_test,Pork Saltimbocca,Gathered,www.food.com/recipe/pork-saltimbocca-196529,42808,sulphites,sulphites,
+445338,random_test,Pork Steak Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1060662,37844,,,
+1956707,random_test,Mexican Beef Tart,Recipes1M,www.food.com/recipe/mexican-beef-tart-350963,28991,gluten; milk,gluten; milk,
+1052611,random_test,Persian Cabbage Rolls,Gathered,www.food.com/recipe/persian-cabbage-rolls-90784,9239,,,
+1498826,random_test,Beef Teriyaki Noodles,Gathered,www.tasteofhome.com/recipes/beef-teriyaki-noodles/,20166,gluten; soy,gluten; soy,
+962728,random_test,Cordon Bleu Loaf,Gathered,www.food.com/recipe/cordon-bleu-loaf-127651,6766,gluten; milk,gluten; milk,
+1414451,random_test,Sticky Coconut Couscous,Gathered,www.myrecipes.com/recipe/sticky-coconut-couscous,18598,gluten,gluten,
+2144659,random_test,Bread Pudding Frittata,Recipes1M,cooking.nytimes.com/recipes/1016404,32463,eggs; gluten; milk,eggs; gluten; milk,
+413253,random_test,Stack Cake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=610315,37630,eggs; gluten; milk,eggs; gluten; milk,
+445006,random_test,Mexican Quiche,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=776647,37841,eggs; gluten; milk,eggs; gluten; milk,
+455028,random_test,Indonesian Shrimp Sate,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=124674,37935,crustaceans; gluten; peanuts; soy,crustaceans; peanuts; soy,primary_not_subset_of_all_possible
+1022884,random_test,Rice And Turkey Goulash,Gathered,www.food.com/recipe/rice-and-turkey-goulash-439248,8410,gluten,,primary_not_subset_of_all_possible
+1138934,random_test,German Tea Kipfel,Gathered,www.food.com/recipe/german-tea-kipfel-150626,11587,eggs; gluten; milk; sulphites; tree_nuts,eggs; gluten; milk; sulphites; tree_nuts,
+824258,random_test,Mabu Tofu And Rice,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=897186,4489,gluten; soy; sulphites,soy,primary_not_subset_of_all_possible
+1665037,random_test,Greek Roasted Peppers,Recipes1M,www.foodgeeks.com/recipes/4441,23647,milk; sulphites,milk; sulphites,
+784150,random_test,Spinach Dip In Pumpernickel Loaf,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=511352,4280,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1884781,random_test,Turtle Pie,Recipes1M,www.food.com/recipe/turtle-pie-362326,52336,eggs; gluten; milk; tree_nuts,eggs; milk; tree_nuts,primary_not_subset_of_all_possible
+2084601,random_test,Thai Spring Rolls Dipping sauce,Recipes1M,cookpad.com/us/recipes/330804-thai-spring-rolls-dipping-sauce,31333,fish; peanuts; sulphites,fish; peanuts; sulphites,
+2072214,random_test,Crunchy Tarragon-Chicken Salad Pita Sandwiches,Recipes1M,www.kraftrecipes.com/recipes/crunchy-tarragon-chicken-salad-pita-sandwiches-168974.aspx,31077,eggs; gluten; mustard; sulphites,eggs; gluten; mustard; sulphites,
+1910560,random_test,Grilled Steak Salad,Recipes1M,www.kraftrecipes.com/recipes/grilled-steak-salad-53342.aspx,52578,eggs; mustard,,primary_not_subset_of_all_possible
+2066993,random_test,Fruit Salad With Turkey Broth Couscous,Recipes1M,www.food.com/recipe/fruit-salad-with-turkey-broth-couscous-415313,30983,celery; gluten; tree_nuts,celery; gluten; tree_nuts,
+471531,random_test,Cranberry Glazed Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=765495,38066,gluten; milk; sulphites,gluten; milk; sulphites,
+1181188,random_test,Layered Torte Appetizer,Gathered,www.food.com/recipe/layered-torte-appetizer-37480,44539,milk,milk,
+968537,random_test,Creamy Chickpea And Tahini Casserole,Gathered,www.food.com/recipe/creamy-chickpea-and-tahini-casserole-56818,6927,sesame,sesame,
+1467372,random_test,Tuna And Bow Tie Pasta Salad,Gathered,www.myrecipes.com/recipe/tuna-bow-tie-pasta-salad,19759,celery; fish; gluten; mustard; sulphites,celery; fish; gluten; mustard; sulphites,
+1363079,random_test,Mexican Fiesta Salad Pizza ,Gathered,www.epicurious.com/recipes/member/views/mexican-fiesta-salad-pizza-50115107,47563,gluten; milk,gluten; milk,
+1228780,random_test,Mexican Black Bean And Corn Pizza,Gathered,www.food.com/recipe/mexican-black-bean-and-corn-pizza-248012,13973,gluten; milk,milk,primary_not_subset_of_all_possible
+1061075,random_test,Chinese Cabbage Rolls,Gathered,www.food.com/recipe/chinese-cabbage-rolls-130797,9488,eggs; gluten; sesame; soy; sulphites,eggs; sesame; soy; sulphites,primary_not_subset_of_all_possible
+1452541,random_test,Broccoli Salad With Cider Dressing,Gathered,www.myrecipes.com/recipe/broccoli-salad-cider-dressing,19444,milk; sulphites; tree_nuts,milk; sulphites; tree_nuts,
+1363853,random_test,The Cuban Burger,Gathered,food52.com/recipes/29131-the-cuban-burger,16984,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1202385,random_test,Tuna-Macaroni Salad With Cheese,Gathered,www.food.com/recipe/tuna-macaroni-salad-with-cheese-31940,13294,fish; gluten; milk,eggs; fish; gluten; milk,
+1942898,random_test,Vegetarian Goulash,Recipes1M,www.epicurious.com/recipes/food/views/vegetarian-goulash-378932,52881,gluten; soy,gluten; soy,
+1886495,random_test,Korean BBQ Chicken Kebabs,Recipes1M,www.food.com/recipe/korean-bbq-chicken-kebabs-525777,27630,gluten; sesame; soy,,primary_not_subset_of_all_possible
+838650,random_test,Grilled Scallop Teriyaki,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=163090,4567,molluscs,molluscs,
+1015195,random_test,Falafel With Taratoor Sauce,Gathered,www.food.com/recipe/falafel-with-taratoor-sauce-72814,8180,gluten; sesame,gluten; sesame,
+70097,random_test,Russian-Spiced Tea,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=184051,363,,,
+1771734,random_test,Persian Rice With Potatoes,Recipes1M,cooking.nytimes.com/recipes/7575,25567,milk,milk,
+2006322,random_test,Vietnamese Fried Rice with Chicken,Recipes1M,tastykitchen.com/recipes/main-courses/vietnamese-fried-rice-with-chicken/,29866,eggs; gluten; soy,eggs; soy,primary_not_subset_of_all_possible
+1788461,random_test,Black Forest Pancake Ice Cream Sandwiches,Recipes1M,www.foodnetwork.com/recipes/geoffrey-zakarian/black-forest-pancake-ice-cream-sandwiches.html,25851,eggs; gluten; milk,milk,primary_not_subset_of_all_possible
+1398996,random_test,Tastiest Miso Soup,Gathered,food52.com/recipes/41326-tastiest-miso-soup,18100,celery; sesame; soy,celery; sesame; soy; sulphites,
+1918432,random_test,Artichoke Pizza,Recipes1M,www.food.com/recipe/artichoke-pizza-332047,52663,eggs; gluten; milk,eggs; gluten; milk,
+767837,random_test,Ham-N-Swiss Rolls,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=756847,4192,fish; gluten; milk; mustard,fish; milk; mustard,primary_not_subset_of_all_possible
+1963116,random_test,Lemon Pizza,Recipes1M,cooking.nytimes.com/recipes/6634,53089,fish; gluten; milk,fish,primary_not_subset_of_all_possible
+66276,random_test,Fireside Coffee Mix,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=596864,34702,milk,,primary_not_subset_of_all_possible
+2165351,random_test,Cute Little Doughnut Bites,Recipes1M,cookpad.com/us/recipes/168725-cute-little-doughnut-bites,32848,eggs; gluten; milk,eggs; gluten; milk,
+158701,random_test,Monterey Rice,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=604689,35570,milk,milk,
+1416117,random_test,Apricot Gratin,Gathered,www.myrecipes.com/recipe/apricot-gratin,18645,,,
+2088003,random_test,Pesto Sauce,Recipes1M,www.food.com/recipe/als-pesto-sauce-373059,31384,milk,milk; tree_nuts,
+770315,random_test,Sauerkraut Cocoa Cake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=407362,40141,eggs; gluten; milk,eggs; gluten; milk,
+1133279,random_test,Filipino Tinola,Gathered,www.food.com/recipe/filipino-tinola-207320,11434,fish,fish,
+1161408,random_test,Thai Chicken Breasts,Gathered,www.food.com/recipe/thai-chicken-breasts-108105,12177,gluten; soy; sulphites,fish; gluten; soy; sulphites,
+1299490,random_test,Korean-Style Grain Bowls With Spicy Marinated Steak ,Gathered,www.epicurious.com/recipes/food/views/korean-style-grain-bowls-with-spicy-marinated-steak,15705,gluten; sesame; soy; sulphites,sesame; soy; sulphites,primary_not_subset_of_all_possible
+1787930,random_test,Chicken Bhuna Masala,Recipes1M,www.foodnetwork.com/recipes/chicken-bhuna-masala-recipe.html,25842,sulphites,sulphites,
+1393577,random_test,Spinach Sauce Pasta With Shrimp,Gathered,food52.com/recipes/9070-spinach-sauce-pasta-with-shrimp,17933,crustaceans; gluten; milk,crustaceans; gluten; milk,
+1455979,random_test,Samosa Quesadillas,Gathered,www.myrecipes.com/recipe/samosa-quesadillas,19532,gluten; milk; soy,gluten; milk; soy,
+1372453,random_test,Spinach & Strawberry Smoothie,Gathered,food52.com/recipes/73362-spinach-strawberry-smoothie,47611,milk; tree_nuts,tree_nuts,primary_not_subset_of_all_possible
+1771951,random_test,Hot Scallop Salad with Potato Chips,Recipes1M,recipeland.com/recipe/v/hot-scallop-salad-potato-chips-38757,25570,molluscs,molluscs,
+158303,random_test,Tea Sandwiches,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=334358,35563,eggs; gluten; milk; tree_nuts,eggs; gluten; milk,primary_not_subset_of_all_possible
+1231930,random_test,Chicken Booyah,Gathered,www.food.com/recipe/chicken-booyah-476723,45173,celery,celery,
+67102,random_test,Sausage Squares,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=110330,34713,eggs; gluten; milk,eggs; gluten; milk,
+1095035,random_test,Bengali Dal,Gathered,www.food.com/recipe/bengali-dal-304023,10415,mustard,mustard,
+2218908,random_test,Black Bean Spinach Southwestern Pizza,Recipes1M,www.food.com/recipe/black-bean-spinach-southwestern-pizza-491954,33779,gluten; milk,milk,primary_not_subset_of_all_possible
+1021581,random_test,Polish Platski,Gathered,www.food.com/recipe/polish-platski-486420,8370,eggs; gluten; milk,eggs; gluten; milk,
+1345676,random_test,Filo Apple Strudel ,Gathered,www.epicurious.com/recipes/member/views/filo-apple-strudel-50066664,16602,gluten; milk,gluten; milk,
+1353866,random_test,Middle Eastern Bulgur Salad ,Gathered,www.epicurious.com/recipes/member/views/middle-eastern-bulgur-salad-50095779,47417,gluten,gluten,
+1362753,random_test,Moroccan Chickpeas & Spicy Paella ,Gathered,www.epicurious.com/recipes/member/views/moroccan-chickpeas-spicy-paella-50150170,16951,milk,,primary_not_subset_of_all_possible
+897984,random_test,Seven Layer Taco Dip,Gathered,www.allrecipes.com/recipe/19673/seven-layer-taco-dip/,40939,milk,milk,
+1904486,random_test,Garlic Bread and Spaghetti Pizza,Recipes1M,tastykitchen.com/recipes/main-courses/garlic-bread-and-spaghetti-pizza/,27988,gluten; milk,gluten; milk,
+2169242,random_test,Cal-Mex Veggie Breakfast Burrito,Recipes1M,www.foodnetwork.com/recipes/emeril-lagasse/cal-mex-veggie-breakfast-burrito-recipe.html,32928,eggs; gluten; milk,eggs; gluten; milk,
+621163,random_test,Corn Stuffed Pork Chops,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=348054,39151,celery; gluten,celery; gluten,
+1222239,random_test,Pumpkin Yeast Bread,Gathered,www.food.com/recipe/pumpkin-yeast-bread-120024,45064,gluten; milk,gluten; milk,
+2009913,random_test,Korean Barbarcue Ribs,Recipes1M,www.food.com/recipe/korean-barbarcue-ribs-99189,29932,gluten; sesame; soy; sulphites,sesame; soy; sulphites,primary_not_subset_of_all_possible
+1605939,random_test,Antipasto Relish,Gathered,www.yummly.com/recipe/Antipasto-Relish-1644483,49763,celery; sulphites,celery; gluten; sulphites,
+2143426,random_test,Herbed Vegetable Soup,Recipes1M,recipeland.com/recipe/v/herbed-vegetable-soup-37236,54800,gluten; milk,milk,primary_not_subset_of_all_possible
+1475774,random_test,Spicy Vietnamese Beef-Noodle Soup,Gathered,www.myrecipes.com/recipe/spicy-vietnamese-beef-noodle-soup,19940,,gluten,
+139465,random_test,Cranberry Nut Coffee Cake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=722420,35382,eggs; gluten; tree_nuts,eggs; gluten; milk,primary_not_subset_of_all_possible
+1346759,random_test,Tahini Sauce ,Gathered,www.epicurious.com/recipes/member/views/tahini-sauce-52589311,47303,sesame,sesame,
+1116392,random_test,Crab Wontons With Szechuan Blackberry Sauce,Gathered,www.food.com/recipe/crab-wontons-with-szechuan-blackberry-sauce-128155,10994,crustaceans; eggs; gluten; milk; peanuts,crustaceans; gluten; milk; peanuts; sulphites,primary_not_subset_of_all_possible
+1060177,random_test,Mediterranean Fettuccine With Shrimp And Spinach,Gathered,www.food.com/recipe/mediterranean-fettuccine-with-shrimp-and-spinach-78137,9462,crustaceans; gluten; milk,crustaceans; gluten; milk,
+783735,random_test,Thai Beef Celery Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=658835,4277,celery; fish,celery; fish,
+1174312,random_test,Turkey And Bean Taco Casserole,Gathered,www.food.com/recipe/turkey-and-bean-taco-casserole-357283,12547,celery; milk,celery; milk,
+1450255,random_test,Indonesian Shrimp Sate With Creamy Peanut Sauce,Gathered,www.myrecipes.com/recipe/indonesian-shrimp-sate-with-creamy-peanut-sauce,19394,crustaceans; gluten; peanuts; soy,crustaceans; peanuts; soy,primary_not_subset_of_all_possible
+1187344,random_test,Spicy Thai One Pot,Gathered,www.food.com/recipe/spicy-thai-one-pot-312837,12855,gluten; soy,soy,primary_not_subset_of_all_possible
+1691566,random_test,Carameled Popcorn,Recipes1M,www.food.com/recipe/carameled-popcorn-409009,50525,milk; peanuts,milk; peanuts,
+2079351,random_test,Potatoe chickpeas breakfast,Recipes1M,cookpad.com/us/recipes/351529-potatoe-chickpeas-breakfast,31230,milk,milk,
+2196299,random_test,Miso Soup with Firm Tofu,Recipes1M,cookpad.com/us/recipes/147298-miso-soup-with-firm-tofu,33397,fish; soy,soy,primary_not_subset_of_all_possible
+968929,random_test,Vegan Cholent,Gathered,www.food.com/recipe/vegan-cholent-407543,6939,soy; sulphites,sulphites,primary_not_subset_of_all_possible
+1888898,random_test,Hungarian Style Beef Stew,Recipes1M,www.food.com/recipe/hungarian-style-beef-stew-510425,27692,celery; milk; mustard; sulphites,celery; milk; mustard; sulphites,
+1868271,random_test,Vietnamese Herb and Salad Plate,Recipes1M,www.foodnetwork.com/recipes/vietnamese-herb-and-salad-plate-recipe.html,52193,sulphites,sulphites,
+1124610,random_test,Peruvian Quinoa,Gathered,www.food.com/recipe/peruvian-quinoa-292941,11200,milk,milk,
+1889765,random_test,Tofu & Rice Crackers Vegetarian Hamburger,Recipes1M,cookpad.com/us/recipes/154310-tofu-rice-crackers-vegetarian-hamburger,27709,gluten; soy,gluten; soy,
+1250544,random_test,Tuna And Parmesan Penne Frittata,Gathered,recipes-plus.com/api/v2.0/recipes/19367,14589,eggs; fish; gluten; milk; sulphites,eggs; fish; gluten; milk; sulphites,
+1709061,random_test,Veggie Puff Pastries,Recipes1M,www.food.com/recipe/veggie-puff-pastries-64815,24402,eggs; gluten; milk; mustard,eggs; gluten; milk; mustard,
+2026865,random_test,Swedish Rye,Recipes1M,www.epicurious.com/recipes/food/views/swedish-rye-392127,53704,gluten,gluten,
+2169443,random_test,Country Captain Chicken,Recipes1M,www.food.com/recipe/country-captain-chicken-79400,55050,gluten; sulphites; tree_nuts,gluten; tree_nuts,primary_not_subset_of_all_possible
+180815,random_test,Strawberry Cheese Pie,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=645559,35777,gluten; milk,gluten; milk,
+1267782,random_test,"Salmon, Leek And Asparagus Lasagna",Gathered,recipes-plus.com/api/v2.0/recipes/37541,15047,fish; gluten; milk; mustard,fish; gluten; milk; mustard,
+1279754,random_test,Syrian Haroset ,Gathered,www.epicurious.com/recipes/member/views/syrian-haroset-1251218,15308,sulphites; tree_nuts,sulphites; tree_nuts,
+185297,random_test,Pork Chops Mexicana,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=331669,35819,milk,milk,
+1351835,random_test,Corn Salsa ,Gathered,www.epicurious.com/recipes/member/views/corn-salsa-50031239,47385,,,
+1135500,random_test,Mediterranean Layers,Gathered,www.food.com/recipe/mediterranean-layers-309501,43956,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+982106,random_test,Mini Swiss Quiches,Gathered,www.food.com/recipe/mini-swiss-quiches-457818,7281,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1747511,random_test,Dijon Pork Chops,Recipes1M,www.food.com/recipe/dijon-pork-chops-290573,51037,gluten; mustard; sulphites,gluten; mustard,primary_not_subset_of_all_possible
+300639,random_test,Taco Noodle Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=362165,1606,gluten; milk,gluten; milk,
+1732040,random_test,AMIEs Chicken MACARONI Salad,Recipes1M,cookpad.com/us/recipes/344112-amies-chicken-macaroni-salad,24851,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+1058157,random_test,Swiss Dressing,Gathered,www.food.com/recipe/swiss-dressing-455505,9401,eggs; mustard; sulphites,eggs; mustard; sulphites,
+1166639,random_test,Mushroom Risotto With Italian Sausage Sauce,Gathered,www.food.com/recipe/mushroom-risotto-with-italian-sausage-sauce-361108,12336,milk; sulphites,milk; sulphites,
+1710958,random_test,Taco Crescent Ring,Recipes1M,tastykitchen.com/recipes/main-courses/taco-crescent-ring/,50712,fish; gluten; milk,fish; gluten; milk,
+1781517,random_test,Minted Apricot Couscous,Recipes1M,www.epicurious.com/recipes/food/views/minted-apricot-couscous-101797,51367,gluten,gluten,
+1428147,random_test,Mexican Paloma,Gathered,www.myrecipes.com/recipe/mexican-paloma,18908,,,
+997009,random_test,Tex-Mex Goulash,Gathered,www.food.com/recipe/tex-mex-goulash-166966,42254,,gluten,
+1371499,random_test,Israeli Shakshuka Quiche,Gathered,food52.com/recipes/51365-israeli-shakshuka-quiche,17251,eggs; gluten; milk,eggs; gluten; milk,
+1249796,random_test,Malaysian Fried Noodles,Gathered,recipes-plus.com/api/v2.0/recipes/27765,45404,eggs; gluten; soy,eggs; gluten; soy,
+1474490,random_test,Lechon,Gathered,www.myrecipes.com/recipe/lechon,19913,,,
+1745961,random_test,Noodle Pudding,Recipes1M,www.food.com/recipe/my-noodle-pudding-500097,25100,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+2079657,random_test,Armenian Pumpkin Stew,Recipes1M,cooking.nytimes.com/recipes/495,31237,celery,celery,
+1432406,random_test,Beef Sate With Peanut Dipping Sauce,Gathered,www.myrecipes.com/recipe/beef-sate-with-peanut-dipping-sauce,19006,gluten; peanuts; soy,gluten; peanuts; soy,
+1021255,random_test,Tri Dal,Gathered,www.food.com/recipe/tri-dal-9692,8360,milk,milk,
+1663353,random_test,Moroccan Chicken Salad,Recipes1M,www.food.com/recipe/moroccan-chicken-salad-24988,50226,eggs; milk,eggs; milk,
+670078,random_test,Ribbon Meat Loaf,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=591067,39463,celery; eggs; fish; gluten; milk; mustard,celery; eggs; fish; gluten; milk; mustard,
+1567977,random_test,Mexican Dump Soup,Gathered,tastykitchen.com/recipes/soups/mexican-dump-soup/,21510,fish; milk,fish; milk,
+1093926,random_test,Lebanese Bulgar Cabbage Pilaf,Gathered,www.food.com/recipe/lebanese-bulgar-cabbage-pilaf-337021,10386,fish; gluten,fish; gluten,
+845079,random_test,Syrup Cake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=769208,40609,eggs; gluten; milk; tree_nuts,eggs; gluten; milk,primary_not_subset_of_all_possible
+662479,random_test,Swiss Puffs,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1012569,3623,eggs; gluten; milk,eggs; gluten; milk,
+413094,random_test,Spiced Pineapple Punch,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=776536,37628,,,
+944902,random_test,Salmon Pesto 'Spaghetti',Gathered,www.allrecipes.com/recipe/239263/salmon-pesto-spaghetti/,6256,fish; milk,fish; gluten; milk; tree_nuts,
+1264055,random_test,Crab On Crispy Wonton Chips,Gathered,recipes-plus.com/api/v2.0/recipes/25607,45745,crustaceans; fish; gluten,crustaceans; fish; gluten,
+1248743,random_test,Teriyaki Chicken And Noodle Salad,Gathered,recipes-plus.com/api/v2.0/recipes/32605,14527,gluten; sesame; soy,gluten; sesame; soy,
+748869,random_test,Bread Noodle Soup,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=774673,4095,eggs; gluten; milk,eggs; gluten; milk,
+406025,random_test,Salmon Loaf With Green Pea Sauce,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=932530,2209,celery; eggs; fish; gluten; milk,celery; eggs; fish; gluten; milk,
+1170760,random_test,Sour Cream Chicken Macaroni Casserole,Gathered,www.food.com/recipe/sour-cream-chicken-macaroni-casserole-459555,12445,gluten; milk,gluten; milk,
+1806940,random_test,Breakfast Wrap Ole,Recipes1M,www.kraftrecipes.com/recipes/breakfast-wrap-ole-52797.aspx,51612,eggs; gluten; milk,eggs; gluten; milk,
+1552505,random_test,Puff Pastry Breakfast Pizza,Gathered,tastykitchen.com/recipes/breakfastbrunch/eggs-breakfastbrunch/puff-pastry-breakfast-pizza/,21266,eggs; gluten; milk,eggs; gluten; milk,
+1079180,random_test,Pork Steak Chop Suey,Gathered,www.food.com/recipe/pork-steak-chop-suey-30718,43263,celery; gluten; soy,celery; soy,primary_not_subset_of_all_possible
+1352440,random_test,Lemon Veggie Couscous ,Gathered,www.epicurious.com/recipes/member/views/lemon-veggie-couscous-50142886,16742,gluten,gluten,
+1102498,random_test,Iranian Barbari Bread,Gathered,www.food.com/recipe/iranian-barbari-bread-211029,10617,gluten; milk; sesame,gluten; milk; sesame,
+2023624,random_test,Southwest Taco Dip,Recipes1M,www.food.com/recipe/southwest-taco-dip-370464,53665,milk,milk,
+507652,random_test,Hot Spice Russian Tea,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=193102,2792,,,
+1671769,random_test,Crispy Chickpea and Roasted Cauliflower Risotto,Recipes1M,tastykitchen.com/recipes/main-courses/crispy-chickpea-and-roasted-cauliflower-risotto/,23772,milk; sulphites,milk; sulphites,
+1470036,random_test,Grilled Bratwurst,Gathered,www.myrecipes.com/recipe/grilled-bratwurst,48732,gluten; milk,gluten; milk,
+2107900,random_test,Eggplant Chips,Recipes1M,www.food.com/recipe/eggplant-chips-502375,54450,milk,milk,
+1005305,random_test,Old Timey Tea Cakes,Gathered,www.food.com/recipe/old-timey-tea-cakes-27066,42352,eggs; gluten; milk,eggs; gluten; milk,
+699613,random_test,Coffee Walnut Candy,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=628734,3823,milk; tree_nuts,milk; tree_nuts,
+1895748,random_test,Savoury Vegetable Rolls,Recipes1M,www.food.com/recipe/savoury-vegetable-rolls-343400,27837,eggs; gluten; sesame; soy,eggs; gluten; sesame; soy,
+1021180,random_test,Thai Stir-Fried Vegetables,Gathered,www.food.com/recipe/thai-stir-fried-vegetables-343013,8355,gluten; sesame; soy,sesame; soy,primary_not_subset_of_all_possible
+915617,random_test,Persian Melon Salad,Gathered,www.allrecipes.com/recipe/215578/persian-melon-salad/,5372,,,
+899681,random_test,Chicken Fajita Pasta Bake,Gathered,www.allrecipes.com/recipe/254812/chicken-fajita-pasta-bake/,4952,gluten; milk,gluten; milk,
+1154759,random_test,Bratwurst Tacos,Gathered,www.food.com/recipe/bratwurst-tacos-90757,44191,gluten; milk,gluten; milk,
+1261458,random_test,Turkish Spiced Lamb Pide,Gathered,recipes-plus.com/api/v2.0/recipes/27878,45686,eggs; gluten; sulphites; tree_nuts,eggs; gluten; tree_nuts,primary_not_subset_of_all_possible
+1915369,random_test,White Bean Dip with Pita Chips,Recipes1M,www.epicurious.com/recipes/food/views/white-bean-dip-with-pita-chips-376638,52630,gluten,,primary_not_subset_of_all_possible
+1796920,random_test,Empanada Gallega,Recipes1M,tastykitchen.com/recipes/appetizers-and-snacks/empanada-gallega-2/,51515,eggs; gluten; milk,eggs; gluten; milk,
+853675,random_test,Stuffed Fish,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=354555,40664,fish; gluten; milk,fish; gluten; milk,
+1435328,random_test,Pesto Primavera,Gathered,www.myrecipes.com/recipe/pesto-primavera,48211,gluten,gluten; tree_nuts,
+2228776,random_test,Veggie and Dip Smart Wrap,Recipes1M,www.food.com/recipe/veggie-and-dip-smart-wrap-435446,33971,gluten; milk,milk,primary_not_subset_of_all_possible
+2108704,random_test,Tandoori potato pizza,Recipes1M,cookpad.com/us/recipes/362011-tandoori-potato-pizza,31790,gluten; milk,gluten; milk; tree_nuts,
+981218,random_test,Croatian Cheese Pie,Gathered,www.food.com/recipe/croatian-cheese-pie-468007,7258,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+1513940,random_test,Turkey With Sausage-Cornbread Stuffing,Gathered,www.tasteofhome.com/recipes/turkey-with-sausage-cornbread-stuffing/,20511,celery; eggs; gluten; milk,celery; eggs; gluten; milk,
+827973,random_test,Turkey Fruit Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=258811,40503,eggs; tree_nuts,eggs; tree_nuts,
+749438,random_test,Zesty Vegetable Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=50448,40020,sulphites,,primary_not_subset_of_all_possible
+1513288,random_test,Thai Chicken Pasta Skillet,Gathered,www.tasteofhome.com/recipes/thai-chicken-pasta-skillet/,20495,gluten; peanuts; soy,gluten; peanuts,primary_not_subset_of_all_possible
+1339339,random_test,Mussels In Zucchini Basil Broth ,Gathered,www.epicurious.com/recipes/food/views/mussels-in-zucchini-basil-broth-235457,16475,molluscs,molluscs,
+1461103,random_test,Blue Cheese Dip,Gathered,www.myrecipes.com/recipe/blue-cheese-dip,48596,eggs; milk,eggs; milk,
+334227,random_test,Creamy Chicken Fettuccine,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=346854,37019,gluten; milk,gluten; milk,
+1938863,random_test,Cassoulet Salad,Recipes1M,www.cookstr.com/recipes/cassoulet-salad-2,28673,sulphites,sulphites,
+1428211,random_test,Hot Cocoa Pudding,Gathered,www.myrecipes.com/recipe/hot-cocoa-pudding-0,18909,eggs; milk,eggs; milk,
+1653647,random_test,Tofu Triangles with Thai Chili Sauce,Recipes1M,www.vegetariantimes.com/recipe/tofu-triangles-with-thai-chili-sauce/,23456,soy,gluten; soy,
+618044,random_test,Cocoa Black Bean Soup,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=658847,3385,peanuts; sulphites,peanuts; sulphites,
+979176,random_test,French Puffs,Gathered,www.food.com/recipe/french-puffs-152205,42060,eggs; gluten; milk,eggs; gluten; milk,
+1743492,random_test,Jerk Chicken Mango Pizza,Recipes1M,cookpad.com/us/recipes/356412-jerk-chicken-mango-pizza,25057,gluten; milk,milk,primary_not_subset_of_all_possible
+56314,random_test,Cheesy Bulgarian Potatoes And Sausage,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=449642,287,eggs; milk,eggs; milk,
+932832,random_test,Asian Noodle Bowl,Gathered,www.allrecipes.com/recipe/233870/asian-noodle-bowl/,41434,gluten; peanuts; soy,gluten; peanuts; soy,
+1371721,random_test,"Creamy, Smoky Romanian Eggplant Dip",Gathered,food52.com/recipes/15373-creamy-smoky-romanian-eggplant-dip,17261,eggs,eggs,
+1166730,random_test,Tangy Thai Chicken,Gathered,www.food.com/recipe/tangy-thai-chicken-150588,12339,peanuts,peanuts,
+1857547,random_test,Express Shrimp and Sausage Jambalaya,Recipes1M,www.foodgeeks.com/recipes/19640,27100,crustaceans,crustaceans,
+989404,random_test,Indonesian Sesame Noodles,Gathered,www.food.com/recipe/indonesian-sesame-noodles-124567,7493,gluten; peanuts; sesame; soy; sulphites,gluten; peanuts; sesame; soy; sulphites,
+1356550,random_test,Crab Enchiladas ,Gathered,www.epicurious.com/recipes/member/views/crab-enchiladas-50084169,47456,crustaceans; milk,crustaceans; milk,
+314821,random_test,Brownie Pie,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=408587,36870,eggs; gluten; milk,eggs; gluten; milk,
+1382375,random_test,Beef Heart Bulgogi,Gathered,food52.com/recipes/22303-beef-heart-bulgogi,17574,gluten; sesame; soy,sesame; soy,primary_not_subset_of_all_possible
+1897703,random_test,Sausage Cheese Balls,Recipes1M,www.food.com/recipe/sausage-cheese-balls-491333,52458,gluten; milk,gluten; milk,
+1470136,random_test,Very Veggie Burgers,Gathered,www.myrecipes.com/recipe/very-veggie-burgers,19823,eggs; gluten; milk; soy,soy,primary_not_subset_of_all_possible
+1062968,random_test,Lebanese Hummus,Gathered,www.food.com/recipe/lebanese-hummus-284584,9537,sesame,sesame,
+1465884,random_test,Overnight Apple French Toast,Gathered,www.myrecipes.com/recipe/overnight-apple-french-toast,48678,eggs; gluten; milk,eggs; gluten; milk,
+1902034,random_test,Pie Crust Pastry,Recipes1M,www.foodandwine.com/recipes/pie-crust-pastry,52505,eggs; gluten; milk,eggs; gluten; milk,
+1321550,random_test,Shrimp With Coconut-Curry Tomato Sauce ,Gathered,www.epicurious.com/recipes/member/views/shrimp-with-coconut-curry-tomato-sauce-50011672,16113,crustaceans; peanuts,crustaceans; peanuts,
+1909704,random_test,Indian Mushroom Curry,Recipes1M,www.food.com/recipe/indian-mushroom-curry-385596,28085,milk,milk,
+2038619,random_test,Lemon Cake Roll,Recipes1M,www.epicurious.com/recipes/food/views/lemon-cake-roll-5852,53814,eggs; gluten; milk,eggs; gluten; milk,
+1759965,random_test,Norwegian Almond Cake,Recipes1M,recipeland.com/recipe/v/norwegian-almond-cake-51293,51152,eggs; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+1618557,random_test,Tex-Mex Chili,Gathered,www.yummly.com/recipe/Tex-Mex-Chili-1673952,49842,celery; milk,celery; milk,
+1734461,random_test,Vegetable Salad Tea Sandwiches,Recipes1M,www.food.com/recipe/vegetable-salad-tea-sandwiches-168065,24899,eggs; gluten; milk,eggs; gluten; milk,
+2129288,random_test,Vegan Mac N Cheez,Recipes1M,cooking.nytimes.com/recipes/1016996,32184,gluten; mustard; soy; tree_nuts,gluten; mustard; soy; tree_nuts,
+1192482,random_test,Moroccan Style Chicken Phyllo Rolls,Gathered,www.food.com/recipe/moroccan-style-chicken-phyllo-rolls-182157,13009,eggs; gluten; milk; mustard; tree_nuts,eggs; gluten; milk; mustard; tree_nuts,
+1470076,random_test,Vegetable Pizza Crisp,Gathered,www.myrecipes.com/recipe/vegetable-pizza-crisp,19820,gluten; milk,gluten; milk,
+1034491,random_test,Mujdei De Usturoi---Romanian Garlic Sauce,Gathered,www.food.com/recipe/mujdei-de-usturoi-romanian-garlic-sauce-207270,8780,milk,milk,
+227934,random_test,Mexican Vermicelli,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=814791,1201,gluten,gluten,
+322126,random_test,Russian Meat Loaf,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=936654,1728,eggs; gluten,eggs; gluten,
+1090597,random_test,"Chicken, Shrimp And Andouille Jambalaya",Gathered,www.food.com/recipe/chicken-shrimp-and-andouille-jambalaya-28165,10283,celery; crustaceans,celery; crustaceans,
+1902665,random_test,Ham and Tartare Sauce Bread Boats,Recipes1M,cookpad.com/us/recipes/149464-ham-and-tartare-sauce-bread-boats,27963,eggs; gluten,eggs; gluten,
+116603,random_test,Salmon Croquettes,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=578671,35160,eggs; fish; gluten,eggs; fish; gluten,
+928395,random_test,Pesto Chicken Puff Pastry Packets,Gathered,www.allrecipes.com/recipe/261660/pesto-chicken-puff-pastry-packets/,5748,eggs; gluten; milk,eggs; gluten; milk; tree_nuts,
+1111583,random_test,Green Chili Chicken,Gathered,www.food.com/recipe/green-chili-chicken-284504,43667,gluten; milk,gluten; milk,
+2093360,random_test,Baked Shrimp,Recipes1M,www.food.com/recipe/baked-shrimp-370740,54310,crustaceans; fish; gluten; milk; sulphites,crustaceans; fish; gluten; milk; sulphites,
+265585,random_test,Broccoli Roll-Ups,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=288372,36495,gluten; milk; mustard,gluten; milk; mustard,
+409065,random_test,Swedish Nut Pineapple Cake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=423036,2223,eggs; gluten; tree_nuts,eggs; gluten,primary_not_subset_of_all_possible
+65521,random_test,Fried Lumpia,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=956290,34692,celery; eggs; gluten; soy,celery; eggs; soy,primary_not_subset_of_all_possible
+2058243,random_test,Tea Biscuit Wrapped Chicken Pie,Recipes1M,www.food.com/recipe/tea-biscuit-wrapped-chicken-pie-243397,30830,celery; gluten; milk; mustard; sulphites,celery; gluten; milk; mustard; sulphites,
+1329704,random_test,Provencal Carrots ,Gathered,www.epicurious.com/recipes/member/views/provencal-carrots-52782121,16275,,,
+1782602,random_test,Jamaican Baste,Recipes1M,www.food.com/recipe/jamaican-baste-381270,25750,,,
+1150639,random_test,"Prawn, Smoked Salmon And Spinach Pancakes",Gathered,www.food.com/recipe/prawn-smoked-salmon-and-spinach-pancakes-450450,11890,crustaceans; eggs; fish; gluten; milk,crustaceans; eggs; fish; gluten; milk,
+1103777,random_test,Chinese Macaroni Salad,Gathered,www.food.com/recipe/chinese-macaroni-salad-331779,43567,celery; gluten; soy,celery; gluten; soy,
+1781267,random_test,Apple Granola Pizza With Vanilla Drizzle,Recipes1M,www.food.com/recipe/apple-granola-pizza-with-vanilla-drizzle-438955,25727,gluten; milk,gluten; milk,
+1184254,random_test,Mexican Turkey Taco Meat,Gathered,www.food.com/recipe/mexican-turkey-taco-meat-177124,12791,milk,milk,
+1953052,random_test,Pretzel-Fried Steak with Mango-Onion Gravy,Recipes1M,www.foodnetwork.com/recipes/aarti-sequeira/pretzel-fried-steak-with-mango-onion-gravy-recipe.html,28916,eggs; gluten; milk; soy,eggs; gluten; milk; soy,
+67813,random_test,Cranberry Apple Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=346033,34720,eggs,eggs,
+1064464,random_test,Almond Danish Swirls,Gathered,www.food.com/recipe/almond-danish-swirls-192721,9580,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+1551145,random_test,Pretzel Crust Fruit Pizza,Gathered,tastykitchen.com/recipes/desserts/pretzel-crust-fruit-pizza/,21250,gluten; milk,milk,primary_not_subset_of_all_possible
+1337443,random_test,Hot Beef Dip ,Gathered,www.epicurious.com/recipes/member/views/hot-beef-dip-1249360,47149,milk,milk,
+2120195,random_test,Indian...Thai Pork,Recipes1M,recipeland.com/recipe/v/indianthai-pork-51542,32010,fish,fish,
+2116988,random_test,Chicken Soup With Greens and Pasta,Recipes1M,www.food.com/recipe/chicken-soup-with-greens-and-pasta-135299,31951,gluten,gluten,
+1919942,random_test,Shrimp and Rice Croquettes with Aioli,Recipes1M,www.epicurious.com/recipes/food/views/shrimp-and-rice-croquettes-with-aioli-382002,28286,crustaceans; eggs; gluten; milk; mustard,crustaceans; eggs; gluten; milk; mustard,
+1714802,random_test,Spinach Salad with Warm Dressing,Recipes1M,www.foodgeeks.com/recipes/18394,24503,mustard; sulphites; tree_nuts,mustard; sulphites; tree_nuts,
+2084516,random_test,Filipino Burger Steak,Recipes1M,tastykitchen.com/recipes/main-courses/filipino-burger-steak/,31331,eggs; gluten; milk; mustard,eggs; gluten; milk; mustard,
+787270,random_test,French Bread Chips,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=846389,40247,gluten; milk,gluten; milk,
+1451142,random_test,Shrimp Rolls,Gathered,www.myrecipes.com/recipe/shrimp-rolls-1,48432,celery; crustaceans; eggs; gluten; milk,celery; crustaceans; eggs; milk,primary_not_subset_of_all_possible
+1550246,random_test,Vegetable-Lentil Soup,Gathered,tastykitchen.com/recipes/soups/vegetable-lentil-soup/,49392,celery; gluten; milk; sulphites,celery; gluten; milk; sulphites,
+1639878,random_test,Ginger Pork Roast With Maple-Bourbon Sauce,Gathered,www.yummly.com/recipe/Ginger-Pork-Roast-With-Maple-bourbon-Sauce-2261210,23154,gluten; milk; sesame; soy,gluten; milk; sesame; soy,
+1527851,random_test,Pork Fajita Salad,Gathered,www.tasteofhome.com/recipes/pork-fajita-salad/,20820,milk,milk,
+102111,random_test,Jello Pretzel Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=360556,35045,gluten; milk,milk,primary_not_subset_of_all_possible
+1897585,random_test,Egg Custard Pie,Recipes1M,www.food.com/recipe/egg-custard-pie-178964,52457,eggs; gluten; milk,eggs; gluten; milk,
+1530754,random_test,Turkey Casserole With Chow Mein Noodles,Gathered,www.tasteofhome.com/recipes/turkey-casserole-with-chow-mein-noodles/,20880,celery; gluten; milk; tree_nuts,celery; gluten; milk; tree_nuts,
+1274491,random_test,Green Tomato Relish ,Gathered,www.epicurious.com/recipes/member/views/green-tomato-relish-50093916,45945,celery; mustard; sulphites,celery; mustard; sulphites,
+632046,random_test,French Corn Bread,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=452221,39232,eggs; milk,eggs; milk,
+1994007,random_test,Chicken Adobo,Recipes1M,www.food.com/recipe/lola-almas-chicken-adobo-365829,29664,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+1099184,random_test,Alaska Sourdough Biscuits And Basic Starter,Gathered,www.food.com/recipe/alaska-sourdough-biscuits-and-basic-starter-344193,10521,gluten,gluten,
+2037044,random_test,Spicy Cinnamon Potato Goulash,Recipes1M,www.food.com/recipe/spicy-cinnamon-potato-goulash-268765,30451,soy,soy,
+1082956,random_test,Thai Watermelon Salad,Gathered,www.food.com/recipe/thai-watermelon-salad-517310,10077,crustaceans; fish; peanuts,crustaceans; fish; peanuts,
+849530,random_test,Rice-Stuffed Ham Rolls,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=244554,4623,gluten; milk,milk,primary_not_subset_of_all_possible
+1995871,random_test,Greek vinagrette,Recipes1M,cookpad.com/us/recipes/334827-greek-vinagrette,29694,mustard; sulphites,mustard; sulphites,
+1704829,random_test,The Danish Fly,Recipes1M,www.foodandwine.com/recipes/danish-fly-cocktail,24343,,,
+1880768,random_test,Texas Taco Joes,Recipes1M,www.kraftrecipes.com/recipes/texas-taco-joes-127213.aspx,52302,gluten; milk,gluten; milk,
+421188,random_test,Tea Cakes,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=135703,37684,eggs; gluten; milk,eggs; gluten; milk,
+473796,random_test,Crab Meat And Vegetable Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=945128,2593,crustaceans; eggs; fish; gluten; milk,crustaceans; eggs; milk,primary_not_subset_of_all_possible
+1637766,random_test,Soba Noodle Bowl,Gathered,www.yummly.com/recipe/Soba-Noodle-Bowl-2139487,50018,gluten; peanuts; sesame; soy,crustaceans; gluten; peanuts; sesame; soy,
+2030586,random_test,Fried Satay,Recipes1M,www.epicurious.com/recipes/food/views/fried-satay-385683,30327,,crustaceans,
+1533763,random_test,Reuben Noodle Casserole,Gathered,www.tasteofhome.com/recipes/reuben-noodle-casserole/,49261,eggs; gluten; milk; mustard,eggs; gluten; milk; mustard,
+1735224,random_test,Curry Shrimp Dip,Recipes1M,www.food.com/recipe/curry-shrimp-dip-100338,24916,crustaceans; fish; milk,crustaceans; fish; milk,
+1191698,random_test,Chorizo Risotto,Gathered,www.food.com/recipe/chorizo-risotto-484073,12990,sulphites,sulphites,
+931297,random_test,Persian Herb And Cheese,Gathered,www.allrecipes.com/recipe/245818/persian-herb-and-cheese/,5843,gluten; milk,milk,primary_not_subset_of_all_possible
+1723329,random_test,Coconut Bread,Recipes1M,recipeland.com/recipe/v/coconut-bread-33609,50829,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+1067398,challenge,Mexican Chicken Spaghetti,Gathered,www.food.com/recipe/mexican-chicken-spaghetti-72970,43096,celery; gluten; milk,celery; gluten; milk,
+1164428,challenge,Chicken Salad Tea Room Style,Gathered,www.food.com/recipe/chicken-salad-tea-room-style-285892,12270,celery; eggs; tree_nuts,celery; eggs; tree_nuts,
+713747,challenge,Shrimp Paste,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=406553,39754,celery; crustaceans; eggs; fish; milk,celery; crustaceans; eggs; fish; milk,
+1640240,challenge,Danish Stuffing,Gathered,www.yummly.com/recipe/Danish-Stuffing-1654586,23167,celery; gluten; milk; sulphites; tree_nuts,celery; gluten; milk; sulphites,primary_not_subset_of_all_possible
+2094247,challenge,Salmon Croquettes with Remoulade Sauce,Recipes1M,recipeland.com/recipe/v/salmon-croquettes-remoulade-sau-43132,31514,celery; eggs; fish; gluten; milk; mustard,celery; eggs; fish; gluten; milk; mustard,
+370642,challenge,Oven Fried Chow Mein,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=405895,2002,celery; gluten; molluscs; sesame; soy,celery; gluten; molluscs; sesame; soy,
+1202370,challenge,Cashew Chicken Croissant Sandwich,Gathered,www.food.com/recipe/cashew-chicken-croissant-sandwich-134207,13293,celery; eggs; milk; tree_nuts,celery; eggs; tree_nuts,primary_not_subset_of_all_possible
+73319,challenge,Molded Chicken Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=702682,34777,celery; eggs; milk; tree_nuts,celery; eggs; milk; sulphites; tree_nuts,
+1349976,challenge,"Cornbread, Sausage, And Pecan Dressing ",Gathered,www.epicurious.com/recipes/food/views/cornbread-sausage-and-pecan-dressing-51124200,47365,celery; eggs; gluten; milk; sulphites,celery; eggs; milk; sulphites,primary_not_subset_of_all_possible
+2164581,challenge,Healthy Chicken Salad,Recipes1M,www.food.com/recipe/healthy-chicken-salad-465249,54996,celery; eggs,celery; eggs,
+1403378,challenge,Coffee Seafood Risotto,Gathered,food52.com/recipes/40746-coffee-seafood-risotto,18236,crustaceans; fish; milk; sulphites,crustaceans; fish; milk; sulphites,
+1009803,challenge,Sri Lankan Prawn And Tomato Curry,Gathered,www.food.com/recipe/sri-lankan-prawn-and-tomato-curry-201408,8027,crustaceans,crustaceans,
+2150578,challenge,Soba Salad with Shrimp and Avocado,Recipes1M,www.cookstr.com/recipes/soba-salad-with-shrimp-and-avocado,32564,crustaceans; gluten; sesame; soy; sulphites,crustaceans; peanuts; sesame; soy; sulphites,primary_not_subset_of_all_possible
+900860,challenge,Zucchini Noodles Pad Thai,Gathered,www.allrecipes.com/recipe/246110/zucchini-noodles-pad-thai/,4984,crustaceans; eggs; fish; gluten; molluscs; peanuts; sesame; soy,crustaceans; eggs; fish; molluscs; peanuts; sesame; soy,primary_not_subset_of_all_possible
+622160,challenge,Wild Rice And Shrimp Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=284971,39160,crustaceans; fish; gluten; milk; mustard,crustaceans; fish; gluten; milk; mustard,
+301985,challenge,Greek Shrimp,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=383143,1616,crustaceans; milk; molluscs; sulphites,crustaceans; milk; molluscs; sulphites,
+1930711,challenge,Pesto Shrimp,Recipes1M,www.food.com/recipe/pesto-shrimp-483515,52777,crustaceans; gluten; milk,crustaceans; gluten; milk; tree_nuts,
+2166556,challenge,Thai Chicken Peanut Curry,Recipes1M,www.kraftrecipes.com/recipes/thai-chicken-peanut-curry-165994.aspx,32871,crustaceans; peanuts,peanuts,primary_not_subset_of_all_possible
+2228195,challenge,Lobster Pierogi,Recipes1M,www.foodandwine.com/recipes/lobster-pierogi,33954,crustaceans; eggs; gluten; milk,crustaceans; eggs; gluten; milk,
+2185732,challenge,prawn with sweet chili sauce,Recipes1M,cookpad.com/us/recipes/331605-prawn-with-sweet-chili-sauce,33220,crustaceans; milk,crustaceans; milk,
+1406017,challenge,Hungarian Meatballs,Gathered,food52.com/recipes/823-hungarian-meatballs,47801,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+1887723,challenge,Chinese Sesame Cookies,Recipes1M,www.foodnetwork.com/recipes/food-network-kitchens/chinese-sesame-cookies.html,52362,eggs; gluten; milk; sesame,eggs; gluten; milk; sesame,
+44625,challenge,Italian Bundles,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1052910,226,eggs; gluten; milk,eggs; gluten; milk,
+1106467,challenge,Russian Cabbage Pies,Gathered,www.food.com/recipe/russian-cabbage-pies-447155,10707,eggs; gluten; milk,eggs; gluten; milk,
+939499,challenge,Romanian Apple Cake,Gathered,www.allrecipes.com/recipe/21838/romanian-apple-cake/,41537,eggs; gluten; tree_nuts,eggs; gluten; tree_nuts,
+963408,challenge,Sichuan Braised Cod,Gathered,www.food.com/recipe/sichuan-braised-cod-379207,6782,eggs; fish; gluten; soy; sulphites,eggs; fish; peanuts; soy; sulphites,primary_not_subset_of_all_possible
+2195761,challenge,Vietnamese Pork Ball Brochettes,Recipes1M,www.food.com/recipe/vietnamese-pork-ball-brochettes-504095,33383,eggs; fish; peanuts,eggs; fish; peanuts,
+1234610,challenge,Spicy Vietnamese Chicken Sandwiches,Gathered,www.food.com/recipe/spicy-vietnamese-chicken-sandwiches-424739,45209,eggs; gluten; soy; sulphites,eggs; gluten; soy,primary_not_subset_of_all_possible
+748477,challenge,Swedish Yellow Brownies,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=968856,4091,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+963572,challenge,Mint Creme Brulee,Gathered,www.food.com/recipe/mint-creme-brulee-533241,6786,eggs; milk,eggs; milk,
+991702,challenge,Spicy Peanut Balls With Satay Sauce,Gathered,www.food.com/recipe/spicy-peanut-balls-with-satay-sauce-329353,7558,fish; gluten; milk; peanuts,fish; gluten; milk; peanuts,
+1853897,challenge,Satay of Beef With Peanut Sauce,Recipes1M,www.food.com/recipe/satay-of-beef-with-peanut-sauce-110318,27026,fish; gluten; peanuts; soy,fish; peanuts; soy,primary_not_subset_of_all_possible
+976792,challenge,Thai Mussels With Jasmine Rice,Gathered,www.food.com/recipe/thai-mussels-with-jasmine-rice-265014,7141,fish; molluscs; peanuts,fish; molluscs; peanuts,
+1342374,challenge,Citrus Cured Gravlax ,Gathered,www.epicurious.com/recipes/member/views/citrus-cured-gravlax-50178617,16541,fish,fish,
+2004948,challenge,Vegetable Spring Rolls & Dipping Sauce,Recipes1M,www.food.com/recipe/vegetable-spring-rolls-dipping-sauce-270120,29845,fish; gluten; sesame,fish; sesame,primary_not_subset_of_all_possible
+1442668,challenge,Wasabi Gravlax,Gathered,www.myrecipes.com/recipe/wasabi-gravlax,19215,fish; gluten; sulphites,fish; gluten; sulphites,
+1785284,challenge,Miso Chicken Mince Udon,Recipes1M,cookpad.com/us/recipes/146351-miso-chicken-mince-udon,25785,eggs; fish; gluten; sesame; soy,eggs; gluten; sesame; soy,primary_not_subset_of_all_possible
+1229941,challenge,Finnish Beet Salad,Gathered,www.food.com/recipe/finnish-beet-salad-28754,45150,milk; sulphites,fish; milk,primary_not_subset_of_all_possible
+1559810,challenge,Scallion Rice,Gathered,tastykitchen.com/recipes/sidedishes/scallion-rice/,49463,fish; sesame,fish; sesame; soy,
+1465227,challenge,Mediterranean Salmon,Gathered,www.myrecipes.com/recipe/mediterranean-salmon-0,48668,fish; milk,fish; milk; tree_nuts,
+1092242,challenge,Shortcrust Pastry,Gathered,www.food.com/recipe/shortcrust-pastry-177343,43426,gluten; milk,gluten; milk,
+1136266,challenge,The Other Ramen Noodle Chicken Salad,Gathered,www.food.com/recipe/the-other-ramen-noodle-chicken-salad-83110,11516,gluten; sesame; tree_nuts,gluten; sesame; tree_nuts,
+930367,challenge,Huli Huli Chicken,Gathered,www.allrecipes.com/recipe/229690/huli-huli-chicken/,41390,gluten; mustard; soy; sulphites,mustard; soy; sulphites,primary_not_subset_of_all_possible
+8383,challenge,Spaghetti Parmesan,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=305731,34118,gluten; milk,gluten; milk,
+2094869,challenge,Onion Soup Gratin,Recipes1M,www.food.com/recipe/onion-soup-gratin-10293,31531,gluten; milk; sulphites,gluten; milk; sulphites,
+1123959,challenge,Spinach Feta Tomato Pizza,Gathered,www.food.com/recipe/spinach-feta-tomato-pizza-195378,11185,gluten; milk,milk,primary_not_subset_of_all_possible
+1512335,challenge,Cherry Apricot Tea Bread,Gathered,www.tasteofhome.com/recipes/cherry-apricot-tea-bread/,20467,eggs; gluten; milk; sulphites,eggs; gluten; milk,primary_not_subset_of_all_possible
+1136051,challenge,Greek Mac N Cheese,Gathered,www.food.com/recipe/greek-mac-n-cheese-533318,11511,gluten; milk,gluten; milk,
+1906281,challenge,Chicken Satay with Rice,Recipes1M,recipeland.com/recipe/v/chicken-satay-rice-48958,28021,gluten; peanuts; soy,gluten; peanuts; soy,
+1059805,challenge,Sourdough Dinner Rolls,Gathered,www.food.com/recipe/sourdough-dinner-rolls-99966,43013,gluten; milk,gluten; milk,
+2231085,challenge,Ensalada de Chochos y Queso,INIAP - Disfrute cocinando con chochos,,55626,eggs; lupin; milk,eggs; lupin; milk,
+2231082,challenge,Portuguese Pickled Tremoços,Portuguese traditional cuisine,,55623,lupin; sulphites,lupin; sulphites,
+2231092,challenge,Locro de Chochos con Queso,INIAP - Disfrute cocinando con chochos,,55633,lupin; milk,lupin; milk,
+2231087,challenge,Ensalada de Chochos con Aceitunas,INIAP - Disfrute cocinando con chochos,,55628,lupin,lupin,
+2231090,challenge,Salsa de Chochos,INIAP - Disfrute cocinando con chochos,,55631,gluten; lupin; milk,gluten; lupin; milk,
+2231088,challenge,Paté de Chochos,INIAP - Disfrute cocinando con chochos,,55629,lupin; milk,lupin; milk,
+2231089,challenge,Chocho Frito,INIAP - Disfrute cocinando con chochos,,55630,lupin,lupin,
+2231096,challenge,Torta de Chochos con Queso,INIAP - Disfrute cocinando con chochos,,55637,eggs; gluten; lupin; milk,eggs; gluten; lupin; milk,
+2231091,challenge,Locro de Chochos,INIAP - Disfrute cocinando con chochos,,55632,lupin; milk,lupin; milk,
+2231094,challenge,Sopa de Legumbres con Chochos,INIAP - Disfrute cocinando con chochos,,55635,lupin; milk,lupin; milk,
+1406868,challenge,Breakfast Bowl,Gathered,food52.com/recipes/74402-breakfast-bowl,47807,milk; peanuts,milk; peanuts,
+207555,challenge,Vegetable Sauce,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=81245,36004,milk,milk,
+1874154,challenge,Lemon-Parmesan Veal Rolls with Arugula Salad,Recipes1M,www.foodandwine.com/recipes/lemon-parmesan-veal-rolls-with-arugula-salad,27405,milk,milk,
+1308250,challenge,Layered Bean Dip ,Gathered,www.epicurious.com/recipes/member/views/layered-bean-dip-1274654,46584,milk,milk,
+1963994,challenge,Chicken Pie With Biscuit Crust,Recipes1M,www.food.com/recipe/chicken-pie-with-biscuit-crust-266665,29116,gluten; milk,gluten; milk,
+923582,challenge,Zucchini Pasta With Pine Nuts,Gathered,www.allrecipes.com/recipe/237540/zucchini-pasta-with-pine-nuts/,5612,gluten; milk,gluten; milk; tree_nuts,
+265452,challenge,Mexican Cups,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1079405,1420,milk,milk,
+1176884,challenge,Macaroni Salad With Buttermilk Dressing,Gathered,www.food.com/recipe/macaroni-salad-with-buttermilk-dressing-372011,12611,eggs; gluten; milk,eggs; gluten; milk,
+113083,challenge,Hamburg-Noodle Bake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=354542,603,gluten; milk,gluten; milk,
+1059821,challenge,Cheesy Pizza Soup,Gathered,www.food.com/recipe/cheesy-pizza-soup-186918,43014,milk,milk,
+2154326,challenge,Pork and Sesame Oyster Sauce Stir-fry,Recipes1M,cookpad.com/us/recipes/148060-pork-and-sesame-oyster-sauce-stir-fry,32631,gluten; molluscs; sesame; soy,gluten; molluscs; sesame; soy,
+912683,challenge,Malaysian Barbecue Chicken Wings,Gathered,www.allrecipes.com/recipe/14535/malaysian-barbecue-chicken-wings/,5291,gluten; molluscs; sesame; soy,molluscs; sesame; soy,primary_not_subset_of_all_possible
+1158557,challenge,Thai Shrimp Dumplings,Gathered,www.food.com/recipe/thai-shrimp-dumplings-299451,12095,crustaceans; fish; gluten; molluscs; sulphites,crustaceans; fish; gluten; molluscs; sulphites,
+1347883,challenge,Moules Provencal ,Gathered,www.epicurious.com/recipes/member/views/moules-provencal-51658211,16646,celery; molluscs; sulphites,celery; molluscs; sulphites,
+1116542,challenge,Malaysian Clams,Gathered,www.food.com/recipe/malaysian-clams-314251,10996,fish; gluten; molluscs; soy,fish; molluscs; soy,primary_not_subset_of_all_possible
+1972324,challenge,White Clam Pizza,Recipes1M,www.foodnetwork.com/recipes/food-network-kitchens/white-clam-pizza-recipe.html,53175,gluten; milk; molluscs,gluten; milk; molluscs,
+1458990,challenge,Thai Coconut-Chili Clams And Mussels,Gathered,www.myrecipes.com/recipe/thai-coconut-chili-clams-mussels,19589,molluscs; sulphites,molluscs; sulphites,
+1425217,challenge,Tandoori Oysters,Gathered,www.myrecipes.com/recipe/tandoori-oysters,18840,milk; molluscs; mustard,milk; molluscs; mustard,
+1190851,challenge,Thai Seafood Curry Over Coconut Jasmine Rice,Gathered,www.food.com/recipe/thai-seafood-curry-over-coconut-jasmine-rice-246287,12953,crustaceans; fish; molluscs; sesame,crustaceans; fish; molluscs; sesame,
+863474,challenge,"Spaghetti With Mussels, Scallops And Fish",Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1003045,4681,fish; gluten; molluscs; sulphites,fish; gluten; molluscs; sulphites,
+1080378,challenge,Mustard Lamb Chops,Gathered,www.food.com/recipe/mustard-lamb-chops-11581,43276,gluten; mustard,gluten; mustard,
+2015394,challenge,Italian Bruschetta Panini,Recipes1M,www.kraftrecipes.com/recipes/italian-bruschetta-panini-145530.aspx,53581,gluten; milk; mustard; sulphites,gluten; milk; mustard; sulphites,
+1223155,challenge,Adobo Beef With Gravy,Gathered,www.food.com/recipe/adobo-beef-with-gravy-287051,13849,mustard,mustard,
+1318281,challenge,Mustard Pork Chops ,Gathered,www.epicurious.com/recipes/member/views/mustard-pork-chops-50149197,46772,milk; mustard; sulphites,milk; mustard,primary_not_subset_of_all_possible
+1530213,challenge,Greek Lettuce Salad,Gathered,www.tasteofhome.com/recipes/greek-lettuce-salad/,20870,milk; mustard,milk; mustard,
+852949,challenge,Deviled Crab Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=992548,40659,crustaceans; eggs; fish; gluten; milk; mustard,crustaceans; eggs; fish; gluten; milk; mustard,
+2093402,challenge,Shrimp Louis,Recipes1M,www.epicurious.com/recipes/food/views/shrimp-louis-103776,54311,crustaceans; eggs; mustard; sulphites,crustaceans; eggs; mustard,primary_not_subset_of_all_possible
+1520429,challenge,Fettuccine Slaw,Gathered,www.tasteofhome.com/recipes/fettuccine-slaw/,20679,celery; eggs; gluten; milk; mustard,celery; eggs; gluten; milk; mustard,
+99734,challenge,Gnocchi Au Gratin,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=601853,527,eggs; gluten; milk; mustard,eggs; gluten; milk; mustard,
+674279,challenge,Beef Sticks,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=827875,39491,mustard,mustard,
+2096100,challenge,Tofu With Miso Peanut Sauce,Recipes1M,cooking.nytimes.com/recipes/12652,31550,peanuts; soy; sulphites,peanuts; soy; sulphites,
+1984013,challenge,Thai Chicken Vegetable Pizza,Recipes1M,www.food.com/recipe/thai-chicken-vegetable-pizza-111786,29495,gluten; peanuts; soy; sulphites,peanuts; soy; sulphites,primary_not_subset_of_all_possible
+1416025,challenge,Thai Wontons,Gathered,www.myrecipes.com/recipe/thai-wontons,18638,eggs; gluten; peanuts; sesame; soy,eggs; gluten; peanuts; sesame; soy,
+1252441,challenge,Spicy Tofu Frittata,Gathered,recipes-plus.com/api/v2.0/recipes/37191,14648,eggs; sesame; soy,eggs; peanuts; sesame; soy,
+1975203,challenge,Dip for Apples,Recipes1M,www.food.com/recipe/dip-for-apples-33669,53208,milk; peanuts,milk; peanuts,
+1589519,challenge,Asian Pasta Salad,Gathered,tastykitchen.com/recipes/salads/asian-pasta-salad/,49640,gluten; peanuts; sesame; soy; sulphites,gluten; peanuts; sesame; soy; sulphites,
+1638247,challenge,African Sweet Potato Soup,Gathered,www.yummly.com/recipe/African-Sweet-Potato-Soup-1644434,23106,peanuts,peanuts,
+1767374,challenge,Cellophane Noodle Salad,Recipes1M,www.foodnetwork.com/recipes/jamie-oliver/cellophane-noodle-salad-recipe.html,51231,crustaceans; gluten; peanuts; soy,crustaceans; gluten; peanuts; soy,
+1634511,challenge,Thai Chicken Satay Skewers,Gathered,www.yummly.com/recipe/Thai-Chicken-Satay-Skewers-1674597,23013,gluten; peanuts; soy,peanuts; soy,primary_not_subset_of_all_possible
+2068612,challenge,Thai Tossed Salad,Recipes1M,www.epicurious.com/recipes/food/views/thai-tossed-salad-390550,31014,celery; peanuts,celery; peanuts,
+1601569,challenge,Egg-Drop Noodle Soup,Gathered,www.yummly.com/recipe/Egg-Drop-Noodle-Soup-1164810,22122,eggs; gluten; sesame; soy,eggs; gluten; sesame; soy,
+1508725,challenge,Chinese Scallion Pancake Beef Rolls,Gathered,www.tasteofhome.com/recipes/chinese-scallion-pancake-beef-rolls/,20377,gluten; sesame; soy,gluten; sesame; soy,
+1158826,challenge,Korean Sirloin,Gathered,www.food.com/recipe/korean-sirloin-248577,12103,gluten; sesame; soy,sesame; soy,primary_not_subset_of_all_possible
+1836263,challenge,Bulgogi Sloppy Joes With Scallion Salsa,Recipes1M,cooking.nytimes.com/recipes/1014203,26722,eggs; gluten; milk; sesame; soy; sulphites,eggs; milk; sesame; soy; sulphites,primary_not_subset_of_all_possible
+175117,challenge,Chinese Shrimp And Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=798036,923,crustaceans; gluten; sesame; soy; sulphites,crustaceans; sesame; soy; sulphites,primary_not_subset_of_all_possible
+1460659,challenge,Hummus Mashed Potatoes,Gathered,www.myrecipes.com/recipe/hummus-mashed-potatoes,48589,sesame,sesame,
+1245277,challenge,Sunflower Seed Hummus,Gathered,www.food.com/recipe/sunflower-seed-hummus-509537,14434,sesame; soy,sesame; soy,
+1926517,challenge,Honey Chinese Pork,Recipes1M,www.food.com/recipe/honey-chinese-pork-483508,28429,gluten; sesame; soy,gluten; sesame; soy,
+1260012,challenge,Teriyaki Chicken Wings With Rice Salad,Gathered,recipes-plus.com/api/v2.0/recipes/28219,45656,gluten; sesame; soy,gluten; sesame; soy,
+1850503,challenge,Sushi-Roll Rice Salad,Recipes1M,www.epicurious.com/recipes/food/views/sushi-roll-rice-salad-106755,52017,sesame; sulphites,sesame; sulphites,
+1188938,challenge,Vegan Bacon,Gathered,www.food.com/recipe/vegan-bacon-148899,12905,gluten; soy,soy,primary_not_subset_of_all_possible
+1027610,challenge,Nutella Fondue,Gathered,www.food.com/recipe/nutella-fondue-88636,42630,milk; soy; tree_nuts,milk; tree_nuts,primary_not_subset_of_all_possible
+971529,challenge,Broiled Tuna Teriyaki,Gathered,www.food.com/recipe/broiled-tuna-teriyaki-86283,6993,fish; gluten; soy,fish; soy,primary_not_subset_of_all_possible
+185853,challenge,Chinese Barbecue Pork,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1034279,35827,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+1671429,challenge,Pressure Cooker Adobo Chicken,Recipes1M,online-cookbook.com/goto/cook/rpage/000C94,23764,gluten; soy,soy,primary_not_subset_of_all_possible
+678634,challenge,Shanghai Casserole,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=740512,39522,celery; gluten; milk; soy,celery; gluten; milk; soy,
+1410756,challenge,Caramelized Chinese Pork,Gathered,food52.com/recipes/21403-caramelized-chinese-pork,18498,fish; gluten; soy,fish; soy,primary_not_subset_of_all_possible
+1278605,challenge,Tofu Pizza Casserole ,Gathered,www.epicurious.com/recipes/member/views/tofu-pizza-casserole-1243332,15280,gluten; milk; soy,gluten; milk; soy,
+2139293,challenge,Healthy Tofu Shiratama Rice Cakes,Recipes1M,cookpad.com/us/recipes/144366-healthy-tofu-shiratama-rice-cakes,32367,soy,soy,
+1091734,challenge,Sushi Rice Vinegar,Gathered,www.food.com/recipe/sushi-rice-vinegar-461353,10316,gluten; soy; sulphites,soy; sulphites,primary_not_subset_of_all_possible
+1267310,challenge,Turkish Chicken And Couscous,Gathered,recipes-plus.com/api/v2.0/recipes/27193,15035,gluten; milk; sulphites; tree_nuts,gluten; milk; tree_nuts,primary_not_subset_of_all_possible
+1750063,challenge,Norwegian Twists,Recipes1M,www.food.com/recipe/norwegian-twists-504828,25182,eggs; gluten; milk; sulphites; tree_nuts,eggs; gluten; milk; sulphites; tree_nuts,
+2138593,challenge,Beef Stifado,Recipes1M,recipeland.com/recipe/v/beef-stifado-4892,54742,milk; sulphites,milk; sulphites,
+1411350,challenge,Kumquat And Chestnut Rice Pudding Tart,Gathered,food52.com/recipes/2297-kumquat-and-chestnut-rice-pudding-tart,18514,eggs; gluten; milk; sulphites; tree_nuts,eggs; gluten; milk,primary_not_subset_of_all_possible
+495737,challenge,Lebanese-Italian Dressing,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=944576,2726,sulphites,sulphites,
+2042811,challenge,Cranberry Couscous,Recipes1M,www.food.com/recipe/simple-cranberry-couscous-196161,30558,gluten; sulphites,gluten; sulphites,
+1278542,challenge,Pork Piccata ,Gathered,www.epicurious.com/recipes/member/views/pork-piccata-50008516,46024,gluten; milk; sulphites,gluten; milk; sulphites,
+1393722,challenge,Tea-Smoked Duck Fettuccine,Gathered,food52.com/recipes/20780-tea-smoked-duck-fettuccine,17942,gluten; milk; sulphites; tree_nuts,gluten; milk; tree_nuts,primary_not_subset_of_all_possible
+574923,challenge,Danish Orange Cake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=1010451,38808,eggs; gluten; milk; sulphites,eggs; gluten; milk; sulphites,
+1297781,challenge,Cuban Pork Stew ,Gathered,www.epicurious.com/recipes/member/views/cuban-pork-stew-53074411,46380,gluten; sulphites,gluten; sulphites,
+1298027,challenge,Cookie Bars,Gathered,www.epicurious.com/recipes/member/views/nestle-tollhouse-cookie-bars-51538811,15669,eggs; gluten; milk; tree_nuts,eggs; gluten; milk,primary_not_subset_of_all_possible
+1988293,challenge,Mediterranean Spirals,Recipes1M,www.food.com/recipe/mediterranean-spirals-312326,29560,gluten; milk,milk; tree_nuts,primary_not_subset_of_all_possible
+348250,challenge,Graham Cracker Loaf,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=176847,37142,gluten; milk; tree_nuts,gluten; milk,primary_not_subset_of_all_possible
+1192711,challenge,Pulla-Finnish Coffee Buns,Gathered,www.food.com/recipe/pulla-finnish-coffee-buns-327972,13015,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+1475344,challenge,Almond-Orzo Kugel,Gathered,www.myrecipes.com/recipe/almond-orzo-kugel,19932,eggs; gluten; milk; tree_nuts,eggs; gluten; milk; tree_nuts,
+1288340,challenge,Persian Style Baked Herb Omelet ,Gathered,www.epicurious.com/recipes/member/views/-persian-style-baked-herb-omelet-50109853,15474,eggs; soy,eggs; soy; tree_nuts,
+523549,challenge,Chinese Wedding Rings,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=341362,2869,gluten; milk; tree_nuts,gluten; milk; tree_nuts,
+1480628,challenge,Vegetable Biryani From 'River Cottage Veg',Gathered,www.seriouseats.com/recipes/2013/05/vegetable-biryani-from-river-cottage-veg.html,19961,sulphites; tree_nuts,sulphites; tree_nuts,
+1467273,challenge,Greek Honey Yogurt,Gathered,www.myrecipes.com/recipe/greek-honey-yogurt,19755,milk; tree_nuts,milk; tree_nuts,
+1602356,challenge,Japanese Coleslaw,Gathered,www.yummly.com/recipe/Japanese-Coleslaw-1660671,22137,gluten; sesame; sulphites; tree_nuts,gluten; sesame; sulphites; tree_nuts,
+976922,challenge,Turkish Green Bean Salad,Gathered,www.food.com/recipe/turkish-green-bean-salad-532739,7147,milk,milk,
+1041315,challenge,Tropical Salsa,Gathered,www.food.com/recipe/tropical-salsa-458067,42790,,,
+2036819,challenge,Mexican Chicken Bake,Recipes1M,www.food.com/recipe/mexican-chicken-bake-348299,53799,gluten; milk,gluten; milk,
+1106515,challenge,Persian Chicken Skewers,Gathered,www.food.com/recipe/persian-chicken-skewers-475303,10709,,,
+1915404,challenge,Spicy Kimchi Potato Salad,Recipes1M,cooking.nytimes.com/recipes/1017403,28200,eggs,eggs,
+71424,challenge,Crisp Crusted Baked Chicken,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=377048,34750,eggs; milk,eggs; milk,
+1088591,challenge,Cuban Eggs,Gathered,www.food.com/recipe/cuban-eggs-36485,10228,eggs; milk,eggs; milk,
+1154564,challenge,Caribe Queso Blanco Fried Pizza Bites,Gathered,www.food.com/recipe/caribe-queso-blanco-fried-pizza-bites-495551,11983,milk,,primary_not_subset_of_all_possible
+1964991,challenge,Chicken Flisha Masala,Recipes1M,tastykitchen.com/recipes/main-courses/chicken-flisha-masala/,29144,,,
+1397097,challenge,One Pot Thai Curry Noodles,Gathered,food52.com/recipes/80951-one-pot-thai-curry-noodles,18047,crustaceans; fish,fish; gluten,primary_not_subset_of_all_possible
+1381949,challenge,Pastitsio Burgers,Gathered,food52.com/recipes/29326-pastitsio-burgers,17553,milk,milk,
+1584294,challenge,Breakfast Quesadilla,Gathered,tastykitchen.com/recipes/breakfastbrunch/eggs-breakfastbrunch/breakfast-quesadilla-3/,49606,eggs; gluten; milk,eggs; gluten; milk,
+1034581,challenge,Veggie Horseradish Chip N' Veggetable Dip,Gathered,www.food.com/recipe/veggie-horseradish-chip-n-veggetable-dip-431370,8782,eggs; milk; sulphites,eggs; milk; sulphites,
+996112,challenge,Mexican Beef And Cornbread Pie,Gathered,www.food.com/recipe/mexican-beef-and-cornbread-pie-146976,7678,fish; milk,fish; milk,
+1986553,challenge,dal fry,Recipes1M,cookpad.com/us/recipes/335889-dal-fry,53308,mustard,mustard,
+1240906,challenge,Mexican Spirals,Gathered,www.food.com/recipe/mexican-spirals-241080,45285,gluten; milk,milk,primary_not_subset_of_all_possible
+1266835,challenge,Spicy Lamb Tikka Curry,Gathered,recipes-plus.com/api/v2.0/recipes/32592,15029,milk,,primary_not_subset_of_all_possible
+1156391,challenge,Indonesian Chicken Breasts,Gathered,www.food.com/recipe/indonesian-chicken-breasts-8978,44215,peanuts; sulphites,peanuts,primary_not_subset_of_all_possible
+54086,challenge,Vegetable Tofu Salad,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=751471,275,celery; sesame; soy; sulphites,celery; sesame; soy; sulphites,
+2138530,challenge,Lamb Burgers with Feta Spread,Recipes1M,www.foodnetwork.com/recipes/emeril-lagasse/lamb-burgers-with-feta-spread-recipe.html,32353,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+372397,challenge,Turnip Au Gratin,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=359026,37334,gluten; milk,gluten; milk,
+984314,challenge,Italian Sausage Pizza Casserole,Gathered,www.food.com/recipe/italian-sausage-pizza-casserole-517096,7333,eggs; gluten; milk,eggs; gluten; milk,
+500748,challenge,Crispy Vegetable Appetizer Tree,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=281040,2753,,,
+1273744,challenge,Turkish Yogurt And Spinach Dip ,Gathered,www.epicurious.com/recipes/member/views/turkish-yogurt-and-spinach-dip-50079191,15163,milk,milk,
+2034534,challenge,Blue Cheese Bruschetta,Recipes1M,www.landolakes.com/recipe/958/blue-cheese-bruschetta,53782,gluten; milk,gluten; milk,
+1112412,challenge,Grilled Falafel,Gathered,www.food.com/recipe/grilled-falafel-138111,43681,gluten,gluten,
+193365,challenge,Bread Bowl With Spinach Dip,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=404918,1025,eggs; gluten; milk,eggs; gluten; milk,
+1382401,challenge,Chicons Au Gratin,Gathered,food52.com/recipes/19852-chicons-au-gratin,17577,gluten; milk,gluten; milk,
+1438185,challenge,Potato Cannoli,Gathered,www.myrecipes.com/recipe/potato-cannoli,19127,milk,milk,
+1990824,challenge,French Apple Cake,Recipes1M,www.epicurious.com/recipes/food/views/french-apple-cake-2504,53349,eggs; gluten; milk,eggs; gluten; milk,
+1326751,challenge,Green Chile Chicken Enchiladas ,Gathered,www.epicurious.com/recipes/member/views/green-chile-chicken-enchiladas-52835811,46925,milk,milk,
+2089506,challenge,Black Pepper Udon Noodle,Recipes1M,cookpad.com/us/recipes/356314-black-pepper-udon-noodle,31414,gluten,gluten,
+1333527,challenge,Masala Popcorn ,Gathered,www.epicurious.com/recipes/food/views/indian-masala-spiced-popcorn,16361,,,
+2119699,challenge,"Sausage, Bread, and Pepper Frittata",Recipes1M,www.epicurious.com/recipes/food/views/sausage-bread-and-pepper-frittata-385199,31999,eggs; gluten; milk,eggs; gluten; milk,
+1580647,challenge,Doughnut Cake,Gathered,tastykitchen.com/recipes/desserts/doughnut-cake/,21671,eggs; gluten; milk,milk,primary_not_subset_of_all_possible
+2204567,challenge,Greek Feta Sausage,Recipes1M,recipeland.com/recipe/v/greek-feta-sausage-53281,33550,milk,milk,
+1096278,challenge,Naan Chicken Pizza,Gathered,www.food.com/recipe/naan-chicken-pizza-360833,10443,gluten; milk,gluten; milk,
+1032879,challenge,Chicken Naan Pockets,Gathered,www.food.com/recipe/chicken-naan-pockets-395556,8724,gluten; milk,gluten; milk,
+80771,challenge,Chicken-Cornbread Dressing,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=691174,425,celery; eggs; gluten,celery; eggs; gluten,
+1242655,challenge,Creamy Chicken Rice Soup,Gathered,www.food.com/recipe/creamy-chicken-rice-soup-21107,45307,celery; gluten; milk,celery; gluten; milk,
+2080589,challenge,Mexican Stuffing,Recipes1M,www.food.com/recipe/mexican-stuffing-383586,31261,eggs; gluten; milk,eggs; milk,primary_not_subset_of_all_possible
+1014377,challenge,Spicy Indian Beef Curry,Gathered,www.food.com/recipe/spicy-indian-beef-curry-351311,8159,milk,,primary_not_subset_of_all_possible
+383135,challenge,Bacon Ranch Dip,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=95249,37405,eggs; milk,milk,primary_not_subset_of_all_possible
+1252458,challenge,Mushroom Spaetzle,Gathered,recipes-plus.com/api/v2.0/recipes/21635,14649,eggs; gluten; milk,milk,primary_not_subset_of_all_possible
+2168977,challenge,Greek Gyro Burgers,Recipes1M,www.kraftrecipes.com/recipes/greek-gyro-burgers-70359.aspx,32922,gluten; soy,,primary_not_subset_of_all_possible
+1839009,challenge,Cornmeal-Crusted Tempeh with Smoked Tomato Sauce,Recipes1M,www.cookstr.com/recipes/cornmeal-crusted-tempeh-with-smoked-tomato-sauce,26763,celery; gluten; soy,celery; soy,primary_not_subset_of_all_possible
+2066750,challenge,Tiramisu Bowl,Recipes1M,www.kraftrecipes.com/recipes/tiramisu-bowl-106862.aspx,54091,gluten; milk,milk,primary_not_subset_of_all_possible
+1061427,challenge,Sinigang,Gathered,www.food.com/recipe/sinigang-355245,43027,fish,,primary_not_subset_of_all_possible
+1336701,challenge,Spicey Thai Drummettes ,Gathered,www.epicurious.com/recipes/member/views/spicey-thai-drummettes-1216347,16423,gluten; sesame; soy; sulphites,sesame; soy; sulphites,primary_not_subset_of_all_possible
+2043708,challenge,Salmon Pizza,Recipes1M,tastykitchen.com/recipes/appetizers-and-snacks/salmon-pizza/,53868,fish; gluten; milk,fish; milk,primary_not_subset_of_all_possible
+364911,challenge,Strawberry Angel Cake,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=487692,37278,eggs; gluten; milk,milk,primary_not_subset_of_all_possible
+2007787,challenge,Vietnamese Shaking Beef over Watercress,Recipes1M,tastykitchen.com/recipes/main-courses/vietnamese-shaking-beef-over-watercress/,29892,gluten; milk; soy; sulphites,milk; sulphites,primary_not_subset_of_all_possible
+1100210,challenge,Spinach Sushi Rolls,Gathered,www.food.com/recipe/spinach-sushi-rolls-182516,10548,fish; gluten; soy; sulphites,fish; soy; sulphites,primary_not_subset_of_all_possible
+980960,challenge,Chickpea & Cucumber Salad,Gathered,www.food.com/recipe/chickpea-cucumber-salad-446982,7250,milk; sesame,sesame,primary_not_subset_of_all_possible
+254624,challenge,Sweet 'N Sour Shrimp,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=897160,36400,crustaceans; gluten; milk; mustard; soy; tree_nuts,crustaceans; milk; mustard; soy; tree_nuts,primary_not_subset_of_all_possible
+631104,challenge,Russian Drop Cookies,Gathered,www.cookbooks.com/Recipe-Details.aspx?id=27839,3448,eggs; gluten; milk; sulphites; tree_nuts,eggs; gluten; milk; sulphites,primary_not_subset_of_all_possible
+1769361,challenge,Kefir Tofu and Fruit Power Drink,Recipes1M,www.food.com/recipe/kefir-tofu-and-fruit-power-drink-369130,25512,milk; soy,soy,primary_not_subset_of_all_possible
+2115946,challenge,Chinese Chicken With Peanuts,Recipes1M,www.food.com/recipe/chinese-chicken-with-peanuts-477514,31934,gluten; peanuts; soy; sulphites,peanuts; soy; sulphites; tree_nuts,primary_not_subset_of_all_possible
+2164398,challenge,Sesame Beef Salad Rolls,Recipes1M,www.kraftrecipes.com/recipes/sesame-beef-salad-rolls-113035.aspx,32830,gluten; sesame; soy,sesame,primary_not_subset_of_all_possible
+1671944,challenge,Paneer Masala,Recipes1M,www.food.com/recipe/paneer-masala-336818,23776,milk,,primary_not_subset_of_all_possible

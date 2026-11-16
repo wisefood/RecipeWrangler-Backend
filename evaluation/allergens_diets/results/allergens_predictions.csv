@@ -1,0 +1,1301 @@
+recipe_id,split,confirmed_before_9nov,possible_before_9nov,confirmed_after_9nov,possible_after_9nov
+1435832,pilot,celery; eggs; gluten; milk,,celery; eggs; gluten; milk,
+1246917,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+587981,pilot,gluten; milk; sulphites,,gluten; milk; sulphites,
+960864,pilot,gluten; milk; peanuts,,gluten; milk; peanuts,
+1026478,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+1536494,pilot,gluten,,gluten,
+1212246,pilot,eggs; gluten; milk; sulphites,,eggs; gluten; milk; sulphites,
+1975910,pilot,gluten; milk,,gluten; milk,
+2206256,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+1843911,pilot,gluten; milk; molluscs; sulphites,,gluten; milk; molluscs; sulphites,
+85343,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+1553207,pilot,gluten; soy,mustard,gluten; soy,mustard
+1057258,pilot,milk,,milk,
+2179325,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+1183237,pilot,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+1110150,pilot,milk,,milk,
+1813762,pilot,fish; soy,gluten,fish; soy,gluten
+1263966,pilot,gluten; milk,,gluten; milk,
+1998454,pilot,crustaceans; fish; sulphites,celery; eggs; gluten; milk,crustaceans; fish; sulphites,celery; eggs; gluten; milk
+389752,pilot,celery; eggs; gluten; milk; sulphites,,celery; eggs; gluten; milk; sulphites,
+2014390,pilot,eggs; milk,,eggs; milk,
+1093362,pilot,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1947435,pilot,milk,,milk,
+350605,pilot,gluten; milk,,gluten; milk,
+940440,pilot,gluten; soy,,gluten; soy,
+1454600,pilot,milk,,milk,
+1178408,pilot,celery; eggs; gluten; milk,,celery; eggs; gluten; milk,
+990219,pilot,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+990636,pilot,sesame; soy; tree_nuts,sulphites,sesame; soy; tree_nuts,sulphites
+1272,pilot,fish; gluten; milk,,fish; gluten; milk,
+1183153,pilot,gluten; milk,,gluten; milk,
+1206597,pilot,eggs,,eggs,
+986599,pilot,,,,
+21465,pilot,eggs,gluten,eggs,gluten
+929612,pilot,milk; tree_nuts,,milk; tree_nuts,
+1235767,pilot,milk,,milk,
+731953,pilot,crustaceans; milk,,crustaceans; milk,
+1415942,pilot,milk,,milk,
+1876006,pilot,mustard,,mustard,
+230888,pilot,eggs,,eggs,
+2114456,pilot,milk; peanuts,,milk; peanuts,
+1418567,pilot,gluten,,gluten,
+1590786,pilot,,,,
+1987660,pilot,gluten; milk; soy,,gluten; milk; soy,
+2018580,pilot,,milk,,milk
+1553469,pilot,milk,gluten,milk,gluten
+1110811,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+1441273,pilot,gluten,,gluten,
+1716031,pilot,soy,sulphites,soy,sulphites
+1113372,pilot,gluten; milk,tree_nuts,gluten; milk,tree_nuts
+208584,pilot,gluten; milk,,gluten; milk,
+1220288,pilot,,,,
+1459091,pilot,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1249364,pilot,eggs; fish; gluten; soy,,eggs; fish; gluten; soy,
+1493087,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+284566,pilot,celery; gluten; milk,,celery; gluten; milk,
+1330132,pilot,,,,
+1295827,pilot,eggs; milk,gluten,eggs; milk,gluten
+1414327,pilot,fish; peanuts; soy,gluten,fish; peanuts; soy,gluten
+1528114,pilot,eggs; gluten; milk,tree_nuts,eggs; gluten; milk,tree_nuts
+972423,pilot,,,,
+2138134,pilot,soy,celery; eggs; gluten; milk,soy,celery; eggs; gluten; milk
+902902,pilot,fish; soy,gluten,fish; soy,gluten
+1890041,pilot,gluten; milk,,gluten; milk,
+1251213,pilot,peanuts; soy,celery; eggs; gluten; milk,peanuts; soy,celery; eggs; gluten; milk
+969921,pilot,sesame; soy,gluten,sesame; soy,gluten
+1128365,pilot,milk,,milk,
+277255,pilot,crustaceans,milk,crustaceans,milk
+1323753,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+1349044,pilot,celery; eggs; gluten; milk,sulphites,celery; eggs; gluten; milk,sulphites
+1122547,pilot,peanuts,,peanuts,
+1502248,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+2206449,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+1577392,pilot,eggs; gluten,,eggs; gluten,
+2076724,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+932199,pilot,celery; tree_nuts,sulphites,celery; tree_nuts,sulphites
+1834333,pilot,soy,gluten,soy,gluten
+704923,pilot,celery,fish,celery; fish,
+1519881,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+1634295,pilot,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1545136,pilot,tree_nuts,milk,tree_nuts,milk
+1618353,pilot,celery; milk,,celery; milk,
+1430669,pilot,gluten; peanuts; sesame; soy,,gluten; peanuts; sesame; soy,
+1511687,pilot,gluten; milk,sulphites,gluten; milk,sulphites
+988509,pilot,milk,,milk,
+90956,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+1917571,pilot,,,,
+1799916,pilot,eggs; gluten; milk,soy,eggs; gluten; milk,soy
+548311,pilot,eggs; gluten; tree_nuts,,eggs; gluten; tree_nuts,
+1862092,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+1349142,pilot,celery; gluten; milk,eggs; sulphites,celery; gluten; milk,eggs; sulphites
+1146213,pilot,eggs; gluten; milk,,eggs; gluten; milk,
+616282,pilot,eggs; gluten,peanuts; tree_nuts,eggs; gluten,peanuts; tree_nuts
+399586,pilot,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+397116,pilot,gluten; milk,,gluten; milk,
+1903362,pilot,gluten; milk,,gluten; milk,
+1499786,pilot,gluten; milk,,gluten; milk,
+1444506,pilot,crustaceans; eggs; gluten; milk,,crustaceans; eggs; gluten; milk,
+2214492,pilot,celery; fish; gluten; milk,,celery; fish; gluten; milk,
+1277470,pilot,sulphites,,sulphites,
+1526736,random_test,soy,gluten,soy,gluten
+1800849,random_test,,,,
+996137,random_test,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+1864321,random_test,eggs; milk,,eggs; milk,
+950140,random_test,milk,celery; eggs; gluten,milk,celery; eggs; gluten
+1829611,random_test,eggs; gluten; tree_nuts,,eggs; gluten; tree_nuts,
+2047364,random_test,,gluten,,gluten
+555103,random_test,eggs; milk,,eggs; milk,
+836895,random_test,eggs; gluten; milk; mustard,,eggs; gluten; milk; mustard,
+186820,random_test,celery; gluten,eggs; milk,celery; gluten,eggs; milk
+320374,random_test,gluten; milk,,gluten; milk,
+229674,random_test,gluten,milk,gluten; milk,
+1243113,random_test,gluten; milk,,gluten; milk,
+1153661,random_test,gluten,celery; crustaceans; eggs; milk,gluten,celery; crustaceans; eggs; milk
+240336,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1164979,random_test,gluten,,gluten,
+2063656,random_test,eggs; gluten; milk; tree_nuts,sulphites,eggs; gluten; milk; tree_nuts,sulphites
+1202391,random_test,eggs; milk,,eggs; milk,
+1361142,random_test,,,,
+807404,random_test,soy,gluten; sulphites,soy,gluten; sulphites
+2126759,random_test,eggs; milk; soy,,eggs; milk; soy,
+1415742,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1394952,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1239969,random_test,gluten,,gluten,
+1841978,random_test,milk; soy,,milk; soy,
+1164987,random_test,milk,,milk,
+1230173,random_test,eggs; gluten; milk,,crustaceans; eggs; gluten; milk,
+1427269,random_test,,,,
+1817275,random_test,,,,
+1042543,random_test,,,,
+1943095,random_test,crustaceans; milk,,crustaceans; milk,
+1017350,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+917214,random_test,fish,,fish,
+1534201,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1280987,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+295560,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1216031,random_test,eggs; gluten; milk; soy; tree_nuts,sulphites,eggs; gluten; milk; soy; tree_nuts,sulphites
+574526,random_test,milk,gluten,milk,gluten
+1037955,random_test,eggs; fish; gluten,,eggs; fish; gluten,
+1112713,random_test,,,,
+1022840,random_test,sulphites,,sulphites,
+1338092,random_test,crustaceans; fish,,crustaceans; fish,
+1213709,random_test,gluten; milk,,gluten; milk,
+1864784,random_test,eggs; gluten; milk,celery,eggs; gluten; milk,celery
+1327204,random_test,milk,,milk,
+953532,random_test,eggs; gluten; tree_nuts,sulphites,eggs; gluten; tree_nuts,sulphites
+1668943,random_test,peanuts; sesame; soy,gluten; sulphites,peanuts; sesame; soy,gluten; sulphites
+1276869,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+548030,random_test,gluten,milk,gluten,milk
+597200,random_test,milk,,milk,
+1123647,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+584081,random_test,celery; eggs; gluten; milk; tree_nuts,,celery; eggs; gluten; milk; tree_nuts,
+1999037,random_test,,sulphites,,sulphites
+968496,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1714126,random_test,crustaceans; eggs; gluten,,crustaceans; eggs; gluten,
+1695192,random_test,gluten,,gluten,
+1138759,random_test,eggs; milk,,eggs; milk,
+1047659,random_test,eggs; gluten; sulphites,celery; milk,eggs; gluten; sulphites,celery; milk
+884088,random_test,milk,,milk,
+1231141,random_test,eggs; gluten; tree_nuts,,eggs; gluten; tree_nuts,
+1936165,random_test,milk; tree_nuts,,milk; tree_nuts,
+1687080,random_test,gluten,,gluten,
+1110139,random_test,gluten; tree_nuts,,gluten; tree_nuts,
+475364,random_test,milk,,milk,
+1472667,random_test,fish,,fish,
+2202511,random_test,fish; gluten,celery; eggs; milk,fish; gluten,celery; eggs; milk
+1230714,random_test,eggs; sesame; soy,celery; gluten; milk; sulphites,eggs; sesame; soy,celery; gluten; milk; sulphites
+1976297,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1089106,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+308583,random_test,,gluten,gluten,
+1202718,random_test,gluten,celery; eggs; milk,gluten,celery; eggs; milk
+1975313,random_test,sesame; soy,gluten,sesame; soy,gluten
+1853048,random_test,gluten; milk,tree_nuts,gluten; milk,tree_nuts
+1317080,random_test,fish; gluten; milk; molluscs,,crustaceans; fish; gluten; milk; molluscs,
+1571903,random_test,gluten; milk,,gluten; milk,
+356349,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1344124,random_test,celery; fish,,celery; fish,
+1103350,random_test,fish; gluten; milk; mustard,,fish; gluten; milk; mustard,
+899429,random_test,,sulphites,,sulphites
+1459601,random_test,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+2092972,random_test,celery; gluten; milk,eggs,celery; gluten; milk,eggs
+1866684,random_test,eggs; gluten; milk; soy,,eggs; gluten; milk; soy,
+1404375,random_test,sesame; soy,gluten; sulphites,sesame; soy,gluten; sulphites
+1870796,random_test,milk,,milk,
+986371,random_test,crustaceans; eggs; gluten; milk,,crustaceans; eggs; gluten; milk,
+1912587,random_test,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+1539293,random_test,celery; eggs; gluten; milk,,celery; eggs; gluten; milk,
+1433088,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+160800,random_test,celery; soy,gluten,celery; soy,gluten
+627750,random_test,milk,,milk,
+1257598,random_test,eggs; gluten,,eggs; gluten,
+1258881,random_test,,gluten,,gluten
+1846518,random_test,fish; soy,gluten,fish; soy,gluten
+1936158,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1130775,random_test,eggs,,eggs,
+1162339,random_test,,,,
+1813570,random_test,gluten; sesame; tree_nuts,,gluten; sesame; tree_nuts,
+885850,random_test,eggs; gluten; milk,soy,eggs; gluten; milk,soy
+1217151,random_test,eggs; gluten; sesame,,eggs; gluten; sesame,
+1505269,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1825607,random_test,milk,,milk,
+814932,random_test,soy,gluten; sulphites,soy,gluten; sulphites
+388034,random_test,milk,gluten,milk,gluten
+1683227,random_test,,,,
+190505,random_test,gluten; milk,,gluten; milk,
+1826205,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1725129,random_test,,,,
+1866449,random_test,crustaceans; eggs; gluten,,crustaceans; eggs; gluten,
+1835530,random_test,gluten; soy,,gluten; soy,
+1594155,random_test,gluten; milk,,gluten; milk,
+1525489,random_test,gluten; milk,,gluten; milk,
+1022891,random_test,eggs; milk,,eggs; milk,
+2225616,random_test,peanuts; sesame; soy,crustaceans; gluten,peanuts; sesame; soy,crustaceans; gluten
+1920676,random_test,,,,
+2213728,random_test,celery; eggs; gluten; milk; tree_nuts,,celery; eggs; gluten; milk; tree_nuts,
+1014585,random_test,tree_nuts,fish; gluten; soy,tree_nuts,fish; gluten; soy
+1732914,random_test,milk; mustard,,milk; mustard,
+1394015,random_test,milk; tree_nuts,gluten,milk; tree_nuts,gluten
+1090517,random_test,fish; milk,,fish; milk,
+840179,random_test,peanuts,,peanuts,
+286984,random_test,milk; peanuts,,milk; peanuts,
+1762784,random_test,sesame,,sesame,
+2016809,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1306791,random_test,,,,
+1372346,random_test,eggs,,eggs,
+926143,random_test,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+1753101,random_test,fish,,fish,
+915430,random_test,molluscs,,molluscs,
+1217078,random_test,crustaceans; mustard,,crustaceans; mustard,
+1024738,random_test,milk; molluscs,,milk; molluscs,
+2058674,random_test,gluten,celery; eggs; milk,gluten,celery; eggs; milk
+1994879,random_test,crustaceans; milk,,milk,crustaceans
+1389116,random_test,milk,,milk,
+1074624,random_test,celery; eggs; gluten; milk,,celery; eggs; gluten; milk,
+2172118,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+742409,random_test,celery; eggs; gluten,,celery; eggs; gluten,
+1344859,random_test,,,,
+1043087,random_test,fish,,fish,
+1150403,random_test,,,,
+190210,random_test,,milk,,milk
+1402404,random_test,milk,,milk,
+188693,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1856698,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+2089376,random_test,milk,,milk,
+1121981,random_test,gluten; milk,,gluten; milk,
+697640,random_test,gluten; milk,,gluten; milk,
+1467861,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+2031664,random_test,,sulphites,,sulphites
+1773900,random_test,,milk; sulphites; tree_nuts,tree_nuts,milk; sulphites
+1296174,random_test,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+2121527,random_test,gluten; peanuts,,gluten; peanuts,
+1892032,random_test,eggs; gluten; peanuts,milk,eggs; gluten; peanuts,milk
+1886917,random_test,gluten; peanuts; soy,,gluten; peanuts; soy,
+1752057,random_test,eggs; milk,gluten,eggs; milk,gluten
+1354302,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1328795,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1620445,random_test,tree_nuts,milk,tree_nuts,milk
+994716,random_test,gluten; milk,peanuts; tree_nuts,gluten; milk,peanuts; tree_nuts
+703393,random_test,eggs; gluten,peanuts; sulphites; tree_nuts,eggs; gluten,peanuts; sulphites; tree_nuts
+1296508,random_test,,fish; gluten; soy,fish,gluten; soy
+818435,random_test,eggs,,eggs,
+948093,random_test,,,,
+938984,random_test,eggs; milk,,eggs; milk,
+1406628,random_test,soy,celery; eggs; gluten; milk,soy,celery; eggs; gluten; milk
+1621492,random_test,eggs; gluten,,eggs; gluten,
+1696517,random_test,gluten,,gluten,
+2117591,random_test,,,,
+132774,random_test,,,,
+1989815,random_test,celery; milk,,celery; milk,
+1160536,random_test,milk; tree_nuts,,milk; tree_nuts,
+1110396,random_test,,,,
+1706166,random_test,milk,,milk,
+27502,random_test,gluten; milk,,gluten; milk,
+1201535,random_test,gluten; milk,tree_nuts,gluten; milk,tree_nuts
+1625451,random_test,molluscs; soy,gluten; sulphites,molluscs; soy,gluten; sulphites
+1439498,random_test,fish,sulphites,fish,sulphites
+1312283,random_test,soy,gluten,soy,gluten
+1898783,random_test,eggs; milk,,eggs; milk,
+1496439,random_test,gluten; milk,,gluten; milk,
+1438365,random_test,celery; eggs; fish; tree_nuts,,celery; eggs; fish; tree_nuts,
+712583,random_test,gluten; milk,,gluten; milk,
+1881511,random_test,milk,gluten,milk,gluten
+1753362,random_test,gluten; milk; peanuts; sesame,,gluten; milk; peanuts; sesame,
+1382291,random_test,gluten; milk; mustard,,gluten; milk; mustard,
+1042653,random_test,gluten; milk,,gluten; milk,
+1695346,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1206452,random_test,milk; tree_nuts,sulphites,milk; tree_nuts,sulphites
+1081148,random_test,fish; peanuts,,fish; peanuts,
+1016325,random_test,eggs; gluten; peanuts; soy,,eggs; gluten; peanuts; soy,
+1678440,random_test,celery; gluten; milk,,celery; gluten; milk,
+1600598,random_test,gluten; sesame; soy,sulphites,gluten; sesame; soy,sulphites
+1922780,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1924140,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1252163,random_test,gluten; soy,,gluten; soy,fish
+1710562,random_test,eggs,,eggs,
+1311710,random_test,fish; gluten; milk,celery; eggs,fish; gluten; milk,celery; eggs
+39421,random_test,,,,
+1318498,random_test,celery,eggs; gluten; milk; sulphites,celery,eggs; gluten; milk; sulphites
+1925782,random_test,crustaceans; eggs; gluten; mustard,sulphites,crustaceans; eggs; gluten; mustard,sulphites
+195781,random_test,gluten; peanuts,,gluten; peanuts,
+1241484,random_test,eggs; milk,,eggs; milk,
+1987552,random_test,milk,,milk,
+1569976,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+2061970,random_test,gluten; soy; tree_nuts,,gluten; soy; tree_nuts,
+1885595,random_test,crustaceans; gluten,celery; eggs; milk; peanuts; soy,crustaceans; gluten,celery; eggs; milk; peanuts; soy
+1097373,random_test,gluten,peanuts; tree_nuts,gluten,peanuts; tree_nuts
+1340286,random_test,fish,gluten,fish,gluten
+1682645,random_test,eggs; gluten; milk,crustaceans,eggs; gluten; milk,crustaceans
+945381,random_test,gluten,,gluten,
+1399198,random_test,,,,
+2092962,random_test,eggs; fish; milk,,eggs; fish; milk,
+1409630,random_test,,,,
+1860460,random_test,celery; eggs; fish; mustard,,celery; eggs; fish; mustard,
+1501226,random_test,fish; milk,,fish; milk,
+1900127,random_test,crustaceans; fish; gluten; soy,celery; eggs; milk,crustaceans; fish; gluten; soy,celery; eggs; milk
+1938508,random_test,gluten,,gluten,
+180868,random_test,eggs; gluten; soy,,eggs; gluten; soy,
+2129514,random_test,milk,,milk,
+954051,random_test,milk,,milk,
+1753365,random_test,soy,gluten,soy,gluten
+1563692,random_test,milk; mustard,tree_nuts,milk; mustard,tree_nuts
+1751189,random_test,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+453642,random_test,celery; gluten; milk; soy,,celery; gluten; milk; soy,
+1024268,random_test,eggs; milk,,eggs; milk,
+972413,random_test,fish; milk; mustard,gluten,fish; milk; mustard,gluten
+1329860,random_test,crustaceans; fish; molluscs,celery; eggs; gluten; milk,crustaceans; fish; molluscs,celery; eggs; gluten; milk
+1050987,random_test,,,,
+1159913,random_test,gluten,sesame,gluten,sesame
+1911002,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1185047,random_test,gluten; milk; tree_nuts,peanuts,gluten; milk; tree_nuts,peanuts
+1882887,random_test,sulphites,celery; eggs; gluten; milk,sulphites,celery; eggs; gluten; milk
+1532824,random_test,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+1671748,random_test,crustaceans; gluten,,crustaceans; gluten,
+1044961,random_test,celery; gluten; milk,sesame; sulphites,celery; gluten; milk,sesame; sulphites
+918044,random_test,soy,gluten,soy,gluten
+1335899,random_test,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+2196689,random_test,gluten; tree_nuts,celery; eggs; milk; sulphites,gluten; tree_nuts,celery; eggs; milk; sulphites
+909162,random_test,,,,
+1077335,random_test,gluten; milk,sesame,gluten; milk,sesame
+1267318,random_test,crustaceans; peanuts; soy,gluten,crustaceans; peanuts; soy,gluten
+1696399,random_test,sesame,,sesame,
+1098182,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1734532,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1971642,random_test,milk,,milk,
+269138,random_test,eggs; milk,,eggs; milk,
+1870820,random_test,gluten,milk,gluten,milk
+1247726,random_test,eggs; fish; milk,,eggs; fish; milk,
+1891316,random_test,soy,gluten,fish; soy,gluten
+1166664,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1017300,random_test,fish,,fish,
+1172544,random_test,peanuts,,peanuts,
+155334,random_test,gluten,,gluten,
+1166482,random_test,gluten; milk,sesame,gluten; milk,sesame
+1286906,random_test,gluten,,gluten,
+1298773,random_test,gluten; milk; soy,celery; eggs,gluten; milk; soy,celery; eggs
+2202617,random_test,milk; soy,,milk; soy,
+993924,random_test,gluten; milk,,gluten; milk,
+1363442,random_test,mustard; sesame; soy,gluten,mustard; sesame; soy,gluten
+958837,random_test,celery; soy,eggs; gluten; milk,celery; soy,eggs; gluten; milk
+79183,random_test,celery; gluten; milk,,celery; gluten; milk,
+2231080,random_test,eggs; gluten,celery; milk,eggs; gluten,celery; milk
+1099323,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1861315,random_test,crustaceans,celery; eggs; gluten; milk,crustaceans,celery; eggs; gluten; milk
+2039292,random_test,eggs; milk; sulphites,,eggs; milk; sulphites,
+2027915,random_test,gluten; milk,,gluten; milk,
+1294770,random_test,gluten; soy,sulphites,gluten; soy,sulphites
+938660,random_test,crustaceans; fish; peanuts; sulphites; tree_nuts,gluten; soy,crustaceans; fish; peanuts; sulphites; tree_nuts,gluten; soy
+936701,random_test,gluten; molluscs; soy,celery; eggs; milk; sulphites,gluten; molluscs; soy,celery; eggs; milk; sulphites
+1426231,random_test,fish; sesame,,fish; sesame,
+59073,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1770187,random_test,crustaceans; eggs; fish; gluten; molluscs; soy,,crustaceans; eggs; fish; gluten; molluscs; soy,
+1375472,random_test,tree_nuts,sulphites,tree_nuts,sulphites
+49591,random_test,,,,
+1290034,random_test,milk,gluten,milk,gluten
+598870,random_test,gluten; milk,,gluten; milk,
+1579351,random_test,gluten; tree_nuts,celery; eggs; milk; sulphites,gluten; tree_nuts,celery; eggs; milk; sulphites
+1088053,random_test,eggs; milk,,eggs; milk,
+412151,random_test,eggs; gluten; tree_nuts,,eggs; gluten; tree_nuts,
+1078585,random_test,eggs; fish; gluten; milk,celery,eggs; fish; gluten; milk,celery
+2190084,random_test,gluten; milk,,gluten; milk,
+1392463,random_test,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+2152182,random_test,celery; crustaceans,gluten,celery; crustaceans,gluten
+1144290,random_test,gluten; milk,,gluten; milk,
+1904990,random_test,fish; soy; tree_nuts,sulphites,fish; soy; tree_nuts,sulphites
+307423,random_test,milk,,milk,
+1025557,random_test,milk; soy,gluten,milk; soy,gluten
+1851719,random_test,fish; sesame; soy; sulphites,gluten,fish; sesame; soy; sulphites,gluten
+1056481,random_test,eggs; gluten; milk; sesame,,eggs; gluten; milk; sesame,
+1712296,random_test,peanuts; soy,,peanuts; soy,
+1149006,random_test,eggs; gluten,,eggs; gluten,
+1380829,random_test,sulphites; tree_nuts,celery; eggs; gluten; milk,sulphites; tree_nuts,celery; eggs; gluten; milk
+1331471,random_test,milk; sulphites,celery; eggs; gluten,milk; sulphites,celery; eggs; gluten
+963015,random_test,milk; mustard,,milk; mustard,
+1369114,random_test,,mustard,,mustard
+1080728,random_test,milk,,milk,
+1440285,random_test,gluten; milk,celery; eggs; sulphites,gluten; milk,celery; eggs; sulphites
+698042,random_test,gluten; milk,,gluten; milk,
+1822011,random_test,peanuts; soy,gluten,peanuts; soy,gluten
+446350,random_test,milk; peanuts,,milk; peanuts,
+993298,random_test,celery; eggs,,celery; eggs,
+1252892,random_test,milk,,milk,
+69432,random_test,eggs,,eggs,
+1527790,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+922416,random_test,peanuts,celery; eggs; gluten; milk,peanuts,celery; eggs; gluten; milk
+1735852,random_test,gluten,,gluten,
+1109543,random_test,sesame,,sesame,
+1135953,random_test,eggs; gluten; milk,tree_nuts,eggs; gluten; milk,tree_nuts
+759265,random_test,gluten,,gluten,
+1294182,random_test,eggs; milk,mustard,eggs; milk,mustard
+1212101,random_test,gluten; milk,,gluten; milk,
+1126221,random_test,eggs; milk,,eggs; milk,
+1369965,random_test,gluten,celery; eggs; milk,gluten,celery; eggs; milk
+505695,random_test,,,,
+2115165,random_test,gluten; milk,,gluten; milk,
+624316,random_test,eggs; fish; gluten; milk,,eggs; fish; gluten; milk,
+245004,random_test,,,,
+1283098,random_test,fish,,fish,
+1212643,random_test,eggs; gluten; sulphites,,eggs; gluten; sulphites,
+1036274,random_test,soy,gluten,soy,gluten
+1831650,random_test,,milk,,milk
+1915021,random_test,,,,
+1470285,random_test,gluten; milk,,gluten; milk,
+1233819,random_test,milk,,milk,
+1272601,random_test,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+707056,random_test,milk,celery; eggs; gluten,milk,celery; eggs; gluten
+515664,random_test,fish; gluten; milk; mustard,,fish; gluten; milk; mustard,
+2206938,random_test,,celery; eggs; gluten; milk; sulphites,,celery; eggs; gluten; milk; sulphites
+1516657,random_test,,,,
+2064463,random_test,gluten; milk,,gluten; milk,
+1841284,random_test,gluten; milk,,gluten; milk,
+52027,random_test,gluten; milk,,gluten; milk,
+925289,random_test,,sulphites,,sulphites
+343093,random_test,eggs; milk,,eggs; milk,
+1040363,random_test,,celery; eggs; gluten; milk; sulphites,,celery; eggs; gluten; milk; sulphites
+1607459,random_test,,,,
+906915,random_test,sesame; soy,gluten; sulphites,sesame; soy,gluten; sulphites
+807764,random_test,fish; gluten; milk,,fish; gluten; milk,
+1192826,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1672909,random_test,eggs; milk,,eggs; milk,
+778212,random_test,gluten,peanuts,gluten,peanuts
+1511877,random_test,milk,sulphites,milk,sulphites
+224913,random_test,soy,gluten; sulphites,soy,gluten; sulphites
+1650260,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1621483,random_test,,,,
+980724,random_test,crustaceans; milk,,crustaceans; milk,
+56498,random_test,gluten; milk; peanuts,,gluten; milk; peanuts,
+1192024,random_test,,sulphites,,sulphites
+1836580,random_test,fish,milk; tree_nuts,fish,milk; tree_nuts
+262695,random_test,eggs; gluten; tree_nuts,peanuts,eggs; gluten; tree_nuts,peanuts
+1972559,random_test,sesame; soy,gluten,sesame; soy,gluten
+1718388,random_test,eggs; fish,,eggs; fish,
+1159302,random_test,eggs; gluten; milk; tree_nuts,peanuts,eggs; gluten; milk; tree_nuts,peanuts
+1384687,random_test,eggs; milk,,eggs; milk,
+1168773,random_test,gluten,soy,gluten,soy
+2222562,random_test,milk,gluten,milk,gluten
+1075701,random_test,,,,
+1260419,random_test,eggs; milk,,eggs; milk,
+1269913,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1028860,random_test,eggs; milk,,eggs; milk,
+1289939,random_test,celery; sesame,eggs; gluten; milk,celery; sesame,eggs; gluten; milk
+414257,random_test,eggs; fish; gluten; milk,,eggs; fish; gluten; milk,
+245866,random_test,gluten; milk,,gluten; milk,
+1143967,random_test,milk,celery; eggs; gluten,milk,celery; eggs; gluten
+1864170,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1021911,random_test,eggs; gluten; milk,celery,eggs; gluten; milk,celery
+836055,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1047117,random_test,milk,celery; eggs; gluten; sulphites,milk,celery; eggs; gluten; sulphites
+1043987,random_test,milk,,milk,
+1593625,random_test,soy,,soy,
+2169052,random_test,eggs; sesame; soy,gluten,eggs; sesame; soy,gluten
+1855067,random_test,,,,
+1438629,random_test,celery; eggs; gluten; milk; molluscs,,celery; eggs; gluten; milk; molluscs,
+1047461,random_test,gluten; peanuts; soy,,gluten; peanuts; soy,
+106750,random_test,,,,
+977232,random_test,milk,,milk,
+1899111,random_test,eggs; peanuts; soy,gluten,eggs; peanuts; soy,gluten
+1117725,random_test,eggs; gluten; sesame,celery; milk,eggs; gluten; sesame,celery; milk
+1413110,random_test,crustaceans; tree_nuts,,crustaceans; tree_nuts,
+543867,random_test,celery; eggs,crustaceans,celery; eggs,crustaceans
+1373464,random_test,sesame; soy,gluten,sesame; soy,gluten
+2096217,random_test,gluten,celery; eggs; milk,gluten,celery; eggs; milk
+1964374,random_test,gluten,sesame,gluten,sesame
+2147251,random_test,gluten; milk,,gluten; milk,
+1047464,random_test,,,,
+1185785,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1036297,random_test,eggs; milk; soy,,eggs; milk; soy,
+861984,random_test,gluten; milk,,gluten; milk,
+25348,random_test,celery; milk,,celery; milk,
+1012868,random_test,fish,,fish,
+372107,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1293212,random_test,,gluten; milk,,gluten; milk
+1623233,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1463446,random_test,crustaceans; milk; sesame; soy,,crustaceans; milk; sesame; soy,
+895030,random_test,gluten; milk,,gluten; milk,
+1513517,random_test,gluten; milk,,gluten; milk,
+1224605,random_test,,sulphites,,sulphites
+315855,random_test,,,,
+2150728,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1279635,random_test,,,,
+1330310,random_test,celery; sesame; soy,,celery; sesame; soy,
+1207938,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+988845,random_test,fish; milk,sulphites,fish; milk,sulphites
+1103043,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+784504,random_test,gluten,,gluten,
+1220007,random_test,milk; soy,peanuts,milk; soy,peanuts
+914038,random_test,eggs; sesame; soy,celery; gluten; milk; sulphites,eggs; sesame; soy,celery; gluten; milk; sulphites
+1742338,random_test,gluten; milk,,gluten; milk,
+1617776,random_test,eggs; milk,,eggs; milk,
+1296109,random_test,eggs; gluten; milk,tree_nuts,eggs; gluten; milk,tree_nuts
+1437029,random_test,gluten; milk,,gluten; milk,
+1728582,random_test,milk,,milk,
+1801134,random_test,eggs; milk,,eggs; milk,
+948058,random_test,eggs,,eggs,
+1882550,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+925137,random_test,,,,
+1259767,random_test,sesame; soy,celery; eggs; gluten; milk,sesame; soy,celery; eggs; gluten; milk
+1085524,random_test,soy; sulphites,celery; eggs; gluten; milk,soy; sulphites,celery; eggs; gluten; milk
+1282273,random_test,eggs; gluten; molluscs; sulphites,,eggs; gluten; molluscs; sulphites,
+972037,random_test,,,,
+1047993,random_test,peanuts,,peanuts,
+382870,random_test,crustaceans,sulphites,crustaceans,sulphites
+1239472,random_test,celery; milk; tree_nuts,,celery; milk; tree_nuts,
+1772070,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1092259,random_test,eggs,gluten,eggs,gluten
+889203,random_test,,,,
+39076,random_test,eggs; gluten,peanuts; tree_nuts,eggs; gluten,peanuts; tree_nuts
+409711,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1108425,random_test,,sulphites,,sulphites
+2161833,random_test,,sulphites,,sulphites
+1294331,random_test,soy,gluten,soy,gluten
+944323,random_test,milk,,milk,
+1220433,random_test,eggs,,eggs,
+2081786,random_test,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+1140963,random_test,celery; eggs; gluten; sesame,milk,celery; eggs; gluten; sesame,milk
+1448833,random_test,celery; gluten; milk,eggs,celery; gluten; milk,eggs
+1242891,random_test,gluten; sesame; soy; sulphites,celery; eggs; milk,gluten; sesame; soy; sulphites,celery; eggs; milk
+219836,random_test,eggs; milk,,eggs; milk,
+1678025,random_test,celery; gluten; milk,,celery; gluten; milk,
+2172594,random_test,eggs; milk,,eggs; milk,
+306653,random_test,gluten; milk,,gluten; milk,
+1516873,random_test,eggs; milk,,eggs; milk,
+219863,random_test,celery; eggs; fish; gluten; soy,,celery; eggs; fish; gluten; soy,
+1985274,random_test,milk,gluten,milk,gluten
+793582,random_test,gluten; milk,,gluten; milk,
+2192526,random_test,gluten; peanuts; sesame; tree_nuts,celery; eggs; milk,gluten; peanuts; sesame; tree_nuts,celery; eggs; milk
+1442486,random_test,eggs; gluten; mustard; sesame,,eggs; gluten; mustard; sesame,
+1723569,random_test,sesame; soy; sulphites,gluten,sesame; soy; sulphites,gluten
+247216,random_test,,,,
+1191780,random_test,sesame; soy,gluten,sesame; soy,gluten
+1230672,random_test,,gluten,,gluten
+264257,random_test,fish; gluten; mustard,,fish; gluten; mustard,
+484267,random_test,celery; gluten; soy,,celery; gluten; soy,
+1338521,random_test,crustaceans,,crustaceans,
+1231808,random_test,crustaceans; eggs; fish; milk,,crustaceans; eggs; fish; milk,
+1999329,random_test,gluten; milk,,gluten; milk,
+975814,random_test,,,,
+2219392,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+807593,random_test,gluten,sulphites,gluten,sulphites
+1251913,random_test,crustaceans; fish; gluten,celery; eggs; milk,crustaceans; fish; gluten,celery; eggs; milk
+2055765,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1279481,random_test,milk; tree_nuts,,milk; tree_nuts,
+1447663,random_test,eggs; fish; gluten,,eggs; fish; gluten,
+1819139,random_test,eggs,,eggs,
+1353293,random_test,milk; sulphites,celery; eggs; gluten,milk; sulphites,celery; eggs; gluten
+1367260,random_test,molluscs,,molluscs,
+1588026,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1405116,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1422611,random_test,gluten; molluscs,,gluten; molluscs,
+434027,random_test,celery,milk,celery,milk
+1182348,random_test,crustaceans; gluten; molluscs; soy,celery; eggs; milk; sulphites,crustaceans; gluten; molluscs; soy,celery; eggs; milk; sulphites
+2108882,random_test,,,,
+2224510,random_test,fish; soy,gluten,fish; soy,gluten
+25359,random_test,gluten,celery; eggs; milk,gluten,celery; eggs; milk
+1109975,random_test,gluten; milk,,gluten; milk,
+2012327,random_test,milk,,milk,
+1047154,random_test,eggs; gluten; milk; soy,celery,eggs; gluten; milk; soy,celery
+954920,random_test,milk,,milk,
+1272129,random_test,fish; milk; mustard,,fish; milk; mustard,
+1395787,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+2148447,random_test,soy,gluten,soy,gluten
+1969623,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1215939,random_test,eggs; gluten,milk,eggs; gluten,milk
+1446854,random_test,,milk,,milk
+1685808,random_test,eggs; fish,,eggs; fish,
+1521201,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+2015966,random_test,peanuts,sulphites,peanuts,sulphites
+1253522,random_test,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+952240,random_test,eggs; gluten; milk,sulphites,eggs; gluten; milk,sulphites
+710161,random_test,milk; sulphites,celery; eggs; gluten,milk; sulphites,celery; eggs; gluten
+1733138,random_test,sesame; soy,gluten,sesame; soy,gluten
+1366532,random_test,eggs; gluten; peanuts,sulphites,eggs; gluten; peanuts,sulphites
+2152256,random_test,gluten; milk,,gluten; milk,
+2033258,random_test,gluten,sulphites,gluten,sulphites
+1386771,random_test,eggs; gluten; milk; sulphites,,eggs; gluten; milk; sulphites,
+2171605,random_test,eggs; peanuts; sesame; soy,celery; gluten; milk; sulphites,eggs; peanuts; sesame; soy,celery; gluten; milk; sulphites
+1220875,random_test,gluten; milk,sulphites,gluten; milk,sulphites
+2133931,random_test,eggs; fish; gluten; soy,,eggs; fish; gluten; soy,
+2192520,random_test,mustard,sulphites,mustard,sulphites
+1550906,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+397092,random_test,eggs; gluten; milk,crustaceans,eggs; gluten; milk,crustaceans
+1092384,random_test,,,,
+1140678,random_test,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+1730285,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1140313,random_test,peanuts,,peanuts,
+1371462,random_test,gluten; milk,,gluten; milk,
+2087327,random_test,milk,celery; eggs; gluten,milk,celery; eggs; gluten
+1208490,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1058259,random_test,sulphites,milk,sulphites,milk
+2106223,random_test,milk; peanuts,,milk; peanuts,
+905797,random_test,celery; gluten; milk,,celery; gluten; milk,
+1327366,random_test,milk,celery; eggs; gluten,milk,celery; eggs; gluten
+702877,random_test,,,,
+484724,random_test,eggs; milk,,eggs; milk,
+741383,random_test,tree_nuts,,tree_nuts,
+1838545,random_test,gluten,,gluten,
+1402001,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1120482,random_test,eggs; gluten,milk,eggs; gluten,milk
+1127540,random_test,fish; milk,,fish; milk,
+1637686,random_test,crustaceans; gluten; molluscs; soy,,crustaceans; gluten; molluscs; soy,
+1092933,random_test,eggs; gluten; milk,sulphites,eggs; gluten; milk,sulphites
+179327,random_test,milk,,milk,
+1709210,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+2180675,random_test,crustaceans,,crustaceans,
+1526033,random_test,gluten; milk,,gluten; milk,
+1882684,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+2036699,random_test,sesame; soy,celery; eggs; gluten; milk,sesame; soy,celery; eggs; gluten; milk
+1724914,random_test,soy; tree_nuts,,soy; tree_nuts,
+840347,random_test,eggs; milk; tree_nuts,,eggs; milk; tree_nuts,
+833349,random_test,soy,gluten; sulphites,soy,gluten; sulphites
+1495655,random_test,eggs; gluten; milk; mustard,,eggs; gluten; milk; mustard,
+1992154,random_test,sesame,,sesame,
+955365,random_test,gluten; milk,,gluten; milk,
+1659402,random_test,milk,gluten,milk,gluten
+824157,random_test,milk,gluten,milk,gluten
+1166053,random_test,gluten; tree_nuts,celery; eggs; milk,gluten; tree_nuts,celery; eggs; milk
+329361,random_test,eggs; tree_nuts,milk,eggs; tree_nuts,milk
+2052649,random_test,milk,gluten,milk,gluten
+2024480,random_test,gluten; tree_nuts,soy; sulphites,gluten; tree_nuts,soy; sulphites
+613404,random_test,crustaceans; gluten; milk,,gluten; milk,crustaceans
+1869240,random_test,fish; gluten; milk,,fish; gluten; milk,
+1508392,random_test,eggs; gluten; milk; tree_nuts,sulphites,eggs; gluten; milk; tree_nuts,sulphites
+185451,random_test,celery; gluten,,celery; gluten,
+2031807,random_test,eggs; gluten; milk,sulphites,eggs; gluten; milk,sulphites
+1034701,random_test,eggs; gluten; milk; peanuts,,eggs; gluten; milk; peanuts,
+1136253,random_test,mustard; peanuts,sulphites,mustard; peanuts,sulphites
+14572,random_test,,,,
+125193,random_test,milk,,milk,
+887569,random_test,celery; fish; milk,,celery; fish; milk,
+1336351,random_test,,,,
+1232872,random_test,gluten,celery; eggs; milk,gluten,celery; eggs; milk
+259400,random_test,eggs; milk,,eggs; milk,
+1104267,random_test,celery; gluten; milk,eggs,celery; gluten; milk,eggs
+1456385,random_test,crustaceans; milk,,crustaceans; milk,
+1523117,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+182421,random_test,gluten,milk; peanuts; tree_nuts,gluten,milk; peanuts; tree_nuts
+1185076,random_test,gluten; milk,,gluten; milk,
+858056,random_test,celery,,celery,
+2197807,random_test,crustaceans; peanuts,,crustaceans; peanuts,
+2158257,random_test,gluten,,gluten,
+1450154,random_test,gluten; milk,,gluten; milk,
+2191910,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+2041989,random_test,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+1397505,random_test,sesame,milk; soy; tree_nuts,sesame,milk; soy; tree_nuts
+450174,random_test,,sulphites,,sulphites
+391667,random_test,milk,,milk,
+1079112,random_test,eggs; gluten; milk; sulphites,,eggs; gluten; milk; sulphites,
+1148481,random_test,fish; milk,,fish; milk,
+1760794,random_test,gluten; milk,,gluten; milk,
+1407475,random_test,,,,
+1042718,random_test,eggs; gluten; soy,celery; milk,eggs; gluten; soy,celery; milk
+939621,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+115652,random_test,eggs; milk,,eggs; milk,
+1196649,random_test,gluten; soy,sesame,gluten; soy,sesame
+1922700,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1166061,random_test,peanuts,,peanuts,
+1825360,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1617909,random_test,sesame,,sesame,
+1816553,random_test,eggs; milk,,eggs; milk,
+158288,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1205422,random_test,crustaceans; gluten; molluscs; peanuts; sesame; soy,celery; eggs; milk,crustaceans; gluten; molluscs; peanuts; sesame; soy,celery; eggs; milk
+1517385,random_test,peanuts,,peanuts,
+1634919,random_test,celery; gluten,,celery; gluten,
+1167374,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+553002,random_test,soy,gluten; sulphites,soy,gluten; sulphites
+1308172,random_test,sesame,,sesame,
+1817306,random_test,fish,,fish,
+475086,random_test,fish; gluten,,fish; gluten,
+107584,random_test,milk,,milk,
+1020880,random_test,milk,,milk,
+1470143,random_test,eggs; sesame; soy,gluten; sulphites,eggs; sesame; soy,gluten; sulphites
+1631910,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1034979,random_test,,sulphites,,sulphites
+1363970,random_test,gluten; milk; soy,,gluten; milk; soy,
+1427984,random_test,eggs,,eggs,
+2145074,random_test,fish; gluten; milk,celery; eggs,fish; gluten; milk,celery; eggs
+1201101,random_test,milk,,milk,
+1621954,random_test,,,,
+768640,random_test,eggs; gluten,peanuts; sulphites; tree_nuts,eggs; gluten,peanuts; sulphites; tree_nuts
+1011120,random_test,gluten; milk,,gluten; milk,
+2124535,random_test,fish; molluscs; sulphites,,fish; molluscs; sulphites,
+1465810,random_test,gluten; molluscs; sulphites,,gluten; molluscs; sulphites,
+153253,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1758764,random_test,crustaceans; milk; mustard,sulphites,crustaceans; milk; mustard,sulphites
+541520,random_test,,sulphites,,sulphites
+661179,random_test,gluten; milk,,gluten; milk,
+1259398,random_test,,,,
+16822,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1819578,random_test,eggs; fish; gluten; sesame; soy,,eggs; fish; gluten; sesame; soy,
+1905178,random_test,gluten,sesame,gluten,sesame
+1216853,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1933005,random_test,milk,gluten,milk,gluten
+1546853,random_test,eggs; gluten,,eggs; gluten,
+186286,random_test,gluten; milk,,gluten; milk,
+2088771,random_test,milk,,crustaceans; milk,
+979673,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+991558,random_test,gluten; milk; sulphites,,gluten; milk; sulphites,
+390113,random_test,fish; mustard,,fish; mustard,
+785336,random_test,milk,,milk,
+911600,random_test,soy,,soy,
+1959289,random_test,eggs; milk; sesame,,eggs; milk; sesame,
+226318,random_test,celery; fish; gluten,,celery; fish; gluten,
+882772,random_test,eggs; milk,,eggs; milk,
+1018626,random_test,milk,,milk,
+1241829,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+2061267,random_test,celery,,celery,
+786514,random_test,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+961817,random_test,milk,tree_nuts,milk,tree_nuts
+1573871,random_test,eggs; milk,,eggs; milk,
+1602472,random_test,gluten,,gluten,
+322293,random_test,gluten; milk,,gluten; milk,
+1599992,random_test,milk,,milk,
+1530177,random_test,gluten,,gluten,
+1414732,random_test,crustaceans; eggs; sesame; soy,gluten,crustaceans; eggs; sesame; soy,gluten
+1699452,random_test,gluten; milk,,gluten; milk,
+907140,random_test,gluten; milk,sulphites; tree_nuts,gluten; milk,sulphites; tree_nuts
+1050138,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1730899,random_test,tree_nuts,sulphites,tree_nuts,sulphites
+317855,random_test,eggs; milk,,eggs; milk,
+640561,random_test,fish; mustard,,fish; mustard,
+1604503,random_test,,,,
+1264627,random_test,eggs; gluten; milk; soy,,eggs; gluten; milk; soy,
+1811299,random_test,crustaceans; gluten,celery; eggs; milk,crustaceans; gluten,celery; eggs; milk
+1186441,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1831978,random_test,soy,gluten,soy,gluten
+146221,random_test,,milk; peanuts; tree_nuts,,milk; peanuts; tree_nuts
+876487,random_test,eggs; fish; gluten,,eggs; fish; gluten,
+1792580,random_test,eggs; gluten; milk,peanuts; tree_nuts,eggs; gluten; milk,peanuts; tree_nuts
+1245528,random_test,fish,celery; eggs; gluten; milk,fish,celery; eggs; gluten; milk
+66848,random_test,gluten; milk,,gluten; milk,
+2083561,random_test,celery; fish,sulphites,celery; fish,sulphites
+144689,random_test,milk,,milk,
+1001380,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+2093469,random_test,gluten,,gluten,
+1263673,random_test,peanuts; soy,gluten,peanuts; soy,gluten
+116170,random_test,celery; tree_nuts,eggs; gluten; milk,celery; tree_nuts,eggs; gluten; milk
+1381500,random_test,eggs; sesame,,eggs; sesame,
+1923248,random_test,peanuts; sesame; soy,gluten; sulphites,peanuts; sesame; soy,gluten; sulphites
+1994752,random_test,tree_nuts,sulphites,tree_nuts,sulphites
+371576,random_test,celery; fish; gluten; milk,,celery; fish; gluten; milk,
+158731,random_test,gluten; milk,,gluten; milk,
+346483,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1377640,random_test,fish; mustard,,fish; mustard,
+2150073,random_test,gluten; milk,sulphites,gluten; milk,sulphites
+605679,random_test,eggs; gluten,celery; milk,eggs; gluten,celery; milk
+760210,random_test,gluten,,gluten,
+1819400,random_test,eggs; gluten; sesame; soy,,eggs; gluten; sesame; soy,
+901629,random_test,gluten; milk; sulphites,,gluten; milk; sulphites,
+1009965,random_test,eggs; gluten,milk,eggs; gluten,milk
+1505470,random_test,celery; gluten; milk,eggs,celery; gluten; milk,eggs
+1312600,random_test,milk,gluten,milk,gluten
+1588090,random_test,eggs; milk,gluten,eggs; milk,gluten
+1025039,random_test,eggs; gluten; soy,celery; milk,eggs; gluten; soy,celery; milk
+1250910,random_test,eggs; gluten; peanuts; soy,,eggs; gluten; peanuts; soy,
+289572,random_test,,,,
+1953582,random_test,sesame,,sesame,
+1604399,random_test,sulphites,,sulphites,
+1412107,random_test,mustard; sesame; soy,gluten; sulphites,mustard; sesame; soy,gluten; sulphites
+2085896,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1602635,random_test,peanuts; soy,gluten,peanuts; soy,gluten
+1126561,random_test,sulphites,,sulphites,
+1259905,random_test,sulphites,,sulphites,
+2146375,random_test,,,,
+2033075,random_test,tree_nuts,,tree_nuts,
+2202683,random_test,gluten,sulphites,gluten,sulphites
+1094142,random_test,eggs,,eggs,
+1938306,random_test,celery; crustaceans; milk; peanuts,eggs; gluten,celery; crustaceans; milk; peanuts,eggs; gluten
+1393651,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+894194,random_test,gluten; mustard,,gluten; mustard,
+1403367,random_test,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+1795131,random_test,celery,,celery,
+317827,random_test,,sulphites,,sulphites
+670355,random_test,soy,gluten,soy,gluten
+1471930,random_test,eggs; gluten; sesame; soy,celery; milk,eggs; gluten; sesame; soy,celery; milk
+1123845,random_test,fish; milk,,fish; milk,
+667174,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1280481,random_test,milk; sulphites,celery; eggs; gluten,milk; sulphites,celery; eggs; gluten
+2090574,random_test,milk,,milk,
+1198566,random_test,crustaceans; milk,,crustaceans; milk,
+1778873,random_test,fish; peanuts; soy,gluten,fish; peanuts; soy,gluten
+1616677,random_test,sesame; soy,,sesame; soy,
+938438,random_test,eggs; gluten,,eggs; gluten,
+1045883,random_test,,,,
+1303926,random_test,milk; molluscs,,milk; molluscs,
+286069,random_test,gluten; soy,celery; eggs; milk; peanuts,gluten; soy,celery; eggs; milk; peanuts
+65563,random_test,celery; mustard,,celery; mustard,
+1884349,random_test,crustaceans; tree_nuts,sulphites,crustaceans; tree_nuts,sulphites
+1146041,random_test,celery; milk; sulphites,,celery; milk; sulphites,
+2007465,random_test,crustaceans; eggs; gluten; milk,,crustaceans; eggs; gluten; milk,
+1998849,random_test,peanuts; soy,,peanuts; soy,
+985517,random_test,celery; fish; milk,,celery; fish; milk,
+2046166,random_test,milk,,milk,
+1257122,random_test,milk,celery; eggs; gluten,milk,celery; eggs; gluten
+1771347,random_test,sesame; soy,gluten,sesame; soy,gluten
+956800,random_test,gluten,,gluten,
+1335869,random_test,eggs; milk,,eggs; milk,
+1057483,random_test,celery; milk; soy,gluten,celery; milk; soy,gluten
+1235043,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1664227,random_test,celery; crustaceans; fish; milk,eggs; gluten,celery; crustaceans; fish; milk,eggs; gluten
+1144098,random_test,sesame,,sesame,
+486952,random_test,milk; peanuts,sulphites,milk; peanuts,sulphites
+2230404,random_test,milk; soy,gluten,milk; soy,gluten
+1979686,random_test,celery,,celery,
+1456590,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1968977,random_test,,,,
+1925258,random_test,eggs; fish; milk,,eggs; fish; milk,
+727230,random_test,celery; soy,gluten,celery; soy,gluten
+1699088,random_test,,sulphites,,sulphites
+1043009,random_test,gluten; milk,sulphites,gluten; milk,sulphites
+1489561,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1414346,random_test,gluten; milk,,gluten; milk,
+162414,random_test,celery; fish,,celery; fish,
+993678,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+2209089,random_test,celery; sesame; soy,gluten,celery; sesame; soy,gluten
+934406,random_test,eggs; tree_nuts,,eggs; tree_nuts,
+241793,random_test,milk,gluten,milk,gluten
+707615,random_test,milk; peanuts,sulphites,milk; peanuts,sulphites
+1392509,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1383577,random_test,gluten,sulphites,gluten,sulphites
+2109145,random_test,celery; gluten; milk,,celery; gluten; milk,
+1255208,random_test,gluten; milk,,gluten; milk,
+2187905,random_test,eggs; gluten; milk; soy,sulphites,eggs; gluten; milk; soy,sulphites
+1647148,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+4765,random_test,celery; soy,gluten,celery; soy,gluten
+615641,random_test,gluten; milk,,gluten; milk,
+868992,random_test,gluten; milk,,gluten; milk,
+1362606,random_test,gluten,,gluten,
+1756519,random_test,crustaceans; eggs; gluten; sesame; soy,,crustaceans; eggs; gluten; sesame; soy,
+1344618,random_test,milk,,milk,
+1974315,random_test,milk; sesame; soy,gluten; sulphites,milk; sesame; soy,gluten; sulphites
+1283135,random_test,eggs; gluten; milk,celery,eggs; gluten; milk,celery
+1146197,random_test,,,,
+149488,random_test,celery; eggs; gluten; soy,milk,celery; eggs; gluten; soy,milk
+1042797,random_test,sulphites,celery; eggs; gluten; milk,sulphites,celery; eggs; gluten; milk
+445338,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1956707,random_test,gluten; milk,,gluten; milk,
+1052611,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+1498826,random_test,gluten,,gluten,
+962728,random_test,gluten; milk,mustard,gluten; milk,mustard
+1414451,random_test,gluten,,gluten,
+2144659,random_test,eggs; milk,gluten,eggs; milk,gluten
+413253,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+445006,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+455028,random_test,peanuts; soy,crustaceans; gluten,peanuts; soy,crustaceans; gluten
+1022884,random_test,,,,
+1138934,random_test,eggs; gluten; milk; tree_nuts,sulphites,eggs; gluten; milk; tree_nuts,sulphites
+824258,random_test,soy,gluten,soy,gluten
+1665037,random_test,milk,,milk,
+784150,random_test,eggs; milk,,eggs; milk,
+1884781,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+2084601,random_test,fish,peanuts,fish,peanuts
+2072214,random_test,eggs; gluten; mustard,sulphites,eggs; gluten; mustard,sulphites
+1910560,random_test,,,,
+2066993,random_test,celery; gluten; tree_nuts,eggs; milk,celery; gluten; tree_nuts,eggs; milk
+471531,random_test,gluten,milk; sulphites,gluten,milk; sulphites
+1181188,random_test,milk,,milk,
+968537,random_test,sesame,,sesame,
+1467372,random_test,celery; fish; gluten; mustard,sulphites,celery; fish; gluten; mustard,sulphites
+1363079,random_test,gluten; milk,,gluten; milk,
+1228780,random_test,milk,gluten,milk,gluten
+1061075,random_test,eggs; sesame; soy,celery; gluten; milk; sulphites,eggs; sesame; soy,celery; gluten; milk; sulphites
+1452541,random_test,milk; tree_nuts,sulphites,milk; tree_nuts,sulphites
+1363853,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1202385,random_test,fish; gluten; milk,eggs,fish; gluten; milk,eggs
+1942898,random_test,gluten; soy,celery; eggs; milk; sulphites,gluten; soy,celery; eggs; milk; sulphites
+1886495,random_test,,,,
+838650,random_test,molluscs,,molluscs,
+1015195,random_test,gluten; sesame,,gluten; sesame,
+70097,random_test,,,,
+1771734,random_test,milk,,milk,
+2006322,random_test,eggs,gluten; soy,eggs,gluten; soy
+1788461,random_test,milk,,milk,
+1398996,random_test,celery; soy,sesame,celery; soy,sesame
+1918432,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+767837,random_test,fish; milk; mustard,,fish; milk; mustard,
+1963116,random_test,fish; gluten; milk,,fish; gluten; milk,
+66276,random_test,,,,
+2165351,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+158701,random_test,milk,,milk,
+1416117,random_test,,,,
+2088003,random_test,milk,,milk,
+770315,random_test,eggs; gluten,milk,eggs; gluten,milk
+1133279,random_test,fish,,fish,
+1161408,random_test,gluten; soy,fish; sulphites,gluten; soy,fish; sulphites
+1299490,random_test,sesame; soy,eggs; gluten; sulphites,sesame; soy,eggs; gluten; sulphites
+1787930,random_test,sulphites,,sulphites,
+1393577,random_test,crustaceans; gluten; milk,,crustaceans; gluten; milk,
+1455979,random_test,gluten; milk; soy,,gluten; milk; soy,
+1372453,random_test,milk; tree_nuts,,milk; tree_nuts,
+1771951,random_test,molluscs,,molluscs,
+158303,random_test,eggs; gluten; milk,peanuts; tree_nuts,eggs; gluten; milk,peanuts; tree_nuts
+1231930,random_test,celery,,celery,
+67102,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1095035,random_test,mustard,,mustard,
+2218908,random_test,gluten; milk,,gluten; milk,
+1021581,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1345676,random_test,gluten; milk,,gluten; milk,
+1353866,random_test,gluten,,gluten,
+1362753,random_test,milk,,milk,
+897984,random_test,milk,,milk,
+1904486,random_test,gluten; milk,,gluten; milk,
+2169242,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+621163,random_test,celery; gluten,,celery; gluten,
+1222239,random_test,gluten; milk,,gluten; milk,
+2009913,random_test,sesame; soy; sulphites,gluten,sesame; soy; sulphites,gluten
+1605939,random_test,celery; gluten,,celery; gluten,
+2143426,random_test,milk,,milk,
+1475774,random_test,,celery; eggs; gluten; milk,,celery; eggs; gluten; milk
+139465,random_test,eggs; gluten,milk; peanuts; tree_nuts,eggs; gluten,milk; peanuts; tree_nuts
+1346759,random_test,sesame,,sesame,
+1116392,random_test,gluten; milk; peanuts,sulphites,crustaceans; gluten; milk; peanuts,sulphites
+1060177,random_test,crustaceans; gluten; milk,,crustaceans; gluten; milk,
+783735,random_test,celery; fish,,celery; fish,
+1174312,random_test,celery; milk,,celery; milk,
+1450255,random_test,crustaceans; peanuts; soy,gluten,crustaceans; peanuts; soy,gluten
+1187344,random_test,soy,gluten,soy,gluten
+1691566,random_test,milk; peanuts,,milk; peanuts,
+2079351,random_test,milk,,milk,
+2196299,random_test,soy,,soy,
+968929,random_test,soy,celery; eggs; gluten; milk; sulphites,soy,celery; eggs; gluten; milk; sulphites
+1888898,random_test,celery; milk; mustard; sulphites,eggs; gluten,celery; milk; mustard; sulphites,eggs; gluten
+1868271,random_test,,,,
+1124610,random_test,milk,celery; eggs; gluten,milk,celery; eggs; gluten
+1889765,random_test,gluten; soy,,gluten; soy,
+1250544,random_test,eggs; fish; gluten; milk,,eggs; fish; gluten; milk,
+1709061,random_test,eggs; gluten; mustard,milk,eggs; gluten; mustard,milk
+2026865,random_test,eggs; gluten,,eggs; gluten,
+2169443,random_test,gluten; tree_nuts,,gluten; tree_nuts,
+180815,random_test,gluten; milk,,gluten; milk,
+1267782,random_test,fish; gluten; milk; mustard,,fish; gluten; milk; mustard,
+1279754,random_test,sulphites; tree_nuts,,sulphites; tree_nuts,
+185297,random_test,milk,,milk,
+1351835,random_test,,,,
+1135500,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+982106,random_test,eggs; milk,,eggs; milk,
+1747511,random_test,gluten; mustard,,gluten; mustard,
+300639,random_test,milk,gluten,milk,gluten
+1732040,random_test,eggs; gluten; milk,sulphites,eggs; gluten; milk,sulphites
+1058157,random_test,eggs,mustard; sulphites,eggs,mustard; sulphites
+1166639,random_test,milk; sulphites,celery; eggs; gluten,milk; sulphites,celery; eggs; gluten
+1710958,random_test,fish; gluten; milk,,fish; gluten; milk,
+1781517,random_test,gluten,,gluten,
+1428147,random_test,,,,
+997009,random_test,,gluten,,gluten
+1371499,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1249796,random_test,eggs; gluten; soy,,eggs; gluten; soy,
+1474490,random_test,,,,
+1745961,random_test,eggs; gluten; milk,sulphites,eggs; gluten; milk,sulphites
+2079657,random_test,celery,eggs; gluten; milk,celery,eggs; gluten; milk
+1432406,random_test,peanuts; soy,gluten,peanuts; soy,gluten
+1021255,random_test,milk,,milk,
+1663353,random_test,eggs; milk,,eggs; milk,
+670078,random_test,celery; eggs; fish; gluten; milk; mustard,,celery; eggs; fish; gluten; milk; mustard,
+1567977,random_test,fish; milk,celery; eggs; gluten,fish; milk,celery; eggs; gluten
+1093926,random_test,fish; gluten,celery; eggs; milk,fish; gluten,celery; eggs; milk
+845079,random_test,eggs; gluten; milk,peanuts; tree_nuts,eggs; gluten; milk,peanuts; tree_nuts
+662479,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+413094,random_test,,,,
+944902,random_test,fish; gluten,milk; tree_nuts,fish; gluten,milk; tree_nuts
+1264055,random_test,fish; gluten,,crustaceans; fish; gluten,
+1248743,random_test,gluten; sesame,,gluten; sesame,
+748869,random_test,eggs; gluten; milk,celery,eggs; gluten; milk,celery
+406025,random_test,celery; eggs; fish; gluten; milk,,celery; eggs; fish; gluten; milk,
+1170760,random_test,gluten; milk,,gluten; milk,
+1806940,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1552505,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1079180,random_test,celery; soy,gluten,celery; soy,gluten
+1352440,random_test,gluten,celery; eggs; milk,gluten,celery; eggs; milk
+1102498,random_test,gluten; milk; sesame,,gluten; milk; sesame,
+2023624,random_test,milk,gluten,milk,gluten
+507652,random_test,,sulphites,,sulphites
+1671769,random_test,milk; sulphites,celery; eggs; gluten,milk; sulphites,celery; eggs; gluten
+1470036,random_test,,milk,,milk
+2107900,random_test,milk,,milk,
+1005305,random_test,eggs; gluten,,eggs; gluten,
+699613,random_test,milk; tree_nuts,,milk; tree_nuts,
+1895748,random_test,eggs; gluten; sesame; soy,,eggs; gluten; sesame; soy,
+1021180,random_test,sesame; soy,gluten,sesame; soy,gluten
+915617,random_test,,,,
+899681,random_test,gluten; milk,,gluten; milk,
+1154759,random_test,gluten; milk,,gluten; milk,
+1261458,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1915369,random_test,gluten,,gluten,
+1796920,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+853675,random_test,fish; gluten; milk,,fish; gluten; milk,
+1435328,random_test,gluten,,gluten,
+2228776,random_test,milk,gluten,milk,gluten
+2108704,random_test,gluten; milk,tree_nuts,gluten; milk,tree_nuts
+981218,random_test,eggs; gluten; milk,sulphites,eggs; gluten; milk,sulphites
+1513940,random_test,celery; eggs; gluten; milk,,celery; eggs; gluten; milk,
+827973,random_test,eggs; tree_nuts,,eggs; tree_nuts,
+749438,random_test,,,,
+1513288,random_test,gluten; peanuts,,gluten; peanuts,
+1339339,random_test,molluscs,,molluscs,
+1461103,random_test,eggs; milk,,eggs; milk,
+334227,random_test,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+1938863,random_test,,sulphites,,sulphites
+1428211,random_test,eggs; milk,,eggs; milk,
+1653647,random_test,gluten; peanuts; soy,,gluten; peanuts; soy,
+618044,random_test,peanuts,sulphites,peanuts,sulphites
+979176,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1743492,random_test,gluten; milk,,gluten; milk,
+56314,random_test,eggs; milk,,eggs; milk,
+932832,random_test,peanuts; soy,celery; eggs; gluten; milk,peanuts; soy,celery; eggs; gluten; milk
+1371721,random_test,eggs,,eggs,
+1166730,random_test,peanuts,fish,peanuts,fish
+1857547,random_test,crustaceans,celery; eggs; gluten; milk,crustaceans,celery; eggs; gluten; milk
+989404,random_test,gluten; sesame; soy,peanuts; sulphites,gluten; sesame; soy,peanuts; sulphites
+1356550,random_test,crustaceans; milk,gluten,crustaceans; milk,gluten
+314821,random_test,eggs; gluten; milk,peanuts; tree_nuts,eggs; gluten; milk,peanuts; tree_nuts
+1382375,random_test,sesame; soy,gluten,sesame; soy,gluten
+1897703,random_test,milk,,milk,
+1470136,random_test,gluten; soy,,gluten; soy,
+1062968,random_test,sesame,,sesame,
+1465884,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1902034,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1321550,random_test,crustaceans,peanuts,crustaceans,peanuts
+1909704,random_test,milk,,milk,
+2038619,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+1759965,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1618557,random_test,celery; milk,,celery; milk,
+1734461,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+2129288,random_test,gluten; mustard; soy,tree_nuts,gluten; mustard; soy,tree_nuts
+1192482,random_test,eggs; gluten; milk; mustard; tree_nuts,celery,eggs; gluten; milk; mustard; tree_nuts,celery
+1470076,random_test,gluten; milk,,gluten; milk,
+1034491,random_test,milk,,milk,
+227934,random_test,gluten,,gluten,
+322126,random_test,eggs; gluten,,eggs; gluten,
+1090597,random_test,celery; crustaceans,eggs; gluten; milk,celery; crustaceans,eggs; gluten; milk
+1902665,random_test,eggs; gluten,,eggs; gluten,
+116603,random_test,eggs; fish; gluten,,eggs; fish; gluten,
+928395,random_test,eggs; gluten; milk,tree_nuts,eggs; gluten; milk,tree_nuts
+1111583,random_test,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+2093360,random_test,crustaceans; fish; gluten; milk; sulphites,,crustaceans; fish; gluten; milk; sulphites,
+265585,random_test,gluten; milk; mustard,,gluten; milk; mustard,
+409065,random_test,eggs; gluten,peanuts; tree_nuts,eggs; gluten,peanuts; tree_nuts
+65521,random_test,celery; eggs; soy,gluten,celery; eggs; soy,gluten
+2058243,random_test,celery; gluten; milk; mustard,eggs; sulphites,celery; gluten; milk; mustard,eggs; sulphites
+1329704,random_test,,,,
+1782602,random_test,,,,
+1150639,random_test,crustaceans; eggs; fish; gluten; milk,,crustaceans; eggs; fish; gluten; milk,
+1103777,random_test,celery; gluten; soy,,celery; gluten; soy,
+1781267,random_test,gluten; milk,,gluten; milk,
+1184254,random_test,milk,,milk,
+1953052,random_test,eggs; milk; soy,celery; gluten,eggs; milk; soy,celery; gluten
+67813,random_test,eggs,tree_nuts,eggs,tree_nuts
+1064464,random_test,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1551145,random_test,gluten; milk,,gluten; milk,
+1337443,random_test,milk,,milk,
+2120195,random_test,fish,,fish,
+2116988,random_test,gluten,celery; eggs; milk,gluten,celery; eggs; milk
+1919942,random_test,crustaceans; eggs; gluten; milk; mustard,,crustaceans; eggs; gluten; milk; mustard,
+1714802,random_test,mustard; tree_nuts,,mustard; tree_nuts,
+2084516,random_test,eggs; gluten; milk; mustard,celery,eggs; gluten; milk; mustard,celery
+787270,random_test,gluten,milk,gluten,milk
+1451142,random_test,celery; crustaceans; eggs,milk,celery; crustaceans; eggs,milk
+1550246,random_test,celery; gluten; milk; sulphites,eggs,celery; gluten; milk; sulphites,eggs
+1639878,random_test,milk; sesame; soy,gluten,milk; sesame; soy,gluten
+1527851,random_test,milk,celery; eggs; gluten,milk,celery; eggs; gluten
+102111,random_test,gluten; milk,,gluten; milk,
+1897585,random_test,eggs; milk,,eggs; milk,
+1530754,random_test,celery; gluten; milk; tree_nuts,,celery; gluten; milk; tree_nuts,
+1274491,random_test,celery; mustard,sulphites,celery; mustard,sulphites
+632046,random_test,eggs; milk,,eggs; milk,
+1994007,random_test,soy,gluten; sulphites,soy,gluten; sulphites
+1099184,random_test,gluten,,gluten,
+2037044,random_test,soy,celery; eggs; gluten; milk,soy,celery; eggs; gluten; milk
+1082956,random_test,crustaceans; fish; peanuts,,crustaceans; fish; peanuts,
+849530,random_test,milk,,milk,
+1995871,random_test,mustard,sulphites,mustard,sulphites
+1704829,random_test,,,,
+1880768,random_test,gluten; milk,,gluten; milk,
+421188,random_test,eggs; gluten; milk,,eggs; gluten; milk,
+473796,random_test,crustaceans; milk,eggs,milk,crustaceans; eggs
+1637766,random_test,gluten; peanuts; sesame; soy,crustaceans,gluten; peanuts; sesame; soy,crustaceans
+2030586,random_test,,crustaceans,,crustaceans
+1533763,random_test,eggs; gluten; milk; mustard,,eggs; gluten; milk; mustard,
+1735224,random_test,crustaceans; fish; milk,,crustaceans; fish; milk,
+1191698,random_test,milk; sulphites,celery; eggs; gluten,milk; sulphites,celery; eggs; gluten
+931297,random_test,gluten; milk,,gluten; milk,
+1723329,random_test,eggs; gluten; milk,sulphites,eggs; gluten; milk,sulphites
+1067398,challenge,celery; gluten; milk,,celery; gluten; milk,
+1164428,challenge,celery; eggs; tree_nuts,,celery; eggs; tree_nuts,
+713747,challenge,celery; crustaceans; eggs; fish; milk,,celery; crustaceans; eggs; fish; milk,
+1640240,challenge,celery; gluten; milk,eggs; peanuts; sulphites; tree_nuts,celery; gluten; milk,eggs; peanuts; sulphites; tree_nuts
+2094247,challenge,celery; eggs; fish; gluten; milk; mustard,,celery; eggs; fish; gluten; milk; mustard,
+370642,challenge,celery; gluten; molluscs; sesame; soy,,celery; gluten; molluscs; sesame; soy,
+1202370,challenge,celery; tree_nuts,eggs,celery; tree_nuts,eggs
+73319,challenge,celery; eggs; milk; tree_nuts,,celery; eggs; milk; tree_nuts,
+1349976,challenge,celery; eggs; milk,gluten; sulphites; tree_nuts,celery; eggs; milk,gluten; sulphites; tree_nuts
+2164581,challenge,celery; eggs,,celery; eggs,
+1403378,challenge,crustaceans; milk; sulphites,celery; eggs; gluten,crustaceans; milk; sulphites,celery; eggs; gluten
+1009803,challenge,crustaceans,,crustaceans,
+2150578,challenge,crustaceans; soy,gluten; peanuts; sesame; sulphites,crustaceans; soy,gluten; peanuts; sesame; sulphites
+900860,challenge,crustaceans; eggs; fish; molluscs; peanuts; sesame; soy,celery; gluten; milk,crustaceans; eggs; fish; molluscs; peanuts; sesame; soy,celery; gluten; milk
+622160,challenge,crustaceans; fish; milk; mustard,,crustaceans; fish; milk; mustard,
+301985,challenge,crustaceans; milk; molluscs; sulphites,celery; eggs; gluten,crustaceans; milk; molluscs; sulphites,celery; eggs; gluten
+1930711,challenge,crustaceans,gluten; milk; tree_nuts,crustaceans,gluten; milk; tree_nuts
+2166556,challenge,peanuts,,peanuts,
+2228195,challenge,crustaceans; eggs; gluten; milk,,crustaceans; eggs; gluten; milk,
+2185732,challenge,crustaceans; milk,,crustaceans; milk,
+1406017,challenge,eggs; gluten; milk; sulphites,celery,eggs; gluten; milk; sulphites,celery
+1887723,challenge,eggs; gluten; milk; sesame,,eggs; gluten; milk; sesame,
+44625,challenge,eggs; gluten; milk,,eggs; gluten; milk,
+1106467,challenge,eggs; gluten; milk,,eggs; gluten; milk,
+939499,challenge,eggs; gluten; tree_nuts,,eggs; gluten; tree_nuts,
+963408,challenge,eggs; fish; soy,celery; gluten; milk; peanuts,eggs; fish; soy,celery; gluten; milk; peanuts
+2195761,challenge,eggs; fish; peanuts,,eggs; fish; peanuts,
+1234610,challenge,eggs; gluten; soy,,eggs; gluten; soy,
+748477,challenge,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+963572,challenge,eggs; milk,,eggs; milk,
+991702,challenge,fish; gluten; milk; peanuts,,fish; gluten; milk; peanuts,
+1853897,challenge,fish; peanuts; soy,gluten,fish; peanuts; soy,gluten
+976792,challenge,fish; molluscs; peanuts,celery; eggs; gluten; milk,fish; molluscs; peanuts,celery; eggs; gluten; milk
+1342374,challenge,fish; milk,,fish; milk,
+2004948,challenge,fish; sesame,,fish; sesame,
+1442668,challenge,fish; gluten,sulphites,fish; gluten,sulphites
+1785284,challenge,eggs; gluten; sesame; soy,celery; milk,eggs; gluten; sesame; soy,celery; milk
+1229941,challenge,milk,fish,milk,fish
+1559810,challenge,sesame,fish; gluten; soy,sesame,fish; gluten; soy
+1465227,challenge,fish; milk,,fish; milk,
+1092242,challenge,gluten; milk,,gluten; milk,
+1136266,challenge,gluten; sesame,peanuts; tree_nuts,gluten; sesame,peanuts; tree_nuts
+930367,challenge,mustard; soy,gluten; sulphites,mustard; soy,gluten; sulphites
+8383,challenge,gluten; milk,,gluten; milk,
+2094869,challenge,gluten; milk,celery; eggs; sulphites,gluten; milk,celery; eggs; sulphites
+1123959,challenge,milk,gluten,milk,gluten
+1512335,challenge,eggs; gluten; milk,sulphites,eggs; gluten; milk,sulphites
+1136051,challenge,gluten; milk,,gluten; milk,
+1906281,challenge,peanuts,,peanuts,
+1059805,challenge,gluten; milk,,gluten; milk,
+2231085,challenge,eggs; milk,,eggs; milk,
+2231082,challenge,lupin,,lupin,
+2231092,challenge,milk,,milk,
+2231087,challenge,,,,
+2231090,challenge,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+2231088,challenge,milk,,milk,
+2231089,challenge,,,,
+2231096,challenge,eggs; gluten; milk,,eggs; gluten; milk,
+2231091,challenge,milk,,milk,
+2231094,challenge,milk,,milk,
+1406868,challenge,milk; peanuts,,milk; peanuts,
+207555,challenge,milk,,milk,
+1874154,challenge,milk,,milk,
+1308250,challenge,milk,gluten,milk,gluten
+1963994,challenge,gluten; milk,celery; eggs,gluten; milk,celery; eggs
+923582,challenge,gluten; milk,,gluten; milk,
+265452,challenge,milk,,milk,
+1176884,challenge,eggs; gluten; milk,,eggs; gluten; milk,
+113083,challenge,gluten; milk,,gluten; milk,
+1059821,challenge,milk,,milk,
+2154326,challenge,molluscs; sesame,,molluscs; sesame,
+912683,challenge,molluscs; sesame; soy,gluten,molluscs; sesame; soy,gluten
+1158557,challenge,crustaceans; fish; gluten; molluscs,sulphites,crustaceans; fish; gluten; molluscs,sulphites
+1347883,challenge,celery; molluscs; sulphites,,celery; molluscs; sulphites,
+1116542,challenge,fish; molluscs; soy,gluten,fish; molluscs; soy,gluten
+1972324,challenge,gluten; milk; molluscs,,gluten; milk; molluscs,
+1458990,challenge,molluscs; sulphites,,molluscs; sulphites,
+1425217,challenge,milk; molluscs; mustard,,milk; molluscs; mustard,
+1190851,challenge,crustaceans; fish; molluscs; sesame,,crustaceans; fish; molluscs; sesame,
+863474,challenge,fish; gluten; molluscs; sulphites,,fish; gluten; molluscs; sulphites,
+1080378,challenge,gluten; mustard,,gluten; mustard,
+2015394,challenge,gluten; milk; mustard,sulphites,gluten; milk; mustard,sulphites
+1223155,challenge,mustard,celery; eggs; gluten; milk,mustard,celery; eggs; gluten; milk
+1318281,challenge,milk; mustard,sulphites,milk; mustard,sulphites
+1530213,challenge,milk; mustard,,milk; mustard,
+852949,challenge,crustaceans; eggs; fish; gluten; milk; mustard,,crustaceans; eggs; fish; gluten; milk; mustard,
+2093402,challenge,crustaceans; eggs; mustard,,crustaceans; eggs; mustard,
+1520429,challenge,celery; eggs; gluten; milk; mustard,,celery; eggs; gluten; milk; mustard,
+99734,challenge,eggs; gluten; milk; mustard,,eggs; gluten; milk; mustard,
+674279,challenge,mustard,,mustard,
+2096100,challenge,peanuts; soy,,peanuts; soy,
+1984013,challenge,peanuts; soy,gluten; sulphites,peanuts; soy,gluten; sulphites
+1416025,challenge,eggs; gluten; peanuts; sesame,,eggs; gluten; peanuts; sesame,
+1252441,challenge,eggs; sesame; soy,peanuts,eggs; sesame; soy,peanuts
+1975203,challenge,milk; peanuts,,milk; peanuts,
+1589519,challenge,gluten; peanuts; sesame; soy,,gluten; peanuts; sesame; soy,
+1638247,challenge,peanuts,celery; eggs; gluten; milk,peanuts,celery; eggs; gluten; milk
+1767374,challenge,crustaceans; gluten; peanuts; soy,,crustaceans; gluten; peanuts; soy,
+1634511,challenge,peanuts; soy,gluten,peanuts; soy,gluten
+2068612,challenge,celery,peanuts,celery,peanuts
+1601569,challenge,eggs; gluten; sesame; soy,celery; milk,eggs; gluten; sesame; soy,celery; milk
+1508725,challenge,gluten; sesame; soy,,gluten; sesame; soy,
+1158826,challenge,sesame; soy,gluten,sesame; soy,gluten
+1836263,challenge,eggs; gluten; milk; sesame; soy,sulphites,eggs; gluten; milk; sesame; soy,sulphites
+175117,challenge,crustaceans; sesame; soy,gluten; sulphites,crustaceans; sesame; soy,gluten; sulphites
+1460659,challenge,sesame,celery; eggs; gluten; milk,sesame,celery; eggs; gluten; milk
+1245277,challenge,sesame; soy,,sesame; soy,
+1926517,challenge,sesame,,sesame,
+1260012,challenge,sesame; soy,gluten,sesame; soy,gluten
+1850503,challenge,,,,
+1188938,challenge,soy,,soy,
+1027610,challenge,milk,,milk,
+971529,challenge,fish; soy,gluten,fish; soy,gluten
+185853,challenge,soy,gluten; sulphites,soy,gluten; sulphites
+1671429,challenge,soy,celery; eggs; gluten; milk,soy,celery; eggs; gluten; milk
+678634,challenge,celery; gluten; milk; soy,,celery; gluten; milk; soy,
+1410756,challenge,fish; soy,gluten,fish; soy,gluten
+1278605,challenge,eggs; gluten; milk; soy,,eggs; gluten; milk; soy,
+2139293,challenge,soy,,soy,
+1091734,challenge,soy,gluten,soy,gluten
+1267310,challenge,gluten; milk; tree_nuts,sulphites,gluten; milk; tree_nuts,sulphites
+1750063,challenge,eggs; gluten; milk; tree_nuts,sulphites,eggs; gluten; milk; tree_nuts,sulphites
+2138593,challenge,milk; sulphites,,milk; sulphites,
+1411350,challenge,eggs; gluten; milk,peanuts; tree_nuts,eggs; gluten; milk,peanuts; tree_nuts
+495737,challenge,,,,
+2042811,challenge,gluten,celery; eggs; milk; sulphites,gluten,celery; eggs; milk; sulphites
+1278542,challenge,gluten; milk; sulphites,,gluten; milk; sulphites,
+1393722,challenge,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+574923,challenge,eggs; milk,gluten; peanuts; sulphites; tree_nuts,eggs; milk,gluten; peanuts; sulphites; tree_nuts
+1297781,challenge,gluten; sulphites,,gluten; sulphites,
+1298027,challenge,eggs; gluten; milk,peanuts; tree_nuts,eggs; gluten; milk,peanuts; tree_nuts
+1988293,challenge,gluten; milk,tree_nuts,gluten; milk,tree_nuts
+348250,challenge,gluten; milk,peanuts; tree_nuts,gluten; milk,peanuts; tree_nuts
+1192711,challenge,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1475344,challenge,eggs; gluten; milk; tree_nuts,,eggs; gluten; milk; tree_nuts,
+1288340,challenge,eggs,soy; tree_nuts,eggs,soy; tree_nuts
+523549,challenge,gluten; milk; tree_nuts,,gluten; milk; tree_nuts,
+1480628,challenge,tree_nuts,sulphites,tree_nuts,sulphites
+1467273,challenge,milk; tree_nuts,,milk; tree_nuts,
+1602356,challenge,gluten; sesame; tree_nuts,,gluten; sesame; tree_nuts,
+976922,challenge,milk,,milk,
+1041315,challenge,,,,
+2036819,challenge,milk,,milk,
+1106515,challenge,milk,,milk,
+1915404,challenge,eggs,,eggs,
+71424,challenge,celery; eggs; milk,,celery; eggs; milk,
+1088591,challenge,eggs; milk,,eggs; milk,
+1154564,challenge,,,,
+1964991,challenge,,,,
+1397097,challenge,fish; gluten,celery; eggs; milk; peanuts,fish; gluten,celery; eggs; milk; peanuts
+1381949,challenge,milk,,milk,
+1584294,challenge,eggs; gluten; milk,,eggs; gluten; milk,
+1034581,challenge,eggs; milk,sulphites,eggs; milk,sulphites
+996112,challenge,fish,,fish,
+1986553,challenge,mustard,,mustard,
+1240906,challenge,milk,gluten,milk,gluten
+1266835,challenge,,,,
+1156391,challenge,peanuts,,peanuts,
+54086,challenge,celery; sesame; soy,sulphites,celery; sesame; soy,sulphites
+2138530,challenge,eggs; gluten; milk,,eggs; gluten; milk,
+372397,challenge,gluten; milk,,gluten; milk,
+984314,challenge,eggs; gluten; milk,,eggs; gluten; milk,
+500748,challenge,celery,,celery,
+1273744,challenge,milk,,milk,
+2034534,challenge,gluten; milk,,gluten; milk,
+1112412,challenge,gluten,,gluten,
+193365,challenge,eggs; milk,gluten,eggs; milk,gluten
+1382401,challenge,gluten; milk,,gluten; milk,
+1438185,challenge,,milk,,milk
+1990824,challenge,eggs; gluten; milk,,eggs; gluten; milk,
+1326751,challenge,milk,celery; eggs; gluten,milk,celery; eggs; gluten
+2089506,challenge,,gluten,,gluten
+1333527,challenge,,milk,,milk
+2119699,challenge,eggs; gluten; milk,,eggs; gluten; milk,
+1580647,challenge,milk,,milk,
+2204567,challenge,milk,,milk,
+1096278,challenge,gluten,milk,gluten,milk
+1032879,challenge,gluten; milk,,gluten; milk,
+80771,challenge,celery; eggs; gluten,milk,celery; eggs; gluten,milk
+1242655,challenge,celery; milk,eggs; gluten,celery; milk,eggs; gluten
+2080589,challenge,eggs; milk,,eggs; milk,
+1014377,challenge,milk,celery; eggs; gluten,milk,celery; eggs; gluten
+383135,challenge,milk,,milk,
+1252458,challenge,milk,,milk,
+2168977,challenge,,milk,,milk
+1839009,challenge,celery; soy,eggs; gluten; milk,celery; soy,eggs; gluten; milk
+2066750,challenge,milk,,milk,
+1061427,challenge,fish,,fish,
+1336701,challenge,sesame; soy,gluten,sesame; soy,gluten
+2043708,challenge,fish; milk,gluten,fish; milk,gluten
+364911,challenge,gluten,,gluten,
+2007787,challenge,milk,sulphites,milk,sulphites
+1100210,challenge,fish; soy,gluten,fish; soy,gluten
+980960,challenge,milk; sesame,,milk; sesame,
+254624,challenge,crustaceans; mustard; soy; tree_nuts,gluten,crustaceans; mustard; soy; tree_nuts,gluten
+631104,challenge,eggs; gluten; milk,peanuts; sulphites; tree_nuts,eggs; gluten; milk,peanuts; sulphites; tree_nuts
+1769361,challenge,milk; soy,,milk; soy,
+2115946,challenge,peanuts; soy; sulphites,gluten; tree_nuts,peanuts; soy; sulphites,gluten; tree_nuts
+2164398,challenge,sesame,,sesame,
+1671944,challenge,,,,

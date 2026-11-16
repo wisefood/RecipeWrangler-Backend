@@ -114,10 +114,12 @@ def get_engine() -> Engine:
     if _engine is None:
         cfg = _get_config()
 
-        # Build connection URL
-        # Format: postgresql://username:password@host:port/database
+        # Build connection URL, naming the driver rather than taking
+        # SQLAlchemy's default for a bare postgresql:// URL (psycopg2 on 2.0,
+        # psycopg 3 on 2.1). The installed driver is psycopg2-binary.
+        # Format: postgresql+psycopg2://username:password@host:port/database
         connection_url = (
-            f"postgresql://{cfg['db_user']}:{cfg['db_password']}"
+            f"postgresql+psycopg2://{cfg['db_user']}:{cfg['db_password']}"
             f"@{cfg['db_host']}:{cfg['db_port']}/{cfg['db_name']}"
         )
 

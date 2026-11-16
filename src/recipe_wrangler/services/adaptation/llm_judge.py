@@ -11,16 +11,17 @@ Provider-agnostic via the OpenAI-compatible Chat Completions API. Works
 unchanged against:
   - vLLM (any model served on an OpenAI-compatible endpoint)
   - Groq (api.groq.com/openai/v1)
+  - OpenRouter (openrouter.ai/api/v1)
   - Any other OpenAI-compatible inference server.
 
 Configuration (read at call time, not module import — env reloads cleanly):
 
-    ADAPT_LLM_SOURCE   "vllm" | "groq"          default: vllm
+    ADAPT_LLM_SOURCE   "vllm" | "groq" | "openrouter"   default: vllm
     ADAPT_LLM_BASE_URL OpenAI-compatible URL    default: http://localhost:8005/v1
                                                 (or https://api.groq.com/openai/v1 for groq)
     ADAPT_LLM_MODEL    Model ID                 default: qwen3-32b (vllm) or llama-3.1-8b-instant (groq)
-    ADAPT_LLM_API_KEY  Bearer token             default: none (vllm) or GROQ_API_KEY env (groq)
-    ADAPT_LLM_TIMEOUT  HTTP timeout seconds     default: 30
+    ADAPT_LLM_API_KEY  Bearer token override; otherwise provider key (OPENROUTER_API_KEY for OpenRouter)
+    ADAPT_LLM_TIMEOUT  HTTP timeout seconds     default: 90
 """
 
 from __future__ import annotations
@@ -47,6 +48,11 @@ _DEFAULTS: dict[str, dict[str, str]] = {
         "model": "llama-3.1-8b-instant",
         "api_key_env": "GROQ_API_KEY",
     },
+    "openrouter": {
+        "base_url": "https://openrouter.ai/api/v1",
+        "model": "qwen/qwen3-32b",
+        "api_key_env": "OPENROUTER_API_KEY",
+    },
 }
 
 
@@ -55,14 +61,41 @@ def _llm_config() -> dict[str, Any]:
     if source not in _DEFAULTS:
         source = "vllm"
     defaults = _DEFAULTS[source]
-    base_url = os.getenv("ADAPT_LLM_BASE_URL", defaults["base_url"])
+    base_url = os.getenv("ADAPT_LLM_BASE_URL") or (
+        os.getenv("OPENROUTER_BASE_URL") if source == "openrouter" else None
+    ) or defaults["base_url"]
     model = os.getenv("ADAPT_LLM_MODEL", defaults["model"])
     if "api_key_env" in defaults:
         api_key = os.getenv("ADAPT_LLM_API_KEY") or os.getenv(defaults["api_key_env"]) or "none"
     else:
         api_key = os.getenv("ADAPT_LLM_API_KEY", defaults["api_key"])
+    if source == "openrouter" and (not api_key.strip() or api_key == "none"):
+        raise ValueError("OPENROUTER_API_KEY or ADAPT_LLM_API_KEY is required for adaptation")
     timeout = float(os.getenv("ADAPT_LLM_TIMEOUT", "90"))
     return {"source": source, "base_url": base_url, "model": model, "api_key": api_key, "timeout": timeout}
+
+
+def _request_extra_body(source: str) -> dict[str, Any]:
+    """Provider-specific controls for the existing non-thinking adaptation calls."""
+    if source == "openrouter":
+        return {"reasoning": {"enabled": False}, "provider": {"require_parameters": True}}
+    if source == "vllm":
+        return {"chat_template_kwargs": {"enable_thinking": False}}
+    return {}
+
+
+def llm_failure_reason(error: Exception, fallback: str) -> str:
+    """Expose actionable transport failures without provider bodies or credentials."""
+    reason = getattr(error, 'reason_code', None)
+    if reason in {'hosted_budget_exhausted', 'hosted_generation_disabled_cache_miss', 'hosted_case_not_approved'}:
+        return reason
+    for kind, reason in ((openai.RateLimitError, 'hosted_provider_rate_limited'),
+                         (openai.APITimeoutError, 'hosted_provider_timeout'),
+                         (openai.AuthenticationError, 'hosted_provider_authentication_failed'),
+                         (openai.APIConnectionError, 'hosted_provider_unreachable')):
+        if isinstance(error, kind):
+            return reason
+    return fallback
 
 
 def _build_prompt(
@@ -261,8 +294,8 @@ def rerank_with_llm(
     if not candidates:
         return None
 
-    cfg = _llm_config()
     try:
+        cfg = _llm_config()
         client = openai.OpenAI(
             base_url=cfg["base_url"],
             api_key=cfg["api_key"],
@@ -272,9 +305,6 @@ def rerank_with_llm(
             recipe_title, recipe_ingredients, target_nutrient_label,
             target_points, offending_ingredient, offending_pct, candidates, mode,
         )
-        # Qwen3 models emit <think> tokens by default, which eat the token budget
-        # before any JSON is produced. vLLM honours `chat_template_kwargs.enable_thinking=false`
-        # when passed via `extra_body`. Harmless for non-Qwen models that ignore the flag.
         resp = client.chat.completions.create(
             model=cfg["model"],
             messages=[
@@ -283,7 +313,7 @@ def rerank_with_llm(
             ],
             temperature=0.0,
             max_tokens=1024,
-            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+            extra_body=_request_extra_body(cfg["source"]),
         )
         raw = resp.choices[0].message.content or ""
     except Exception as e:

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from .models import ComparisonConstraints
 
 
 Region = Literal["IE", "HU", "EU", "SI"]
@@ -17,6 +19,24 @@ Mode = Literal[
     "vegan",
     "vegetarian",
 ]
+
+
+class EnhancementRequest(BaseModel):
+    """Button-style request; evidence attestations are never public inputs."""
+
+    model_config = ConfigDict(extra="forbid")
+    region: Region
+    mode: Literal["nutrition", "sustainability", "cost"] = "nutrition"
+    goal_nutrients: List[str] = Field(default_factory=list, max_length=20,
+        description="Optional energy, sugar, saturated_fats or sodium goals. Meaningful nutrient reductions may qualify within the same Nutri-Score grade.")
+    constraints: ComparisonConstraints = Field(default_factory=ComparisonConstraints)
+
+
+class SmallGainRequest(BaseModel):
+    """Deterministic small-gain adaptation of one recipe in a regional profile; no model calls."""
+
+    model_config = ConfigDict(extra="forbid")
+    region: Region
 
 
 class SuggestionsRequest(BaseModel):
@@ -215,7 +235,7 @@ class SuggestionsResponse(BaseModel):
     # ---- LLM metadata (populated when use_llm=true) ----
     llm_used: bool = Field(False, description="Whether the LLM judge ran and produced this ranking.")
     llm_model: Optional[str] = Field(None, description="Model id that produced the ranking (e.g. 'qwen3-32b').")
-    llm_source: Optional[Literal["vllm", "groq"]] = None
+    llm_source: Optional[Literal["vllm", "groq", "openrouter"]] = None
     llm_rejected: list[LLMRejection] = Field(
         default_factory=list,
         description="Candidates the LLM dropped as culinary-nonsense, with reasons.",

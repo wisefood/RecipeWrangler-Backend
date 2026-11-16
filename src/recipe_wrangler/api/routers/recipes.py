@@ -2083,9 +2083,13 @@ async def recipe_search(
         include_ingredients=(
             [] if title_only else requested_ingredients
         ),
-        exclude_ingredients=(
-            [] if title_only else constraints.get("excluded_ingredients") or []
-        ),
+        # The caller's exclusions (a member's disliked foods) hold on a
+        # title-only search too, the same way their allergens do below; only
+        # what the question text implied is dropped there.
+        exclude_ingredients=list(dict.fromkeys([
+            *(payload.exclude_ingredients or []),
+            *([] if title_only else constraints.get("excluded_ingredients") or []),
+        ])),
         exclude_allergens=(
             list(dict.fromkeys(exclude_allergens))
             if title_only
@@ -2434,6 +2438,10 @@ def param_search(
                 exclude_ingredients=payload.exclude_ingredients,
                 exclude_allergens=payload.exclude_allergens,
                 diet_tags=payload.diet_tags,
+                # The member's liked foods. The browse order has a branch for
+                # exactly this (see the `elif should:` sort), which nothing
+                # reached because the filters model had no field to carry it.
+                boost_ingredients=payload.preferred_ingredients,
                 sources=payload.sources,
                 dish_types=payload.dish_types,
                 cuisines=payload.cuisines,

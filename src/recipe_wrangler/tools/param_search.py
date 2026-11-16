@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from recipe_wrangler.schemas import RecipeSearchFilters
+from recipe_wrangler.utils.food_ontology import expand_allergen_exclusions
 from recipe_wrangler.utils.env_loader import load_runtime_env
 
 load_runtime_env()
@@ -101,7 +102,9 @@ def _build_where_clause(
 ) -> tuple[str, dict[str, Any]]:
     include_ingredients = _normalize_terms(filters.include_ingredients)
     exclude_ingredients = _normalize_terms(filters.exclude_ingredients)
-    exclude_allergens = _normalize_terms(filters.exclude_allergens)
+    # Canonical identifiers plus what they imply (`gluten` also excludes
+    # `wheat`), so the IN below compares like with like against `Allergen.name`.
+    exclude_allergens = expand_allergen_exclusions(filters.exclude_allergens)
     diet_tags = _normalize_terms(filters.diet_tags)
     sources = _normalize_sources(filters.sources)
     dish_types = _normalize_terms(filters.dish_types)

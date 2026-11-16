@@ -9,6 +9,7 @@ three-state: suitable, not_suitable, or unknown.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any, Iterable, Mapping
 
 CLASSIFICATION_VERSION = "fato-foodon-v1"
@@ -56,6 +57,297 @@ ALLERGEN_ONTOLOGY_MAPPINGS: dict[str, AllergenOntologyMapping] = {
     "lupin": AllergenOntologyMapping("FOODON_03510228", "lupin"),
     "molluscs": AllergenOntologyMapping("FOODON_03510232", "molluscs"),
 }
+
+
+# The EU's fourteen declaration groups (Regulation 1169/2011, Annex II), in
+# Annex order, keyed by the identifier every surface has to agree on: the
+# graph's ``Allergen.name``, the index's ``allergens`` field, the gateway's
+# profile ``allergies`` and the UI's pick lists all carry exactly these
+# strings. ``wheat`` is not a fifteenth group — it is the compatibility
+# identifier above, and ``gluten`` implies it on exclusion (see
+# ``ALLERGEN_EXCLUSION_IMPLIES``).
+EU_ALLERGEN_GROUPS: tuple[str, ...] = (
+    "gluten",
+    "crustacean_shellfish",
+    "egg",
+    "fish",
+    "peanut",
+    "soy",
+    "milk",
+    "tree_nut",
+    "celery",
+    "mustard",
+    "sesame",
+    "sulphites",
+    "lupin",
+    "molluscs",
+)
+
+CANONICAL_ALLERGEN_IDS: tuple[str, ...] = EU_ALLERGEN_GROUPS + ("wheat",)
+
+# What callers actually send, mapped to the identifier(s) they mean. The UI's
+# profile picker used to store ``dairy``/``nuts``/``shellfish``, FoodChat's
+# memory flow writes whatever the member said, and the console lets a curator
+# type anything — none of which matched ``toLower(al.name) IN $exclude`` and
+# so excluded nothing. Keys are compared after ``_allergen_key`` folding
+# (case, hyphens, underscores, surrounding whitespace) and a trailing "s" is
+# tried on a miss, so plurals need no entries of their own. A bare
+# ``shellfish`` means both crustaceans and molluscs: an allergy, so the wider
+# reading is the safe one.
+ALLERGEN_ALIASES: dict[str, tuple[str, ...]] = {
+    # cereals containing gluten
+    "cereals containing gluten": ("gluten",),
+    "gluten containing cereals": ("gluten",),
+    "wheat gluten": ("gluten",),
+    "coeliac": ("gluten",),
+    "celiac": ("gluten",),
+    "rye": ("gluten",),
+    "barley": ("gluten",),
+    "oat": ("gluten",),
+    "spelt": ("gluten",),
+    "kamut": ("gluten",),
+    "khorasan": ("gluten",),
+    "khorasan wheat": ("gluten",),
+    # crustaceans
+    "crustacean": ("crustacean_shellfish",),
+    "crustacean shellfish": ("crustacean_shellfish",),
+    "crab": ("crustacean_shellfish",),
+    "prawn": ("crustacean_shellfish",),
+    "shrimp": ("crustacean_shellfish",),
+    "lobster": ("crustacean_shellfish",),
+    "crayfish": ("crustacean_shellfish",),
+    "langoustine": ("crustacean_shellfish",),
+    "scampi": ("crustacean_shellfish",),
+    "shellfish": ("crustacean_shellfish", "molluscs"),
+    "seafood": ("fish", "crustacean_shellfish", "molluscs"),
+    # eggs
+    "hen egg": ("egg",),
+    "hens egg": ("egg",),
+    "hen's egg": ("egg",),
+    # fish
+    "finfish": ("fish",),
+    # peanuts
+    "groundnut": ("peanut",),
+    "ground nut": ("peanut",),
+    "monkey nut": ("peanut",),
+    "arachis": ("peanut",),
+    # soybeans
+    "soya": ("soy",),
+    "soja": ("soy",),
+    "soybean": ("soy",),
+    "soy bean": ("soy",),
+    "soya bean": ("soy",),
+    # milk
+    "dairy": ("milk",),
+    "dairy product": ("milk",),
+    "milk product": ("milk",),
+    "milk protein": ("milk",),
+    "cow milk": ("milk",),
+    "cows milk": ("milk",),
+    "cow's milk": ("milk",),
+    "lactose": ("milk",),
+    "casein": ("milk",),
+    "whey": ("milk",),
+    # nuts
+    "nut": ("tree_nut",),
+    "tree nut": ("tree_nut",),
+    "treenut": ("tree_nut",),
+    "almond": ("tree_nut",),
+    "hazelnut": ("tree_nut",),
+    "walnut": ("tree_nut",),
+    "cashew": ("tree_nut",),
+    "cashew nut": ("tree_nut",),
+    "pecan": ("tree_nut",),
+    "pecan nut": ("tree_nut",),
+    "brazil nut": ("tree_nut",),
+    "pistachio": ("tree_nut",),
+    "pistachio nut": ("tree_nut",),
+    "macadamia": ("tree_nut",),
+    "macadamia nut": ("tree_nut",),
+    "queensland nut": ("tree_nut",),
+    # celery
+    "celeriac": ("celery",),
+    "celery root": ("celery",),
+    "celery seed": ("celery",),
+    # mustard
+    "mustard seed": ("mustard",),
+    # sesame seeds
+    "sesame seed": ("sesame",),
+    "sesamum": ("sesame",),
+    # sulphur dioxide and sulphites
+    "sulphite": ("sulphites",),
+    "sulfite": ("sulphites",),
+    "sulfites": ("sulphites",),
+    "sulphur dioxide": ("sulphites",),
+    "sulfur dioxide": ("sulphites",),
+    "sulphur dioxide and sulphites": ("sulphites",),
+    "sulfur dioxide and sulfites": ("sulphites",),
+    "so2": ("sulphites",),
+    "metabisulphite": ("sulphites",),
+    "metabisulfite": ("sulphites",),
+    # lupin
+    "lupine": ("lupin",),
+    "lupini": ("lupin",),
+    "lupin bean": ("lupin",),
+    "lupini bean": ("lupin",),
+    "lupin flour": ("lupin",),
+    # molluscs
+    "mollusc": ("molluscs",),
+    "mollusk": ("molluscs",),
+    "mollusc shellfish": ("molluscs",),
+    "mussel": ("molluscs",),
+    "oyster": ("molluscs",),
+    "clam": ("molluscs",),
+    "scallop": ("molluscs",),
+    "squid": ("molluscs",),
+    "calamari": ("molluscs",),
+    "octopus": ("molluscs",),
+    "cuttlefish": ("molluscs",),
+    "snail": ("molluscs",),
+    "escargot": ("molluscs",),
+    "cockle": ("molluscs",),
+    "whelk": ("molluscs",),
+    "abalone": ("molluscs",),
+}
+
+# Identifiers an exclusion of the key must also exclude. ``wheat`` is tagged
+# by its own rule (flour, bread, pasta, semolina ...) whose keywords the
+# ``gluten`` rule does not repeat, so a member excluding the EU group would
+# otherwise still be served a wheat-tagged ingredient the ontology walk missed.
+ALLERGEN_EXCLUSION_IMPLIES: dict[str, tuple[str, ...]] = {
+    "gluten": ("wheat",),
+}
+
+# Ingredient-name fragments that indicate each allergen, for the two matching
+# paths that cannot walk FoodOn ancestry by name: the Elasticsearch candidate
+# filter and the Neo4j CONTAINS backstop. Deliberately generous — a false
+# exclusion costs a recipe, a false inclusion costs a reaction — and
+# deliberately not exhaustive: closing it properly needs the allergen→FoodOn-id
+# map that does not exist yet.
+ALLERGEN_NAME_TERMS: dict[str, tuple[str, ...]] = {
+    "gluten": (
+        "gluten", "wheat", "barley", "rye", "spelt", "kamut", "farro", "durum",
+        "bulgur", "semolina", "couscous", "seitan", "malt", "flour", "bread",
+        "breadcrumb", "pasta", "noodle", "pastry",
+    ),
+    "wheat": (
+        "wheat", "durum", "semolina", "spelt", "bulgur", "couscous", "seitan",
+        "farina", "flour", "bread", "breadcrumb", "pasta", "noodle", "pastry",
+    ),
+    "crustacean_shellfish": (
+        "crustacean", "shellfish", "prawn", "shrimp", "crab", "lobster",
+        "crayfish", "langoustine", "scampi", "krill",
+    ),
+    "egg": ("egg", "mayonnaise", "meringue", "aioli", "albumen"),
+    "fish": (
+        "fish", "anchov", "salmon", "tuna", "cod", "haddock", "sardine",
+        "mackerel", "trout", "halibut", "tilapia", "sea bass", "worcestershire",
+    ),
+    "peanut": ("peanut", "groundnut", "satay", "sate"),
+    "soy": ("soy", "soya", "soja", "tofu", "edamame", "miso", "tempeh", "natto"),
+    "milk": (
+        "milk", "dairy", "cheese", "cream", "butter", "yoghurt", "yogurt",
+        "ghee", "custard", "whey", "casein", "lactose", "kefir", "paneer",
+        "halloumi", "mozzarella", "parmesan", "ricotta", "feta", "mascarpone",
+        "quark",
+    ),
+    "tree_nut": (
+        "tree nut", "nut", "almond", "cashew", "walnut", "pecan", "hazelnut",
+        "pistachio", "macadamia", "brazil nut", "pine nut", "chestnut",
+        "praline", "marzipan", "frangipane",
+    ),
+    "celery": ("celery", "celeriac"),
+    "mustard": ("mustard", "dijon"),
+    "sesame": ("sesame", "tahini", "halva", "halvah"),
+    "sulphites": (
+        "sulphite", "sulfite", "sulphur dioxide", "sulfur dioxide",
+        "metabisulphite", "metabisulfite",
+    ),
+    "lupin": ("lupin", "lupini", "lupine"),
+    "molluscs": (
+        "mollusc", "mollusk", "mussel", "oyster", "clam", "scallop", "squid",
+        "calamari", "octopus", "cuttlefish", "snail", "escargot", "cockle",
+        "whelk", "abalone",
+    ),
+}
+
+_CANONICAL_BY_KEY: dict[str, str] = {
+    cid.replace("_", " "): cid for cid in CANONICAL_ALLERGEN_IDS
+}
+
+
+def _allergen_key(value: object) -> str:
+    """Fold a caller's spelling to the form the alias table is keyed by."""
+    text = str(value or "").casefold().replace("_", " ").replace("-", " ")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _lookup_allergen(key: str) -> tuple[str, ...] | None:
+    if key in _CANONICAL_BY_KEY:
+        return (_CANONICAL_BY_KEY[key],)
+    if key in ALLERGEN_ALIASES:
+        return ALLERGEN_ALIASES[key]
+    return None
+
+
+def canonical_allergen_ids(value: object) -> tuple[str, ...] | None:
+    """The canonical identifier(s) one caller-supplied name means.
+
+    ``None`` when the name is not one the vocabulary knows — "kiwi" is a real
+    allergy and must still reach the name-level backstops as itself, so an
+    unknown name is never dropped and never guessed at.
+    """
+    key = _allergen_key(value)
+    if not key:
+        return None
+    found = _lookup_allergen(key)
+    if found is None and key.endswith("s") and len(key) > 3 and not key.endswith("ss"):
+        found = _lookup_allergen(key[:-1])
+    return found
+
+
+def normalize_allergen_names(values: Iterable[object] | None) -> list[str]:
+    """Canonical identifiers for a list of allergen names, in first-seen order.
+
+    Known names and aliases become their identifier(s); unknown names pass
+    through lower-cased and whitespace-folded. Empty entries are dropped and
+    duplicates (after mapping) collapse, so ``["Dairy", "milk", "eggs"]`` is
+    ``["milk", "egg"]``.
+    """
+    out: list[str] = []
+    for value in values or []:
+        ids = canonical_allergen_ids(value)
+        if ids is None:
+            key = _allergen_key(value)
+            ids = (key,) if key else ()
+        for cid in ids:
+            if cid not in out:
+                out.append(cid)
+    return out
+
+
+def expand_allergen_exclusions(values: Iterable[object] | None) -> list[str]:
+    """Identifiers to exclude for the given allergens: canonical plus implied."""
+    out: list[str] = []
+    for cid in normalize_allergen_names(values):
+        for name in (cid, *ALLERGEN_EXCLUSION_IMPLIES.get(cid, ())):
+            if name not in out:
+                out.append(name)
+    return out
+
+
+def allergen_name_terms(values: Iterable[object] | None) -> list[str]:
+    """Ingredient-name fragments that exclude the given allergens by name.
+
+    Each known identifier expands to ``ALLERGEN_NAME_TERMS``; an unknown name
+    contributes itself, so a profile that says "kiwi" still screens kiwi.
+    """
+    out: list[str] = []
+    for cid in expand_allergen_exclusions(values):
+        for term in ALLERGEN_NAME_TERMS.get(cid, (cid.replace("_", " "),)):
+            if term not in out:
+                out.append(term)
+    return out
 
 
 # Named dairy/meat products that carry no generic allergen/meat word in

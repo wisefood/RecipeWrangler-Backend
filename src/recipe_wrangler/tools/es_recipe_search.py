@@ -21,6 +21,7 @@ from recipe_wrangler.catalog import diets as D
 from recipe_wrangler.catalog.sources import SOURCES as _REGISTERED_SOURCES
 from recipe_wrangler.catalog.sources import canonical_course_type
 from recipe_wrangler.catalog.vocabularies import SOURCE_CUISINE_PRIOR
+from recipe_wrangler.utils.food_ontology import expand_allergen_exclusions
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
 
@@ -502,8 +503,10 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     for ing in _norm(c.exclude_ingredients):
         must_not.append(_ingredient_clause(ing, nested=ing_nested))
 
-    # Allergens — exclude any recipe carrying one of them.
-    allergens = _norm(c.exclude_allergens)
+    # Allergens — exclude any recipe carrying one of them. The index stores
+    # the canonical identifiers, so the caller's spelling is folded first and
+    # `gluten` brings `wheat` with it.
+    allergens = expand_allergen_exclusions(c.exclude_allergens)
     if allergens:
         must_not.append({"terms": {"allergens": allergens}})
 

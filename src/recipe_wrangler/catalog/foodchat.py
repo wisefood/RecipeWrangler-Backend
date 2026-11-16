@@ -33,6 +33,11 @@ from typing import Any, Iterable
 from recipe_wrangler.catalog import diets as D
 from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog.nutrition import per_serving, within_targets
+from recipe_wrangler.utils.food_ontology import (
+    ALLERGEN_NAME_TERMS,
+    allergen_name_terms,
+    expand_allergen_exclusions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -90,42 +95,13 @@ _MACRO_OVERSAMPLE = 5
 # close that: "dairy" appears in 27 recipes, while "cheese" appears in 1,328,
 # and no amount of wildcarding turns one into the other.
 #
-# This is a name-level approximation of the taxonomy walk the Neo4j path does
-# through FoodOn ancestry. It is deliberately generous — a false exclusion costs
-# a recipe, a false inclusion costs a reaction — and deliberately not exhaustive:
-# closing it properly needs the allergen→FoodOn-id map that does not exist yet,
-# and pretending a word list is that map is how you get trusted for more than
-# you are.
-ALLERGEN_INGREDIENT_TERMS: dict[str, tuple[str, ...]] = {
-    "milk": ("milk", "cheese", "cream", "butter", "yoghurt", "yogurt", "ghee",
-             "custard", "mozzarella", "parmesan", "ricotta", "feta", "mascarpone"),
-    "dairy": ("milk", "cheese", "cream", "butter", "yoghurt", "yogurt", "ghee",
-              "custard", "mozzarella", "parmesan", "ricotta", "feta", "mascarpone"),
-    "egg": ("egg", "mayonnaise", "meringue", "aioli"),
-    "peanut": ("peanut", "groundnut", "satay"),
-    "tree_nut": ("almond", "cashew", "walnut", "pecan", "hazelnut", "pistachio",
-                 "macadamia", "brazil nut", "praline", "marzipan", "pine nut",
-                 "nut"),
-    # A profile that just says "nuts" means all of them. This key was missing:
-    # the lookup tried "nuts" and "nut", found neither, and fell back to a
-    # bare `*nuts*` wildcard — which does not match "pine nut", singular, so
-    # "Spinach with raisins and pine nuts" was served to a nut-allergic
-    # member. The `nut` fragment is deliberately broad (it also catches
-    # nutmeg and coconut); for an allergy, over-exclusion is the safe error.
-    "nut": ("almond", "cashew", "walnut", "pecan", "hazelnut", "pistachio",
-            "macadamia", "brazil nut", "praline", "marzipan", "pine nut",
-            "peanut", "groundnut", "satay", "nut"),
-    "wheat": ("wheat", "flour", "bread", "pasta", "couscous", "semolina",
-              "breadcrumb", "pastry"),
-    "gluten": ("wheat", "barley", "rye", "flour", "bread", "pasta", "couscous",
-               "semolina", "breadcrumb", "pastry"),
-    "soy": ("soy", "soya", "tofu", "edamame", "miso", "tempeh"),
-    "fish": ("fish", "anchovy", "salmon", "tuna", "cod", "haddock", "sardine",
-             "mackerel"),
-    "shellfish": ("prawn", "shrimp", "crab", "lobster", "mussel", "oyster",
-                  "clam", "scallop", "squid", "calamari"),
-    "sesame": ("sesame", "tahini"),
-}
+# The table itself lives with the allergen vocabulary in
+# ``utils.food_ontology`` (``ALLERGEN_NAME_TERMS``), keyed by the canonical
+# identifiers, because the Neo4j candidates path needs the same words for its
+# CONTAINS backstop. Callers may still send "dairy", "nuts" or "tree nuts":
+# ``allergen_exclusions`` folds those through the alias table before looking
+# a term list up, so one place is maintained.
+ALLERGEN_INGREDIENT_TERMS: dict[str, tuple[str, ...]] = ALLERGEN_NAME_TERMS
 
 
 def allergen_exclusions(allergen: str) -> list[dict[str, Any]]:
@@ -133,24 +109,33 @@ def allergen_exclusions(allergen: str) -> list[dict[str, Any]]:
 
     Three sources, because no single one is complete:
 
-    * the declared `allergens` field, when the graph recorded it;
+    * the declared `allergens` field, for the canonical identifier the name
+      means (and the name as sent, in case the index ever carried it raw);
     * an ingredient whose name *contains* the allergen word, via a wildcard on
       the keyword subfield. A plain analysed `match` cannot do this — "milk"
       does not match "buttermilk" — and the earlier version used one while
       claiming otherwise;
-    * `ALLERGEN_INGREDIENT_TERMS`, which is what actually catches mozzarella
-      for `dairy`. Substring matching alone cannot: the two words share no
-      characters.
+    * `ALLERGEN_NAME_TERMS` for each canonical identifier, which is what
+      actually catches mozzarella for `dairy` and prawns for
+      `crustacean_shellfish`. Substring matching alone cannot: the two words
+      share no characters.
 
     Multi-word allergens also contribute each word separately, so "tree nuts"
     excludes an ingredient naming "nuts". Separate clauses rather than one
     analysed match, so they OR as exclusions instead of requiring all of them.
+    A name the vocabulary does not know ("kiwi") is excluded by itself.
     """
     word = allergen.replace("_", " ").strip()
     if not word:
         return []
 
-    clauses: list[dict[str, Any]] = [{"term": {"allergens": allergen}}]
+    # Canonical plus implied: `gluten` also drops `wheat`-tagged recipes.
+    canonical = expand_allergen_exclusions([allergen])
+
+    clauses: list[dict[str, Any]] = [
+        {"term": {"allergens": name}}
+        for name in dict.fromkeys([allergen.strip().lower(), *canonical])
+    ]
 
     def contains(fragment: str) -> dict[str, Any]:
         return {
@@ -169,10 +154,7 @@ def allergen_exclusions(allergen: str) -> list[dict[str, Any]]:
 
     fragments = {word}
     fragments.update(part for part in word.split() if len(part) >= 3)
-    # Both the underscored and spaced spellings key the table: callers normalise
-    # to `tree_nut`, but a profile may say "tree nuts".
-    for key in (allergen, allergen.rstrip("s"), word, word.replace(" ", "_")):
-        fragments.update(ALLERGEN_INGREDIENT_TERMS.get(key, ()))
+    fragments.update(allergen_name_terms([allergen]))
 
     for fragment in sorted(fragments):
         clauses.append(contains(fragment))

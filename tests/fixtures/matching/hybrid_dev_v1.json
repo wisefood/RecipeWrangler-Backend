@@ -1,0 +1,914 @@
+{
+  "dataset_id": "hybrid_dev_v1_2026-10-23",
+  "split": "development_only",
+  "label_status": "provisional_assistant_authored_not_independently_reviewed",
+  "purpose": "Frozen development extraction checks, contrast-pair compatibility checks, and retrieval-anchor diagnostics. Not a held-out benchmark or nutrition reference set.",
+  "policy": "Changes require a new version; record development-tuning results honestly. The separate 100-description unlabelled review pack is not modified.",
+  "cases": [
+    {
+      "case_id": "dev-001",
+      "group": "egg_identity",
+      "text": "eggs, chicken",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "main_ingredient": "egg",
+        "facets.biological_source": "chicken",
+        "facets.preparation_state": null
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, duck",
+          "expected_relation": "reject",
+          "rationale": "Producer species conflicts."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-002",
+      "group": "egg_identity",
+      "text": "chicken egg white",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "main_ingredient": "egg",
+        "facets.biological_source": "chicken",
+        "facets.food_part": "egg_white"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "chicken egg yolk",
+          "expected_relation": "reject",
+          "rationale": "White and yolk differ."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-003",
+      "group": "egg_identity",
+      "text": "chicken egg yolk, raw",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.food_part": "egg_yolk",
+        "facets.preparation_state": "raw"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "chicken egg white, raw",
+          "expected_relation": "reject",
+          "rationale": "White and yolk differ."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-004",
+      "group": "egg_identity",
+      "text": "eggs, chicken, whole, boiled",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.food_part": "whole_egg",
+        "facets.processes": [
+          "boiled"
+        ]
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, chicken, whole, boiled",
+          "expected_relation": "compatible_proposal",
+          "rationale": "Same stated egg/source/portion/preparation."
+        }
+      ],
+      "retrieval_anchor_label": "Eggs, chicken, whole, boiled",
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-005",
+      "group": "egg_identity",
+      "text": "hen eggs",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "main_ingredient": "egg",
+        "facets.biological_source": "chicken"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "duck eggs",
+          "expected_relation": "reject",
+          "rationale": "Hen and duck source conflict."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-006",
+      "group": "egg_identity",
+      "text": "eggs",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "main_ingredient": "egg",
+        "facets.biological_source": null
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, chicken, raw",
+          "expected_relation": "needs_review",
+          "rationale": "Source and preparation are unstated."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-007",
+      "group": "cooking_scope",
+      "text": "eggs, chicken, medium, fried",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.size": "medium",
+        "facets.size_target": "food",
+        "facets.processes": [
+          "fried"
+        ]
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, chicken, fried in butter",
+          "expected_relation": "needs_review",
+          "rationale": "Added-fat details and portion are unspecified."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-008",
+      "group": "cooking_scope",
+      "text": "eggs not boiled",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.processes": [],
+        "facets.preparation_state": null
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, boiled",
+          "expected_relation": "reject",
+          "rationale": "Boiling is explicitly negated."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-009",
+      "group": "cooking_scope",
+      "text": "eggs for frying",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.processes": [],
+        "facets.preparation_state": null
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, fried",
+          "expected_relation": "needs_review",
+          "rationale": "Intended cooking is not actual cooking."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-010",
+      "group": "cooking_scope",
+      "text": "boiled or fried eggs",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.processes": [],
+        "facets.preparation_state": "cooked"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, boiled",
+          "expected_relation": "needs_review",
+          "rationale": "Method alternatives remain unresolved."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-011",
+      "group": "cooking_scope",
+      "text": "eggs with fried chicken",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "main_ingredient": null,
+        "facets.processes": []
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, chicken, fried",
+          "expected_relation": "needs_review",
+          "rationale": "Multiple foods and process targets cannot be collapsed."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-012",
+      "group": "cooking_scope",
+      "text": "eggs, chicken, whole, raw",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.preparation_state": "raw",
+        "facets.food_part": "whole_egg"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, chicken, whole, boiled",
+          "expected_relation": "reject",
+          "rationale": "Raw/cooked conflict."
+        }
+      ],
+      "retrieval_anchor_label": "Eggs, chicken, whole, raw",
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-013",
+      "group": "meat",
+      "text": "chicken breast",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "main_ingredient": "chicken",
+        "facets.biological_source": "chicken",
+        "facets.food_part": "breast"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "chicken breast",
+          "expected_relation": "needs_review",
+          "rationale": "Preparation is missing even though the identity agrees."
+        }
+      ],
+      "retrieval_anchor_label": "Chicken, breast",
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-014",
+      "group": "meat",
+      "text": "chicken breast, raw",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.food_part": "breast",
+        "facets.preparation_state": "raw"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "chicken breast, boiled",
+          "expected_relation": "reject",
+          "rationale": "Raw/cooked conflict."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-015",
+      "group": "meat",
+      "text": "chicken liver, raw",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.food_part": "liver"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "chicken breast, raw",
+          "expected_relation": "reject",
+          "rationale": "Different anatomical parts."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-016",
+      "group": "meat",
+      "text": "skinless chicken breast, raw",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.skin_status": "absent"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "chicken breast with skin, raw",
+          "expected_relation": "reject",
+          "rationale": "Skin inclusion conflicts."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-017",
+      "group": "meat",
+      "text": "boneless chicken breast, raw",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.bone_status": "absent"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "chicken breast with bone, raw",
+          "expected_relation": "needs_review",
+          "rationale": "Bone-in versus edible nutrient basis needs yield review, not automatic rejection."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-018",
+      "group": "meat",
+      "text": "chicken breast, raw, sliced",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.processes": [
+          "sliced"
+        ]
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "chicken breast, raw",
+          "expected_relation": "compatible_proposal",
+          "rationale": "Simple slicing preserves the stated per-mass material under the pilot policy."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-019",
+      "group": "products",
+      "text": "Pasta, egg, white, tagliatelle, fresh, boiled in unsalted water",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "main_ingredient": "pasta",
+        "facets.food_part": null,
+        "facets.sodium_level": null
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "egg white, boiled",
+          "expected_relation": "reject",
+          "rationale": "Pasta is a different food; cooking-water claim does not become product sodium."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-020",
+      "group": "products",
+      "text": "Mustard, wholegrain",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "main_ingredient": "mustard",
+        "facets.grain_refinement": null,
+        "qualifiers.product_style": "wholegrain"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "wholegrain rice",
+          "expected_relation": "reject",
+          "rationale": "Condiment and cereal are different foods."
+        }
+      ],
+      "retrieval_anchor_label": "Mustard, wholegrain",
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-021",
+      "group": "products",
+      "text": "wholegrain rice, raw",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.grain_refinement": "wholegrain"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "refined rice, raw",
+          "expected_relation": "reject",
+          "rationale": "Grain refinement conflicts."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-022",
+      "group": "products",
+      "text": "peanut butter, smooth",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.texture": "smooth"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "peanut butter, crunchy",
+          "expected_relation": "needs_review",
+          "rationale": "Texture tolerance is not independently settled."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-023",
+      "group": "products",
+      "text": "chicken stock",
+      "origin": "assistant_authored_development_description",
+      "expected": {},
+      "compatibility_checks": [
+        {
+          "candidate_text": "chicken breast",
+          "expected_relation": "reject",
+          "rationale": "Stock and meat are different food products."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-024",
+      "group": "products",
+      "text": "tomato paste",
+      "origin": "assistant_authored_development_description",
+      "expected": {},
+      "compatibility_checks": [
+        {
+          "candidate_text": "tomato, raw",
+          "expected_relation": "reject",
+          "rationale": "Paste and whole tomato are different material forms/products."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-025",
+      "group": "dairy",
+      "text": "Milk whole fat dried",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.fat_level": "whole",
+        "facets.physical_form": null,
+        "facets.preservation_methods": [
+          "dried"
+        ]
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "skimmed milk powder",
+          "expected_relation": "reject",
+          "rationale": "Milk fat classes conflict."
+        }
+      ],
+      "retrieval_anchor_label": "Milk whole fat dried",
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-026",
+      "group": "dairy",
+      "text": "skimmed milk",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.fat_level": "skimmed"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "whole milk",
+          "expected_relation": "reject",
+          "rationale": "Fat classes conflict."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-027",
+      "group": "dairy",
+      "text": "milk, 1% fat",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.fat_content_description": "1% fat"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "milk, 3% fat",
+          "expected_relation": "reject",
+          "rationale": "Explicit fat percentages conflict."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-028",
+      "group": "dairy",
+      "text": "milk powder, reconstituted",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.reconstitution_state": "reconstituted"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "milk powder",
+          "expected_relation": "needs_review",
+          "rationale": "Prepared versus dry basis is unresolved."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-029",
+      "group": "dairy",
+      "text": "milk mixed with boiling water",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.preparation_state": null,
+        "facets.processes": []
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "milk, boiled",
+          "expected_relation": "needs_review",
+          "rationale": "Water temperature does not establish boiling of milk."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-030",
+      "group": "dairy",
+      "text": "milk, fortified",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.fortification": "fortified"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "milk, unfortified",
+          "expected_relation": "reject",
+          "rationale": "Fortification assertion conflicts; amounts still unspecified."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-031",
+      "group": "preservation",
+      "text": "Sweetcorn kernels, canned in water, drained",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.packing_medium": "water",
+        "facets.drainage_status": "drained"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "sweetcorn kernels, canned in oil, drained",
+          "expected_relation": "reject",
+          "rationale": "Packing media conflict."
+        }
+      ],
+      "retrieval_anchor_label": "Sweetcorn kernels, canned in water, drained",
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-032",
+      "group": "preservation",
+      "text": "tuna, canned in brine, drained",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.packing_medium": "brine",
+        "facets.drainage_status": "drained"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "tuna, canned in brine",
+          "expected_relation": "needs_review",
+          "rationale": "Drainage/reporting basis missing."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-033",
+      "group": "preservation",
+      "text": "chickpeas, canned, drained and rinsed",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.drainage_status": "drained_and_rinsed"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "chickpeas, canned, drained",
+          "expected_relation": "needs_review",
+          "rationale": "Rinsing effects need review, not global tolerance."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-034",
+      "group": "preservation",
+      "text": "peas, frozen",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.preservation_methods": [
+          "frozen"
+        ]
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "peas, fresh",
+          "expected_relation": "needs_review",
+          "rationale": "Fresh/frozen equivalence needs family-specific approval."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-035",
+      "group": "preservation",
+      "text": "apricots, dried",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.preservation_methods": [
+          "dried"
+        ]
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "apricots, fresh",
+          "expected_relation": "reject",
+          "rationale": "Drying changes the represented material state."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-036",
+      "group": "preservation",
+      "text": "tomato, boiled in water",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.packing_medium": null
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "tomato, canned in water",
+          "expected_relation": "needs_review",
+          "rationale": "Cooking liquid and packing medium are distinct relationships."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-037",
+      "group": "portion",
+      "text": "large pineapple",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.size": "large",
+        "facets.size_target": "food"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "pineapple",
+          "expected_relation": "compatible_proposal",
+          "rationale": "Food size alone does not block per-mass candidate."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-038",
+      "group": "portion",
+      "text": "large slice of pineapple",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.size": "large",
+        "facets.size_target": "piece"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "pineapple",
+          "expected_relation": "compatible_proposal",
+          "rationale": "Slice size belongs to portion handling."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-039",
+      "group": "portion",
+      "text": "70 g eggs, chicken, whole, boiled",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "main_ingredient": "egg",
+        "facets.food_part": "whole_egg"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, chicken, whole, boiled",
+          "expected_relation": "compatible_proposal",
+          "rationale": "Leading quantity is preserved as input but excluded from descriptor parsing."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-040",
+      "group": "portion",
+      "text": "1 medium onion, thinly sliced",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.size": "medium",
+        "facets.size_target": "food",
+        "facets.thickness": "thin"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "onion",
+          "expected_relation": "compatible_proposal",
+          "rationale": "Simple slicing/size/thickness do not change the per-mass ingredient."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-041",
+      "group": "portion",
+      "text": "ripe banana",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.ripeness": "ripe"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "unripe banana",
+          "expected_relation": "needs_review",
+          "rationale": "Ripeness tolerance needs family-specific review."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-042",
+      "group": "portion",
+      "text": "eggs, optional",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "context.optional": true,
+        "facets.preparation_state": null
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, raw",
+          "expected_relation": "needs_review",
+          "rationale": "Optionality does not establish raw state."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-043",
+      "group": "uncertainty",
+      "text": "eggs, chicken, whole, fried without fat",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "qualifiers.added_fat": "none"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, chicken, whole, fried in butter",
+          "expected_relation": "reject",
+          "rationale": "Explicit absence versus butter conflicts."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-044",
+      "group": "uncertainty",
+      "text": "eggs, chicken, whole, fried in sunflower oil",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "qualifiers.added_fat": "sunflower_oil"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, chicken, whole, fried in butter",
+          "expected_relation": "reject",
+          "rationale": "Explicit added-fat types conflict."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-045",
+      "group": "uncertainty",
+      "text": "milk, no added sugar",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.sugar_level": "no_added_sugar"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "milk, sugar free",
+          "expected_relation": "needs_review",
+          "rationale": "Distinct claims are not mutually exclusive or interchangeable."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-046",
+      "group": "uncertainty",
+      "text": "rice, cooked without added salt",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.sodium_level": "no_added_salt"
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "rice, cooked",
+          "expected_relation": "needs_review",
+          "rationale": "Candidate does not establish the stated salt condition."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-047",
+      "group": "uncertainty",
+      "text": "mystery ingredient",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "main_ingredient": null
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs",
+          "expected_relation": "needs_review",
+          "rationale": "Unknown identity must not become a confident match."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    },
+    {
+      "case_id": "dev-048",
+      "group": "uncertainty",
+      "text": "eggs, raw, boiled",
+      "origin": "assistant_authored_development_description",
+      "expected": {
+        "facets.preparation_state": null
+      },
+      "compatibility_checks": [
+        {
+          "candidate_text": "eggs, boiled",
+          "expected_relation": "needs_review",
+          "rationale": "Contradictory input requires interpretation review."
+        }
+      ],
+      "retrieval_anchor_label": null,
+      "label_status": "provisional_assistant_authored_not_independently_reviewed"
+    }
+  ]
+}

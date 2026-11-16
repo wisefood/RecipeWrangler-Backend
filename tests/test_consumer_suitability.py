@@ -6,11 +6,12 @@ from recipe_wrangler.utils.consumer_suitability import (
     SUITABILITY_CLASSIFICATION_VERSION,
     VEGAN_NAME_EXCLUSIONS,
     keyword_regex,
+    positive_keyword_regex,
 )
 
 
 def test_rule_version_and_supported_source_categories() -> None:
-    assert SUITABILITY_CLASSIFICATION_VERSION == "vegan-vegetarian-v1"
+    assert SUITABILITY_CLASSIFICATION_VERSION == "vegan-vegetarian-v10"
     origins = {str(item["name"]): item for item in DIETARY_ORIGINS}
     assert origins["dairy"]["vegan_status"] == "not_suitable"
     assert origins["dairy"]["vegetarian_status"] == "suitable"
@@ -57,3 +58,18 @@ def test_vegan_plant_alternatives_are_excluded_from_negative_terms() -> None:
         re.match(pattern, "vegetarian cheese")
         for pattern in VEGAN_NAME_EXCLUSIONS
     )
+
+
+def test_alternative_exceptions_do_not_hide_independent_animal_ingredients() -> None:
+    from recipe_wrangler.utils.consumer_suitability import VEGETARIAN_NAME_EXCLUSIONS
+    for patterns in [VEGAN_NAME_EXCLUSIONS,VEGETARIAN_NAME_EXCLUSIONS]:
+        for name in ['vegan sausage with pork','oat milk and cream','butter beans with bacon',
+                     'dairy-free cream with egg','butternut with lard']:
+            assert not any(re.fullmatch(pattern,name) for pattern in patterns), name
+    assert re.fullmatch(positive_keyword_regex('milk'),'milk')
+    assert not re.fullmatch(positive_keyword_regex('milk'),'milk and unresolved sauce')
+    assert re.fullmatch(positive_keyword_regex('vegan'),'vegan sausage')
+    assert not re.fullmatch(positive_keyword_regex('vegan'),'vegan sausage with pork')
+    assert not re.fullmatch(positive_keyword_regex('vegan'),'vegetarian cheese')
+    assert re.fullmatch(positive_keyword_regex('milk'),'low fat milk')
+    assert not re.fullmatch(positive_keyword_regex('milk'),'milk and mystery sauce')

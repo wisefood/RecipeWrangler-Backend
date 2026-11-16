@@ -79,15 +79,13 @@ def _filter_should_terms(payload: dict) -> list[dict]:
     return out
 
 
-def test_supported_diet_groups_prefer_suitability_but_fall_back_to_tags() -> None:
-    """vegan/vegetarian query the FATO assessment *and* the source tag.
+def test_supported_diet_groups_trust_only_the_assessment() -> None:
+    """vegan/vegetarian filter on `suitable_for` alone.
 
-    `suitable_for` is the better signal — three-state, with blocking
-    ingredients and reason codes. But filtering on it alone returned zero for
-    every vegan and vegetarian search, because classify_vegan_vegetarian.py has
-    never been run against this corpus: the graph holds no ConsumerGroup nodes,
-    so the field is empty on all 7,221 recipes while the tags carry vegetarian
-    on 3,916 and vegan on 2,143.
+    The fallback to source tags (added while the assessment was unpopulated)
+    let legacy `vegan` tags override a not_suitable assessment: Steamed Hake
+    was served to vegan profiles. The assessment now covers the corpus.
+    Unassessed legacy labels such as low_sodium still use tags.
     """
     payload = search.build_es_query(
         search.RecipeSearchConstraints(
@@ -95,22 +93,13 @@ def test_supported_diet_groups_prefer_suitability_but_fall_back_to_tags() -> Non
         )
     )
 
+    filters = payload["query"]["bool"]["filter"]
     terms = _filter_should_terms(payload)
     for group in ("vegan", "vegetarian"):
-        assert {"suitable_for": group} in terms, "evidence field must still be queried"
-        assert {"tags": group} in terms, "must not return zero while it is unpopulated"
+        assert {"term": {"suitable_for": group}} in filters
+        assert {"tags": group} not in terms
+        assert {"diet_tags": group} not in terms
     assert {"tags": "low_sodium"} in terms
-
-
-def test_diet_filters_never_require_both_signals() -> None:
-    """Matching either is enough; requiring both would reintroduce the zero."""
-    payload = search.build_es_query(
-        search.RecipeSearchConstraints(diet_tags=["vegetarian"])
-    )
-    clause = next(
-        c for c in payload["query"]["bool"]["filter"] if "bool" in c
-    )
-    assert clause["bool"]["minimum_should_match"] == 1
 
 
 def test_positive_ingredient_request_wins_over_inferred_allergen() -> None:
@@ -501,3 +490,82 @@ def test_natural_language_mixed_intent_combines_title_and_filters():
     assert constraints.exclude_ingredients == ["milk"]
     assert constraints.exclude_allergens == ["milk"]
     assert constraints.max_duration_minutes == 30
+
+
+def test_blank_search_preserves_explicit_restrictions_and_pagination():
+    with (
+        patch.object(recipes, 'get_recipe_constraint_extractor') as extractor,
+        patch.object(recipes, '_random_myplate_from_elastic', return_value=[{'recipe_id':'unfiltered'}]) as landing,
+        patch.object(recipes, 'search_recipes_es', return_value={
+            'results':[{'recipe_id':'filtered'}], 'total':12, 'facets':{},
+        }) as retrieve,
+    ):
+        result=asyncio.run(recipes.recipe_search(RecipeSearchRequest(
+            question='  ', exclude_allergens=['peanut'], require_diet_tags=['vegan'],
+            diet_tags=['vegetarian'], preferred_ingredients=['lentils'],
+            sources=['myplate'], cuisines=['italian'], region='HU', limit=2, offset=4,
+        )))
+    assert result['results'][0]['recipe_id']=='filtered'
+    constraints=retrieve.call_args.args[0]
+    assert constraints.exclude_allergens==['peanut']
+    assert constraints.diet_tags==['vegetarian','vegan']
+    assert constraints.boost_tags==[]
+    assert constraints.boost_ingredients==['lentils']
+    assert constraints.sources==['myplate']
+    assert constraints.cuisines==['italian']
+    assert (constraints.region,constraints.limit,constraints.offset)==('HU',2,4)
+    assert result['total']==12
+    extractor.assert_not_called()
+    landing.assert_not_called()
+
+
+def test_unconfigured_blank_search_keeps_random_landing():
+    with (
+        patch.object(recipes, 'get_recipe_constraint_extractor') as extractor,
+        patch.object(recipes, 'search_recipes_es') as retrieve,
+        patch.object(recipes, '_random_myplate_from_elastic', return_value=[{'recipe_id':'landing'}]) as landing,
+    ):
+        result=asyncio.run(recipes.recipe_search(RecipeSearchRequest()))
+    assert result['results']==[{'recipe_id':'landing'}]
+    landing.assert_called_once_with(limit=10)
+    extractor.assert_not_called()
+    retrieve.assert_not_called()
+
+
+def test_final_search_card_flags_unresolved_absence_on_legacy_documents():
+    card = search._hit_to_card({'_source': {
+        'recipe_id': 'legacy', 'allergens': [],
+        'allergen_uncertainty': False,
+        'allergen_evidence': [{'allergen': 'milk', 'presence': 'contains'}],
+    }}, 'eu')
+    public = recipes._es_card(card)
+    assert public['allergen_uncertainty'] is True
+    assert public['allergen_assessment']['detected_allergens'] == ['milk']
+    assert 'peanut' in public['allergen_assessment']['unresolved_allergens']
+
+
+def test_allergy_query_excludes_positive_declarations_without_excluding_unknowns():
+    body = search.build_es_query(search.RecipeSearchConstraints(exclude_allergens=['peanut']))
+    clauses = body['query']['bool']['must_not']
+    evidence = next(c['nested'] for c in clauses if c.get('nested', {}).get('path') == 'allergen_evidence')
+    assert {'terms': {'allergen_evidence.presence': ['contains', 'present']}} in evidence['query']['bool']['filter'][1]['bool']['should']
+    assert 'allergen_uncertainty' not in str(body['query'])
+
+
+def test_profile_diet_tags_are_hard_filters_on_question_search():
+    """A vegan profile must never receive chicken: profile diet is a requirement."""
+    with (
+        patch.object(recipes, 'get_recipe_constraint_extractor') as extractor,
+        patch.object(recipes, 'search_recipes_es', return_value={
+            'results':[], 'total':0, 'facets':{},
+        }) as retrieve,
+    ):
+        extractor.return_value.run_extract_constraints.return_value={
+            'query_constraints':{'search_intent':'constraints', 'diet':['gluten_free']},
+        }
+        asyncio.run(recipes.recipe_search(RecipeSearchRequest(
+            question='gluten free dinner', diet_tags=['vegan'],
+        )))
+    constraints=retrieve.call_args.args[0]
+    assert constraints.diet_tags==['gluten_free','vegan']
+    assert constraints.boost_tags==[]

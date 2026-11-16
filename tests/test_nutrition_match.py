@@ -726,16 +726,17 @@ class BestNutritionMatchTests(unittest.TestCase):
             result = nm.best_nutrition_match(
                 "margarine or spread or butter", "irish"
             )
-        self.assertEqual(result["matched_name"], "Butter, unsalted")
-        self.assertEqual(result["selected_alternative"], "butter")
-        self.assertEqual(result["reason"], "alternative_selected:butter")
-        self.assertIn("Nutrition calculated using 'butter'", result["nutrition_match_note"])
+        self.assertEqual(result["matched_name"], "Margarine, average")
+        self.assertEqual(result["selected_alternative"], "margarine")
+        self.assertEqual(result["alternative_selection_policy"], "first_listed_default")
+        self.assertEqual(result["reason"], "alternative_selected:first_listed_default:margarine")
+        self.assertIn("first-listed option 'margarine'", result["nutrition_match_note"])
 
-    def test_or_prefers_complete_final_branch_and_carries_food_to_a_cut(self):
+    def test_or_completes_first_branch_without_choosing_another_food(self):
         cases = (
-            ("orange or red bell pepper", "Peppers, capsicum, red, raw", "red bell pepper"),
-            ("vegetable or beef stock", "Beef stock", "beef stock"),
-            ("white fish fillet or steak", "European whitefish, raw", "white fish steak"),
+            ("orange or red bell pepper", "Peppers, capsicum, orange, raw", "orange bell pepper"),
+            ("vegetable or beef stock", "Vegetable stock", "vegetable stock"),
+            ("white fish fillet or steak", "European whitefish, raw", "white fish fillet"),
         )
         for query, candidate, selected in cases:
             with self.subTest(query=query):
@@ -745,7 +746,7 @@ class BestNutritionMatchTests(unittest.TestCase):
                 self.assertEqual(result["matched_name"], candidate)
                 self.assertEqual(result["selected_alternative"], selected)
 
-    def test_or_carries_wholegrain_qualifier_to_final_pasta_branch(self):
+    def test_or_keeps_wholegrain_qualifier_on_first_pasta_branch(self):
         p1, p2 = self._patch_pools(
             irish=[_cand("Pasta, dry, wholewheat, raw", 0.05)]
         )
@@ -754,7 +755,31 @@ class BestNutritionMatchTests(unittest.TestCase):
                 "wholewheat fusilli or penne pasta", "irish"
             )
         self.assertEqual(result["matched_name"], "Pasta, dry, wholewheat, raw")
-        self.assertEqual(result["selected_alternative"], "wholewheat penne pasta")
+        self.assertEqual(result["selected_alternative"], "wholewheat fusilli pasta")
+
+    def test_or_does_not_switch_to_supported_second_food_when_first_is_unmatched(self):
+        p1, p2 = self._patch_pools(irish=[_cand("Butter, unsalted", 0.01)])
+        with p1, p2:
+            result = nm.best_nutrition_match("margarine or butter", "irish")
+        self.assertIsNone(result["match"])
+        self.assertEqual(result["selected_alternative"], "margarine")
+        self.assertEqual(result["reason"], "no_compatible_alternative")
+
+    def test_or_selects_before_sodium_qualifier_retry_without_leaking_second_branch(self):
+        p1, p2 = self._patch_pools(irish=[_cand("Butter, unsalted", 0.01)])
+        with p1, p2:
+            result = nm.best_nutrition_match("butter or low-sodium margarine", "irish")
+        self.assertEqual(result["matched_name"], "Butter, unsalted")
+        self.assertEqual(result["selected_alternative"], "butter")
+        self.assertNotIn("qualifier_proxy", result["reason"])
+
+    def test_or_first_sodium_qualifier_still_requires_compatible_composition(self):
+        p1, p2 = self._patch_pools(irish=[_cand("Vegetable stock", 0.01), _cand("Chicken stock", 0.02)])
+        with p1, p2:
+            result = nm.best_nutrition_match("low-sodium vegetable stock or chicken stock", "irish")
+        self.assertIsNone(result["match"])
+        self.assertEqual(result["selected_alternative"], "low-sodium vegetable stock")
+        self.assertEqual(result["reason"], "unsupported_nutrition_variant")
 
     def test_and_compound_is_not_replaced_by_one_component(self):
         p1, p2 = self._patch_pools(
@@ -1135,7 +1160,9 @@ class NutritionIdentityBoundaryTests(unittest.TestCase):
             "reason": "no_candidates",
             "matched_name": None,
         }
-        with patch.object(calc, "best_nutrition_match", return_value=no_match) as match:
+        with patch.dict("os.environ", {"NUTRITION_MATCHER_MODE": "legacy"}), patch.object(
+            calc, "best_nutrition_match", return_value=no_match
+        ) as match:
             calc.nutritional_tool_vector.invoke({
                 "title": "test",
                 "ingredient_names": ["cooked green lentils"],
@@ -1334,7 +1361,7 @@ class CuratedAliasTests(unittest.TestCase):
         with self._patch_alias_table(rows=[]), patch.object(
             nm, "query_irish_nutrition_candidates",
             return_value=[_cand("Soy sauce, light and dark varieties", 0.05)],
-        ):
+        ), patch.object(nm, "query_eu_nutrition_candidates", return_value=[]):
             for ingredient in ("low-sodium soy sauce", "reduced-sodium soy sauce"):
                 with self.subTest(ingredient=ingredient):
                     result = nm.best_nutrition_match(ingredient, "irish")
@@ -1478,6 +1505,155 @@ class SodiumQualifierGeneralFallbackTests(unittest.TestCase):
         # that normally is) rather than fabricating a match from nothing.
         with patch.object(nm, "load_pipeline_data", return_value=[]), patch.object(
             nm, "query_irish_nutrition_candidates", return_value=[],
-        ):
+        ), patch.object(nm, "query_eu_nutrition_candidates", return_value=[]):
             result = nm.best_nutrition_match("low-sodium completely made up food xyz", "irish")
         self.assertIsNone(result["match"])
+
+
+def test_ground_red_pepper_is_paprika_not_raw_capsicum():
+    assert not nm.ingredient_forms_compatible("MILD RED PEPPER Ground", "Pepper, capsicum, red, raw")
+    assert not nm.ingredient_forms_compatible("red pepper powder", "Sweet pepper, red, raw")
+    assert nm.ingredient_forms_compatible("MILD RED PEPPER Ground", "Paprika")
+    assert nm.ingredient_forms_compatible("MILD RED PEPPER Ground", "MILD RED PEPPER Ground")
+    assert nm.ingredient_forms_compatible("chilli powder", "Chilli powder")
+    assert nm.ingredient_forms_compatible("ground cayenne pepper", "Cayenne pepper")
+    assert nm.ingredient_forms_compatible("curry powder or cayenne pepper", "Cayenne pepper")
+
+
+def test_fresh_red_pepper_still_matches_capsicum():
+    assert nm.ingredient_forms_compatible("red pepper, diced", "Pepper, capsicum, red, raw")
+    assert nm.ingredient_forms_compatible("red peppers", "Sweet pepper, red, raw")
+
+
+def test_current_slovenian_table_breaks_a_tie_with_the_older_regional_copy():
+    old = {**_cand("Garlic", 0.10), "id": "slovenian_plant:146"}
+    current = {**_cand("Garlic", 0.10), "id": "efsa_slovenia:3cbd"}
+    with (
+        patch.object(nm, "query_slovenian_nutrition_candidates", return_value=[old]),
+        patch.object(nm, "query_eu_nutrition_candidates", return_value=[current]),
+    ):
+        assert nm.best_nutrition_match("garlic", "slovenian")["match"]["id"] == "efsa_slovenia:3cbd"
+    with (
+        patch.object(nm, "query_hungarian_nutrition_candidates", return_value=[{**old, "id": "HU00071"}]),
+        patch.object(nm, "query_eu_nutrition_candidates", return_value=[current]),
+    ):
+        assert nm.best_nutrition_match("garlic", "hungarian")["match"]["id"] == "HU00071"
+
+
+def test_national_table_bonus_does_not_turn_a_generic_name_into_a_specific_cut():
+    generic = {**_cand("Beef, raw", 0.10), "id": "slovenian_plant:1"}
+    cut = {**_cand("Beef, shoulder", 0.10), "id": "efsa_slovenia:2"}
+    with (
+        patch.object(nm, "query_slovenian_nutrition_candidates", return_value=[generic]),
+        patch.object(nm, "query_eu_nutrition_candidates", return_value=[cut]),
+    ):
+        assert nm.best_nutrition_match("beef", "slovenian")["match"]["id"] == "slovenian_plant:1"
+
+
+def test_zucchinis_singularizes():
+    assert nm._singular("zucchinis") == "zucchini"
+
+
+def test_flavour_and_pack_descriptors_are_not_food_identity():
+    assert "tart" not in nm.clean_query("950 g sweet-tart apples")
+    assert "wok" not in nm.clean_query("300g pack straight-to-wok noodles")
+    assert "cooked" in nm._normalize_food_phrases("straight-to-wok noodles")
+
+
+def test_product_wording_maps_to_catalogue_wording():
+    n = nm._normalize_food_phrases
+    assert n("cake mix") == "bakery mix for cake"
+    assert n("mixed berry yoghurt") == "fruit yoghurt"
+    assert n("wholemeal flour tortilla/wrap") == "wholemeal wheat tortilla"
+    assert n("pork cracklings") == "pork scratchings"
+    assert n("whole wheat spaghetti") == "wholemeal spaghetti"
+    assert n("flour") == "flour" and n("tortilla") == "tortilla"
+
+
+def test_wrap_and_tortilla_are_the_same_product_identity():
+    from recipe_wrangler.utils.food_identity import compare_identities
+    assert compare_identities("tortilla", "wrap").relation != "different"
+    assert nm._selected_match_is_compatible("wholemeal flour tortilla/wrap", "wholemeal wheat tortilla",
+                                            "Wrap/tortilla wheat wholemeal")
+
+
+def test_vowel_s_plurals_singularize_but_singular_foods_stay():
+    for plural, single in [("feijoas", "feijoa"), ("kiwis", "kiwi"), ("bananas", "banana"), ("avocados", "avocado")]:
+        assert nm._singular(plural) == single
+    for word in ["ananas", "hummus", "couscous", "anis"]:
+        assert nm._singular(word) == word
+
+
+def test_same_food_names_reach_catalogue_words():
+    cases = {
+        "whole wheat flour": "wholemeal flour",
+        "chickpea garbanzo garbanzos": "chickpeas",
+        "garbanzo beans": "chickpeas",
+        "baby beetroot beets": "baby beetroot",
+        "silver beet": "chard",
+        "kiwifruit": "kiwi fruit",
+        "haloumi": "halloumi cheese",
+        "haloumi cheese": "halloumi cheese",
+        "kumara": "sweet potato",
+        "orange kumara sweet-potato": "orange kumara sweet-potato",  # existing phrase rule owns this one
+        "apricot jam jelly": "apricot jam",
+        "fettuccine": "pasta",
+        "orzo or risoni pasta": "pasta or pasta",
+        "reduced-fat tasty cheese": "reduced-fat cheddar cheese",
+        "pepitas": "pumpkin seeds",
+        "sugar beet": "sugar beet",
+        "rockmelon": "cantaloupe",
+        "beef scotch fillet steaks": "beef rib eye steaks",
+        "pappadums": "papadum",
+        "agave nectar": "agave syrup",
+    }
+    for name, expected in cases.items():
+        assert nm.same_food_name(name) == expected, name
+
+
+def test_sauce_label_with_product_word_after_comma():
+    assert nm.ingredient_forms_compatible("tabasco sauce", "Tabasco, sauce")
+    assert nm.ingredient_forms_compatible("black beans in chilli sauce", "Beans, in chili sauce, canned")
+    assert not nm.ingredient_forms_compatible("tomato sauce", "Pasta, with tomato sauce")
+
+
+def test_capsicum_implies_sweet_pepper():
+    assert nm._qualifiers_match("roasted red capsicum", "roasted red capsicum", "Sweet pepper, red, roasted")
+    assert nm._qualifiers_match("red capsicum", "red capsicum", "Pepper, capsicum, red, raw")
+    assert not nm._qualifiers_match("red capsicum", "red capsicum", "Peppers, capsicum, chilli, red, raw")
+
+
+def test_mahimahi_is_fish_not_fruit_flesh():
+    assert nm.food_class("Mahimahi, flesh, raw") == "animal_protein"
+    assert not nm.classes_compatible(nm.food_class("cantaloupe flesh"), nm.food_class("Mahimahi, flesh, raw"))
+
+
+def test_stuffed_dish_is_not_its_filling_or_casing():
+    assert not nm.ingredient_forms_compatible("rice wine", "Dolma wine leafs stuffed w/ rice canned")
+    assert not nm.ingredient_forms_compatible("baby calamari", "Stuffed calamari")
+    assert nm.ingredient_forms_compatible("corn tortillas", "Maize/corn tortilla wrap, to be filled")
+    assert nm.ingredient_forms_compatible("ravioli", "Ravioli, pasta stuffed with spinach and ricotta, cooked")
+    assert nm.ingredient_forms_compatible("stuffed peppers", "Stuffed bell paprika (beef/pork), with oil")
+
+
+def test_rice_wine_tamarind_teriyaki_and_calamari_names():
+    for name in ["chinese rice wine", "shaoxing wine", "rice wine"]:
+        assert nm.same_food_name(name) == "sake"
+    assert nm.same_food_name("rice wine vinegar") == "rice wine vinegar"
+    assert nm.same_food_name("cooking wine") == "cooking wine"
+    assert nm.same_food_name("tamarind paste") == "tamarind pulp"
+    assert nm.same_food_name("teriyaki marinade") == "teriyaki sauce"
+    assert nm._selected_match_level("calamari", "calamari", "Squid, raw") == "exact"
+
+
+def test_hyphenated_whole_wheat_and_jasmine_rice_keep_stated_state_open():
+    assert nm._selected_match_level("whole-wheat flour", "whole-wheat flour", "Flour, wheat, wholemeal") == "exact"
+    assert nm._selected_match_level("whole-wheat flour", "whole-wheat flour", "FLOUR, WHOLE WHEAT FLOUR") == "exact"
+    assert nm.clean_query("jasmine rice") == "white long grain rice raw"
+    assert nm.clean_query("cooked jasmine rice") == "cooked white long grain rice"
+
+
+def test_english_muffin_is_not_a_cake_muffin():
+    assert nm._selected_match_level("english muffins", "english muffins", "Muffins") == "incompatible"
+    assert nm._selected_match_level("english muffins", "english muffins", "Muffins, English style, white") == "exact"
+    assert nm._selected_match_level("muffins", "muffins", "Muffins") == "exact"

@@ -5,7 +5,7 @@ def test_unambiguous_equipment_is_detected() -> None:
     for value in (
         "**aluminum foil**", "paper cups", "wooden sticks", "baking trays",
         "frying pan", "twine", "kitchen string", "string or twine",
-        "stainless steel turner",
+        "stainless steel turner", "egg moulds", "egg mold",
     ):
         assert is_unambiguous_non_food_ingredient(value)
 

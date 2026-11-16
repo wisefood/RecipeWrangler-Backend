@@ -1,0 +1,22 @@
+{
+  "status": "development_coverage_probes_not_independently_approved_nutrient_matches",
+  "cases": [
+    {
+      "case_id": "dev-016",
+      "text": "skinless chicken breast, raw",
+      "records": [
+        {"dataset": "Anses. 2025. CIQUAL French food composition table", "record_id": "36017"},
+        {"dataset": "Icelandic Food Composition Database version 5.0 2025", "record_id": "223"},
+        {"dataset": "Swiss Food Composition Database 2025", "record_id": "22"},
+        {"dataset": "The National Food Agency food database, version 2025_10_29", "record_id": "1173"}
+      ]
+    },
+    {
+      "case_id": "dev-017",
+      "text": "boneless chicken breast, raw",
+      "records": [
+        {"dataset": "Slovak Food Composition Dataset, 2025", "record_id": "4121004"}
+      ]
+    }
+  ]
+}

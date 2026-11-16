@@ -22,6 +22,7 @@ def test_parser_builds_openrouter_client(monkeypatch):
         model="openai/gpt-4o-mini",
         temperature=0.0,
         max_retries=2,
+        max_tokens=2000,
         base_url="https://router.example/v1",
         api_key="test-key",
     )

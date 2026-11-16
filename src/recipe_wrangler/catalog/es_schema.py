@@ -115,6 +115,8 @@ def _regional_score_fields() -> dict[str, Any]:
 def _evidence_fields() -> dict[str, Any]:
     return {
         "suitable_for": {"type": "keyword"},
+        "allergen_uncertainty": {"type": "boolean"},
+        "allergen_assessment": {"type": "object", "enabled": False},
         "allergen_evidence": {
             "type": "nested",
             "properties": {
@@ -288,6 +290,8 @@ def recipe_index(dim: int = DEFAULT_DIM) -> dict[str, Any]:
                 "quantity": {"type": "float"},
                 "unit": {"type": "keyword"},
                 "measurement": {"type": "text", "index": False},
+                "display_text": {"type": "text", "index": False},
+                "display_source": {"type": "keyword"},
                 "canonical_urn": {"type": "keyword"},
                 "position": {"type": "short"},
             },

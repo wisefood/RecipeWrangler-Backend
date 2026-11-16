@@ -209,8 +209,44 @@ def derive_food_groups(doc: dict[str, Any]) -> tuple[list[str], list[dict[str, A
     linked into the taxonomy yet. An empty result is a gap to be filled later,
     not a classification of "no food groups".
     """
+    paths = doc.get("ingredient_foodon_paths") or []
+    if paths:
+        groups, support = V.food_groups_from_ingredient_paths(paths)
+        rejected = V.rejected_food_groups_from_ingredient_paths(
+            paths, doc.get("ingredient_names") or ()
+        )
+        existing_groups = set(doc.get("existing_food_groups") or [])
+        groups = sorted(
+            existing_groups - rejected if existing_groups else set(groups)
+        )
+        evidence = [
+            V.evidence_entry(
+                "food_groups",
+                group,
+                method="foodon_derived",
+                confidence=1.0,
+                sources=["foodon"],
+                foodon_ids=sorted(support[group]["foodon_ids"]),
+                supporting_ingredients=sorted(support[group]["ingredients"]),
+            )
+            for group in groups
+            if group in support
+        ]
+        newly_supported = {entry["value"] for entry in evidence}
+        evidence.extend(
+            entry
+            for entry in doc.get("existing_annotation_evidence") or []
+            if entry.get("facet") == "food_groups"
+            and entry.get("value") in groups
+            and entry.get("value") not in newly_supported
+        )
+        return groups, evidence
+
     ancestors = doc.get("ingredient_class_ancestors") or []
-    groups = V.food_groups_from_foodon(ancestors)
+    groups = sorted(
+        set(V.food_groups_from_foodon(ancestors))
+        | set(doc.get("existing_food_groups") or [])
+    )
 
     by_group: dict[str, list[str]] = {}
     for raw in ancestors:
@@ -229,7 +265,16 @@ def derive_food_groups(doc: dict[str, Any]) -> tuple[list[str], list[dict[str, A
             foodon_ids=sorted(set(by_group.get(group, []))),
         )
         for group in groups
+        if group in by_group
     ]
+    supported = {entry["value"] for entry in evidence}
+    evidence.extend(
+        entry
+        for entry in doc.get("existing_annotation_evidence") or []
+        if entry.get("facet") == "food_groups"
+        and entry.get("value") in groups
+        and entry.get("value") not in supported
+    )
     return groups, evidence
 
 def evidence_for(

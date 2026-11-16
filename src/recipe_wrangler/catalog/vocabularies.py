@@ -37,6 +37,7 @@ is the only facet actually derived from data. The rest land in ``ai_*`` with an
 
 from __future__ import annotations
 
+import re
 from typing import Any, Iterable
 
 CLASSIFICATION_VERSION = "annotation-v1"
@@ -165,6 +166,212 @@ def food_groups_from_foodon(ancestor_ids: Iterable[str]) -> list[str]:
         if group and group not in groups:
             groups.append(group)
     return sorted(groups)
+
+
+_CULINARY_VEGETABLE_TERMS = (
+    "asparagus", "aubergine", "beetroot", "broccoli", "cabbage", "capsicum",
+    "carrot", "cauliflower", "celery", "chard", "chilli", "courgette",
+    "cucumber", "eggplant", "fennel", "kale", "leek", "lettuce", "mushroom",
+    "okra", "onion", "pepper", "potato", "pumpkin", "radish", "spinach",
+    "squash", "tomato", "zucchini",
+)
+
+_CULINARY_FRUIT_TERMS = (
+    "apple", "apricot", "avocado", "banana", "berries", "berry",
+    "blackberry", "blueberry", "boysenberry", "cherry", "citrus", "cranberry",
+    "date", "feijoa", "fig", "goji", "grape", "kiwi", "kiwifruit", "lemon",
+    "lime", "mango", "melon", "nectarine", "orange", "passionfruit", "peach",
+    "pear", "pineapple", "plum", "raisin", "raspberry", "strawberry",
+)
+
+_CULINARY_HERB_TERMS = (
+    "basil", "chive", "cilantro", "coriander", "dill", "mint", "oregano",
+    "parsley", "rosemary", "sage", "tarragon", "thyme",
+)
+
+_MEAT_TERMS = (
+    "bacon", "beef", "boar", "chorizo", "deer", "frankfurter", "goat", "ham",
+    "kolbász", "lamb", "liver", "meat", "meatball", "mince", "mutton", "offal",
+    "pork", "prosciutto", "rabbit", "salami", "sausage", "steak", "veal",
+    "venison",
+)
+
+_SEAFOOD_TERMS = (
+    "calamari", "clam", "crab", "crayfish", "langoustine", "lobster", "mussel",
+    "octopus", "oyster", "prawn", "scallop", "seafood", "shellfish", "shrimp",
+    "squid",
+)
+
+
+def _contains_food_term(text: str, terms: Iterable[str]) -> bool:
+    """Match whole ingredient words, allowing ordinary English plurals."""
+    for term in terms:
+        escaped = re.escape(term[:-1]) + r"(?:y|ies)" if term.endswith("y") else re.escape(term) + r"(?:s|es)?"
+        if re.search(rf"(?<!\w){escaped}(?!\w)", text):
+            return True
+    return False
+
+
+def _resolve_ingredient_groups(name: str, distances: dict[str, int]) -> set[str]:
+    """Select consumer-facing groups for one ingredient from FoodOn ancestry."""
+    candidates = set(distances)
+    lowered = str(name or "").casefold()
+    named_vegetable = _contains_food_term(lowered, _CULINARY_VEGETABLE_TERMS)
+    if (
+        "vegetables" in candidates
+        and not named_vegetable
+        and _contains_food_term(lowered, _CULINARY_FRUIT_TERMS)
+    ):
+        # Some fruit ingredients are linked directly to FoodOn's broad
+        # "mixed vegetables" node, so there is no fruit ancestor to win.
+        candidates.discard("vegetables")
+        candidates.add("fruit")
+        distances.setdefault("fruit", distances["vegetables"])
+    named_fruit = _contains_food_term(lowered, _CULINARY_FRUIT_TERMS)
+    if {"fruit", "vegetables"} <= candidates and (named_vegetable or named_fruit):
+        produce = "vegetables" if named_vegetable else "fruit"
+        candidates -= {"fruit", "vegetables"}
+        candidates.add(produce)
+    if "vegetables" in candidates and _contains_food_term(
+        lowered, _CULINARY_HERB_TERMS
+    ):
+        candidates.discard("vegetables")
+        candidates.add("herbs_and_spices")
+        distances.setdefault("herbs_and_spices", distances["vegetables"])
+
+    # Do not choose one globally nearest group. FoodOn's paths describe several
+    # independent culinary facts: cheese can legitimately be both dairy and a
+    # processed food, while chicken's generic meat ancestor is closer than its
+    # poultry ancestor. Resolve only known mutually-conflicting branches.
+    selected = set(candidates)
+    if "eggs" in selected:
+        selected -= {"poultry", "meat"}
+    if {"poultry", "meat"} <= selected:
+        poultry_terms = ("chicken", "turkey", "duck", "goose", "poultry")
+        if _contains_food_term(lowered, poultry_terms):
+            selected.discard("meat")
+    return selected
+
+
+def food_groups_from_ingredient_paths(
+    paths: Iterable[dict[str, object]],
+) -> tuple[list[str], dict[str, dict[str, set[str]]]]:
+    """Resolve FoodOn groups per ingredient before combining at recipe level."""
+    ingredients: dict[str, dict[str, object]] = {}
+    for path in paths or ():
+        if not isinstance(path, dict):
+            continue
+        foodon_id = _normalize_foodon_id(path.get("foodon_id"))
+        group = FOODON_ID_TO_FOOD_GROUP.get(foodon_id)
+        if not group:
+            continue
+        key = str(path.get("ingredient_id") or path.get("ingredient") or "").strip()
+        if not key:
+            continue
+        entry = ingredients.setdefault(
+            key,
+            {"name": str(path.get("ingredient") or key), "distances": {}, "ids": {}},
+        )
+        distance = int(path.get("distance") or 0)
+        distances = entry["distances"]
+        ids = entry["ids"]
+        distances[group] = min(distance, distances.get(group, distance))
+        ids.setdefault(group, set()).add(foodon_id)
+
+    support: dict[str, dict[str, set[str]]] = {}
+    for entry in ingredients.values():
+        name = str(entry["name"])
+        selected = _resolve_ingredient_groups(name, entry["distances"])
+        for group in selected:
+            group_support = support.setdefault(group, {"foodon_ids": set(), "ingredients": set()})
+            ids = entry["ids"].get(group, set())
+            if not ids:
+                ids = set().union(*entry["ids"].values())
+            group_support["foodon_ids"].update(ids)
+            group_support["ingredients"].add(name)
+    return sorted(support), support
+
+
+def rejected_food_groups_from_ingredient_paths(
+    paths: Iterable[dict[str, object]],
+    ingredient_names: Iterable[str] = (),
+) -> set[str]:
+    """Groups conclusively invalidated by per-ingredient conflict resolution.
+
+    A group is rejected only when at least one ingredient produced it as a
+    broad FoodOn ancestor and no ingredient independently retained it. This is
+    deliberately narrower than treating missing ancestry as negative evidence:
+    parts of the imported FoodOn graph are disconnected, so absence cannot
+    safely erase a previously supported group.
+    """
+    ingredients: dict[str, dict[str, object]] = {}
+    for path in paths or ():
+        if not isinstance(path, dict):
+            continue
+        foodon_id = _normalize_foodon_id(path.get("foodon_id"))
+        group = FOODON_ID_TO_FOOD_GROUP.get(foodon_id)
+        if not group:
+            continue
+        key = str(path.get("ingredient_id") or path.get("ingredient") or "").strip()
+        if not key:
+            continue
+        entry = ingredients.setdefault(
+            key, {"name": str(path.get("ingredient") or key), "distances": {}},
+        )
+        distance = int(path.get("distance") or 0)
+        distances = entry["distances"]
+        distances[group] = min(distance, distances.get(group, distance))
+
+    selected_all: set[str] = set()
+    rejected: set[str] = set()
+    classified_names: list[str] = []
+    for entry in ingredients.values():
+        classified_names.append(str(entry["name"]).casefold())
+        candidates = set(entry["distances"])
+        selected = _resolve_ingredient_groups(str(entry["name"]), entry["distances"])
+        selected_all.update(selected)
+        rejected.update(candidates - selected)
+    rejected -= selected_all
+
+    # Historical projections could contain poultry solely because egg white
+    # and yolk once inherited through FoodOn's avian-material branch. That
+    # stale value is not visible in today's paths, so absence alone cannot
+    # identify it. Ingredient identity can: eggs with no poultry ingredient
+    # are conclusive evidence that `poultry` is the old ancestry leak.
+    all_names = [str(name).casefold() for name in ingredient_names] or classified_names
+    has_egg = any(_contains_food_term(name, ("egg",)) for name in all_names)
+    poultry_terms = ("chicken", "turkey", "duck", "goose", "poultry")
+    has_poultry = any(
+        _contains_food_term(name, poultry_terms) for name in all_names
+    )
+    if has_egg and not has_poultry:
+        rejected.add("poultry")
+    has_named_vegetable = any(
+        _contains_food_term(name, _CULINARY_VEGETABLE_TERMS) for name in all_names
+    )
+    has_named_fruit = any(
+        _contains_food_term(name, _CULINARY_FRUIT_TERMS) for name in all_names
+    )
+    has_named_herb = any(
+        _contains_food_term(name, _CULINARY_HERB_TERMS) for name in all_names
+    )
+    if has_named_vegetable:
+        rejected.discard("vegetables")
+    elif has_named_fruit or has_named_herb:
+        # Also repairs stale projections whose bad vegetable branch is no
+        # longer present in the current graph paths (for example goji berries).
+        rejected.add("vegetables")
+    if has_named_fruit:
+        rejected.discard("fruit")
+    if any(_contains_food_term(name, _MEAT_TERMS) for name in all_names):
+        rejected.discard("meat")
+    elif has_egg:
+        rejected.add("meat")
+    if any(_contains_food_term(name, _SEAFOOD_TERMS) for name in all_names):
+        rejected.discard("seafood")
+    elif has_egg:
+        rejected.add("seafood")
+    return rejected
 
 
 # --------------------------------------------------------------------------- #

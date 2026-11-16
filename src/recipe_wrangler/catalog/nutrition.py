@@ -248,9 +248,8 @@ def per_serving(raw: dict[str, Any] | None) -> dict[str, float | None] | None:
     """Per-serving macros from a Postgres nutrition row."""
     if not raw:
         return None
-    nutrients = (
-        raw.get("total_nutrients_per_serving") or raw.get("total_nutrients") or {}
-    )
+    # An explicitly unavailable per-serving result must never display batch totals.
+    nutrients = raw.get('total_nutrients_per_serving') if 'total_nutrients_per_serving' in raw else raw.get('total_nutrients')
     if not isinstance(nutrients, dict):
         return None
 

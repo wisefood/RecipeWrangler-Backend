@@ -19,7 +19,7 @@ corpus. Here the caller states what it wants: ``q`` ranks, ``fq`` filters.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -216,3 +216,20 @@ def catalog_get(
         # exists is itself a disclosure.
         raise HTTPNotFound(detail=f"recipe {recipe_id} not found")
     return redact(document, caller)
+
+
+@router.get('/{recipe_id}/nutrition-matches', summary='Versioned nutrition matches and ingredient facets')
+def catalog_nutrition_matches(recipe_id: str,
+    source: Literal['eu','irish','hungarian','slovenian']='eu',
+    caller: Caller=Depends(get_caller)) -> dict[str,Any]:
+    # Apply the same recipe visibility policy; the match data itself comes
+    # from PostgreSQL and never requires a Neo4j traversal.
+    catalog_get(recipe_id,caller)
+    from recipe_wrangler.repositories.matching_store import active_profile,latest_profile
+    try:
+        selected=active_profile(recipe_id,source)
+        row=selected or latest_profile(recipe_id,source)
+    except Exception as exc:
+        raise map_dependency_error('PostgreSQL',exc) from exc
+    if row is None:raise HTTPNotFound(detail='No versioned nutrition matching run exists for this recipe and source')
+    return {'recipe_id':recipe_id,'nutrition_source':source,'active':selected is not None,**row}

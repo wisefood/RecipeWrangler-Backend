@@ -102,6 +102,9 @@ ALLERGEN_INGREDIENT_TERMS: dict[str, tuple[str, ...]] = ALLERGEN_NAME_TERMS
 
 # Exact normalized names only: never exempt a mixture such as coconut milk
 # with cream. This list reduces known substring errors, not all unknowns.
+# Pine nuts and chestnuts are not on the EU tree-nut list but are called
+# nuts; they stay excluded for a nut allergy (ALLERGEN_NAME_TERMS is generous
+# on purpose: a false exclusion costs a recipe, a false inclusion a reaction).
 _LEXICAL_ALLERGEN_EXCEPTIONS: dict[str, set[str]] = {
     "milk": {"coconut milk", "coconut cream", "soy milk", "soya milk", "oat milk",
              "almond milk", "rice milk", "oat cream", "almond yogurt", "peanut butter",
@@ -110,11 +113,9 @@ _LEXICAL_ALLERGEN_EXCEPTIONS: dict[str, set[str]] = {
     "egg": {"eggplant", "eggplants", "eggplant, raw"},
     "tree_nut": {"coconut", "coconut milk", "coconut cream", "coconut oil", "coconut flour",
                  "desiccated coconut", "nutmeg", "ground nutmeg", "butternut squash",
-                 "peanut", "peanuts", "peanut butter", "pine nut", "pine nuts",
-                 "toasted pine nuts", "chestnut", "chestnuts"},
+                 "peanut", "peanuts", "peanut butter"},
     "peanut": {"coconut", "coconut milk", "coconut cream", "coconut oil", "coconut flour",
-               "desiccated coconut", "nutmeg", "ground nutmeg", "butternut squash",
-               "pine nut", "pine nuts", "toasted pine nuts", "chestnut", "chestnuts"},
+               "desiccated coconut", "nutmeg", "ground nutmeg", "butternut squash"},
     "crustacean_shellfish": {"oyster mushroom", "oyster mushrooms", "king oyster mushroom",
                             "king oyster mushrooms", "oyster mushroom powder"},
     "molluscs": {"oyster mushroom", "oyster mushrooms", "king oyster mushroom",

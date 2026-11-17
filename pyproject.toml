@@ -79,6 +79,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "recipe_wrangler.pricing" = ["*.json"]
 "recipe_wrangler.utils" = ["data/*.json", "data/*.md"]
+"recipe_wrangler.matching" = ["*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]

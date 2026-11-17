@@ -143,6 +143,13 @@ class TestTheMatchingPathsAgree:
         flat = _flatten(_allergen_exclusions("molluscs"))
         assert "*mussel*" in flat and "*squid*" in flat
 
+    def test_a_nut_allergy_still_screens_pine_nuts_and_chestnuts(self):
+        """Not EU tree nuts, but called nuts: the generous reading stands."""
+        flat = _flatten(_allergen_exclusions("tree_nut"))
+        assert "*pine nut*" in flat and "*chestnut*" in flat
+        assert "pine nuts" not in flat and "chestnuts" not in flat
+        assert "coconut" in flat  # exact-name exception the branch reviewed
+
     def test_the_catalog_table_is_the_shared_one(self):
         assert ALLERGEN_INGREDIENT_TERMS is ALLERGEN_NAME_TERMS
 

@@ -26,7 +26,12 @@ dependencies = [
     "groq>=0.4.1,<1.0.0",
     "sentencepiece>=0.2.1",
     "sentence-transformers>=5.2.2",
-    "sqlalchemy>=2.0.0",
+    # Pinned to the 2.0 line: 2.1 changed the default PostgreSQL driver for a
+    # bare postgresql:// URL from psycopg2 to psycopg (3), which is not
+    # installed here. The image installs from this file, not uv.lock, so an
+    # unbounded range takes whatever PyPI has on build day; foodchat found out
+    # on 2026-10-05. Moving to 2.1 means adding psycopg[binary] deliberately.
+    "sqlalchemy>=2.0.0,<2.1",
     "psycopg2-binary>=2.9.0",
     "alembic>=1.13.0",
     "pynutriscore>=0.0.2",

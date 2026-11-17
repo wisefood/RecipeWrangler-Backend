@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union, Literal
+from typing import Annotated, Any, Dict, List, Optional, Union, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, AliasChoices, BaseModel, ConfigDict, Field, field_validator
+
+from recipe_wrangler.utils.food_ontology import normalize_allergen_names
+
+#: Allergen names as callers send them, folded to the canonical identifiers
+#: the graph and the index carry (``milk``, ``tree_nut``, ``sulphites`` ...).
+#: Applied on every request field that names allergens, so a profile that
+#: says "dairy" or "nuts" excludes something instead of silently nothing.
+CanonicalAllergens = Annotated[List[str], AfterValidator(normalize_allergen_names)]
 
 from recipe_wrangler.utils.es_recipe_evidence import recipe_allergen_fields
 from recipe_wrangler.matching.portions.core import PortionInput
@@ -128,9 +136,15 @@ class RecipeSearchRequest(BaseModel):
         default="",
         description="Natural language recipe question. Empty text applies explicit filters without model extraction; an unconfigured request returns random landing recipes.",
     )
-    exclude_allergens: List[str] = Field(
+    exclude_allergens: CanonicalAllergens = Field(
         default_factory=list,
-        description="Allergen names to exclude (e.g., ['peanut', 'tree_nut'])",
+        description=(
+            "Allergen names to exclude. Canonical identifiers are the EU groups "
+            "(gluten, crustacean_shellfish, egg, fish, peanut, soy, milk, "
+            "tree_nut, celery, mustard, sesame, sulphites, lupin, molluscs) plus "
+            "wheat; common spellings such as 'dairy', 'nuts' or 'shellfish' "
+            "are folded to them."
+        ),
     )
     diet_tags: List[str] = Field(
         default_factory=list,
@@ -140,6 +154,14 @@ class RecipeSearchRequest(BaseModel):
     preferred_ingredients: List[str] = Field(
         default_factory=list,
         description="Soft preference boosts (e.g. member's liked ingredients) — reorder results, never filter.",
+    )
+    exclude_ingredients: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ingredient names that must not appear (e.g. the member's disliked foods). "
+            "Applied alongside whatever the question itself excludes, and kept on a "
+            "title-only search like allergens are."
+        ),
     )
     region: Optional[str] = Field(
         default=None,
@@ -231,8 +253,16 @@ class RecipeSearchFilters(BaseModel):
 
     include_ingredients: List[str] = Field(default_factory=list)
     exclude_ingredients: List[str] = Field(default_factory=list)
-    exclude_allergens: List[str] = Field(default_factory=list)
+    exclude_allergens: CanonicalAllergens = Field(default_factory=list)
     diet_tags: List[str] = Field(default_factory=list)
+    preferred_ingredients: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Soft preference boosts (e.g. the member's liked foods): recipes naming "
+            "one rank higher, none are filtered out. Only reorders the default "
+            "browse order; an explicit sort_by wins."
+        ),
+    )
     sources: List[str] = Field(
         default_factory=list,
         validation_alias=AliasChoices("sources", "source"),
@@ -418,7 +448,7 @@ class RecipeUpdateRequest(BaseModel):
     source_id: Optional[str] = None
     expert_recipe: Optional[bool] = None
     title: Optional[str] = None
-    allergens: Optional[List[str]] = Field(
+    allergens: Optional[CanonicalAllergens] = Field(
         default=None,
         description="Replace this recipe's declared positive allergens. An empty list clears only these declarations; detected ingredient conflicts remain.",
     )
@@ -497,7 +527,10 @@ class RecipeCreateRequest(BaseModel):
     source_id: Optional[str] = Field(default=None, description="UUID of the source from the sources microservice")
     expert_recipe: bool = Field(default=False, description="Whether this recipe has been reviewed and annotated by a nutrition expert")
     tags: List[str] = Field(default_factory=list, description="User-supplied diet/category tags")
-    allergens: List[str] = Field(default_factory=list, description="User-supplied allergen labels")
+    allergens: CanonicalAllergens = Field(
+        default_factory=list,
+        description="User-supplied allergen labels, folded to the canonical EU identifiers",
+    )
     seasonality: List[Literal["autumn", "summer", "spring", "winter"]] = Field(
         default_factory=list,
         description="Source/user-provided seasons; leave empty when unknown.",

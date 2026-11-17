@@ -34,6 +34,10 @@ from recipe_wrangler.catalog import diets as D
 from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog.nutrition import per_serving, within_targets
 from recipe_wrangler.utils.es_recipe_evidence import recipe_allergen_fields, known_allergen_exclusions, allergen_filter_groups, recipe_consumer_fields
+from recipe_wrangler.utils.food_ontology import (
+    ALLERGEN_NAME_TERMS,
+    allergen_name_terms,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -87,32 +91,13 @@ _MAIN_MEAL_COURSES: tuple[str, ...] = ("main-dish", "soup", "salad")
 _MACRO_OVERSAMPLE = 5
 
 
-# Lexical backstop for missing declarations. Reviewed exact-name exceptions
+# Ingredient words that indicate an allergen, beyond the allergen's own name:
+# the lexical backstop for missing declarations. The table lives with the
+# allergen vocabulary in ``utils.food_ontology`` (``ALLERGEN_NAME_TERMS``),
+# keyed by the canonical identifiers, because the Neo4j candidates path needs
+# the same words for its CONTAINS backstop. The reviewed exact-name exceptions
 # below apply only here; positive flat/nested evidence always excludes.
-ALLERGEN_INGREDIENT_TERMS: dict[str, tuple[str, ...]] = {
-    "milk": ("milk", "cheese", "cream", "butter", "yoghurt", "yogurt", "ghee",
-             "custard", "mozzarella", "parmesan", "ricotta", "feta", "mascarpone"),
-    "dairy": ("milk", "cheese", "cream", "butter", "yoghurt", "yogurt", "ghee",
-              "custard", "mozzarella", "parmesan", "ricotta", "feta", "mascarpone"),
-    "egg": ("egg", "mayonnaise", "meringue", "aioli"),
-    "peanut": ("peanut", "groundnut", "satay"),
-    "tree_nut": ("almond", "cashew", "walnut", "pecan", "hazelnut", "pistachio",
-                 "macadamia", "brazil nut", "praline", "marzipan", "pine nut",
-                 "nut"),
-    "nut": ("almond", "cashew", "walnut", "pecan", "hazelnut", "pistachio",
-            "macadamia", "brazil nut", "praline", "marzipan", "pine nut",
-            "peanut", "groundnut", "satay", "nut"),
-    "wheat": ("wheat", "flour", "bread", "pasta", "couscous", "semolina",
-              "breadcrumb", "pastry"),
-    "gluten": ("wheat", "barley", "rye", "flour", "bread", "pasta", "couscous",
-               "semolina", "breadcrumb", "pastry"),
-    "soy": ("soy", "soya", "tofu", "edamame", "miso", "tempeh"),
-    "fish": ("fish", "anchovy", "salmon", "tuna", "cod", "haddock", "sardine",
-             "mackerel"),
-    "shellfish": ("prawn", "shrimp", "crab", "lobster", "mussel", "oyster",
-                  "clam", "scallop", "squid", "calamari"),
-    "sesame": ("sesame", "tahini"),
-}
+ALLERGEN_INGREDIENT_TERMS: dict[str, tuple[str, ...]] = ALLERGEN_NAME_TERMS
 
 
 # Exact normalized names only: never exempt a mixture such as coconut milk
@@ -138,7 +123,19 @@ _LEXICAL_ALLERGEN_EXCEPTIONS: dict[str, set[str]] = {
 
 
 def allergen_exclusions(allergen: str) -> list[dict[str, Any]]:
-    """Exclude positives and lexical conflicts, retaining exact-name exceptions."""
+    """Clauses that, OR-ed under a `must_not`, exclude one allergen.
+
+    * recorded positive conflicts (the flat `allergens` labels and nested
+      `allergen_evidence` that says contains), for every spelling the name
+      resolves to through the shared alias table; possible/unknown evidence
+      stays visible;
+    * an ingredient whose name *contains* the allergen word or one of
+      `ALLERGEN_NAME_TERMS` for its canonical identifiers (mozzarella for
+      `dairy`, prawns for `crustacean_shellfish`), except reviewed exact
+      names that only look alike (coconut, nutmeg, oyster mushroom).
+
+    A name the vocabulary does not know ("kiwi") is excluded by itself.
+    """
     word = allergen.replace("_", " ").strip()
     if not word:
         return []
@@ -160,13 +157,12 @@ def allergen_exclusions(allergen: str) -> list[dict[str, Any]]:
 
     fragments = {word}
     fragments.update(part for part in word.split() if len(part) >= 3)
-    # Both the underscored and spaced spellings key the table: callers normalise
-    # to `tree_nut`, but a profile may say "tree nuts".
-    for key in (allergen, allergen.rstrip("s"), word, word.replace(" ", "_")):
-        fragments.update(ALLERGEN_INGREDIENT_TERMS.get(key, ()))
+    fragments.update(allergen_name_terms([allergen]))
 
     for group in groups:
         fragments.update(ALLERGEN_INGREDIENT_TERMS.get(group, ()))
+    # Canonical identifiers and their implications (gluten brings wheat).
+    fragments.update(allergen_name_terms([allergen]))
 
     for fragment in sorted(fragments):
         clauses.append(contains(fragment))

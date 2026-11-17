@@ -115,7 +115,8 @@ def test_create_http_retains_manual_claim_during_projection_delay(monkeypatch, p
         response = client.post('/recipes/', json=payload)
     assert response.status_code == 200, response.text
     assert saved[0]['allergens'] == []
-    assert saved[0]['declared_allergens'] == [' Sesame ']
+    # The request model folds names to the shared canonical ids on the way in.
+    assert saved[0]['declared_allergens'] == ['sesame']
     body = response.json()
     assert 'sesame' in body['allergens']
     claim = next(e for e in body['allergen_evidence'] if e['allergen'] == 'sesame')

@@ -68,27 +68,21 @@ def test_truncated_reference_query_cannot_select_first_candidate(monkeypatch):
     assert refs.lookup_references(["garlic"])[1] == "reference_query_incomplete"
 
 
-def test_tool_returns_source_and_full_citation(monkeypatch, garlic):
+def test_tool_uses_reviewed_agribalyse_mapping():
     from recipe_wrangler.tools import sustainability_calculator as calculator
-    monkeypatch.setattr(calculator, "lookup_references", lambda names: ({"garlic": garlic}, "available"))
-    legacy = Mock(side_effect=AssertionError("Must not invoke legacy/vector fallback"))
-    monkeypatch.setattr(calculator, "best_sustainability_match", legacy)
-    result = calculator.sustainability_tool_vector.invoke({"title": "garlic", "ingredient_names": ["garlic"], "weights": [10]})
-    assert result["total_sustainability"] == pytest.approx(0.00383)
-    assert result["details"][0]["sustainability_reference"]["source_record_id"] == "11000"
-    assert result["source_sustainability"] == "AGRIBALYSE"
+    result = calculator.sustainability_tool_vector.invoke({"title": "mince", "ingredient_names": ["minced beef", "chicken fillets"], "weights": [450, 450], "serves": 4})
+    assert result["source_sustainability"] == "AGRIBALYSE 3.2"
     assert result["sustainability_status"] == "complete_estimate"
+    assert result["sustainability_policy"] == calculator.POLICY_VERSION
+    assert result["details"][0]["cf_val"] > 5 * result["details"][1]["cf_val"]
+    assert result["total_sustainability_per_serving"] == pytest.approx(result["total_sustainability"] / 4)
 
 
-def test_incomplete_recipe_keeps_legacy_method_and_exposes_alternative(monkeypatch, garlic):
+def test_unmapped_ingredient_makes_the_total_partial():
     from recipe_wrangler.tools import sustainability_calculator as calculator
-    monkeypatch.setattr(calculator, "lookup_references", lambda names: ({"garlic": garlic}, "available"))
-    monkeypatch.setattr(calculator, "best_sustainability_match", lambda name: (0.67, name, "exact") if name == "garlic" else (None, None, "none"))
-    result = calculator.sustainability_tool_vector.invoke({"title": "partial", "ingredient_names": ["garlic", "unknown"], "weights": [10, 100]})
-    assert result["total_sustainability"] == pytest.approx(0.0067)
+    result = calculator.sustainability_tool_vector.invoke({"title": "partial", "ingredient_names": ["garlic", "zzzz unknown thing"], "weights": [10, 100]})
     assert result["sustainability_status"] == "partial"
-    assert result["details"][0]["alternative_sustainability_reference"]["source"] == "AGRIBALYSE"
-    assert result["details"][0]["sustainability_reference"] is None
+    assert result["details"][1]["cf_val"] is None and result["details"][1]["contribution"] == 0.0
 
 
 @pytest.mark.parametrize("weights", [[1, 2], [-1], [float("nan")], [float("inf")]])

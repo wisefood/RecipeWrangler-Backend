@@ -25,6 +25,7 @@ __pycache__/
 *.pkl
 *.jsonl
 *.csv
+!src/recipe_wrangler/tools/data/*.csv
 *.xlsx
 .idea/
 /deployment

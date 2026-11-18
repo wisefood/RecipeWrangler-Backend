@@ -80,6 +80,7 @@ where = ["src"]
 "recipe_wrangler.pricing" = ["*.json"]
 "recipe_wrangler.utils" = ["data/*.json", "data/*.md"]
 "recipe_wrangler.matching" = ["*.json"]
+"recipe_wrangler.tools" = ["data/*.json", "data/*.csv"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]

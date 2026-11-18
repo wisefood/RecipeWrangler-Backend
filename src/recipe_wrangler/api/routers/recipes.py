@@ -1003,7 +1003,7 @@ def _sustainability_explanation(
     contributors.sort(key=lambda item: item["kg_co2e"], reverse=True)
     return {
         "kg_co2e_per_serving": total,
-        "method": "Ingredient weights multiplied by Sustainable FooDB emission factors.",
+        "method": "Ingredient weights multiplied by AGRIBALYSE 3.2 emission factors (reviewed name mapping; CONCITO and role averages only complete the total).",
         "top_contributors": contributors[:3],
         "coverage": quality.get("sustainability_coverage"),
         "guidance": (

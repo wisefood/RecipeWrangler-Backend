@@ -62,7 +62,7 @@ def audit(release_id):
     result['backfill_pending']=result['eligible_profiles']-result['completed_profiles']
     result['graph_runs_pending']=result['completed_profiles']-result['occurrence_runs']
     result['activation_status']='not_activated' if not result['active_profiles'] else 'has_active_profiles'
-    folder=Path('data/analysis')/('matching_graph_audit_'+release_id);folder.mkdir(exist_ok=True)
+    folder=Path('analysis')/('matching_graph_audit_'+release_id);folder.mkdir(exist_ok=True)
     (folder/'rollout_verification.json').write_text(json.dumps(result,indent=2))
     print(json.dumps({k:v for k,v in result.items() if k!='graph_concepts_missing_registry'},indent=2))
     print('Graph concepts missing registry',len(result['graph_concepts_missing_registry']))

@@ -9,7 +9,7 @@ from recipe_wrangler.utils.nutrition_postgres import get_engine
 
 
 def finish(release_id):
-    status=Path('data/analysis')/('matching_backfill_'+release_id)/'status.json'
+    status=Path('analysis')/('matching_backfill_'+release_id)/'status.json'
     while True:
         if status.exists():
             current=json.loads(status.read_text())

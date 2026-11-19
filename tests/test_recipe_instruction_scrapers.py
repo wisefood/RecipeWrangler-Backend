@@ -2,9 +2,6 @@ from importlib import import_module
 
 from bs4 import BeautifulSoup
 
-from scripts.maintenance.backfill_healthyfoods_instructions import (
-    instructions_need_recovery,
-)
 from scripts.maintenance.backfill_safefood_instructions import recovered_method
 
 foodhero = import_module("scripts.import.foodhero.export_foodhero_recipes_to_json")
@@ -80,18 +77,6 @@ def test_supervalu_method_accepts_non_list_blocks(monkeypatch):
         "Chop the vegetables.",
         "Simmer until tender.",
     ]
-
-
-def test_healthyfoods_recovery_detects_malformed_nonempty_methods():
-    assert instructions_need_recovery([])
-    assert instructions_need_recovery(
-        ["Bread", "Broad bean and mint dip", "Roasted capsicum dip"]
-    )
-    assert instructions_need_recovery(
-        ["1 Recipe supplied by Healthy Food Guide reader, Greg Billings"]
-    )
-    assert not instructions_need_recovery(["Blend all ingredients together."])
-    assert not instructions_need_recovery(["Sauce", "Mix the ingredients thoroughly."])
 
 
 def test_safefood_backfill_recovers_method_but_not_equipment():

@@ -30,10 +30,19 @@ def stored_adaptation(
     recipe_id: str = Path(..., description="Recipe ID as stored in PostgreSQL profile."),
     mode: Literal["sustainability", "nutrition", "cost"] = Query("sustainability"),
     region: Literal["IE", "HU", "SI", "EU"] = Query(..., description="Region of the adaptation."),
+    allergens: list[str] = Query([], description="User's allergens (sustainability only). Any allergen or diet runs the adaptation live instead of reading the stored row."),
+    diet: Literal["vegan", "vegetarian", "pescatarian"] | None = Query(None, description="User's diet (sustainability only); see allergens."),
 ) -> dict:
-    """The stored adaptation of a recipe for one mode and region, or the reason code and sentence when there is none."""
-    from recipe_wrangler.repositories.recipe_adaptations import get_adaptation
-    row = get_adaptation(recipe_id, mode, region)
+    """The stored adaptation of a recipe for one mode and region, or the reason code and sentence when there is none.
+    With allergens or a diet the stored row is never used: the sustainability adaptation is computed live and drops every swap that breaks them."""
+    if allergens or diet:
+        if mode != "sustainability":
+            raise HTTPException(status_code=422, detail="allergens and diet are only supported for mode=sustainability here; nutrition takes them on /adapt/small-gain.")
+        from .sustainability_live import adapt_active_recipe
+        row = adapt_active_recipe(recipe_id, region, allergens=allergens, diet=diet)
+    else:
+        from recipe_wrangler.repositories.recipe_adaptations import get_adaptation
+        row = get_adaptation(recipe_id, mode, region)
     if row is None:
         raise HTTPException(status_code=404, detail=f"No stored {mode} adaptation row for recipe {recipe_id} in region {region}.")
     if row["status"] != "adapted":

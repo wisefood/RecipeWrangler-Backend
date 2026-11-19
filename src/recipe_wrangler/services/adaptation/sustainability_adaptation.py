@@ -137,9 +137,10 @@ def _pool(records, region, label_factor):
     return out
 
 
-def adapt(case, snapshot, recipe, records, item_factor, label_factor, use_table=True, use_search=True, pool=None):
+def adapt(case, snapshot, recipe, records, item_factor, label_factor, use_table=True, use_search=True, pool=None, allergens=(), diet=None):
     """One recipe. item_factor(name, weight_g, label, candidate_id) returns (kg CO2e/kg, source) or (None, None); label_factor(label, candidate_id) returns kg CO2e/kg or None.
-    Only the primary source ('agribalyse') may be the swapped food; fallback factors (CONCITO, role averages) just complete the total."""
+    Only the primary source ('agribalyse') may be the swapped food; fallback factors (CONCITO, role averages) just complete the total.
+    allergens/diet: the user's own restrictions; a target that hits them is rejected whether or not the recipe already has the food."""
     region, serves = case['region'], snapshot.serves or 1
     out = dict(recipe_id=case['recipe_id'], title=case['title'], region=region, serves=serves)
     items = []
@@ -173,7 +174,7 @@ def adapt(case, snapshot, recipe, records, item_factor, label_factor, use_table=
             why.append('below_co2_floor')
         if not partial:
             why += [p for p in role_problems(label, r['label'], lenient=True) + local_problems(label, r['label'], solid_fat) if p not in allow]
-        if restriction_problems([{'operation': 'SWAP_FOOD', 'candidate_label': r['label'], 'matched_label': label}], texts):
+        if restriction_problems([{'operation': 'SWAP_FOOD', 'candidate_label': r['label'], 'matched_label': label}], texts, allergens, diet):
             why.append('allergen_or_diet')
         if why:
             for k in why:

@@ -17,8 +17,9 @@ from .objective_approval import production_score_context
 from recipe_wrangler.utils.fruit_vegetable_content import fruits_veg_legumes_percent, is_fruit_vegetable_legume_or_nut
 from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from_values
 
-from . import small_gain_rules as swap_rules
-from .food_roles import role_problems
+from . import nutrition_swap_rules as swap_rules
+from .diagnosis import diagnose
+from .food_roles import PROCESSED_MEAT, VARIETY, content_words, family_of, role_of, role_problems
 
 GRAPH_POSITIONS_PER_METRIC = 3
 TARGETS = ('saturated_fat_g', 'sodium_mg', 'sugar_g', 'energy_kcal')
@@ -39,10 +40,10 @@ BAKED = re.compile(r'\b(cakes?|buns?|scones?|muffins?|biscuits?|cookies?|pastry|
 NUMERIC = re.compile(r'(\d|½|¼|¾|⅓|⅔|\bone\b|\btwo\b|\bthree\b|\bhalf\b)', re.I)
 
 # category: (label regex, source-line regex, reduction fraction, reason)
-# Owner, 12 Nov: no cuts of salt, oil/fat, cheese, cream or processed meat; a few grams less is invisible to a cook.
-# Those foods get swaps instead (small_gain_rules: lower-fat cheese, half-fat creme fraiche, lean bacon, light spread...).
+# Owner, 12 Nov: no cuts of salt, cheese, cream or processed meat; those get swaps instead (nutrition_swap_rules: lower-fat cheese,
+# half-fat creme fraiche, lean bacon, light spread, low-sodium salt). Owner, 16 Nov: oil and butter/margarine may be cut by a quarter.
 AMOUNT_RULES = [
-    ('sugar', r'^(sugar|honey|syrup|golden syrup|maple syrup|treacle|caster sugar|brown sugar|icing sugar|demerara)\b',
+    ('sugar', r'^(\w+\s+)?(sugar|honey|syrup|golden syrup|maple syrup|treacle|caster sugar|brown sugar|icing sugar|demerara)\b',
      r'\b(sugar(?! ?snap)|honey|syrup|treacle)\b', 0.25,
      'use a quarter less sugar/honey; sweetness and texture stay recognisable'),
     ('sauce', r'\b(mayonnaise|mayo|ketchup|brown sauce|barbecue sauce|bbq sauce|sweet chilli|salad cream|dressing|pesto|hoisin|teriyaki)\b',
@@ -53,6 +54,10 @@ AMOUNT_RULES = [
     ('chocolate', r'^(?!.*\b(spread|drink|cake|biscuit|milk powder|cocoa powder)\b).*\bchocolate\b', r'\bchocolate\b(?!.*\bspread\b)', 0.25,
      'use a quarter less chocolate'),
     ('nut_butter', r'\b(peanut|nut|almond|cashew) butter\b', r'\b(peanut|nut|almond|cashew) butter\b', 1 / 3, 'use a third less nut butter'),
+    ('oil', r'^(oil\b|(extra[- ]virgin )?(olive|sunflower|rapeseed|vegetable|cooking|groundnut|sesame|corn|coconut) oil)', r'\boil\b', 0.25,
+     'use about a quarter less oil; measure it instead of pouring'),
+    ('butter', r'^(butter\b|margarine|baking fat|spread\b)', r'\b(butter|margarine|baking fat)\b', 0.25,
+     'use about a quarter less butter/margarine'),
     ('salty_condiment', r'^(?!.*\b(dissolved|made up|prepared|diluted|ready to use|liquid|home ?made|reconstituted)\b).*\b(soy sauce|fish sauce|stock cubes?|bouillon (cube|powder|granules)|cubes?|gravy granules|stock powder|granules|concentrate)\b',
      r'\b(soy sauce|fish sauce|stock cube|bouillon|gravy granules|stock powder|cube)\b', 0.33,
      'use a third less of the salty seasoning (stock cube/soy/fish sauce)'),
@@ -91,6 +96,7 @@ def pitfall(source, label):
     return found
 
 
+HAM = re.compile(r'\bham\b', re.I)
 DIET_GROUPS = ('vegan', 'vegetarian', 'pescatarian')
 
 
@@ -141,7 +147,8 @@ def gates(before, after, grade_before, grade_after):
         worse = change < 0 if m in ('fibre_g', 'protein_g') else change > 0
         if worse and abs(change) > ROUNDING_TOLERANCE[m] + 1e-12:
             # Material = >5% relative AND above half the policy's absolute floor (not a fraction of a gram on a tiny base).
-            (material if abs(change) > before[m] * MATERIAL + 1e-12 and abs(change) > MATERIAL_ABS[m] else tradeoffs).append(
+            # Protein and fibre losses are advisory: a meat-to-veg swap lowers protein by design and a grade drop is blocked anyway.
+            (material if m not in ('fibre_g', 'protein_g') and abs(change) > before[m] * MATERIAL + 1e-12 and abs(change) > MATERIAL_ABS[m] else tradeoffs).append(
                 {'metric': m, 'delta_per_serving': round(change, 4), 'relative': round(change / before[m], 4) if before[m] else None})
     meaningful = []
     for m in TARGETS:
@@ -160,7 +167,8 @@ def gates(before, after, grade_before, grade_after):
     better_letter = GRADE[grade_after] < GRADE[grade_before] and any(x['relative'] + 1e-12 >= MIN_RELATIVE_REDUCTION for x in improvements)
     # Owner rule (12 Nov): an A recipe staying A counts with a small real gain (>=5% on any score nutrient).
     # Owner, 12 Nov night: "even a small change in nutrition" counts -> >=5% real gain on any score nutrient, every grade.
-    a_grade_small_gain = any(x['relative'] >= SMALL_GAIN for x in improvements)
+    # Owner, 16 Nov: an A recipe staying A needs >=10%, every other case keeps the 5% small-gain bar.
+    a_grade_small_gain = any(x['relative'] >= (MIN_RELATIVE_REDUCTION if grade_before == grade_after == 'Nutriscore_A' else SMALL_GAIN) - 1e-12 for x in improvements)
     # Owner, 12 Nov night ("not too strict"): B and below count a real >=10% gain on any score nutrient, even under the absolute floor.
     relative_gain = grade_before != 'Nutriscore_A' and any(x['relative'] + 1e-12 >= MIN_RELATIVE_REDUCTION for x in improvements)
     passed = (bool(meaningful) or better_letter or a_grade_small_gain or relative_gain) and not material and not worse_letter
@@ -192,15 +200,29 @@ def mentions(text, word):
     return [' '.join(parts[n:n + 2]) for n, s in enumerate(parts) if re.search(r'\b' + re.escape(word), s, re.I)]
 
 
+def regional_first(pool, region, dataset=None):
+    """Owner, 16 Nov: the recipe's regional table (Irish, Hungarian, Slovenian) first, the general EU collection as the fallback,
+    so the four modes give slightly different, local suggestions; within each, the baseline's own database first (no
+    cross-database noise). Returns (records of the first non-empty tier, whether that tier is the baseline's database)."""
+    for collection in dict.fromkeys(('nutritional_ingredients_' + region, 'nutritional_ingredients_eu')):
+        here = [r for r in pool if r['collection'] == collection]
+        same = [r for r in here if dataset and (r['dataset'] or '').casefold() == dataset.casefold()]
+        if same:
+            return same, True
+        if here:
+            return here, False
+    return [], False
+
+
 def pick_target(records, rule, base_values, dataset, region, base_label):
     """Median eligible released record for the rule (same dataset preferred) - never the most favourable one."""
     pool = [r for r in records if r['collection'] in ('nutritional_ingredients_eu', 'nutritional_ingredients_' + region)
             and re.search(rule['target'], r['label'] or '', re.I)
-            and (rule['name'] == 'reduced_sugar_salt_baked_beans' or not re.search(swap_rules.COMPOSITE, r['label'], re.I))
-            and swap_rules.compatible_state(base_label, r['label'], rule['name']) and swap_rules.keeps_type(base_label, r['label'])
+            and (rule['name'] in swap_rules.COMPOSITE_OK or not re.search(swap_rules.COMPOSITE, r['label'], re.I))
+            and swap_rules.compatible_state(base_label, r['label'], rule['name']) and (rule['name'] in swap_rules.CROSS_TYPE or swap_rules.keeps_type(base_label, r['label']))
             and all(isinstance((r['v'] or {}).get(m), (int, float)) for m in GUARDED)]
-    same = [r for r in pool if (r['dataset'] or '').casefold() == (dataset or '').casefold()]
-    pool = sorted(same or pool, key=lambda r: (r['v'][rule['pick_metric']], r['candidate_id']))
+    pinned = [r for r in pool if r['label'] == swap_rules.PROFILER_PIN.get(rule['name']) and r['collection'] == 'nutritional_ingredients_eu'] if region in ('irish', 'eu') else []
+    pool = pinned or sorted(regional_first(pool, region, dataset)[0], key=lambda r: (r['v'][rule['pick_metric']], r['candidate_id']))
     if not pool:
         return None, 'no_eligible_released_record'
     target = pool[(len(pool) - 1) // 2]
@@ -248,15 +270,19 @@ def similar_targets(records, identity, state, base_label, base_per100, dataset, 
 
     "Clearly better" = at least 15% lower and lower by the policy's per-serving floor, so database variants of the
     same plant food (onion vs frozen onion) never count. The baseline's own descriptors (skinless, lean, brown) stay."""
+    if re.match(r'(fish|meat|seafood)\b.*\baverage\b', base_label or '', re.I):
+        return None, False  # an unspecific average record ('Fish, cooked (average)' for 'cod or whiting') is a baseline estimate, not a food to swap: the gain would be the record correcting itself
     pool = _dedupe([r for r in records if r['collection'] in ('nutritional_ingredients_eu', 'nutritional_ingredients_' + region)
                     and _facets(r).get('base_identity') == identity and _facets(r).get('preparation_state') == state
                     and _clean(r, base_label) and swap_rules.keeps_descriptors(base_label, r['label'] or '')
+                    and role_of(r['label']) == role_of(base_label) and family_of(r['label']) == family_of(base_label)  # goose is not goose barnacle, lentils are not lentil sprouts
+                    and 'dry_lentil_variety_swap' not in role_problems(base_label, r['label'], lenient=True)
                     and r['v'][metric] < 0.85 * base_per100[metric] and base_per100[metric] - r['v'][metric] >= min_gain_per100
-                    and (r['label'] or '') != base_label
+                    and (r['label'] or '') != base_label and content_words(r['label']) - _STATE_WORDS != content_words(base_label) - _STATE_WORDS
                     and not (MINCED.search(base_label + ' ' + source_text) and not MINCED.search(r['label'] or ''))  # a minced food stays minced
                     and not bone_in(base_label + ' ' + source_text)])
-    same = [r for r in pool if (r['dataset'] or '').casefold() == (dataset or '').casefold()]
-    use = sorted(same or pool, key=lambda r: (r['v'][metric], r['candidate_id']))
+    tier, same = regional_first(pool, region, dataset)
+    use = sorted(tier, key=lambda r: (r['v'][metric], r['candidate_id']))
     return (use[(len(use) - 1) // 2], not same) if use else (None, False)
 
 
@@ -266,8 +292,78 @@ def role_targets(records, spec, region):
                     and _facets(r).get('base_identity') == identity and _facets(r).get('food_part') == part
                     and _facets(r).get('preparation_state') == 'raw' and _clean(r, '')
                     and (not label_rx or re.search(label_rx, r['label'] or '', re.I))])
-    use = sorted(pool, key=lambda r: (r['v']['saturated_fat_g'], r['candidate_id']))
+    use = sorted(regional_first(pool, region)[0], key=lambda r: (r['v']['saturated_fat_g'], r['candidate_id']))
     return use[(len(use) - 1) // 2] if use else None
+
+
+# Descriptor route (owner, 16 Nov): search the released records for the same food with a healthier descriptor, so the system
+# finds low-fat / wholemeal / reduced-salt versions itself instead of relying on the curated table.
+HEALTHIER = {
+    'lower-fat': (r'\b(low[- ]?fat|reduced[- ]?fat|half[- ]?fat|fat[- ]?free|light(?!\s*meat)|lite|skimmed|semi[- ]?skimmed|lean|extra lean|skinless)\b', 'saturated_fat_g'),
+    'wholegrain': (r'\b(wholemeal|whole ?wheat|wholegrain|whole grain|brown|unpolished)\b', 'fibre_g'),
+    'lower-salt': (r'\b(reduced[- ]?(salt|sodium)|low[- ]?(salt|sodium)|no added salt|unsalted|without salt)\b', 'sodium_mg'),
+    'lower-sugar': (r'\b(reduced[- ]?sugar|low[- ]?sugar|no added sugar|unsweetened|sugar[- ]?free)\b', 'sugar_g'),
+}
+CUT_WORDS = re.compile(r'\b(mince|minced|ground|stewing|diced)\b', re.I)
+CUT_GROUPS = {'mince': r'\b(mince|minced|ground)\b', 'minced': r'\b(mince|minced|ground)\b', 'ground': r'\b(mince|minced|ground)\b',
+              'stewing': r'\b(stewing|stew|braising|diced)\b', 'diced': r'\b(diced|stewing|stew)\b'}
+_STATE_WORDS = {'raw', 'cooked', 'boiled', 'steamed', 'stewed', 'fried', 'grilled', 'roasted', 'baked', 'plain', 'unsalted', 'salted', 'water', 'without', 'salt'}
+_DESCRIPTOR_WORDS = set(re.findall(r'[a-z]+', ' '.join(rx for rx, _ in HEALTHIER.values()))) - {'salt', 'sugar', 'sodium', 'fat'}  # these are also foods ('Salt, white')
+
+
+ANIMAL_ROLES = {'red_meat', 'poultry', 'fish', 'shellfish'}
+ALL_DESCRIPTORS = re.compile('|'.join(rx for rx, _ in HEALTHIER.values()), re.I)
+TYPE_WORDS = re.compile(r'\b(rye|chapati|spelt|buckwheat|rice|corn|maize|potato|oats?|barley|almond|coconut|chestnut|soya|soy|goat|sheep|buffalo)\b', re.I)
+CUTS = re.compile(r'\b(whole|breast|fillets?|leg|thighs?|drumsticks?|wings?|quarter|minced?|ground|slices?|sliced|crumbs?|steaks?|medallions?|loin|shoulder|joint|stewing|braising|diced)\b', re.I)
+CUT_SAME = {'mince': 'mince', 'minced': 'mince', 'ground': 'mince', 'slice': 'slice', 'slices': 'slice', 'sliced': 'slice', 'crumb': 'crumbs', 'crumbs': 'crumbs',
+            'stewing': 'stew', 'braising': 'stew', 'diced': 'stew', 'fillet': 'fillet', 'fillets': 'fillet'}
+
+
+def _cuts(text):
+    out = {CUT_SAME.get(m.lower(), m.lower()) for m in CUTS.findall(text or '')}
+    return out if role_of(text or '') in ANIMAL_ROLES else out - {'whole'}  # 'whole' is a cut of a bird, not of milk
+
+
+def descriptor_targets(records, label, region, per100, dataset=None, line=''):
+    """(group, target) per healthier descriptor the baseline lacks: same role, family and head food word, same state,
+    type words kept; the median of the records that are better on the group's nutrient."""
+    words = [w for w in re.findall(r'[a-z]+', (label or '').lower()) if w in content_words(label) and w not in VARIETY and w not in _DESCRIPTOR_WORDS
+             and w not in ('plain', 'average', 'pasteurised', 'fresh', 'regular', 'standard')]
+    role, fam = role_of(label), family_of(label)
+    if not words or role in ('spread_fat', 'oil') or re.search(r'(^|,\s*)fat\b', label or '', re.I) or re.search(swap_rules.COMPOSITE, label or '', re.I):  # light spreads have their own rule; pork fat is fat
+        return []
+    cut = CUT_WORDS.search((label or '') + ' ' + (line or ''))
+    cooked = re.search(r'\b(boiled|cooked|stewed|roast\w*|fried|grilled|baked)\b', label or '', re.I)
+    out = []
+    for group, (rx, metric) in HEALTHIER.items():
+        if re.search(rx, label, re.I):
+            continue
+        pool = [r for r in records if r['collection'] in ('nutritional_ingredients_eu', 'nutritional_ingredients_' + region)
+                and re.search(rx, r['label'] or '', re.I) and re.search(r'\b' + words[0], ALL_DESCRIPTORS.sub(' ', r['label'] or '').lower())  # the main food word outside the descriptor ('Jam, reduced sugar' is not sugar)
+                and not (set(m.lower() for m in TYPE_WORDS.findall(r['label'] or '')) - set(m.lower() for m in TYPE_WORDS.findall((label or '') + ' ' + (line or ''))))  # no rye for wheat, no goat for cow
+                and (_cuts((label or '') + ' ' + (line or '')) & _cuts(r['label']) if _cuts((label or '') + ' ' + (line or '')) else not _cuts(r['label']))  # the cut stays: whole, breast, mince, slices, crumbs
+                and {m.lower() for m in PROCESSED_MEAT.findall(label or '')} <= {m.lower() for m in PROCESSED_MEAT.findall(r['label'] or '')}  # bacon stays bacon, ham stays ham
+                and bool(PROCESSED_MEAT.search(r['label'] or '')) == bool(PROCESSED_MEAT.search(label or ''))  # and fresh pork is never bacon
+                and not re.search(r'\b(water|juice|drink|latte|coffee|cafe|cocoa|puree|purée|porridge|baby\w*|infant|stew\w*|soup|sauce|dish|dips?|dressing|spread)\b', r['label'] or '', re.I)
+                and not (cut and not re.search(CUT_GROUPS[cut.group(0).lower()], r['label'] or '', re.I))  # minced or stewing beef is not fillet steak
+                and not (cooked and re.search(r'without (added )?salt|unsalted|no salt', r['label'] or '', re.I))  # undoes the matcher's salted-water record
+                and all(isinstance((r['v'] or {}).get(k), (int, float)) for k in GUARDED)
+                and not re.search(swap_rules.COMPOSITE, r['label'], re.I) and role_of(r['label']) == role and family_of(r['label']) == fam
+                and swap_rules.compatible_state(label, r['label'], '') and swap_rules.keeps_type(label, r['label'])
+                and (not re.search(r'\b(nut|peanut|almond|cashew) butter\b', label or '', re.I) or re.search(r'butter|paste', r['label'] or '', re.I))  # a nut butter stays a spread, not whole nuts
+                and (metric == 'fibre_g' or not (per100['fibre_g'] and r['v']['fibre_g'] > 2.5 * per100['fibre_g'] and r['v']['fibre_g'] - per100['fibre_g'] > 3))  # a lower-fat or reduced-salt version does not carry 4x the fibre: a table artifact ('Peanut butter light' 25.8 g)
+                and (r['v'][metric] > per100[metric] if metric == 'fibre_g' else r['v'][metric] < per100[metric])]
+        tier, same = regional_first(pool, region, dataset)
+        tier = sorted(tier, key=lambda r: (r['v'][metric], r['candidate_id']))
+        if tier:
+            out.append((group, tier[(len(tier) - 1) // 2], not same))
+    return out
+
+
+def _dataset(candidate_id):
+    cid = str(candidate_id or '')
+    m = re.match(r'catalogue:\["([^"]+)"', cid)
+    return m.group(1) if m else cid.split(':')[0]
 
 
 def make_evaluator(snapshot, profile):
@@ -297,7 +393,15 @@ def make_evaluator(snapshot, profile):
         """edits: {position: [(weight_g, values_per_100g or None=same food scaled)]}; FVL membership kept as baseline."""
         total = dict(base)
         new_mass, fvl_mass = mass, context.fruit_veg_legume_percent * mass / 100
+        for w, values, fvl in edits.get('add', []):  # a new food: its weight and per-100 g values are added to the recipe
+            for k in TOTAL_KEYS:
+                if total[k] is not None:
+                    total[k] = None if values.get(k) is None and k not in GUARDED else total[k] + (values.get(k) or 0.0) * w / 100
+            new_mass += w
+            fvl_mass += w if fvl else 0
         for pos, parts in edits.items():
+            if pos == 'add':
+                continue
             d = details[pos]
             for k in TOTAL_KEYS:
                 if total[k] is None:
@@ -364,6 +468,8 @@ def change_candidates(case, snapshot, profile, recipe, records, more_veg=False):
                     re.search(re.escape(re.search(line_re, line, re.I).group(0)), title, re.I):
                 fraction, why = 0.2, why.split(';')[0].replace('a third', 'a fifth').replace('a quarter', 'a fifth').replace('about a fifth', 'a fifth') + \
                     ' (it is the dish identity, so only a fifth)'
+            if category in ('oil', 'butter') and (baked or re.search(r'\bdeep[- ]?fr', title + ' ' + line, re.I)):
+                skip.append('fat_is_structural_in_baking_or_deep_frying')
             if category == 'sugar' and re.search(r'\b(jam|meringue|caramel|toffee|fudge|syrup cake|marmalade|candied|preserve)\b', title, re.I):
                 skip.append('sugar_is_structural_or_preservative')
             if item.quantity.weight_g * fraction < 0.5:
@@ -382,7 +488,7 @@ def change_candidates(case, snapshot, profile, recipe, records, more_veg=False):
                 continue
             record = {'position': item.position, 'source_line': line, 'matched_label': label, 'category': rule['name'],
                       'operation': 'SWAP_FOOD', 'weight_before_g': item.quantity.weight_g}
-            skip = list(common)
+            skip = list(common) + (['unverifiable_swap:the profiler picks the same ham record for any ham wording'] if HAM.search(line) else [])
             ctx = rule['exclude_context']
             if ctx == 'SPREAD_ONLY':
                 uses = [u for w in ('butter', 'margarine', 'spread') for u in mentions(steps, w)]
@@ -391,13 +497,17 @@ def change_candidates(case, snapshot, profile, recipe, records, more_veg=False):
                     skip.append('role_mismatch:light spread only where the fat is spread on bread')
             elif ctx == 'BAKED_OR_NOT_FRYING':
                 uses = mentions(steps, re.search(r'butter|margarine|lard|ghee|dripping', label, re.I).group(0))
-                if baked or re.search(r'\b(confit|rillettes?|rilette|submerge\w*|seal\w*|potted)\b', title + ' ' + steps, re.I) or not any(re.search(r'\b(fry|fried|frying|saut|soften|sweat|brown|sear|melt\w* .*pan|heat)', u, re.I) for u in uses) \
+                if baked or re.search(r'\b(confit|rillettes?|rilette|submerge\w*|seal\w*|potted)\b', title + ' ' + steps, re.I) or (not any(re.search(r'\b(fry|fried|frying|saut|soften|sweat|brown|sear|melt\w* .*pan|heat)', u, re.I) for u in uses) and not re.search(r'\b(lard|dripping)\b', label, re.I)) \
                         or any(re.search(r'\b(flour|dough|pastry|rub|cream|beat|sauce|spread|serve|confit|submerge|seal|set\b)', u, re.I) for u in uses):
                     skip.append('role_mismatch:butter not used only for frying')
             elif ctx and re.search(ctx, title + ' ' + steps, re.I):
                 skip.append('role_mismatch:' + rule['name'] + '_not_suitable_in_this_dish')
             if re.search(swap_rules.ALREADY, line, re.I):
                 skip.append('repairs_baseline_only:source_line_already_asks_for_this')
+            if rule['name'] == 'half_wholemeal_flour' and item.quantity.weight_g < 0.15 * context.total_weight_g:
+                skip.append('role_mismatch:flour_not_a_main_ingredient')
+            if rule['name'] == 'low_sodium_salt' and (not NUMERIC.search(line) or re.search(r'\b(to taste|pinch|dash|season\w*|optional|to serve)\b', line, re.I)):
+                skip.append('amount_not_explicitly_measured')
             target, why_not = (None, None) if skip else pick_target(records, rule, per100, item.composition.source_dataset if item.composition else None, case['region'], label)
             if why_not:
                 skip.append(why_not)
@@ -414,12 +524,24 @@ def change_candidates(case, snapshot, profile, recipe, records, more_veg=False):
             else:
                 edit = {item.position: [(w * rule['mass_factor'], target['v'])]}
             record.update(candidate_label=target['label'], candidate_id=target['candidate_id'], candidate_collection=target['collection'],
-                          candidate_dataset=target['dataset'], weight_after_g=round(w * rule['mass_factor'], 2), reason=rule['reason'],
+                          candidate_dataset=target['dataset'], weight_after_g=round(w * rule['mass_factor'], 2), reason=rule['reason'], tip=swap_rules.TIPS.get(rule['name']), changes_dish_identity=True if rule['name'] in swap_rules.CROSS_TYPE else None,
                           per_100g={'from': {k: round(per100[k], 3) for k in GUARDED},
                                     'to': {k: target['v'].get(k) for k in GUARDED}})
             valid.append((edit, record))
-            out.append(evaluate(edit, record))
-            break
+            out.append(evaluate(edit, record))  # every matching row is evaluated; the ranking picks (reduced-fat sausage vs poultry sausage)
+        # --- descriptor route: the same food with a healthier descriptor, found by search
+        if not re.search(swap_rules.ALREADY, line, re.I) and not HAM.search(line):
+            for group, target, cross in descriptor_targets(records, label, case['region'], per100, item.composition.source_dataset if item.composition else None, line):
+                w = item.quantity.weight_g
+                record = {'position': item.position, 'source_line': line, 'matched_label': label, 'category': 'descriptor_' + group,
+                          'operation': 'SWAP_FOOD', 'route': 'descriptor_search', 'weight_before_g': w, 'weight_after_g': round(w, 2),
+                          'candidate_label': target['label'], 'candidate_id': target['candidate_id'], 'candidate_collection': target['collection'],
+                          'candidate_dataset': target['dataset'], 'reason': f'use a {group} version of the same food',
+                          'per_100g': {'from': {k: round(per100[k], 3) for k in GUARDED}, 'to': {k: target['v'].get(k) for k in GUARDED}}}
+                c = dict(record, status='rejected_culinary_or_match', reasons=list(common)) if common else evaluate({item.position: [(w, target['v'])]}, record)
+                if not common and cross and not c['gates']['meaningful_reductions']:
+                    c.update(status='rejected_nutrition', reasons=['cross_database_gain_below_policy_floor'], cross_database=True)
+                out.append(c)
     if more_veg:
         return out, None
     # --- loose similar-food search for the biggest contributors: same food any part, and lean-protein role swaps
@@ -432,7 +554,7 @@ def change_candidates(case, snapshot, profile, recipe, records, more_veg=False):
             continue
         label = (item.composition.provenance.get('candidate') or {}).get('document', '')
         line = item.original_text or ''
-        if pitfall(line, label) or not NUMERIC.search(line) or re.search(r'(^|,\s*)fat\b', label, re.I):
+        if pitfall(line, label) or HAM.search(line) or not NUMERIC.search(line) or re.search(r'(^|,\s*)fat\b', label, re.I):
             continue  # unmeasured, known pitfall, or a baseline that matched a pure-fat record
         facts = item.composition.properties
         identity = facts['base_identity'].value if 'base_identity' in facts and facts['base_identity'].evidence.status == 'stated' else None
@@ -522,6 +644,107 @@ OFFAL = re.compile(r'\b(liver|heart|gizzard|kidney|tongue|tripe|offal|skin|bone|
 PROCESSED_TARGET = re.compile(r'\b(casserole|ready meal|soup|sauce|pie|pizza|sandwich|with|w/)\b', re.I)
 
 
+OILY_FISH = re.compile(r'\b(salmon|mackerel|sardines?|herring|trout|anchov\w*|pilchards?|kippers?|eels?)\b', re.I)
+
+
+def protected_food(label):
+    """Foods that are healthy for the very nutrient the score flags (saturated fat, sugar): never swapped or cut."""
+    role = role_of(label)
+    if role in ('egg', 'fruit'):
+        return role
+    if OILY_FISH.search(label or ''):
+        return 'oily_fish'
+    if re.search(r'\bavocados?\b', label or '', re.I):
+        return 'avocado'
+    if role == 'nut_seed' and not re.search(r'\bbutter\b|\bpaste\b|\boil\b|\bmilk\b', label or '', re.I):
+        return 'nuts_seeds'
+    return None
+
+
+BREAKFAST = r'(porridge|\boats|muesli|granola|smoothie|pancake|yog(h)?urt|fruit|snack|cereal|breakfast|apple|pear|banana|\bnuts?\b)'
+SAVOURY = r'\b(cheese|cheesy|eggs?|bacon|ham|chicken|turkey|pork|beef|lamb|fish|salmon|tuna|potato\w*|sweetcorn|onion|garlic|pizza)\b'
+NO_ADDITION = r'\b(chutney|jam|sauce|dip|dressing|spread|pesto|relish|salsa|marinade|stock|bread|loaf|scones?|muffins?|buns?)\b'
+GAP_NUTRIENT = {'fibre': 'fibre_g', 'protein': 'protein_g'}
+MAIN_SOURCE_SHARE = 0.20  # an ingredient carrying >=20% of a nutrient the recipe scores negative points for
+
+
+ADD_MIN_GAIN = {'fibre_g': 2.0, 'protein_g': 5.0}  # per serving
+FRUIT_VEG_PORTION_G = 80
+ADD_MAX_ENERGY_KCAL = 150  # per serving: a normal pot of yogurt or a side of vegetables fits
+LOW_PER_100G = {'saturated_fat_g': 1.5, 'sodium_mg': 120}  # UK front-of-pack "low" thresholds per 100 g (salt 0.3 g)
+
+
+def add_gates(c, gap):
+    """Owner, 16 Nov: an addition is judged per serving, never by the Nutri-Score (adding weight dilutes the per-100 g score).
+    It must add >=2 g fibre, >=5 g protein or a full 80 g fruit/veg portion per serving, the added food itself must be low in
+    saturated fat and salt (front-of-pack thresholds per 100 g), and it may add at most 150 kcal per serving."""
+    b, a, reasons = c['before_per_serving'], c['after_per_serving'], []
+    m = GAP_NUTRIENT.get(gap)
+    if m and (a[m] or 0) - (b[m] or 0) < ADD_MIN_GAIN[m]:
+        reasons.append(f'{gap}_gain_below_{ADD_MIN_GAIN[m]:g}g_per_serving')
+    if gap == 'fruit_veg' and c['grams_per_serving'] < FRUIT_VEG_PORTION_G:
+        reasons.append('less_than_a_fruit_veg_portion')
+    for k, limit in LOW_PER_100G.items():
+        if (c.get('added_per_100g') or {}).get(k, 0) > limit:
+            reasons.append('added_food_not_low_in:' + k)
+    if a['energy_kcal'] - b['energy_kcal'] > ADD_MAX_ENERGY_KCAL:
+        reasons.append('adds_over_150_kcal_per_serving')
+    return {'passed': not reasons, 'reasons': reasons, 'gap': gap,
+            'gain_per_serving': {k: round((a[k] or 0) - (b[k] or 0), 2) for k in ('fibre_g', 'protein_g', 'energy_kcal', 'saturated_fat_g', 'sodium_mg', 'sugar_g')}}
+
+
+def addition_target(records, rx, region):
+    pool = sorted(regional_first([r for r in records if r['collection'] in ('nutritional_ingredients_eu', 'nutritional_ingredients_' + region)
+                                  and re.search(rx, r['label'] or '', re.I) and all(isinstance((r['v'] or {}).get(k), (int, float)) for k in GUARDED)],
+                                 region)[0], key=lambda r: (r['v']['energy_kcal'], r['candidate_id']))
+    return pool[(len(pool) - 1) // 2] if pool else None
+
+
+def additions(case, snapshot, profile, recipe, records, diag):
+    """One candidate per diagnosed gap that fits the dish (sweet/breakfast or savoury); scored on the same recalculation as swaps."""
+    ns, _ = make_evaluator(snapshot, profile)
+    if ns is None:
+        return []
+    title = recipe.get('title') or case['title']
+    if re.search(NO_ADDITION, re.split(r'\s+(?:with|on)\s+', title, maxsplit=1, flags=re.I)[0], re.I):  # the dish itself, not what it is served with
+        return []  # condiments, breads and bakes: a side portion or a spoonful of oats does not belong there
+    sweet = (re.search(SWEET_DISH, title, re.I) or re.search(BREAKFAST, title, re.I)) and not re.search(SAVOURY, title, re.I)
+    dish = 'sweet' if sweet else 'savoury'
+    if dish == 'savoury' and is_baked(title, instructions_text(recipe), snapshot):
+        return []
+    gaps = {g['component'] for g in diag['gaps']}
+    out = []
+    for gap, kind, what, rx, grams, fvl in swap_rules.ADDITIONS:
+        if gap not in gaps or kind != dish or (what in swap_rules.ADDITION_CONTEXT and not re.search(swap_rules.ADDITION_CONTEXT[what], title, re.I)):
+            continue
+        target = addition_target(records, rx, case['region'])
+        if target is None:
+            continue
+        w = grams * snapshot.serves
+        record = {'position': 'add', 'operation': 'ADD_INGREDIENT', 'category': 'add_' + gap, 'source_line': '', 'matched_label': '',
+                  'candidate_label': target['label'], 'candidate_id': target['candidate_id'], 'candidate_dataset': target['dataset'],
+                  'weight_before_g': 0.0, 'weight_after_g': round(w, 2), 'grams_per_serving': grams, 'added_per_100g': target['v'],
+                  'addition': what, 'reason': f"add {grams} g {what} per serving (the recipe lacks {gap.replace('_', '/')})"}
+        c = ns['evaluate']({'add': [(w, target['v'], fvl)]}, record)
+        c['gates'] = add_gates(c, gap)
+        c['status'], c['reasons'] = ('qualifies' if c['gates']['passed'] else 'rejected_nutrition'), c['gates']['reasons']
+        out.append(c)
+    return out
+
+
+GAP_WORDS = {'fibre': 'fibre', 'protein': 'protein', 'fruit_veg': 'fruit and vegetables'}
+
+
+def enrichment_card(enrichment: dict) -> dict:
+    """Code-written card for an addition (no model): what to serve with, what it adds per serving, and no grade (owner, 16 Nov)."""
+    gain, gap = enrichment['gates']['gain_per_serving'], enrichment['gates']['gap']
+    gained = [f"+{gain['fibre_g']:.1f} g fibre" if gain['fibre_g'] >= 0.5 else '', f"+{gain['protein_g']:.1f} g protein" if gain['protein_g'] >= 1 else '',
+              '+1 portion of fruit or vegetables' if gap == 'fruit_veg' else '']
+    return {'serve_with': f"Serve with {enrichment['addition']} ({enrichment['grams_per_serving']} g per person).",
+            'benefit': ', '.join(x for x in gained if x) + f" per serving; the recipe was low in {GAP_WORDS[gap]}.",
+            'note': 'The dish itself is unchanged, so its Nutri-Score stays the same; the extra food adds what the recipe lacked.'}
+
+
 def swap_review(case, screen, recipe, baked):
     occ = {o['position']: o for o in screen['occurrences']}
     out = []
@@ -533,6 +756,8 @@ def swap_review(case, screen, recipe, baked):
         line, base_label, label = o['source_line'] or '', o['matched_label'] or '', c['label']
         reasons = ['baseline_match_pitfall:' + p for p in pitfall(line, base_label)]
         reasons += ['candidate_match_pitfall:' + p for p in pitfall(line, label) if p not in ' '.join(reasons)]
+        if HAM.search(line):
+            reasons.append('unverifiable_swap:the profiler picks the same ham record for any ham wording')
         claim = re.compile(r'\b(low[- ]fat|reduced[- ]fat|half[- ]fat|light|skimmed|semi[- ]skimmed|fat[- ]free|lean|'
                            r'low[- ](salt|sodium)|reduced[- ](salt|sodium)|no added (salt|sugar)|unsalted|reduced sugar)\b', re.I)
         if claim.search(line) and not claim.search(base_label) and claim.search(label):
@@ -551,8 +776,8 @@ def swap_review(case, screen, recipe, baked):
             if not spread_only:
                 reasons.append('role_mismatch:light butter/spread is only for spreading or serving, not frying, doughs or cooking')
         if c.get('route') == 'graph_foodon':  # graph/FoodOn relatives are only "related"; the target must do the same job in the dish
-            reasons += ['role:' + p for p in role_problems(base_label, label)]
-        if OFFAL.search(label) and not OFFAL.search(base_label):
+            reasons += ['role:' + p for p in role_problems(base_label, label, lenient=True)]
+        if OFFAL.search(label.replace('flesh and skin', '')) and not OFFAL.search(base_label):
             reasons.append('different_food_part_offal_or_skin')
         if PROCESSED_TARGET.search(label) and not PROCESSED_TARGET.search(base_label):
             reasons.append('target_is_a_composite_dish')
@@ -576,6 +801,16 @@ def swap_review(case, screen, recipe, baked):
             g = {'passed': False, 'reasons': ['score_nutrients_not_comparable']}
         else:
             g = gates(b, a, c['grade_before'], c['grade_after'])
+            if role_of(base_label) in ('vegetable', 'allium', 'potato_root', 'fruit', 'legume') and (a.get('fibre_g') or 0) < (b.get('fibre_g') or 0) - 0.05:
+                reasons.append('produce_swap_loses_fibre')  # spinach -> lettuce scores better only because lettuce is mostly water
+            if role_of(base_label) == 'cheese' and role_of(label) == 'yogurt' and not re.search(
+                    r'\b(lasagn\w*|moussaka|bechamel|béchamel|white sauce|cheese sauce|casserole)\b', title + ' ' + instructions_text(recipe), re.I):
+                reasons.append('cheese_to_yogurt_only_in_sauces_or_layered_bakes')
+            if c.get('route') == 'graph_foodon' and role_of(base_label) == role_of(label) and not g['meaningful_reductions'] \
+                    and (a.get('fibre_g') or 0) - (b.get('fibre_g') or 0) < 1.5:
+                reasons.append('same_kind_swap_without_real_gain')  # squash for pumpkin, turkey for chicken: a record difference, not a choice
+            if c.get('route') == 'graph_foodon' and _dataset(c['candidate_id']) != _dataset(o.get('matched_id')) and not g['meaningful_reductions']:
+                reasons.append('cross_database_gain_below_policy_floor')  # two tables measuring the same food differently
         out.append({'position': c['position'], 'source_line': line, 'matched_label': base_label, 'operation': c['operation'],
                     'route': c['route'], 'candidate_label': label, 'candidate_id': c['candidate_id'], 'collection': c['collection'],
                     'target_metric': c['metric'], 'before_per_serving': b, 'after_per_serving': a,
@@ -594,12 +829,11 @@ def n_changes(c):
 
 
 def rank(c):
-    # Best letter, then meeting the policy floors, then FEWEST changes, then the larger total gain: the strongest single change wins
-    # and extra changes are added only when they reach a better letter or the floors.
+    # Owner, 16 Nov: rank by impact - best letter, then the most Nutri-Score points removed, so 250 g of honey beats 20 g of sugar.
     g = c['gates']
     gain = sum(x['relative'] for x in g['improvements'])
-    return (-GRADE[c['grade_after']], bool(g['meaningful_reductions']), -n_changes(c), round(gain, 2),
-            (c['score_before'] or 0) - (c['score_after'] or 0), g['passes_strict_meaningful_nutrient_v1'])
+    return (-GRADE[c['grade_after']], (c['score_before'] or 0) - (c['score_after'] or 0), bool(g['meaningful_reductions']), -n_changes(c),
+            round(gain, 2), g['passes_strict_meaningful_nutrient_v1'])
 
 
 def fmt(w):
@@ -611,6 +845,10 @@ def compact(ps):
 
 
 
+# Swaps where mass_factor is the SHARE replaced, not an amount cut: half the flour becomes wholemeal, the total stays the same.
+PARTIAL_SWAPS = {'half_wholemeal_flour'}
+
+
 def describe_change(c):
     """One plain sentence for a change, for reviewers and for the LLM candidate pack."""
     op, cat = c.get('operation'), c.get('category')
@@ -619,9 +857,13 @@ def describe_change(c):
         b, a = c.get('weight_before_g'), c.get('weight_after_g')
         verb = 'Add more of' if op == 'INCREASE_VEG' else 'Use less of'
         return f"{verb} \"{line}\" ({fmt(b)} g -> {fmt(a)} g)"
+    if op == 'SWAP_FOOD' and cat in PARTIAL_SWAPS:
+        return f"Replace half of \"{line}\" ({c.get('matched_label')}) with {c.get('candidate_label')}, keeping the total amount"
     if op == 'SWAP_FOOD':
         extra = ' (changes the dish)' if c.get('changes_dish_identity') else ''
-        return f"Replace \"{line}\" ({c.get('matched_label')}) with {c.get('candidate_label')}, same weight{extra}"
+        b, a = c.get('weight_before_g'), c.get('weight_after_g')
+        amount = '' if not (isinstance(b, (int, float)) and isinstance(a, (int, float))) or abs(a - b) < 0.05 else f', {fmt(a)} g instead of {fmt(b)} g'
+        return f"Replace \"{line}\" ({c.get('matched_label')}) with {c.get('candidate_label')}{amount}{extra}"
     return f"Replace \"{line}\" ({c.get('matched_label')}) with {c.get('candidate_label')}"
 
 
@@ -641,7 +883,9 @@ def candidate_pack(qualifying, limit=10, max_combinations=3):
     for c in ordered:
         parts = c['changes'] if c['operation'] == 'COMBINED' else [c]
         # one option per food per ingredient: six mozzarella records are one choice for the cook
-        sig = tuple(sorted((x.get('category') or x['operation'], str(x.get('position')), first_food_word(x.get('candidate_label')) or str(x.get('source_line'))) for x in parts))
+        # the same target found by the curated table and by search is one option, not two
+        sig = tuple(sorted(('cut' if x['operation'] == 'REDUCE_AMOUNT' else 'swap', str(x.get('position')),
+                            first_food_word(x.get('candidate_label')) or str(x.get('source_line'))) for x in parts))
         if sig in seen:
             continue
         seen.add(sig)
@@ -654,7 +898,7 @@ def candidate_pack(qualifying, limit=10, max_combinations=3):
                                'cross_database': any(x.get('cross_database') for x in parts)},
                      'before_per_serving': compact(c['before_per_serving']), 'after_per_serving': compact(c['after_per_serving']),
                      'grade_before': c['grade_before'], 'grade_after': c['grade_after'],
-                     'tier': 'policy_floors' if g['meaningful_reductions'] else 'better_letter' if g['better_letter'] else 'gain_10pct' if g.get('relative_gain_only') else 'small_gain',
+                     'tier': 'policy_floors' if g['meaningful_reductions'] else 'better_letter' if g['better_letter'] else 'gain_10pct' if g.get('relative_gain_only') else 'nutrition_adaptation',
                      'tradeoffs': [t['metric'] for t in g['tradeoffs_within_5pct']]})
         if len(pack) == limit:
             break
@@ -693,17 +937,44 @@ def adapt_snapshot(case, screen, snapshot, profile, recipe, records):
             if c['gates']['letter_flip_only'] and recipe_pitfalls:
                 c.update(status='rejected_nutrition', reasons=['letter_only_gain_with_baseline_match_pitfall'])
     texts = [i.original_text or i.name for i in snapshot.ingredients]
+    texts += [d.get('matched_nutritional_ingredient') or '' for d in profile['details']]  # 'yoghurt (ideally strawberry or cherry)' reads as an alternative; the record does not
     gate_restrictions(candidates, texts)
+    # Owner, 16 Nov: eggs, whole fruit, oily fish, whole nuts and seeds, and avocado are never swapped or cut.
+    label_at = {d.get('position', n): (d.get('matched_nutritional_ingredient') or d.get('name') or '') for n, d in enumerate(profile['details'])}
+    # Owner, 16 Nov: change the ingredients that carry the recipe's negative points, not the healthy ones.
+    main_sources = set()
+    neg = (profile.get('nutri_score_breakdown') or {}).get('negative_points', {}).get('items', {})
+    for key, column in (('energy', 'energy_kcal'), ('sugar', 'sugar_g'), ('saturated_fats', 'saturated_fat_g'), ('sodium', 'sodium_mg')):
+        if (neg.get(key) or {}).get('points', 0) > 0:
+            total = sum(d.get(column) or 0 for d in profile['details']) or 1
+            main_sources |= {d.get('position', n) for n, d in enumerate(profile['details']) if (d.get(column) or 0) / total >= MAIN_SOURCE_SHARE}
+    for c in candidates:
+        if c.get('status') == 'qualifies' and c['operation'] != 'INCREASE_VEG':
+            parts = c['changes'] if c['operation'] == 'COMBINED' else [c]
+            if not any(p in main_sources for part in parts for p in (part['position'] if isinstance(part['position'], list) else [part['position']])):
+                c.update(status='rejected_nutrition', reasons=['not_a_main_source_of_the_negative_points'])
+    for c in candidates:
+        if c.get('status') != 'qualifies':
+            continue
+        for part in (c['changes'] if c['operation'] == 'COMBINED' else [c]):
+            if part['operation'] == 'INCREASE_VEG':
+                continue
+            for pos in ([part['position']] if not isinstance(part['position'], list) else part['position']):
+                kind = protected_food(label_at.get(pos, ''))
+                if kind:
+                    c.update(status='rejected_culinary_or_match', reasons=['protected_food:' + kind])
     qualifying = [c for c in candidates if c.get('status') == 'qualifies']
-    if not qualifying and amount_note is None or not qualifying and (amount_note or '').startswith('baseline_sums'):
-        veg, _ = change_candidates(case, snapshot, profile, recipe, records, more_veg=True)
-        for c in veg:
-            c['status'] = 'qualifies' if c['gates']['passed'] else 'rejected_nutrition'
-            c['reasons'] = c['gates']['reasons']
-            c['gates']['letter_flip_only'] = c['gates']['better_letter'] and not c['gates']['meaningful_reductions']
-        gate_restrictions(veg, texts)
-        candidates += veg
-        qualifying = [c for c in veg if c['status'] == 'qualifies']
+    # Owner, 16 Nov: the extra-veg fallback is an addition, not an adaptation (its grade gain was dilution); the additions below cover it.
+    enrichment, diag = None, None
+    if not qualifying and profile.get('nutri_score_breakdown'):
+        diag = diagnose(profile['nutri_score_breakdown'], profile['details'], {i.position: i.original_text or '' for i in snapshot.ingredients},
+                        recipe.get('title') or case['title'])
+        adds = additions(case, snapshot, profile, recipe, records, diag)
+        gate_restrictions(adds, texts)
+        candidates += adds
+        good = [c for c in adds if c['status'] == 'qualifies']
+        order = [g['component'] for g in sorted(diag['gaps'], key=lambda g: g['points'])]  # the least-earned gap first
+        enrichment = min(good, key=lambda c: (order.index(c['gates']['gap']), c['weight_after_g'])) if good else None
     # Food-part scan returns at most 500 rows; exactly 500 for one target means truncated retrieval.
     per_target = Counter((c['position'], c['metric']) for c in screen['candidates'] if c['route'] == 'food_part_variant')
     incomplete = [f"route_error:{e['route']}" for e in screen['route_errors']] + \
@@ -728,10 +999,11 @@ def adapt_snapshot(case, screen, snapshot, profile, recipe, records):
                 for p in (c['position'] if isinstance(c['position'], list) else [c['position']])}
         assert not used & pit_positions, ('adapted change on a pitfall line', case['recipe_id'], used & pit_positions)
         keys = ('position', 'operation', 'category', 'source_line', 'matched_label', 'candidate_label', 'candidate_id', 'candidate_dataset',
-                'weight_before_g', 'weight_after_g', 'reduction_fraction', 'reason', 'route', 'per_100g', 'cross_database', 'changes_dish_identity')
+                'weight_before_g', 'weight_after_g', 'reduction_fraction', 'reason', 'tip', 'route', 'per_100g', 'cross_database', 'changes_dish_identity')
         parts = best['changes'] if best['operation'] == 'COMBINED' else [best]
         result.update(outcome='adapted', adaptation={
             'changes': [{k: c.get(k) for k in keys if c.get(k) is not None} for c in parts],
+            'tips': list(dict.fromkeys(c['tip'] for c in parts if c.get('tip'))),
             'before_per_serving': compact(best['before_per_serving']), 'after_per_serving': compact(best['after_per_serving']),
             'grade_before': best['grade_before'], 'grade_after': best['grade_after'],
             'score_before': best['score_before'], 'score_after': best['score_after'], 'gates': best['gates'],
@@ -748,8 +1020,15 @@ def adapt_snapshot(case, screen, snapshot, profile, recipe, records):
                 'source_line': nb.get('source_line'), 'operation': nb['operation'], 'category': nb.get('category'),
                 'improvements': nb['gates']['improvements'], 'grade_after': nb['grade_after'],
                 'note': '>=10% cut on a score nutrient but under the absolute per-serving floor; not counted as adapted'}
+    if diag is not None:
+        result['diagnosis'] = diag
     if qualifying:
         pass  # outcome already set above
+    elif enrichment is not None:
+        result.update(outcome='enriched', enrichment={k: enrichment.get(k) for k in (
+            'operation', 'category', 'addition', 'candidate_label', 'candidate_id', 'candidate_dataset', 'weight_after_g', 'grams_per_serving', 'reason',
+            'before_per_serving', 'after_per_serving', 'gates')},  # no grade: the plate's per-100 g score is diluted by the added weight
+                      enrichment_alternatives=[c['reason'] for c in candidates if c.get('operation') == 'ADD_INGREDIENT' and c['status'] == 'qualifies' and c is not enrichment])
     elif incomplete:
         result.update(outcome='failed', reason='incomplete_search', incomplete_search=sorted(set(incomplete)))
     else:
@@ -775,9 +1054,18 @@ NAMES = {
     'light_cream_cheese': 'light cream cheese', 'lean_beef_mince': 'lean beef mince (5% fat)', 'reduced_fat_mayo': 'reduced-fat mayonnaise',
     'light_coconut_milk': 'light coconut milk', 'lean_bacon': 'lean back bacon', 'reduced_salt_stock': 'reduced-salt stock',
     'reduced_salt_soy': 'reduced-salt soy sauce', 'no_salt_canned_pulses': 'no-added-salt tinned version',
-    'reduced_sugar_salt_baked_beans': 'reduced sugar and salt baked beans', 'butter_to_oil_for_frying': 'rapeseed or olive oil',
+    'reduced_sugar_salt_baked_beans': 'reduced sugar and salt baked beans', 'butter_to_oil_for_frying': 'rapeseed or olive oil', 'pepperoni_to_lean_ham': 'lean or turkey ham',
+    'low_sodium_salt': 'low-sodium salt, about a quarter less', 'canned_chickpeas_to_cooked': 'boiled chickpeas', 'canned_lentils_to_cooked': 'cooked lentils',
+    'canned_beans_to_cooked': 'cooked beans', 'pastry_to_filo': 'filo pastry', 'skinless_poultry': 'skinless chicken breast', 'tuna_in_water': 'tuna in water or brine',
+    'pork_sausage_to_poultry': 'chicken or turkey sausages', 'ketchup_reduced_sugar': 'reduced-sugar ketchup',
+    'jam_reduced_sugar': 'reduced-sugar jam', 'flavoured_yogurt_to_plain': 'plain yogurt', 'feta_to_cottage': 'cottage cheese or ricotta',
 }
 STEP_NOTES = {
+    'canned_chickpeas_to_cooked': 'Cook dried pulses first (soak overnight, simmer until tender) or use a no-salt tin; drain well.',
+    'canned_lentils_to_cooked': 'Cook dried pulses first (soak overnight, simmer until tender) or use a no-salt tin; drain well.',
+    'canned_beans_to_cooked': 'Cook dried pulses first (soak overnight, simmer until tender) or use a no-salt tin; drain well.',
+    'pastry_to_filo': 'Layer three or four filo sheets and brush lightly with oil; filo bakes faster and crisper than puff or shortcrust.',
+    'low_sodium_salt': swap_rules.TIPS['low_sodium_salt'],
     'sour_cream_to_yogurt': 'Stir the yogurt in off the heat so it does not split.',
     'cream_to_reduced_creme_fraiche': 'Add the crème fraîche at the end and heat gently without boiling hard.',
     'butter_to_oil_for_frying': 'Fry in the oil wherever the method says to melt or heat the butter.',
@@ -802,15 +1090,17 @@ def parse(num):
 def nice(value, line):
     if re.search(r'^\s*[\d.,/½¼¾⅓⅔ ]+\s*(g|ml|kg|l)\b', line, re.I):  # metric amounts stay decimal
         return str(round(float(value))) if value >= 5 else f'{float(value):.1f}'.rstrip('0').rstrip('.')
-    for denominator in (1, 2, 3, 4, 8):
+    names = {Fraction(1, 2): '½', Fraction(1, 4): '¼', Fraction(3, 4): '¾', Fraction(1, 3): '⅓', Fraction(2, 3): '⅔', Fraction(1, 8): '⅛', Fraction(3, 8): '⅜'}
+    best = None
+    for denominator in (1, 2, 3, 4, 8):  # the closest kitchen fraction wins (2.25 is 2 ¼, not 2 ⅓); ties go to the simpler one
         f = Fraction(value).limit_denominator(denominator)
-        if abs(float(f) - float(value)) <= 0.07 * float(value):
-            whole, rest = divmod(f.numerator, f.denominator)
-            frac = {Fraction(1, 2): '½', Fraction(1, 4): '¼', Fraction(3, 4): '¾', Fraction(1, 3): '⅓',
-                    Fraction(2, 3): '⅔', Fraction(1, 8): '⅛', Fraction(3, 8): '⅜'}.get(Fraction(rest, f.denominator), '')
-            if rest and not frac:
-                continue
-            return (f'{whole} ' if whole and frac else str(whole) if whole else '') + frac if rest else str(whole)
+        error = abs(float(f) - float(value))
+        whole, rest = divmod(f.numerator, f.denominator)
+        if error <= 0.07 * float(value) and (not rest or Fraction(rest, f.denominator) in names) and (best is None or error < best[0] - 1e-9):
+            best = (error, whole, Fraction(rest, f.denominator))
+    if best:
+        _, whole, rest = best
+        return (f'{whole} ' if whole and rest else str(whole) if whole else '') + names[rest] if rest else str(whole)
     return f'{float(value):.1f}'.rstrip('0').rstrip('.')
 
 
@@ -824,8 +1114,19 @@ def rewrite(change):
             rest = re.sub(r'^(\s*(?:g|ml|kg|l))\s*/\s*[\d.,¼½¾⅓⅔ ]+\s*(?:fl\.? ?oz|oz|lb|pints?)\.?', r'\1', rest, flags=re.I)  # '50 g / 2 oz.' -> '33 g'
             return nice(parse(m.group('num')) * Fraction(keep).limit_denominator(100), line) + rest, None
         return line, f"use about {round(change['weight_after_g'], 1)} g instead of {round(change['weight_before_g'], 1)} g"
-    name = NAMES.get(change.get('category')) or change.get('candidate_label')
+    name = NAMES.get(change.get('category')) or cook_name(change.get('candidate_label'))
     return f'{line}  →  use **{name}**', None
+
+
+def cook_name(label):
+    """A composition-table label as a cook would say it: 'Beef, mince, raw, extra lean' -> 'beef mince, extra lean'."""
+    parts = [p.strip() for p in re.sub(r'\([^)]*\)', '', label or '').split(',')]
+    parts = [p for p in parts if p and not re.fullmatch(r'(raw|uncooked|average|plain|retail|prepacked|unspecified|fresh|\d.*%.*)', p, re.I)]
+    if not parts:
+        return (label or '').lower()
+    name = (parts[0] + (' ' + parts[1] if len(parts) > 1 and len(parts[1].split()) == 1 else '') +
+            (', ' + ', '.join(parts[2 if len(parts) > 1 and len(parts[1].split()) == 1 else 1:]) if len(parts) > 2 or (len(parts) == 2 and len(parts[1].split()) > 1) else '')).lower()
+    return re.sub(r'\s+', ' ', re.sub(r',?\s*average of .*$|\b(raw|uncooked)\b', '', name)).strip(' ,')
 
 
 
@@ -954,6 +1255,8 @@ def adapt_active_recipe(recipe_id: str, nutrition_source: str) -> dict:
     except ComparisonLoadError as error:
         return dict(case, outcome='failed', reason=error.reason, unsaved=True)
     result['unsaved'] = True
+    if result['outcome'] == 'enriched':
+        result['card'] = enrichment_card(result['enrichment'])
     if result['outcome'] == 'adapted':
         result['card'] = {'ingredients': ingredient_lines(result, snapshot),
                           'notes': list(dict.fromkeys(STEP_NOTES[c['category']] for c in result['adaptation']['changes'] if c.get('category') in STEP_NOTES)),

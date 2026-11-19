@@ -602,8 +602,8 @@ def _serves_from_row(row: dict[str, Any]) -> float:
 
 
 def _restriction_blocked(candidate: dict[str, Any], offender: dict[str, Any], details: list[dict[str, Any]]) -> bool:
-    """Hard allergen/diet gate shared with the small-gain route (see small_gain.restriction_problems)."""
-    from .small_gain import restriction_problems
+    """Hard allergen/diet gate shared with the nutrition adaptation route (see nutrition_adaptation.restriction_problems)."""
+    from .nutrition_adaptation import restriction_problems
     part = {"operation": "SWAP_FOOD", "candidate_label": candidate["name"], "matched_label": offender["name"]}
     return bool(restriction_problems([part], [d.get("ingredient") or "" for d in details]))
 

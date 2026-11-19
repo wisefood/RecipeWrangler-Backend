@@ -1,11 +1,11 @@
-"""Curated culinary swaps (small-gain adaptation) between foods: same role in the dish, a real released record as the target.
+"""Curated culinary swaps (nutrition adaptation) between foods: same role in the dish, a real released record as the target.
 
 Each rule: name, source-line regex, baseline-label regex, target-label regex, mass factor,
 metric used to pick the median eligible record, reason, optional recipe-context exclusion.
 """
 import re
 
-COMPOSITE = r'\b(hazelnut|toffee|honey|chocolate|cherr\w*|peach|apricot|raspberr\w*|berr\w*|lemon|banana|mango|coffee|caramel|sweeten\w*|muesli|cereal|lactose|organic|pilau|risotto|homemade|recipe|egg and|and potato|with|salad|soup|pie|casserole|sandwich|ready|meal|dish|w/|pizza|lasagne|pudding|cake|biscuit|sauce|dressing|flavou?red|fruit|vanilla|strawberr|drink|dessert)\b'
+COMPOSITE = r'\b(moussaka|bolognese|meatballs?|chilli con|shepherd|hazelnut|toffee|honey|chocolate|cherr\w*|peach|apricot|raspberr\w*|berr\w*|lemon|banana|mango|coffee|caramel|sweeten\w*|muesli|cereal|lactose|organic|pilau|risotto|homemade|recipe|egg and|and potato|with|salad|soup|pie|casserole|sandwich|ready|meal|dish|w/|pizza|lasagne|pudding|cake|biscuit|sauce|dressing|flavou?red|fruit|vanilla|strawberr|drink|dessert)\b'
 def NOT(exclude, alternatives):
     # Exclusion must guard every alternative, not only the first.
     return rf'^(?!.*{exclude})(?:.*?)(?:{alternatives})'
@@ -86,10 +86,46 @@ RULES = [
      NOT(r'(peanut|nut|almond|cocoa|shea|bean|cheese|chocolate)', r'\b(butter|lard|ghee|dripping)\b'),
      r'^(oil,? )?(rapeseed|olive|canola)\b.*\boil\b|^oil,? (rapeseed|olive|canola)\b', 0.8, 'saturated_fat_g',
      'fry in rapeseed/olive oil (about 80% of the butter weight, same fat) instead of butter', 'BAKED_OR_NOT_FRYING'),
+    ('low_sodium_salt', r'\bsalt\b', NOT(r'(low|reduced|losalt|lo-salt|salted|unsalted|celery|herbal|flake|iodi)', r'^salt\b'),
+     r'(?=.*\bsalt\b)(?=.*\b(low sodium|losalt)\b)', 0.75, 'sodium_mg',
+     'use low-sodium salt, and about a quarter less of it', r'\b(yeast|brine|pickl\w*|cur(e|ed|ing)|ferment\w*|sauerkraut|preserv\w*|salting|proving)\b'),
+    ('skinless_poultry', r'\b(chicken|turkey)\b.*\b(thighs?|legs?|drumsticks?|wings?|quarters?)\b|\b(thighs?|drumsticks?)\b',
+     NOT(r'(skinless|without skin|no skin|meat only|skin removed|boneless)', r'(chicken|turkey).*(leg|thigh|drumstick|wing|quarter)|(leg|thigh|drumstick|wing).*(chicken|turkey)'),
+     r'(?=.*\bchicken\b)(?=.*\bbreast\b)(?=.*\b(skinless|without skin|meat only|inner)\b)', 1.0, 'saturated_fat_g',
+     'use skinless chicken breast in place of skin-on thighs or legs (changes the cut; cook until just done)', None),
+    ('tuna_in_water', r'\btuna\b', r'(?=.*\btuna\b)(?=.*\b(in oil|oil)\b)', r'(?=.*\btuna\b)(?=.*\b(in water|brine|spring water)\b)', 1.0, 'energy_kcal',
+     'use tuna in water or brine instead of tuna in oil', None),
+    ('pork_sausage_to_poultry', r'\b(sausages?|frankfurters?|hot ?dogs?)\b', r'(?=.*\b(sausages?|frankfurters?|hot ?dogs?)\b)(?=.*\b(pork|frankfurters?|hot ?dogs?|beef|meat)\b)(?!.*\b(roll|rolls|pastry|chicken|turkey|poultry|vegetarian|vegan)\b)',
+     r'(?=.*\b(sausages?|frankfurters?|hot ?dogs?)\b)(?=.*\b(chicken|turkey)\b)(?!.*\b(roll|rolls|pastry)\b)', 1.0, 'saturated_fat_g',
+     'use chicken or turkey sausages in place of pork or beef sausages (changes the dish)', None),
+    ('ketchup_reduced_sugar', r'\bketchup\b', r'(?=.*\bketchup\b)(?!.*\b(reduced|low|no added)\b)', r'(?=.*\bketchup\b)(?=.*\b(reduced|low)\b)', 1.0, 'sugar_g',
+     'use reduced-sugar ketchup', None),
+    ('flavoured_yogurt_to_plain', r'\by(o|og)h?urt\b', r'(?=.*\by(o|og)h?urt\b)(?=.*\b(flavou?red|fruit|vanilla|strawberry|raspberry|peach|honey)\b)(?!.*\b(plain|natural|greek|drink)\b)',
+     r'(?=.*\by(o|og)h?urt\b)(?=.*\b(plain|natural)\b)(?!.*\b(flavou?red|fruit|vanilla|strawberry|drink)\b)', 1.0, 'sugar_g', 'use plain yogurt in place of flavoured yogurt', None),
+    ('jam_reduced_sugar', r'\b(jam|conserve)\b', r'(?=.*\bjam\b)(?!.*\b(reduced|low|no added|diabetic)\b)', r'(?=.*\bjam\b)(?=.*\b(reduced|low|no added)\b)', 1.0, 'sugar_g',
+     'use reduced-sugar jam', None),
+    ('feta_to_cottage', r'\bfeta\b', r'\bfeta\b', r'(?=.*\b(cottage cheese|ricotta)\b)', 1.0, 'saturated_fat_g',
+     'use cottage cheese or ricotta in place of feta (changes the dish: milder and wetter, add salt at the end)',
+     r'\b(greek salad|spanakopita|baked feta|saganaki|feta (parcels|salad|pie))\b'),
+    ('canned_chickpeas_to_cooked', r'\b(chick ?peas?|garbanzo)\b', r'(?=.*\b(chick ?peas?|garbanzo)\b)(?=.*\b(canned|tinned|drained)\b)',
+     r'(?=.*\b(chick ?peas?|garbanzo)\b)(?=.*\b(boiled|cooked)\b)(?!.*\b(canned|tinned)\b)(?!.*(?<!un)salted)', 1.0, 'sodium_mg', 'use cooked chickpeas (from dried, or a no-salt tin) instead of salted tinned ones', None),
+    ('canned_lentils_to_cooked', r'\blentils?\b', r'(?=.*\blentils?\b)(?=.*\b(canned|tinned|drained)\b)',
+     r'(?=.*\blentils?\b)(?=.*\b(boiled|cooked)\b)(?!.*\b(canned|tinned)\b)(?!.*(?<!un)salted)', 1.0, 'sodium_mg', 'use cooked lentils (from dried, or a no-salt tin) instead of salted tinned ones', None),
+    ('canned_beans_to_cooked', r'\b(kidney|black|cannellini|haricot|borlotti|butter|white|pinto|baked)? ?beans?\b', r'(?=.*\b(kidney|black|cannellini|haricot|borlotti|butter|white|pinto) beans?\b)(?=.*\b(canned|tinned|drained)\b)',
+     r'(?=.*\b(kidney|black|cannellini|haricot|borlotti|butter|white|pinto) beans?\b)(?=.*\b(boiled|cooked)\b)(?!.*\b(canned|tinned)\b)(?!.*(?<!un)salted)', 1.0, 'sodium_mg', 'use cooked beans (from dried, or a no-salt tin) instead of salted tinned ones', None),
+    ('pastry_to_filo', r'\b(puff|shortcrust|short crust|flaky)\b.*\bpastry\b|\bpastry\b.*\b(puff|shortcrust)\b', r'(?=.*\bpastry\b)(?=.*\b(puff|short|shortcrust|flaky)\b)',
+     r'(?=.*\bpastry\b)(?=.*\bfilo\b)', 1.0, 'saturated_fat_g', 'use filo pastry in place of puff or shortcrust (changes the dish: lighter and crisper)', None),
+    ('pepperoni_to_lean_ham', r'\bpepperoni\b', r'\bpepperoni\b', r'(?=.*\bham\b)(?=.*\b(lean|turkey|chicken|poultry|low)\b)', 1.0, 'saturated_fat_g',
+     'use lean or turkey ham in place of pepperoni (changes the topping)', None),
 ]
 ORDER_FIRST = ('light_sour_cream', 'half_fat_creme_fraiche')
 RULES = sorted(RULES, key=lambda r: r[0] not in ORDER_FIRST)
 RULES = [dict(zip(('name', 'line', 'base', 'target', 'mass_factor', 'pick_metric', 'reason', 'exclude_context'), r)) for r in RULES]
+# A lookahead-only pattern must be anchored, or re.search can start after the first letter and skip a (?!...) guard.
+for _r in RULES:
+    for _k in ('base', 'target'):
+        if _r[_k].startswith('(?'):
+            _r[_k] = '^' + _r[_k]
 
 STATE_GROUPS = {
     'cooked': r'\b(boiled|cooked|fried|roast(ed)?|baked|grilled|stewed|steamed|braised|microwaved|poached|toasted)\b',
@@ -104,6 +140,8 @@ def states(label):
 
 
 def compatible_state(base_label, target_label, rule):
+    if rule in PULSE_RULES:
+        return True
     base, target = states(base_label), states(target_label)
     if rule in ('wholemeal_pasta', 'brown_rice', 'half_wholemeal_flour', 'wholewheat_couscous'):
         # "dried" means uncooked for grains, never a concentrate.
@@ -112,13 +150,15 @@ def compatible_state(base_label, target_label, rule):
 
 
 # Words in the source line that mean the recipe already asks for the healthier target (swap would only repair the match).
-ALREADY = r'\b(wholemeal|whole ?wheat|wholegrain|whole grain|brown|unpolished|lean|trimmed|semi[- ]?skimmed|skimmed|low[- ]?(salt|fat|sodium)|reduced|light|lite|half[- ]?fat|no added|unsalted|1\.5 ?%)'
+ALREADY = r'\b(skinless|skin removed|without skin|wholemeal|whole ?wheat|wholegrain|whole grain|brown|unpolished|lean|trimmed|semi[- ]?skimmed|skimmed|low[- ]?(salt|fat|sodium)|reduced|light|lite|half[- ]?fat|no added|unsalted|1\.5 ?%)'
 # Nutrients each swap is meant to change; any other score nutrient falling by >50% means a different product.
-INTENDED = {'fibre': {'fibre_g', 'saturated_fat_g', 'energy_kcal'}, 'fat': {'saturated_fat_g', 'energy_kcal'},
+INTENDED = {'fibre': {'fibre_g', 'saturated_fat_g', 'energy_kcal'}, 'fat': {'saturated_fat_g', 'energy_kcal'}, 'fat_salt': {'saturated_fat_g', 'energy_kcal', 'sodium_mg'},
             'salt': {'sodium_mg'}, 'sugar_salt': {'sugar_g', 'sodium_mg'}}
 KIND = {'wholemeal_pasta': 'fibre', 'brown_rice': 'fibre', 'wholemeal_bread': 'fibre', 'half_wholemeal_flour': 'fibre',
         'wholewheat_couscous': 'fibre', 'reduced_salt_stock': 'salt', 'reduced_salt_soy': 'salt', 'no_salt_canned_pulses': 'salt',
-        'reduced_sugar_salt_baked_beans': 'sugar_salt'}
+        'reduced_sugar_salt_baked_beans': 'sugar_salt', 'low_sodium_salt': 'salt',
+        'ketchup_reduced_sugar': 'sugar_salt', 'jam_reduced_sugar': 'sugar_salt', 'flavoured_yogurt_to_plain': 'sugar_salt', 'tuna_in_water': 'fat',
+        'canned_chickpeas_to_cooked': 'salt', 'canned_lentils_to_cooked': 'salt', 'canned_beans_to_cooked': 'salt', 'pepperoni_to_lean_ham': 'fat_salt'}
 FLOOR = {'sodium_mg': 100, 'sugar_g': 2, 'saturated_fat_g': 1}
 
 
@@ -127,7 +167,18 @@ def unearned(rule, before, after):
     return [m for m, floor in FLOOR.items() if m not in intended and (before.get(m) or 0) >= floor and (after.get(m) or 0) < 0.5 * before[m]]
 
 # Type words that must carry from the baseline record to the target (no goat->cow, smoked->fresh, pork->beef, gouda->edam).
-KEEP = r'\b(greek|goats?|sheeps?|ewes?|buffalo|soya|soy|coconut|smoked|cured|pork|beef|lamb|chicken|turkey|veal|cheddar|edam|gouda|emmental|feta|gruy[eè]re|trappist|tilsit|eidam|basmati|jasmine|spaghetti)\b'
+KEEP = r'\b(greek|goats?|sheeps?|ewes?|buffalo|soya|soy|coconut|smoked|cured|pork|beef|lamb|chicken|turkey|veal|cheddar|edam|gouda|emmental|feta|gruy[eè]re|trappist|tilsit|eidam|basmati|jasmine|spaghetti|mozzarella|halloumi|parmesan|ricotta|brie|camembert|mascarpone|cottage|ciabatta|pitta|pita|baguette|naan|bagel|flatbread|focaccia|sourdough|self[- ]raising)\b'
+
+
+# Rules that cross food type on purpose (pork to poultry sausage, feta to cottage cheese): the type-word check is skipped and the dish is flagged as changed.
+CROSS_TYPE = {'pork_sausage_to_poultry', 'feta_to_cottage', 'pastry_to_filo', 'pepperoni_to_lean_ham'}
+# The record the profiler selects for the cookbook line we write ('wholewheat pasta', 'boiled chickpeas', ...) in the Irish/EU profile. Pricing the swap with another
+# record (a different table's wholewheat pasta has twice the fibre) claims a gain the recipe will not measure.
+PROFILER_PIN = {'wholemeal_pasta': 'Pasta, dry, wholewheat, raw', 'canned_chickpeas_to_cooked': 'Chick pea, boiled/cooked in water',
+                'pastry_to_filo': 'Filo pastry', 'wholemeal_wrap': 'Wrap/tortilla wheat wholemeal'}
+PULSE_RULES = {'canned_chickpeas_to_cooked', 'canned_lentils_to_cooked', 'canned_beans_to_cooked'}  # canned to cooked is the point of these rows
+# Rules whose targets are branded or flavoured products that the composite-dish filter would drop.
+COMPOSITE_OK = {'reduced_sugar_salt_baked_beans', 'jam_reduced_sugar', 'ketchup_reduced_sugar', 'pepperoni_to_lean_ham'}
 
 
 def keeps_type(base_label, target_label):
@@ -137,7 +188,7 @@ def keeps_type(base_label, target_label):
 
 # ---- loose "similar food" search: same food any part, and role swaps between proteins ----
 # Exclusions apply to a candidate label only when the baseline label does not have them (mince stays mince).
-SIMILAR_EXCLUDE = (r'\b(liver|kidneys?|heart|brain|tongue|lung|tripe|sweetbreads?|offal|suet|tallow|dripping|skin|bones?|stock|broth|'
+SIMILAR_EXCLUDE = (r'\b(gizzards?|giblets?|liver|kidneys?|heart|brain|tongue|lung|tripe|sweetbreads?|offal|suet|tallow|dripping|skin|bones?|stock|broth|'
                    r'pate|pâté|sausages?|burgers?|mince|minced|dried|smoked|cured|canned|tinned|soup|stew|curry|pie|gravy|sauce|spread|egg|white|yolk|roe|caviar)\b'
                    r'|(^|,\s*)fat\b|\bfat only\b')
 # Fatty or red meats (and their identities) that a leaner poultry breast can stand in for.
@@ -167,3 +218,21 @@ def scan_label(label: str) -> str:
     """Label with negated phrases removed ("without bone and skin", "w/o skin"), so they are not read as skin-on or bone-in."""
     import re as _re
     return _re.sub(r'\b(without|w/o|no)\s+[a-z ]+?(?=,|$)', '', label or '', flags=_re.I)
+
+TIPS = {'low_sodium_salt': 'Low-sodium salt is a potassium blend, so it is not for people on a potassium-restricted diet. Add it at the end and taste first; '
+                           'the quarter-lower amount is already counted in the nutrition shown.'}
+
+# Additions for a recipe that lacks something and has no qualifying swap (owner, 16 Nov). gap, dish kind, what, target-label regex,
+# grams per serving, counts as fruit/veg/legume for the Nutri-Score share.
+ADDITIONS = [
+    ('protein', 'sweet', 'low-fat plain yogurt (a pot)',
+     r'(?=.*\by(o|og)h?urt\b)(?=.*\b(low[- ]fat|fat[- ]free|0 ?%|skimmed|1\.5 ?%)\b)(?!.*\b(fruit|flavou?red|vanilla|drink|soya|sweetened|with)\b)', 200, False),
+    ('fibre', 'sweet', 'rolled oats', r'^(oats?|rolled oats|porridge oats)\b(?!.*\b(cooked|made up|with|bar|biscuit|drink|milk|bran)\b)', 20, False),
+    ('fruit_veg', 'sweet', 'fresh berries', r'^(strawberr\w*|raspberr\w*|blueberr\w*)\b(?!.*\b(jam|dried|frozen|canned|tinned|juice|syrup|with)\b)', 80, True),
+    ('fruit_veg', 'savoury', 'a side portion of mixed vegetables',
+     r'(?=.*\bvegetables?\b)(?=.*\b(mixed|average)\b)(?!.*\b(soup|stir|sauce|canned|tinned|pickled|juice|in|with|stew|dish|ready|curry|oil|fat|spread|margarine)\b)(?!.*w/)', 80, True),
+    ('fibre', 'savoury', 'cooked lentils', r'(?=.*\blentils?\b)(?=.*\b(boiled|cooked)\b)(?!.*\b(canned|tinned|soup|dahl|curry|with)\b)(?!.*(?<!un)salted)', 40, True),
+]
+# Lentils only go into dishes that can take a spoonful of pulses.
+ADDITION_CONTEXT = {'cooked lentils': r'\b(stew|soup|salad|curry|chilli|chili|casserole|bowl|hotpot|tagine|goulash|risotto|pilaf|dahl|daal)\b'}
+ADDITIONS = [(g, k, w, ('^' + rx) if rx.startswith('(?') else rx, gr, f) for g, k, w, rx, gr, f in ADDITIONS]

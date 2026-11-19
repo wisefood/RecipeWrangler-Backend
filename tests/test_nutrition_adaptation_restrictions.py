@@ -1,5 +1,5 @@
 """A candidate must never add an allergen or break a diet the original recipe respected."""
-from recipe_wrangler.services.adaptation import small_gain as sg
+from recipe_wrangler.services.adaptation import nutrition_adaptation as sg
 
 
 def swap(label, source='x'):
@@ -57,7 +57,7 @@ def test_replaced_food_counts_as_already_present():
     assert not problems([dict(swap('Bread rolls, wholemeal'), matched_label='Bread, white, average')], ['50g ciabatta'])
 
 
-from recipe_wrangler.services.adaptation import small_gain_llm as sgl
+from recipe_wrangler.services.adaptation import nutrition_adaptation_llm as sgl
 
 
 def _final(op, new, original):

@@ -52,10 +52,10 @@ def enhance(payload: EnhancementRequest, recipe_id: str = Path(...)) -> dict:
 
 
 @router.post("/{recipe_id}/adapt/small-gain")
-def small_gain(payload: SmallGainRequest, recipe_id: str = Path(...)) -> dict:
+def nutrition_adaptation(payload: SmallGainRequest, recipe_id: str = Path(...)) -> dict:
     """Healthier version by amount cuts, curated food swaps and extra vegetables; unsaved, deterministic, no LLM."""
     from .service import _region_to_source
-    from .small_gain import adapt_active_recipe
+    from .nutrition_adaptation import adapt_active_recipe
     return adapt_active_recipe(recipe_id, _region_to_source(payload.region))
 
 

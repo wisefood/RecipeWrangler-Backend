@@ -15,7 +15,7 @@ def main():
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     audit = root/'analysis/portion-dataset-audit-2026-11-03'
-    paths = [audit/'ausnut-reference-candidates.json',audit/'nz-portions.json',audit/'foundation-portion-candidates.json',root/'data/processed/usda/usda-weights-v2.json']
+    paths = [audit/'ausnut-reference-candidates.json',audit/'nz-portions.json',audit/'foundation-portion-candidates.json',root/'data/nutrition/composition_tables/usda/processed/usda-weights-v2.json']
     collections = [json.loads(path.read_text()) for path in paths]
     if args.limit:
         collections = [rows[:args.limit] for rows in collections[:3]] + collections[3:]

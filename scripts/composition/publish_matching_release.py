@@ -17,8 +17,8 @@ from recipe_wrangler.repositories.matching_store import digest
 from recipe_wrangler.tools.nutrition_completeness import native_values
 from recipe_wrangler.utils.nutrition_postgres import get_engine
 
-SNAPSHOT=ROOT/'data/analysis/nutrition_inventory_2026-10-26_catalogue_baseline'
-EXPANDED=ROOT/'data/analysis/irish_full_catalogue_baseline_2026-10-26'
+SNAPSHOT=ROOT/'analysis/nutrition_inventory_2026-10-26_catalogue_baseline'
+EXPANDED=ROOT/'analysis/irish_full_catalogue_baseline_2026-10-26'
 
 
 def read_lines(path):
@@ -32,7 +32,7 @@ def publish(release_id,apply=False):
     candidates=read_lines(SNAPSHOT/'search_candidates.jsonl')+read_lines(EXPANDED/'additional_candidates.jsonl')
     nutrients={(r['source_key'],r['native_id']):r['record'] for r in
         read_lines(SNAPSHOT/'nutrient_rows.jsonl')+read_lines(EXPANDED/'additional_nutrient_rows.jsonl')}
-    records={r['catalogue_key']:r for r in read_lines(ROOT/'data/analysis/composition_catalogue_2026-10-22/records.jsonl')}
+    records={r['catalogue_key']:r for r in read_lines(ROOT/'data/nutrition/matching/catalogue/composition_catalogue_2026-10-22/records.jsonl')}
     profiles=json.loads((EXPANDED/'source_nutrients.json').read_text())
     aliases=json.loads((SNAPSHOT/'aliases.json').read_text())
     snapshot=json.loads((SNAPSHOT/'manifest.json').read_text())
@@ -114,7 +114,7 @@ def publish(release_id,apply=False):
     assert response.json()['count']==len(seen)
     with get_engine().begin() as c:
         c.execute(text("UPDATE matching_releases SET status='ready' WHERE release_id=:id"),{'id':release_id})
-    output=ROOT/'data/analysis'/('matching_release_'+release_id);output.mkdir(exist_ok=False)
+    output=ROOT/'analysis'/('matching_release_'+release_id);output.mkdir(exist_ok=False)
     (output/'manifest.json').write_text(json.dumps({**manifest,'composition_records':len(seen),'concepts':len(concepts)},indent=2))
     print('Ready',release_id,len(seen),'compositions',len(concepts),'concepts',flush=True)
 

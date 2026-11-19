@@ -17,7 +17,7 @@ from scripts.neo4j.import_foodhero_recipes_to_neo4j import _parse_duration_minut
 from recipe_wrangler.catalog.projection import project
 from recipe_wrangler.repositories.neo4j_recipes import driver
 
-INPUT = REPO_ROOT / "data" / "FoodHero" / "foodhero_recipes_clean.json"
+INPUT = REPO_ROOT / "data" / "recipes" / "foodhero" / "foodhero_recipes_clean.json"
 
 
 def proposed_updates() -> list[dict[str, object]]:

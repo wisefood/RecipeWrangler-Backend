@@ -14,7 +14,7 @@ from scripts.composition.repair_original_ingredient_context import recover_missi
 
 
 # Graph originals for these sources came from a stale, fragmented scrape ("1 to" / "2 Tablespoons lime juice").
-ARCHIVED_SOURCES={'FoodHero':Path('data/FoodHero/foodhero_recipes.json')}
+ARCHIVED_SOURCES={'FoodHero':Path('data/recipes/foodhero/foodhero_recipes.json')}
 
 
 def archived_source_lines(rows,archives=ARCHIVED_SOURCES):
@@ -88,7 +88,7 @@ def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,
             WHERE release_id=:release AND mechanism_version=:version
             ORDER BY recipe_id,nutrition_source,created_at DESC,run_id DESC'''),
             {'release':release_id,'version':VERSION}).mappings()}
-    frozen=Path(source_evidence) if source_evidence else Path('data/analysis/cross_dataset_reference_2026-10-27_v10_final/recipes.json')
+    frozen=Path(source_evidence) if source_evidence else Path('data/nutrition/matching/reference/cross_dataset_reference_2026-10-27_v10_final/recipes.json')
     if source_evidence and not frozen.is_file():raise FileNotFoundError(frozen)
     evidence={}
     if frozen.exists():
@@ -96,7 +96,7 @@ def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,
     # Saved profiles lost most source lines; bind the graph originals one-to-one, never by position.
     source_lines={**graph_source_lines(sorted({row['recipe_id'] for row in rows})),**archived_source_lines(rows)}
     failures=[];processed=0
-    output=Path('data/analysis')/('matching_backfill_'+release_id);output.mkdir(exist_ok=True)
+    output=Path('analysis')/('matching_backfill_'+release_id);output.mkdir(exist_ok=True)
     name='status' if shards==1 else f'status_{shard}_of_{shards}'
     def checkpoint(status):
         temporary=output/(name+'.tmp')

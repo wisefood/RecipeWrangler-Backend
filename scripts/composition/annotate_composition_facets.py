@@ -18,11 +18,11 @@ from recipe_wrangler.matching.langual import LangualVocabulary
 def run(root: Path, input_path: Path, output: Path) -> dict:
     output.mkdir(parents=True, exist_ok=False)
     paths = {'input': input_path,
-        'dictionary': root/'data/analysis/ingredient_dictionary_2026-10-22/foodon_dictionary.json',
-        'parents': root/'data/analysis/matching_vocabularies_2026-10-21/foodon_named_parents.csv',
-        'vocabulary': root/'data/analysis/foodex2/17.2/facets.json',
-        'native_catalogue': root/'data/raw/matching_vocabularies_2026-10-21/MTX.ecf',
-        'langual': root/'data/analysis/langual/2017/terms.json'}
+        'dictionary': root/'data/nutrition/matching/dictionary/ingredient_dictionary_2026-10-22/foodon_dictionary.json',
+        'parents': root/'data/nutrition/matching/vocabularies/derived/matching_vocabularies_2026-10-21/foodon_named_parents.csv',
+        'vocabulary': root/'data/nutrition/matching/vocabularies/derived/foodex2/17.2/facets.json',
+        'native_catalogue': root/'data/nutrition/matching/vocabularies/raw/matching_vocabularies_2026-10-21/MTX.ecf',
+        'langual': root/'data/nutrition/matching/vocabularies/derived/langual/2017/terms.json'}
     annotator = HybridAnnotator(ContextualParser.from_snapshots(paths['dictionary'], paths['parents']),
                                 FacetVocabulary.load(paths['vocabulary']),
                                 langual=LangualVocabulary.load(paths['langual']))
@@ -73,7 +73,7 @@ def run(root: Path, input_path: Path, output: Path) -> dict:
 if __name__ == '__main__':
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument('--input', type=Path,
-                     default=Path('data/analysis/composition_catalogue_2026-10-22/records.jsonl'))
+                     default=Path('data/nutrition/matching/catalogue/composition_catalogue_2026-10-22/records.jsonl'))
     cli.add_argument('--output-dir', type=Path, required=True)
     args = cli.parse_args()
     run(Path(__file__).resolve().parents[2], args.input, args.output_dir)

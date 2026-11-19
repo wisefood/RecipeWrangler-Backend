@@ -102,7 +102,7 @@ def _native_carbohydrate_definition(profile: dict, source: dict, value: object) 
     """The pinned EFSA reader maps this component before creating the EU wrapper."""
     observations = (profile.get('native_values') or {}).get('carbs_g') or []
     if (source.get('release') != 'EFSA EU FCDB 2026'
-            or profile.get('file') != 'data/EFSA_EU_FCDB_2026/composition_values.csv'
+            or profile.get('file') != 'data/EFSA_EU_FCDB_2026/composition_values.csv'  # provenance string stored in the released catalogue; the folder has since moved
             or value is None or not observations):
         return None
     for observation in observations:

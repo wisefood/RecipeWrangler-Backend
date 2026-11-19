@@ -88,13 +88,13 @@ def build(repo_root: Path, output: Path) -> dict:
     if output.exists():
         raise FileExistsError(output)
     paths = {
-        'efsa': repo_root / 'data/EFSA_EU_FCDB_2026/foods_and_foodex2.xlsx',
-        'cofid': repo_root / 'data/EU/CoFID-UK/McCance_Widdowsons_Composition_of_Foods_Integrated_Dataset_2021..xlsx',
-        'irish': repo_root / 'data/raw/irish/Irish_Comp_Table.csv',
-        'hungarian': repo_root / 'data/processed/hungarian-comp-table/hungarian_comp_table.csv',
-        'slovenian': repo_root / 'data/Slovenian-Comp-Tables/slovenian_composition_tables_unified.xlsx',
-        'foodex2': repo_root / 'data/raw/matching_vocabularies_2026-10-21/MTX.ecf',
-        'foodon_dictionary': repo_root / 'data/analysis/ingredient_dictionary_2026-10-22/foodon_dictionary.json',
+        'efsa': repo_root / 'data/nutrition/composition_tables/efsa_eu/foods_and_foodex2.xlsx',
+        'cofid': repo_root / 'data/nutrition/composition_tables/eu_national/CoFID-UK/McCance_Widdowsons_Composition_of_Foods_Integrated_Dataset_2021..xlsx',
+        'irish': repo_root / 'data/nutrition/composition_tables/irish/Irish_Comp_Table.csv',
+        'hungarian': repo_root / 'data/nutrition/composition_tables/hungarian/hungarian_comp_table.csv',
+        'slovenian': repo_root / 'data/nutrition/composition_tables/slovenian/slovenian_composition_tables_unified.xlsx',
+        'foodex2': repo_root / 'data/nutrition/matching/vocabularies/raw/matching_vocabularies_2026-10-21/MTX.ecf',
+        'foodon_dictionary': repo_root / 'data/nutrition/matching/dictionary/ingredient_dictionary_2026-10-22/foodon_dictionary.json',
     }
     for path in paths.values():
         if not path.is_file():

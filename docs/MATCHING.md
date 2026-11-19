@@ -42,7 +42,7 @@ Useful code: `src/recipe_wrangler/matching/{models.py,runtime.py,projection_work
 
 ## Preserved end-to-end comparison
 
-Source: `data/analysis/nutrition_finalization_2026-10-29/reference_comparison/summary.csv`. Energy MAE is **kcal per serving**, on the identical complete subset in both arms.
+Source: `analysis/nutrition_finalization_2026-10-29/reference_comparison/summary.csv`. Energy MAE is **kcal per serving**, on the identical complete subset in both arms.
 
 | Dataset | Common complete / reference recipes | Previous MAE | Activated MAE |
 |---|---:|---:|---:|

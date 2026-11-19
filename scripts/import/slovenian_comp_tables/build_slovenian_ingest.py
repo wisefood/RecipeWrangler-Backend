@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DIR = REPO_ROOT / "data" / "Slovenian-Comp-Tables"
+DIR = REPO_ROOT / "data" / "nutrition" / "composition_tables" / "slovenian"
 PSQL = ["docker", "exec", "-i", "wisefood-postgres", "psql", "-U", "postgres", "-d", "nutrients"]
 
 # --- category translations (English food_group) ---

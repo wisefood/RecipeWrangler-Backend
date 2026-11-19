@@ -655,15 +655,17 @@ VEGETABLES_FOOD_GROUP = "Vegetables and Vegetable Products"
 LLM_UNIT_GRAMS_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
-    / "fallbacks"
+    / "nutrition"
+    / "matching"
+    / "aliases"
     / "ingredient_unit_grams.csv"
 )
 FDA_UNIT_GRAMS_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
-    / "fallbacks"
+    / "nutrition"
+    / "matching"
+    / "aliases"
     / "ingredient_unit_grams_fda.csv"
 )
 LLM_UNIT_GRAMS_MATCH_TYPE = "llm_ingredient_unit_grams_fallback"
@@ -673,8 +675,9 @@ FDA_UNIT_GRAMS_NOTE = "FDA reference portion fallback from ingredient_unit_grams
 RECIPE1M_LLM_WEIGHT_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
+    / "retired"
     / "recipe1m"
+    / "processed"
     / "recipe1m-unmatched-ingredient-weights-llm.csv"
 )
 RECIPE1M_LLM_WEIGHT_MATCH_TYPE = "llm_weight_fallback"
@@ -682,8 +685,9 @@ RECIPE1M_LLM_WEIGHT_NOTE = "LLM fallback from recipe1m-unmatched-ingredient-weig
 RECIPE1M_LLM_PORTION_FALLBACK_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
+    / "retired"
     / "recipe1m"
+    / "processed"
     / "food_weights_updated.csv"
 )
 RECIPE1M_LLM_PORTION_FALLBACK_MATCH_TYPE = "llm_portion_per_unit_fallback"
@@ -691,22 +695,22 @@ RECIPE1M_LLM_PORTION_FALLBACK_NOTE = "LLM per-unit fallback from food_weights_up
 REVIEWED_PORTION_FOODS_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
+    / "portions"
     / "weight_reference"
     / "reviewed_portion_foods.json"
 )
 OFFLINE_REFERENCE_DATASET_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
+    / "portions"
     / "weight_reference"
     / "ingredient_unit_reference_dataset.csv"
 )
 REVIEWED_OPENROUTER_REFERENCE_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
-    / "ingredient_parsing_final"
+    / "recipes"
+    / "parsed_snapshot"
     / "2026-09-24"
     / "weight"
     / "reviewed_openrouter_weight_references.csv"
@@ -957,7 +961,7 @@ USDA_QUERY_ALIASES = (
     (re.compile(r"\bpaw\s*paw\b"), "papaya"),
 )
 # Grams per US cup (240 ml) for volume measures of common foods. Values are from the local USDA SR
-# portion table (data/processed/usda/usda-weights.json) except rows marked "convention". The
+# portion table (data/nutrition/composition_tables/usda/processed/usda-weights.json) except rows marked "convention". The
 # generic USDA name lookup misses many of these (caster/icing sugar, rolled oats, tomato paste...),
 # which left 100+ volume rows unresolved.
 _REVIEWED_CUP_GRAMS = (
@@ -3845,11 +3849,9 @@ WEIGHT_PORTION_TABLE_ONLY = os.getenv("WEIGHT_PORTION_TABLE_ONLY", "true").lower
 
 @lru_cache(maxsize=1)
 def _reviewed_portion_table() -> dict:
-    import json
-    path = Path(REVIEWED_PORTION_FOODS_PATH)
-    if not path.exists():
-        return {}
-    return {' '.join(e['name'].lower().split()): e for e in json.loads(path.read_text())['entries']}
+    from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data_or_file
+    data = load_pipeline_data_or_file('reviewed_portion_foods', REVIEWED_PORTION_FOODS_PATH)
+    return {' '.join(e['name'].lower().split()): e for e in data.get('entries', [])}
 
 
 def _reviewed_portion_link(name: Any) -> Optional[dict]:

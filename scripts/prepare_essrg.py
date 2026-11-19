@@ -17,8 +17,8 @@ from typing import Any
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-EXCEL = REPO_ROOT / "data/ESSRG/PLANEAT T442 MEAL DB LL ESSRG.xlsx"
-OUTPUT_DIR = REPO_ROOT / "data/ESSRG"
+EXCEL = REPO_ROOT / "data/recipes/essrg/PLANEAT T442 MEAL DB LL ESSRG.xlsx"
+OUTPUT_DIR = REPO_ROOT / "data/recipes/essrg"
 OUTPUT_FILE = OUTPUT_DIR / "ESSRG_recipes_clean.json"
 AUDIT_FILE = OUTPUT_DIR / "ESSRG_conversion_audit.json"
 

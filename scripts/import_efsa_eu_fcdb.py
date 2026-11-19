@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from recipe_wrangler.utils.nutrition_postgres import _env, get_engine  # noqa: E402
 
 
-DATA = ROOT / "data/EFSA_EU_FCDB_2026"
+DATA = ROOT / "data/nutrition/composition_tables/efsa_eu"
 FOODS = DATA / "foods_and_foodex2.xlsx"
 COMPONENTS = DATA / "component_dictionary.csv"
 VALUES = DATA / "composition_values.csv"

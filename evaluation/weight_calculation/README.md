@@ -43,7 +43,7 @@ Count items are the exposure: 25% of energy and the lowest accuracy. No LLM-weig
 
 | File | Contents |
 |---|---|
-| `data/gold.csv` | 348 cases: ingredient, measurement, reference grams, split (from the Fineli release 20 download, kept locally as `data/Fineli_Rel20.zip`, gitignored) |
+| `data/gold.csv` | 348 cases: ingredient, measurement, reference grams, split (from the Fineli release 20 download, kept locally as `data/nutrition/composition_tables/fineli/Fineli_Rel20.zip`, gitignored) |
 | `results/predictions.csv` | Grams per case from the legacy and structured routes, and whether each was deterministic or LLM |
 | `results/scores.json` | All summaries above, with per-stratum detail |
 

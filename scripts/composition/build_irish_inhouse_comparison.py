@@ -82,7 +82,7 @@ def live_nutrients(row: dict | None) -> dict:
 
 def load_source_nutrients(records: dict[str, dict], output: Path) -> tuple[dict, list[Path]]:
     sources = {}; paths = []
-    cofid_path = ROOT/'data/EU/CoFID-UK/McCance_Widdowsons_Composition_of_Foods_Integrated_Dataset_2021..xlsx'
+    cofid_path = ROOT/'data/nutrition/composition_tables/eu_national/CoFID-UK/McCance_Widdowsons_Composition_of_Foods_Integrated_Dataset_2021..xlsx'
     paths.append(cofid_path)
     workbook = load_workbook(cofid_path, read_only=True, data_only=True)
     by_id = defaultdict(dict)
@@ -99,8 +99,8 @@ def load_source_nutrients(records: dict[str, dict], output: Path) -> tuple[dict,
                 'values_per_100g': regional_nutrients(raw, COFID),
                 'raw_values': {v:raw.get(v) for v in COFID.values()}, 'basis': 'per 100 g edible food in selected state',
                 'file': str(cofid_path.relative_to(ROOT)), 'notes': ['Trace/N/blank are unknown, not zero.']}
-    for relative, dataset in [('data/raw/irish/Irish_Comp_Table.csv', 'Irish composition table'),
-                              ('data/processed/hungarian-comp-table/hungarian_comp_table.csv','Hungarian composition table')]:
+    for relative, dataset in [('data/nutrition/composition_tables/irish/Irish_Comp_Table.csv', 'Irish composition table'),
+                              ('data/nutrition/composition_tables/hungarian/hungarian_comp_table.csv','Hungarian composition table')]:
         path = ROOT/relative; paths.append(path)
         with path.open() as f:
             rows = {r['canonical_food_id']:r for r in csv.DictReader(f)}
@@ -120,8 +120,8 @@ def load_source_nutrients(records: dict[str, dict], output: Path) -> tuple[dict,
     for key,r in records.items():
         if r['source']['release']=='EFSA EU FCDB 2026':
             efsa_variants[(r['source']['dataset'],r['source']['record_id'])].append(key)
-    component_path = ROOT/'data/EFSA_EU_FCDB_2026/component_dictionary.csv'
-    values_path = ROOT/'data/EFSA_EU_FCDB_2026/composition_values.csv'
+    component_path = ROOT/'data/nutrition/composition_tables/efsa_eu/component_dictionary.csv'
+    values_path = ROOT/'data/nutrition/composition_tables/efsa_eu/composition_values.csv'
     paths.extend([component_path, values_path])
     with component_path.open(encoding='utf-16', newline='') as f:
         components = {(r['Dataset name'],r['Original component code']): EFSA_COMPONENTS.get(r['English component name'].strip().lower()) for r in csv.DictReader(f)}
@@ -183,12 +183,12 @@ def build(output: Path) -> None:
         r=json.loads(line);hybrid[(r['input_text'],r['input_origin'])]=r
     needed={e['reference_record_key'] for e in expectations.values() if e['reference_record_key']}
     for r in hybrid.values():needed.update(r['proposed_record_keys'] if r['status']=='proposal' else [])
-    catalogue_path=ROOT/'data/analysis/composition_catalogue_2026-10-22/records.jsonl'
+    catalogue_path=ROOT/'data/nutrition/matching/catalogue/composition_catalogue_2026-10-22/records.jsonl'
     records={r['catalogue_key']:r for line in catalogue_path.open() if (r:=json.loads(line))['catalogue_key'] in needed}
     if needed != set(records):raise ValueError('Source record missing from retained catalogue')
     nutrient_path=output/'source_nutrients.json'
     if nutrient_path.exists():
-        nutrients=json.loads(nutrient_path.read_text()); source_paths=[ROOT/'data/EFSA_EU_FCDB_2026/composition_values.csv',ROOT/'data/EFSA_EU_FCDB_2026/component_dictionary.csv',ROOT/'data/raw/irish/Irish_Comp_Table.csv', ROOT/'data/processed/hungarian-comp-table/hungarian_comp_table.csv', ROOT/'data/EU/CoFID-UK/McCance_Widdowsons_Composition_of_Foods_Integrated_Dataset_2021..xlsx']
+        nutrients=json.loads(nutrient_path.read_text()); source_paths=[ROOT/'data/nutrition/composition_tables/efsa_eu/composition_values.csv',ROOT/'data/nutrition/composition_tables/efsa_eu/component_dictionary.csv',ROOT/'data/nutrition/composition_tables/irish/Irish_Comp_Table.csv', ROOT/'data/nutrition/composition_tables/hungarian/hungarian_comp_table.csv', ROOT/'data/nutrition/composition_tables/eu_national/CoFID-UK/McCance_Widdowsons_Composition_of_Foods_Integrated_Dataset_2021..xlsx']
     else:
         nutrients,source_paths=load_source_nutrients(records, output)
     dependencies=json.loads((output/'production_dependencies.json').read_text())

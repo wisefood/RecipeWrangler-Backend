@@ -82,7 +82,7 @@ HUNGARIAN_FIBER_KEYS = ("Fiber (g)",)
 # A stock cube, bouillon powder, or plain salt carries per-100g nutrition for
 # the concentrate itself, not for the water/dish it seasons. An upstream
 # parsing bug (fixing the parser is a separate, larger piece of work — see
-# `data/analysis/nutrition_curation/PLAN.md`) can attach the *whole line's*
+# `analysis/nutrition_curation/PLAN.md`) can attach the *whole line's*
 # weight to that concentrate match — e.g. "850g water and 1 vegetable stock
 # cube" resolving to 850g of stock cube nutrition instead of ~10g. That turns
 # a normal soup into ~47,600mg of sodium per serving. This is a backstop, not

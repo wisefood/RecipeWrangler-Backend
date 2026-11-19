@@ -12,7 +12,7 @@ from .core import PortionRecord, PortionFacets, infer_facets
 from .sources import identity_key, COUNT_UNITS, UNSUPPORTED_SCALE_RE
 from recipe_wrangler.utils import weigh_calculation_usda_ as usda
 
-DEFAULT_EXTERNAL = Path(__file__).resolve().parents[4] / 'data/processed/weight_reference/structured_external_portions.jsonl'
+DEFAULT_EXTERNAL = Path(__file__).resolve().parents[4] / 'data/portions/weight_reference/structured_external_portions.jsonl'
 
 
 # Reviewed same-food links where full labels differ (brand/cultivar wording).
@@ -119,13 +119,17 @@ def external_records(ausnut, nz, foundation, native_rows):
 
 @lru_cache(maxsize=1)
 def external_index():
-    path = Path(os.getenv('WEIGHT_EXTERNAL_PORTIONS_PATH', str(DEFAULT_EXTERNAL)))
+    from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data_or_file
+    override = os.getenv('WEIGHT_EXTERNAL_PORTIONS_PATH')
     by_food = defaultdict(list); by_native = defaultdict(list)
-    if path.exists():
-        with path.open() as stream:
-            for line in stream:
-                record = PortionRecord.model_validate_json(line)
-                by_food[record.food_id].append(record); by_native[record.source_food_id].append(record)
+    if override:
+        path = Path(override)
+        rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
+    else:
+        rows = load_pipeline_data_or_file('structured_external_portions', DEFAULT_EXTERNAL, jsonl=True)
+    for row in rows:
+        record = PortionRecord.model_validate(row)
+        by_food[record.food_id].append(record); by_native[record.source_food_id].append(record)
     return by_food, by_native
 
 

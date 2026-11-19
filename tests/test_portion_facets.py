@@ -211,7 +211,7 @@ def test_medium_carrot_uses_real_regular_carrot_with_explained_score():
     import json
     from pathlib import Path
     from recipe_wrangler.matching.portions.sources import usda_records
-    rows = json.loads((Path(__file__).resolve().parents[1] / 'data/processed/usda/usda-weights-v2.json').read_text())
+    rows = json.loads((Path(__file__).resolve().parents[1] / 'data/nutrition/composition_tables/usda/processed/usda-weights-v2.json').read_text())
     row = next(r for r in rows if r.get('usda_id') == '11124')
     with patch.object(tool, 'weight_food_name', return_value=row['food_name']), patch('recipe_wrangler.matching.portions.sources._native_food_rows', return_value={'11124': [row]}):
         result = tool.ingredient_weight_tool_usda.invoke({'ingredient_names': ['carrot'], 'measurements': ['2 medium'], 'portion_inputs': [{'food_id': 'usda_weights:11124'}], 'return_details': True})
@@ -381,12 +381,20 @@ def test_count_written_inside_the_name_is_parsed():
     assert out['details'][0]['parsed_quantity'] == '2'
 
 
+def _without_postgres(monkeypatch):
+    from recipe_wrangler.utils import pipeline_data_pg
+    def no_pg(name):
+        raise KeyError(name)
+    monkeypatch.setattr(pipeline_data_pg, 'load_pipeline_data', no_pg)
+
+
 def test_reviewed_portion_table_supplies_the_food_and_bypasses_resolver(tmp_path, monkeypatch):
     import json
     table = tmp_path / 'table.json'
     table.write_text(json.dumps({'entries': [{'name': 'Skim Milk', 'food_id': 'usda_weights:01085',
                                               'label': 'Milk, nonfat, fluid', 'review': 'corrected'}]}))
     monkeypatch.setattr(tool, 'REVIEWED_PORTION_FOODS_PATH', table)
+    _without_postgres(monkeypatch)
     tool._reviewed_portion_table.cache_clear()
     link = tool._reviewed_portion_link('skim  milk')
     assert link['usda_id'] == '01085' and link['match_source'] == 'reviewed_portion_table'
@@ -494,6 +502,7 @@ def test_table_only_mode_gives_no_weight_to_unlisted_names_and_keeps_listed_ones
     table = tmp_path / 'table.json'
     table.write_text(json.dumps({'entries': [{'name': 'banana', 'food_id': 'ingredient:banana', 'label': 'Banana', 'review': 'confirmed'}]}))
     monkeypatch.setattr(tool, 'REVIEWED_PORTION_FOODS_PATH', table)
+    _without_postgres(monkeypatch)
     tool._reviewed_portion_table.cache_clear()
     monkeypatch.setattr(tool, 'WEIGHT_PORTION_TABLE_ONLY', True)
     monkeypatch.setattr(tool, 'canonical_name_to_usda', lambda n: pytest.fail('resolver must not be consulted'))

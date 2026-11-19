@@ -25,7 +25,7 @@ except Exception:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_INPUT = REPO_ROOT / "data" / "FoodHero" / "foodhero_recipes_clean.json"
+DEFAULT_INPUT = REPO_ROOT / "data" / "recipes" / "foodhero" / "foodhero_recipes_clean.json"
 load_dotenv(REPO_ROOT / ".env")
 
 

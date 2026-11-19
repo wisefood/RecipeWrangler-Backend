@@ -17,7 +17,7 @@ def main():
     parser.add_argument('--usda', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--limit-foods', type=int)
-    parser.add_argument('--unit-volumes', type=Path, default=Path('data/processed/fallbacks/unit_volume_ml_ground_truth.json'))
+    parser.add_argument('--unit-volumes', type=Path, default=Path('data/nutrition/matching/aliases/unit_volume_ml_ground_truth.json'))
     args = parser.parse_args()
     rows = json.loads(args.usda.read_text())
     unit_volumes = _unit_volumes_ml(str(args.unit_volumes))

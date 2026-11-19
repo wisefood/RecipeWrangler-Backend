@@ -21,7 +21,7 @@ NUTRIENTS = ('energy_kcal', 'protein_g', 'carbohydrate_g', 'fat_g', 'sugar_g',
              'saturated_fat_g', 'fibre_g', 'sodium_mg')
 # Audit triage thresholds, not clinical or regulatory cutoffs.
 FLOORS = dict(zip(NUTRIENTS, (50, 5, 5, 5, 5, 2, 2, 200)))
-OUT = Path(__file__).resolve().parents[1] / 'data/analysis/regional_nutrient_drift'
+OUT = Path(__file__).resolve().parents[1] / 'analysis/regional_nutrient_drift'
 
 
 def number(value):

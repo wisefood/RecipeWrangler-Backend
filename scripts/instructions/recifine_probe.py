@@ -120,8 +120,8 @@ def freeze_cases():
               "expected_mentions": [{"type": kind, "text": mention} for kind, mention in expected]}
              for i, (text, expected) in enumerate(PROBES, 1)]
     sources = {}
-    for filename, field, title_field in [("data/FoodHero/foodhero_recipes_clean.json", "instructions", "title"),
-                                         ("data/SafeFood_web/safefood_dinner_recipes.json", "method", "name")]:
+    for filename, field, title_field in [("data/recipes/foodhero/foodhero_recipes_clean.json", "instructions", "title"),
+                                         ("data/recipes/safefood_web/safefood_dinner_recipes.json", "method", "name")]:
         path = ROOT / filename
         sources[filename] = {"sha256": digest(path), "sampling": "first three recipes in stored order, first eight steps each"}
         data = json.loads(path.read_text())

@@ -21,9 +21,9 @@ from typing import Any
 import pandas as pd
 
 # ── config ────────────────────────────────────────────────────────────────────
-RECIPES_FILE = Path("data/ESSRG/ESSRG_recipes_clean.json")
+RECIPES_FILE = Path("data/recipes/essrg/ESSRG_recipes_clean.json")
 EXCEL_FILE = Path("PLANEAT T442 MEAL DB LL ESSRG.xlsx")
-OUTPUT_DIR = Path("data/processed/essrg")
+OUTPUT_DIR = Path("data/recipes/essrg/processed")
 AUDIT_FILE = OUTPUT_DIR / "ingredient_parse_audit.csv"
 SUMMARY_FILE = OUTPUT_DIR / "ingredient_resolution_report.txt"
 

@@ -30,11 +30,11 @@ VERSION='occurrence_matching_v40_held_recipe_repairs'
 CURRENT_NATIONAL_TABLE=nm.CURRENT_NATIONAL_TABLE
 ROOT=Path(__file__).resolve().parents[3]
 ASSETS={
-    'dictionary':'data/analysis/ingredient_dictionary_2026-10-22/foodon_dictionary.json',
-    'parents':'data/analysis/matching_vocabularies_2026-10-21/foodon_named_parents.csv',
-    'foodex_facets':'data/analysis/foodex2/17.2/facets.json',
-    'langual':'data/analysis/langual/2017/terms.json',
-    'foodex':'data/raw/matching_vocabularies_2026-10-21/MTX.ecf',
+    'dictionary':'data/nutrition/matching/dictionary/ingredient_dictionary_2026-10-22/foodon_dictionary.json',
+    'parents':'data/nutrition/matching/vocabularies/derived/matching_vocabularies_2026-10-21/foodon_named_parents.csv',
+    'foodex_facets':'data/nutrition/matching/vocabularies/derived/foodex2/17.2/facets.json',
+    'langual':'data/nutrition/matching/vocabularies/derived/langual/2017/terms.json',
+    'foodex':'data/nutrition/matching/vocabularies/raw/matching_vocabularies_2026-10-21/MTX.ecf',
 }
 
 

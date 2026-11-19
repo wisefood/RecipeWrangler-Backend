@@ -9,8 +9,8 @@ import requests
 from bs4 import BeautifulSoup
 
 
-INPUT_URLS = "data/HealthyFoods/recipe_urls.json"
-OUT_RECIPES = "data/HealthyFoods/HealthyFood_recipes.json"
+INPUT_URLS = "data/recipes/healthyfoods/recipe_urls.json"
+OUT_RECIPES = "data/recipes/healthyfoods/HealthyFood_recipes.json"
 
 SITE = "https://www.healthyfood.com"
 RECIPE_PREFIX = "https://www.healthyfood.com/healthy-recipes/"

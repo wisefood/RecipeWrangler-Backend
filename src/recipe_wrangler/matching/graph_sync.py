@@ -148,7 +148,7 @@ def bridge(release_id,apply=False,recipe_ids=None,*,active_only=False,write_repo
         'recipe_filter':recipe_ids}
     if unlinked:raise ValueError('Missing selected graph compositions: '+str(unlinked[:3]))
     if write_report:
-        folder=Path('data/analysis')/('matching_graph_audit_'+release_id);folder.mkdir(exist_ok=True)
+        folder=Path('analysis')/('matching_graph_audit_'+release_id);folder.mkdir(exist_ok=True)
         name='bridge_audit_subset_'+store.digest(sorted(recipe_ids))[:12]+'.json' if recipe_ids else 'bridge_active_audit.json' if active_only else 'bridge_audit.json'
         (folder/name).write_text(json.dumps(report,indent=2))
     print('Projected recipe runs',len(runs),'occurrences',count,'unlinked selections',len(unlinked),flush=True)

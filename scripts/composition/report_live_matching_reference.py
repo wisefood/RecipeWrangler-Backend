@@ -12,7 +12,7 @@ from recipe_wrangler.utils.nutrition_postgres import get_engine
 
 
 def report(release_id,output_dir=None):
-    source=Path('data/analysis/cross_dataset_reference_2026-10-27_v10_final')
+    source=Path('data/nutrition/matching/reference/cross_dataset_reference_2026-10-27_v10_final')
     recipes=json.loads((source/'recipes.json').read_text())
     excluded={(r['dataset'],r['recipe_id']) for r in json.loads((source/'reference_eligibility.json').read_text())['excluded']}
     with get_engine().connect() as c:
@@ -49,7 +49,7 @@ def report(release_id,output_dir=None):
             'new_median_absolute_error':statistics.median(new_errors) if common else None,
             'mae_change_new_minus_production':statistics.fmean(new_errors)-statistics.fmean(old_errors) if common else None,
             'mean_absolute_production_proposed_difference':statistics.fmean(abs(r['new']-r['stored_production']) for r in common) if common else None})
-    folder=Path(output_dir) if output_dir else Path('data/analysis')/('matching_live_reference_'+release_id)
+    folder=Path(output_dir) if output_dir else Path('analysis')/('matching_live_reference_'+release_id)
     folder.mkdir(parents=True,exist_ok=True)
     for name,data in [('recipe_deviations',rows),('summary',summaries)]:
         with (folder/(name+'.csv')).open('w',newline='') as f:

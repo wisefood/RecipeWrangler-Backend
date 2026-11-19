@@ -1,7 +1,7 @@
 """Reviewed per-item / per-container weights for foods the USDA name lookup cannot resolve.
 
 Each row is ``(name regex, {unit: grams}, source)``. ``source`` is ``USDA`` when the value is in the
-local USDA SR portion table (data/processed/usda/usda-weights.json) and ``convention`` when it is a
+local USDA SR portion table (data/nutrition/composition_tables/usda/processed/usda-weights.json) and ``convention`` when it is a
 typical retail or kitchen weight. Convention rows are deliberate, flagged fallbacks: they keep the
 end user from seeing "0 g", they are not measurements.
 

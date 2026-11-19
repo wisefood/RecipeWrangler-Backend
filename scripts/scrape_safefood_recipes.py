@@ -40,7 +40,7 @@ BASE_URL = "https://www.safefood.net"
 CATEGORIES = ["breakfast", "lunch", "dinner", "snacks", "desserts"]
 CATEGORY_PATHS = {c: f"{BASE_URL}/recipes/{c}" for c in CATEGORIES}
 
-OUTPUT_DIR = Path(__file__).resolve().parents[1] / "data" / "SafeFood_web"
+OUTPUT_DIR = Path(__file__).resolve().parents[1] / "data" / "recipes" / "safefood_web"
 OUTPUT_BASENAME = "safefood_web_recipes"
 
 DELAY_SECONDS = 1.5          # polite crawl delay between page loads

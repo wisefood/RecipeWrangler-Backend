@@ -2,11 +2,12 @@
 """Import profiling pipeline data files into the pipeline_static_data Postgres table.
 
 Creates the table if it doesn't exist, then upserts each file by name.
-CSV files are converted to JSON arrays. JSON files are stored as-is.
+CSV and JSONL files are converted to JSON arrays. JSON files are stored as-is.
 
 Usage:
     python3 scripts/postgres/import_pipeline_static_data.py
     python3 scripts/postgres/import_pipeline_static_data.py --dry-run
+    python3 scripts/postgres/import_pipeline_static_data.py --only reviewed_portion_foods,healthyfoods_nutrition
 """
 
 from __future__ import annotations
@@ -33,33 +34,48 @@ from recipe_wrangler.utils.nutrition_postgres import _get_config  # noqa: E402
 FILES = [
     (
         "usda-weights-v2",
-        REPO_ROOT / "data/processed/usda/usda-weights-v2.json",
+        REPO_ROOT / "data/nutrition/composition_tables/usda/processed/usda-weights-v2.json",
         "json",
     ),
     (
         "unit_volume_ml_ground_truth",
-        REPO_ROOT / "data/processed/fallbacks/unit_volume_ml_ground_truth.json",
+        REPO_ROOT / "data/nutrition/matching/aliases/unit_volume_ml_ground_truth.json",
         "json",
     ),
     (
         "ingredient_unit_grams_fda",
-        REPO_ROOT / "data/processed/fallbacks/ingredient_unit_grams_fda.csv",
+        REPO_ROOT / "data/nutrition/matching/aliases/ingredient_unit_grams_fda.csv",
         "csv",
     ),
     (
         "ingredient_unit_grams_llm",
-        REPO_ROOT / "data/processed/fallbacks/ingredient_unit_grams.csv",
+        REPO_ROOT / "data/nutrition/matching/aliases/ingredient_unit_grams.csv",
         "csv",
     ),
     (
         "ingredient_unit_reference_dataset",
-        REPO_ROOT / "data/processed/weight_reference/ingredient_unit_reference_dataset.csv",
+        REPO_ROOT / "data/portions/weight_reference/ingredient_unit_reference_dataset.csv",
         "csv",
     ),
     (
         "ingredient_composition_aliases",
-        REPO_ROOT / "data/processed/fallbacks/ingredient_composition_aliases.csv",
+        REPO_ROOT / "data/nutrition/matching/aliases/ingredient_composition_aliases.csv",
         "csv",
+    ),
+    (
+        "reviewed_portion_foods",
+        REPO_ROOT / "data/portions/weight_reference/reviewed_portion_foods.json",
+        "json",
+    ),
+    (
+        "structured_external_portions",
+        REPO_ROOT / "data/portions/weight_reference/structured_external_portions.jsonl",
+        "jsonl",
+    ),
+    (
+        "healthyfoods_nutrition",
+        REPO_ROOT / "data/recipes/healthyfoods/HealthyFood_recipes_nutrition.json",
+        "json",
     ),
 ]
 
@@ -92,7 +108,9 @@ def _load_json(path: Path):
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true", help="Parse files but do not write to Postgres.")
+    parser.add_argument("--only", help="Comma-separated entry names to import; default is all.")
     args = parser.parse_args()
+    only = set(args.only.split(",")) if args.only else None
 
     cfg = _get_config()
     if not args.dry_run:
@@ -106,6 +124,8 @@ def main() -> None:
         print("Table pipeline_static_data ready.")
 
     for name, path, fmt in FILES:
+        if only and name not in only:
+            continue
         if not path.exists():
             print(f"  MISSING  {name}  ({path})")
             continue
@@ -115,6 +135,8 @@ def main() -> None:
 
         if fmt == "json":
             content = _load_json(path)
+        elif fmt == "jsonl":
+            content = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
         else:
             content = _load_csv(path)
 

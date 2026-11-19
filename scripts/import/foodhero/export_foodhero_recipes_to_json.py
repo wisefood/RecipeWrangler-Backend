@@ -14,8 +14,8 @@
 #   pip install requests beautifulsoup4 tqdm
 #
 # Run:
-#   uv run data/FoodHero/export_foodhero_recipes_to_json.py --in foodhero_all_recipes_urls.txt --out foodhero_recipes_big.json
-#   uv run data/FoodHero/export_foodhero_recipes_to_json.py --resume
+#   uv run data/recipes/foodhero/export_foodhero_recipes_to_json.py --in foodhero_all_recipes_urls.txt --out foodhero_recipes_big.json
+#   uv run data/recipes/foodhero/export_foodhero_recipes_to_json.py --resume
 #
 # Optional:
 #   --limit 50

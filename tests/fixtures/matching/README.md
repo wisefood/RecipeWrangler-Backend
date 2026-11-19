@@ -54,9 +54,9 @@ Use `--extraction-only` to skip embeddings/retrieval, or `--retrieval-file` with
 a previous run's `retrieval.json` to hold candidate lists fixed while developing
 policies. Output directories must be new. The maintained matching guide is
 [docs/MATCHING.md](../../../docs/MATCHING.md); generated initial results are under
-`data/analysis/hybrid_dev_2026-10-23_v3/`.
+`analysis/hybrid_dev_2026-10-23_v3/`.
 
 The subsequent vocabulary-backed implementation is summarized in that guide,
 with its saved results in
-`data/analysis/hybrid_dev_2026-10-23_vocabulary_v2/`. It leaves these frozen labels
+`analysis/hybrid_dev_2026-10-23_vocabulary_v2/`. It leaves these frozen labels
 unchanged; complete-case extraction quality still requires expanded independent labels.

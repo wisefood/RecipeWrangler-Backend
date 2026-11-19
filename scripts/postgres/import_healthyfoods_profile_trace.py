@@ -2,7 +2,7 @@
 """Build HealthyFoods regional profiles in the Postgres trace table.
 
 Pipeline:
-1) Load data/HealthyFoods/HealthyFood_recipes_clean.json
+1) Load data/recipes/healthyfoods/HealthyFood_recipes_clean.json
 2) Drop recipes missing duration or serves
 3) Ignore notes
 4) Map structured fields directly to pipeline state (no LLM parse step)
@@ -36,7 +36,7 @@ from recipe_wrangler.tools.recipe_profiling_chain import (  # noqa: E402
 from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals  # noqa: E402
 from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace  # noqa: E402
 
-DEFAULT_INPUT = REPO_ROOT / "data" / "HealthyFoods" / "HealthyFood_recipes_clean.json"
+DEFAULT_INPUT = REPO_ROOT / "data" / "recipes" / "healthyfoods" / "HealthyFood_recipes_clean.json"
 DEFAULT_REGION = "IE"
 DEFAULT_SOURCE_LABEL = "HealthyFoods"
 DEFAULT_FAILURES_OUT = REPO_ROOT / "backups" / "healthyfoods_profile_failures.json"

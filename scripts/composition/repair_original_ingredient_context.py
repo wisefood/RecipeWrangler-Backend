@@ -132,7 +132,7 @@ def inspect(canonical_path: Path, recipe_ids: list[str], sources: list[str], out
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--canonical',type=Path,default=Path('data/analysis/nutrition_finalization_2026-10-29/canonical_inputs_candidate.json'))
+    parser.add_argument('--canonical',type=Path,default=Path('analysis/nutrition_finalization_2026-10-29/canonical_inputs_candidate.json'))
     parser.add_argument('--recipe-id',action='append',required=True)
     parser.add_argument('--source',action='append',choices=['eu','irish','hungarian','slovenian'])
     parser.add_argument('--output',type=Path,required=True)

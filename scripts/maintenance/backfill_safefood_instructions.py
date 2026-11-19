@@ -13,7 +13,7 @@ from pathlib import Path
 import re
 
 
-DEFAULT_INPUTS = sorted(Path("data/SafeFood_web").glob("safefood_*_recipes.json"))
+DEFAULT_INPUTS = sorted(Path("data/recipes/safefood_web").glob("safefood_*_recipes.json"))
 _ACTION_RE = re.compile(
     r"\b(?:add|allow|arrange|bake|beat|blend|boil|bring|chop|combine|cook|cover|"
     r"cut|dice|drain|fill|fold|form|fry|heat|knead|make|melt|mix|peel|place|"

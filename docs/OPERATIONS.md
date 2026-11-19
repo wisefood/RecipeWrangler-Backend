@@ -46,7 +46,7 @@ Before rerunning, verify the current release, Docker configuration, build constr
 
 Saved validation includes 125 focused regressions, offline model selection checks, a served recipe GET, an incremental temporary-recipe projection check followed by cleanup, and a full projection audit. Reference-only rows retained fingerprint `b413545a71a4db8a910e50845c8e4262`. These checks do not establish a full-suite pass, current database state, high nutrient completeness, or adaptation readiness.
 
-Evidence is under `data/analysis/matching_production_2026-10-29/`: `activation.json`, `final_verification.json`, `incremental_smoke.json`, `rollback_rehearsal.json`, and related deployment/preflight records. New reports go to `analysis/<run-id>/`; do not relocate these historical paths while scripts and manifests still depend on them.
+Evidence is under `analysis/matching_production_2026-10-29/`: `activation.json`, `final_verification.json`, `incremental_smoke.json`, `rollback_rehearsal.json`, and related deployment/preflight records. New reports go to `analysis/<run-id>/`; do not relocate these historical paths while scripts and manifests still depend on them.
 
 ## Matching release 2 (4 November 2026, in progress)
 
@@ -79,7 +79,7 @@ Stop writes/API before rollback. The command refuses if active pointers have cha
 docker compose --env-file .env -f recipe-api-docker/docker-compose.yml stop
 PYTHONPATH=src uv run python -m scripts.composition.promote_matching_production rollback \
   --promotion-id matching-production-2026-10-29 \
-  --report data/analysis/matching_production_2026-10-29/rollback.json
+  --report analysis/matching_production_2026-10-29/rollback.json
 ```
 
 Then restore matching mode/release from `previous_matching_environment.json`, restore the `recipes` alias to `recipes_v5`, restore saved nutrition-claim edges, mark rolled-back matching occurrences noncurrent, invalidate recipe caches, and restart the API. Backups are in PostgreSQL `matching_production_backups`; prior claim/settings evidence is in the same activation directory. This is a multi-store procedure; the SQL command alone is not the complete rollback.
@@ -90,6 +90,23 @@ Supported commands and side effects are in [scripts/README.md](../scripts/README
 
 Native backup/restore tooling lives in `scripts/maintenance/`; restores and purges can destroy shared state. Keep source/reference records separate from generated profiles, maintain a snapshot/release manifest, and inspect both input and output hashes for a proposed data refresh.
 
+
+## Runtime reference data in Postgres (19 November 2026)
+
+API changes that affect deployment:
+
+- **New database reads.** The API reads `reviewed_portion_foods`, `structured_external_portions` (about 13 MB, 11,467 rows) and `healthyfoods_nutrition` (about 2.6 MB) from the `pipeline_static_data` table, through `utils/pipeline_data_pg.load_pipeline_data_or_file`. Each is queried once per process and cached. If the table or entry is missing the loader logs a warning and falls back to the local file under `data/`, which does not exist on the platform, so the feature returns empty results. No schema change; no migration.
+- **Importer.** Load the entries with `scripts/postgres/import_pipeline_static_data.py` on every target database before deploying (`--only reviewed_portion_foods,structured_external_portions,healthyfoods_nutrition` loads just the new ones). Affected code: `tools/ingredient_weight_tool.py`, `matching/portions/external.py`, `api/routers/recipes.py`. `WEIGHT_EXTERNAL_PORTIONS_PATH` still overrides the portions source with a file.
+- **Matcher files stay on disk and their paths changed.** `matching/runtime.py` loads five files at API start from `$NUTRITION_MATCHING_ASSET_ROOT` (default: repository root) under `data/nutrition/matching/`:
+  - `dictionary/ingredient_dictionary_2026-10-22/foodon_dictionary.json`
+  - `vocabularies/derived/matching_vocabularies_2026-10-21/foodon_named_parents.csv`
+  - `vocabularies/derived/foodex2/17.2/facets.json`
+  - `vocabularies/derived/langual/2017/terms.json`
+  - `vocabularies/raw/matching_vocabularies_2026-10-21/MTX.ecf`
+
+  A deployment that mounts the old `data/analysis/...` or `data/raw/...` layout fails at start with "Missing matching release asset".
+- **Output path.** `matching/graph_sync.py` writes its audit folder to `analysis/matching_graph_audit_<release>` instead of `data/analysis/`.
+- **Images.** MinIO serves recipe images on the platform; the `/static/data` mount in `api/main.py` is for development only. Local image folders are now `data/images/generated_recipe_images/` and `data/recipes/irish_safefood/images/`.
 
 ## Documentation maintenance
 

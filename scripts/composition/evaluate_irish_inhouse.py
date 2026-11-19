@@ -17,8 +17,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-PILOT = ROOT/'data/analysis/irish_living_lab_hybrid_pilot_2026-10-26_name_only'
-SOURCE = ROOT/'data/analysis/living_lab_matching_audits_2026-10-13/irish_living_lab_ingredient_matches.csv'
+PILOT = ROOT/'analysis/irish_living_lab_hybrid_pilot_2026-10-26_name_only'
+SOURCE = ROOT/'analysis/living_lab_matching_audits_2026-10-13/irish_living_lab_ingredient_matches.csv'
 TITLES = [
     'Banana and oat smoothie', 'Strawberry smoothie', 'Porridge', 'Chewy apricot porridge',
     'Simple oat bread', 'Grilled Cajun salmon', 'Teriyaki salmon', 'Scrambled egg on toast',
@@ -42,7 +42,7 @@ def dump(path: Path, value) -> None:
 def prepare(output: Path) -> None:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    raw_paths = sorted((ROOT/'data/SafeFood_web').glob('*recipes.json'))
+    raw_paths = sorted((ROOT/'data/recipes/safefood_web').glob('*recipes.json'))
     raw = {r['name']: (r, str(p.relative_to(ROOT))) for p in raw_paths for r in json.loads(p.read_text())}
     grouped = defaultdict(list)
     with SOURCE.open(encoding='utf-8-sig') as f:

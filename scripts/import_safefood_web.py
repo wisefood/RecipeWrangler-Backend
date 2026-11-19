@@ -65,7 +65,7 @@ from safefood_rcsi import (  # noqa: E402
 SOURCE = "Curated Irish Recipes"
 REGIONS = [("IE", "irish"), ("HU", "hungarian"), ("EU", "eu"), ("SI", "slovenian")]
 SCRAPE_FILES = [
-    REPO_ROOT / "data" / "SafeFood_web" / f"safefood_{c}_recipes.json"
+    REPO_ROOT / "data" / "recipes" / "safefood_web" / f"safefood_{c}_recipes.json"
     for c in ("breakfast", "lunch", "dinner", "snacks", "desserts")
 ]
 CHECKPOINT = REPO_ROOT / "scripts" / "import_safefood_web.checkpoint.json"

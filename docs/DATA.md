@@ -6,10 +6,10 @@ Updated 30 October 2026. This guide replaces historical dataset inventories and 
 
 | Set | Local source and stored reference key | Reference basis and limits |
 |---|---|---|
-| Irish RCSI | `data/Irish_SafeFood/Irish Recipes_updated_22.6.26.xlsx`; `safefood_rcsi` | Two recipe sheets supply per-100-g and per-serving nutrition, servings, raw/cooked weight and yield fields. Historical import joined 99 recipes; the final comparison uses 98 reference recipes. Audit the join/exclusion difference. The workbook does not establish that its panels are laboratory-measured. |
-| Irish SafeFood web | `data/SafeFood_web/`; `safefood_web` | Scraped published per-serving panels, distinct from RCSI. Final comparison has 327 recipes. RCSI overlaps this set; do not pool both as independent recipes. |
-| Hungarian ESSRG/PLANEAT | `data/ESSRG/PLANEAT T442 MEAL DB LL ESSRG.xlsx`, `ESSRG_recipes_clean.json`; `planeat` | Prepared JSON contains 149 meals. The source assigns CoFID food IDs and g/ml quantities; reference nutrients are calculated from those assignments, not supplied independent dish assays. All 149 prepared rows currently have `serves_source=llm_estimate`. Current prepared per-serving values inherit that uncertainty. The frozen evaluation instead records one serving / given for all 149; its serving basis must be reconciled separately. |
-| Slovenian OPKP/EuroFIR | `data/Slovenia/Slovenian_Recipes.xlsx`; `slovenian_original` | Workbook has 100 recipes, ingredient quantities, consumed amount, yield, and component values. Import treats nutrition as per 100 g, derives servings from mass/yield and consumed amount, and derives per-serving values. Verify units and this conversion directly before scoring. |
+| Irish RCSI | `data/recipes/irish_safefood/Irish Recipes_updated_22.6.26.xlsx`; `safefood_rcsi` | Two recipe sheets supply per-100-g and per-serving nutrition, servings, raw/cooked weight and yield fields. Historical import joined 99 recipes; the final comparison uses 98 reference recipes. Audit the join/exclusion difference. The workbook does not establish that its panels are laboratory-measured. |
+| Irish SafeFood web | `data/recipes/safefood_web/`; `safefood_web` | Scraped published per-serving panels, distinct from RCSI. Final comparison has 327 recipes. RCSI overlaps this set; do not pool both as independent recipes. |
+| Hungarian ESSRG/PLANEAT | `data/recipes/essrg/PLANEAT T442 MEAL DB LL ESSRG.xlsx`, `ESSRG_recipes_clean.json`; `planeat` | Prepared JSON contains 149 meals. The source assigns CoFID food IDs and g/ml quantities; reference nutrients are calculated from those assignments, not supplied independent dish assays. All 149 prepared rows currently have `serves_source=llm_estimate`. Current prepared per-serving values inherit that uncertainty. The frozen evaluation instead records one serving / given for all 149; its serving basis must be reconciled separately. |
+| Slovenian OPKP/EuroFIR | `data/recipes/slovenia/Slovenian_Recipes.xlsx`; `slovenian_original` | Workbook has 100 recipes, ingredient quantities, consumed amount, yield, and component values. Import treats nutrition as per 100 g, derives servings from mass/yield and consumed amount, and derives per-serving values. Verify units and this conversion directly before scoring. |
 
 [CoFID](https://www.gov.uk/government/publications/composition-of-foods-integrated-dataset-cofid) is the **UK Composition of Foods Integrated Dataset**. Hungarian recipe provenance and the nationality of a composition table are separate facts. Earlier notes calling CoFID a Hungarian national table or all curated references laboratory ground truth are superseded.
 
@@ -38,12 +38,12 @@ Operational assets stay under `data/`, `artifacts/`, `exports/`, and dump direct
 
 | Location | Purpose |
 |---|---|
-| `data/analysis/nutrition_finalization_2026-10-29/reference_comparison/` | Final old/new reference comparison, all nutrients and completeness denominators |
-| `data/analysis/nutrition_finalization_2026-10-29/` | Before/after profile summaries, quantity repairs, reference anomalies, contributors and outliers |
-| `data/analysis/matching_production_2026-10-29/` | Activation, audit, rollback rehearsal and reference fingerprint |
-| `data/analysis/nutrition_inventory_2026-10-26_catalogue_baseline/` | Frozen previous searchable catalogue |
-| `data/analysis/irish_full_catalogue_baseline_2026-10-26/` | Expanded catalogue and controlled Irish evaluation baseline |
-| `data/analysis/regional_nutrient_drift/` | Historical regional drift, with mixed input generations; useful history, not a current regional audit |
+| `analysis/nutrition_finalization_2026-10-29/reference_comparison/` | Final old/new reference comparison, all nutrients and completeness denominators |
+| `analysis/nutrition_finalization_2026-10-29/` | Before/after profile summaries, quantity repairs, reference anomalies, contributors and outliers |
+| `analysis/matching_production_2026-10-29/` | Activation, audit, rollback rehearsal and reference fingerprint |
+| `analysis/nutrition_inventory_2026-10-26_catalogue_baseline/` | Frozen previous searchable catalogue |
+| `analysis/irish_full_catalogue_baseline_2026-10-26/` | Expanded catalogue and controlled Irish evaluation baseline |
+| `analysis/regional_nutrient_drift/` | Historical regional drift, with mixed input generations; useful history, not a current regional audit |
 | `artifacts/adaptation/{e2e_2026-10-30,real_recipe_readiness_2026-10-30,nutritional_facets_2026-10-30}/` | Synthetic and real adaptation diagnostics, kept distinct |
 
 The final saved audit reports zero serving/profile mismatches, regional quantity mismatches, missing active graph runs, graph quantity mismatches, and pending projection jobs **at its recorded timestamp**. Recheck current state before any production operation.

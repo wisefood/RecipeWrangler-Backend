@@ -20,8 +20,8 @@ from tqdm import tqdm
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_INPUT = REPO_ROOT / "data/ESSRG/ESSRG_recipes_clean.json"
-DEFAULT_OUTPUT = REPO_ROOT / "data/ESSRG/ESSRG_serves_time_qwen14b.jsonl"
+DEFAULT_INPUT = REPO_ROOT / "data/recipes/essrg/ESSRG_recipes_clean.json"
+DEFAULT_OUTPUT = REPO_ROOT / "data/recipes/essrg/ESSRG_serves_time_qwen14b.jsonl"
 DEFAULT_MODEL = "qwen14b"
 
 ESTIMATE_SCHEMA = {

@@ -43,7 +43,7 @@ from recipe_wrangler.tools.parse_recipe_tool import (  # noqa: E402
 )
 from scripts.prepare_weight_ready_parser_snapshot import RAW_SOURCE_PATHS, _title_key  # noqa: E402
 
-SNAP = REPO / "data/processed/ingredient_parsing_final/2026-09-24"
+SNAP = REPO / "data/recipes/parsed_snapshot/2026-09-24"
 PROJECTION_METHOD = "deterministic_weight_v3"
 PROJECTION_VERSION = "parsed-snapshot-2026-09-26"
 NEW_NODE_SOURCE = "parsed_snapshot_2026-09"

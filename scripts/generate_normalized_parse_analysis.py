@@ -12,7 +12,7 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-OUT_DIR = REPO_ROOT / "data" / "eval" / "sensitivity"
+OUT_DIR = REPO_ROOT / "data" / "sensitivity"
 DOC_PATH = REPO_ROOT / "docs" / "sensitivity_analysis_findings.md"
 
 PARSE_FILES = {

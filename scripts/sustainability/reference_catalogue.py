@@ -308,7 +308,7 @@ def main():
     thread = threading.Thread(target=monitor, daemon=True)
     thread.start()
     try:
-        report = build(args.database, REFERENCE_ROOT, REPO/"data/other/SustainableFooDB_Ingredient_CF.csv", args.replay)
+        report = build(args.database, REFERENCE_ROOT, REPO/"data/sustainability/SustainableFooDB_Ingredient_CF.csv", args.replay)
     finally:
         stop.set()
         thread.join(timeout=2)

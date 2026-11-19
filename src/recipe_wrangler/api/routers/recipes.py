@@ -98,7 +98,7 @@ logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _HEALTHYFOODS_NUTRITION_PATH = (
-    _REPO_ROOT / "data/HealthyFoods/HealthyFood_recipes_nutrition.json"
+    _REPO_ROOT / "data/recipes/healthyfoods/HealthyFood_recipes_nutrition.json"
 )
 from recipe_wrangler.tools.recipe_profiling_chain import (
     Recipe_Profiling_Chain,
@@ -1024,10 +1024,9 @@ def _healthyfoods_nutrition_number(value: object) -> float | None:
 
 @lru_cache(maxsize=1)
 def _healthyfoods_source_nutrition_index() -> dict[str, dict[str, Any]]:
-    try:
-        data = json.loads(_HEALTHYFOODS_NUTRITION_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+    from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data_or_file
+
+    data = load_pipeline_data_or_file("healthyfoods_nutrition", _HEALTHYFOODS_NUTRITION_PATH)
     recipes = data.get("recipes") if isinstance(data, dict) else None
     if not isinstance(recipes, list):
         return {}

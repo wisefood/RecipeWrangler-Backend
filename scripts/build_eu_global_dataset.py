@@ -43,7 +43,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from recipe_wrangler.utils.nutrition_postgres import get_engine, _env  # noqa: E402
 
-DATA = ROOT / "data" / "EU"
+DATA = ROOT / "data" / "nutrition" / "composition_tables" / "eu_national"
 MAPPING_CSV = DATA / "eu_nutrient_mapping.csv"
 CIQUAL_XLSX = DATA / "Cicual-FR" / "Table Ciqual 2025_ENG_2025_11_03.xlsx"
 COFID_XLSX = DATA / "CoFID-UK" / "McCance_Widdowsons_Composition_of_Foods_Integrated_Dataset_2021..xlsx"

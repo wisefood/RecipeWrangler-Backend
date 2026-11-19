@@ -228,6 +228,7 @@ def test_protected_foods():
         assert sg.protected_food(label) is None, label
 
 
+@needs_data
 def test_every_new_curated_row_resolves_to_a_real_released_record():
     import gzip, json
     from recipe_wrangler.services.adaptation import nutrition_swap_rules as r
@@ -257,6 +258,7 @@ def test_addition_gate_is_per_serving_not_score():
     assert not sg.add_gates(c({'fibre_g': 5.0}, food={'saturated_fat_g': 4.0, 'sodium_mg': 10.0}), 'fibre')['passed']  # not a low-fat food
 
 
+@needs_data
 def test_healthy_snack_that_lacks_protein_is_enriched():
     case = next(c for c in json.loads((A / 'cases.json').read_text()) if c['title'].startswith('Apple, almond butter'))
     screen = json.load(open(A / 'screens' / f"{case['recipe_id']}.json"))
@@ -268,6 +270,7 @@ def test_healthy_snack_that_lacks_protein_is_enriched():
     assert 'yogurt' not in r['enrichment']['candidate_label'].lower()  # the recipe is vegan: the diet gate keeps dairy out
 
 
+@needs_data
 def test_descriptor_route_finds_the_healthier_version_of_the_same_food():
     records = json.load(gzip.open(A / 'records-2026-10-27-v11.json.gz', 'rt'))
     high = {'energy_kcal': 400.0, 'saturated_fat_g': 20.0, 'sugar_g': 20.0, 'sodium_mg': 900.0, 'fibre_g': 0.5, 'protein_g': 5.0}
@@ -287,6 +290,7 @@ def test_regional_table_first_then_eu():
     assert sorted(r['id'] for r in sg.regional_first(pool, 'eu')[0]) == [1, 3]   # EU mode uses the EU collection only
 
 
+@needs_data
 def test_descriptor_route_keeps_the_same_food():
     records = json.load(gzip.open(A / 'records-2026-10-27-v11.json.gz', 'rt'))
     high = {'energy_kcal': 600.0, 'saturated_fat_g': 60.0, 'sugar_g': 20.0, 'sodium_mg': 900.0, 'fibre_g': 0.5, 'protein_g': 5.0}
@@ -306,6 +310,7 @@ def test_flower_honey_is_cut_and_pepperoni_has_a_row():
     assert re.search(sg.swap_rules.COMPOSITE, 'MOUSSAKA, PORK-BEEF MINCE, POTATO', re.I)
 
 
+@needs_data
 def test_descriptor_route_word_traps():
     records = json.load(gzip.open(A / 'records-2026-10-27-v11.json.gz', 'rt'))
     high = {'energy_kcal': 600.0, 'saturated_fat_g': 60.0, 'sugar_g': 20.0, 'sodium_mg': 900.0, 'fibre_g': 0.5, 'protein_g': 5.0}
@@ -333,6 +338,7 @@ def test_cook_name_and_option_text():
     assert '1.5 g instead of 2.0 g' in sg.describe_change(salt) and 'same weight' not in sg.describe_change(salt)
 
 
+@needs_data
 def test_descriptor_route_guards_against_a_different_food():
     records = json.load(gzip.open(A / 'records-2026-10-27-v11.json.gz', 'rt'))
     high = {'energy_kcal': 600.0, 'saturated_fat_g': 60.0, 'sugar_g': 90.0, 'sodium_mg': 900.0, 'fibre_g': 0.5, 'protein_g': 5.0}
@@ -346,6 +352,7 @@ def test_descriptor_route_guards_against_a_different_food():
     assert any('LoSalt' in t['label'] for _, t, _ in sg.descriptor_targets(records, 'Salt, white (sea, igneous or rock), iodine added, no fluride added', 'irish', salt))  # found without the table
 
 
+@needs_data
 def test_descriptor_route_keeps_bread_kind_raising_agent_and_dishes_out():
     records = json.load(gzip.open(A / 'records-2026-10-27-v11.json.gz', 'rt'))
     high = {'energy_kcal': 600.0, 'saturated_fat_g': 60.0, 'sugar_g': 20.0, 'sodium_mg': 900.0, 'fibre_g': 0.5, 'protein_g': 5.0}
@@ -356,18 +363,21 @@ def test_descriptor_route_keeps_bread_kind_raising_agent_and_dishes_out():
     assert not any(re.search(r'\bdips?\b', l, re.I) for l in labels('Cream, single'))
 
 
+@needs_data
 def test_descriptor_route_ignores_a_lighter_version_with_an_implausible_fibre_jump():
     records = json.load(gzip.open(A / 'records-2026-10-27-v11.json.gz', 'rt'))
     smooth = {'energy_kcal': 607.0, 'saturated_fat_g': 12.78, 'sugar_g': 6.7, 'sodium_mg': 350.0, 'fibre_g': 6.6, 'protein_g': 22.8}
     assert not any(re.search(r'peanut butter light', t['label'], re.I) for _, t, _ in sg.descriptor_targets(records, 'Peanut butter, smooth', 'irish', smooth))
 
 
+@needs_data
 def test_a_nut_butter_is_never_swapped_for_whole_nuts():
     records = json.load(gzip.open(A / 'records-2026-10-27-v11.json.gz', 'rt'))
     smooth = {'energy_kcal': 607.0, 'saturated_fat_g': 12.78, 'sugar_g': 6.7, 'sodium_mg': 350.0, 'fibre_g': 6.6, 'protein_g': 22.8}
     assert not [t['label'] for _, t, _ in sg.descriptor_targets(records, 'Peanut butter, smooth', 'irish', smooth) if not re.search(r'butter|paste', t['label'], re.I)]
 
 
+@needs_data
 def test_a_vague_average_fish_record_is_not_swapped_for_a_specific_fish():
     records = json.load(gzip.open(A / 'records-2026-10-27-v11.json.gz', 'rt'))
     base = next(r for r in records if r['label'] == 'Fish, cooked (average)')
@@ -380,6 +390,7 @@ def test_nice_picks_the_closest_kitchen_fraction():
     assert sg.nice(2.25, 'tablespoons of oil') == '2 ¼' and sg.nice(0.75, 'tablespoons of oil') == '¾' and sg.nice(1.5, 'cups') == '1 ½'
 
 
+@needs_data
 def test_irish_wholemeal_pasta_is_priced_with_the_record_the_profiler_selects():
     records = json.load(gzip.open(A / 'records-2026-10-27-v11.json.gz', 'rt'))
     rule = next(r for r in rules.RULES if r['name'] == 'wholemeal_pasta')

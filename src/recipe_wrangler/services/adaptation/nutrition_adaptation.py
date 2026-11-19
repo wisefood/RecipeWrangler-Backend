@@ -100,6 +100,55 @@ HAM = re.compile(r'\bham\b', re.I)
 DIET_GROUPS = ('vegan', 'vegetarian', 'pescatarian')
 
 
+USE_TAGS = True  # read the graph's ingredient tags for the user's restrictions (tests switch it off)
+
+
+def tag_keys(label):
+    """Graph ingredient names a record label may stand for, most specific first: 'Cheese, Mozzarella, fresh' -> 'cheese mozzarella fresh', 'cheese mozzarella', 'cheese'."""
+    base = re.sub(r'\([^)]*\)', '', label or '').lower()
+    words = re.findall(r'[a-zà-ÿ]+', base)
+    keys = [' '.join(words), base.split(',')[0].strip(), ' '.join(words[:2]), words[0] if words else '']
+    return [k for k in dict.fromkeys(keys) if k]
+
+
+def ingredient_tags(keys):
+    """{name: {'allergens': [...], 'suitability': {group: status}}} from the graph's HAS_ALLERGEN and SUITABILITY_FOR edges (case-insensitive exact name)."""
+    from .neo4j_queries import run_query
+    rows = run_query("""UNWIND $names AS n MATCH (i:Ingredient) WHERE toLower(i.name) = n
+        OPTIONAL MATCH (i)-[s:SUITABILITY_FOR]->(g:ConsumerGroup) OPTIONAL MATCH (i)-[:HAS_ALLERGEN]->(a:Allergen)
+        RETURN n, [x IN collect(DISTINCT {g: g.name, s: s.status}) WHERE x.g IS NOT NULL] AS suit, collect(DISTINCT a.name) AS al""", {'names': list(keys)})
+    out = {}
+    for r in rows:
+        t = out.setdefault(r['n'], {'allergens': set(), 'suitability': {}})  # two nodes with the same name (Butter, butter): union, not_suitable wins
+        t['allergens'] |= set(r['al'])
+        for x in r['suit']:
+            if t['suitability'].get(x['g']) != 'not_suitable':
+                t['suitability'][x['g']] = x['s']
+    return {k: {'allergens': sorted(v['allergens']), 'suitability': v['suitability']} for k, v in out.items()}
+
+
+def tag_problems(labels, allergens=(), diet=None):
+    """Extra blocker from the stored ingredient tags; unknown or missing tags decide nothing (the keyword check stands)."""
+    if not USE_TAGS or not (allergens or diet):
+        return []
+    from recipe_wrangler.utils.es_recipe_evidence import allergen_filter_groups
+    keys = {label: tag_keys(label) for label in labels}
+    try:
+        found = ingredient_tags(sorted({k for ks in keys.values() for k in ks}))
+    except Exception:  # graph unavailable: the keyword check still runs
+        return []
+    forbidden = allergen_filter_groups(list(allergens)) if allergens else set()
+    out = []
+    for label, ks in keys.items():
+        tag = next((found[k] for k in ks if k in found), None)
+        if not tag:
+            continue
+        out += [f'{label}: stored tag marks allergen {a} (user restriction)' for a in tag['allergens'] if allergen_filter_groups([a]) & forbidden]
+        if diet and tag['suitability'].get(diet) == 'not_suitable':
+            out.append(f'{label}: stored tag says not {diet} (user restriction)')
+    return out
+
+
 def user_restriction_problems(texts, allergens=(), diet=None):
     """The user's own restrictions (allergens and one diet), whether or not the recipe already has the food. Same lexical detection."""
     from recipe_wrangler.repositories.neo4j_recipes import detect_allergen_evidence_from_names
@@ -134,7 +183,7 @@ def restriction_problems(parts, line_texts, allergens=(), diet=None):
         if any(dietary_keyword_evidence(t, group)[1] == 'contains' for t in line_texts):
             continue  # the original recipe already breaks this diet
         reasons += [f'{label}: not {group}' for label in new_foods if dietary_keyword_evidence(label, group)[1] == 'contains']
-    return reasons + [r for r in user_restriction_problems(new_foods, allergens, diet) if r not in reasons]
+    return reasons + [r for r in user_restriction_problems(new_foods, allergens, diet) + tag_problems(new_foods, allergens, diet) if r not in reasons]
 
 
 def score(values_total, mass, fvl, food_type):

@@ -2,6 +2,14 @@
 from recipe_wrangler.services.adaptation import nutrition_adaptation as sg
 
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def no_graph(monkeypatch):
+    monkeypatch.setattr(sg, 'USE_TAGS', False)  # the tag tests below switch it on with a fake graph
+
+
 def swap(label, source='x'):
     return {'operation': 'SWAP_FOOD', 'candidate_label': label, 'source_line': source}
 
@@ -137,3 +145,42 @@ def test_route_passes_the_restrictions_and_defaults_to_none(monkeypatch):
     assert seen == {'a': [], 'd': None}
     router.nutrition_adaptation(schemas.SmallGainRequest(region='IE', allergens=['milk'], diet='vegan'), 'r1')
     assert seen == {'a': ['milk'], 'd': 'vegan'}
+
+
+# ---- stored ingredient tags (HAS_ALLERGEN, SUITABILITY_FOR) as an extra blocker for the user's restrictions ----
+
+def tags(monkeypatch, table):
+    monkeypatch.setattr(sg, 'ingredient_tags', lambda keys: {k: table[k] for k in keys if k in table})
+
+
+def test_tag_keys_prefer_the_specific_name():
+    assert sg.tag_keys('Cheese, Mozzarella, fresh')[0] == 'cheese mozzarella fresh'
+    assert 'coconut milk' in sg.tag_keys('Coconut milk, light, canned') and '' not in sg.tag_keys('Oil')
+
+
+def test_stored_allergen_tag_blocks_a_food_the_keywords_miss(monkeypatch):
+    tags(monkeypatch, {'zorbo': {'allergens': ['milk'], 'suitability': {}}})
+    parts = [swap('Zorbo')]
+    assert not user(parts, ['100 g tofu'], allergens=['milk'])  # keywords do not know quark
+    monkeypatch.setattr(sg, 'USE_TAGS', True)
+    assert any('stored tag' in r for r in user(parts, ['100 g tofu'], allergens=['milk']))
+    assert not user(parts, ['100 g tofu'], allergens=['gluten'])
+
+
+def test_stored_diet_tag_blocks_not_suitable_only(monkeypatch):
+    monkeypatch.setattr(sg, 'USE_TAGS', True)
+    tags(monkeypatch, {'zorbo': {'allergens': [], 'suitability': {'vegan': 'not_suitable', 'vegetarian': 'unknown'}}})
+    assert user([swap('Zorbo')], ['100 g tofu'], diet='vegan')
+    assert not user([swap('Zorbo')], ['100 g tofu'], diet='vegetarian')  # unknown falls back to the keyword check
+
+
+def test_tags_are_not_read_without_user_restrictions(monkeypatch):
+    monkeypatch.setattr(sg, 'USE_TAGS', True)
+    monkeypatch.setattr(sg, 'ingredient_tags', lambda keys: (_ for _ in ()).throw(AssertionError('graph read')))
+    assert not user([swap('Zorbo')], ['100 g tofu'])
+
+
+def test_graph_failure_falls_back_to_keywords(monkeypatch):
+    monkeypatch.setattr(sg, 'USE_TAGS', True)
+    monkeypatch.setattr(sg, 'ingredient_tags', lambda keys: (_ for _ in ()).throw(RuntimeError('neo4j down')))
+    assert user([swap('Cheese, gouda')], ['100 g tofu'], diet='vegan')

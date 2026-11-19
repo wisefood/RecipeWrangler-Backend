@@ -31,11 +31,11 @@ COPY src/ ./src/
 
 # Versioned parser/ontology inputs required by the matching adapter; recipe data
 # and research output directories are not copied wholesale into the API image.
-COPY data/analysis/ingredient_dictionary_2026-10-22/foodon_dictionary.json ./data/analysis/ingredient_dictionary_2026-10-22/foodon_dictionary.json
-COPY data/analysis/matching_vocabularies_2026-10-21/foodon_named_parents.csv ./data/analysis/matching_vocabularies_2026-10-21/foodon_named_parents.csv
-COPY data/analysis/foodex2/17.2/facets.json ./data/analysis/foodex2/17.2/facets.json
-COPY data/analysis/langual/2017/terms.json ./data/analysis/langual/2017/terms.json
-COPY data/raw/matching_vocabularies_2026-10-21/MTX.ecf ./data/raw/matching_vocabularies_2026-10-21/MTX.ecf
+COPY data/nutrition/matching/dictionary/ingredient_dictionary_2026-10-22/foodon_dictionary.json ./data/nutrition/matching/dictionary/ingredient_dictionary_2026-10-22/foodon_dictionary.json
+COPY data/nutrition/matching/vocabularies/derived/matching_vocabularies_2026-10-21/foodon_named_parents.csv ./data/nutrition/matching/vocabularies/derived/matching_vocabularies_2026-10-21/foodon_named_parents.csv
+COPY data/nutrition/matching/vocabularies/derived/foodex2/17.2/facets.json ./data/nutrition/matching/vocabularies/derived/foodex2/17.2/facets.json
+COPY data/nutrition/matching/vocabularies/derived/langual/2017/terms.json ./data/nutrition/matching/vocabularies/derived/langual/2017/terms.json
+COPY data/nutrition/matching/vocabularies/raw/matching_vocabularies_2026-10-21/MTX.ecf ./data/nutrition/matching/vocabularies/raw/matching_vocabularies_2026-10-21/MTX.ecf
 ENV NUTRITION_MATCHING_ASSET_ROOT=/app
 
 # The build helper copies the published revision from the local verified cache.

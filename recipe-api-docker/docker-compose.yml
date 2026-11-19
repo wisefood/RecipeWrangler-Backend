@@ -18,7 +18,7 @@ services:
       OMP_NUM_THREADS: "4"
     volumes:
       - ../.env:/app/.env:ro
-      - ../data/generated_recipe_images:/app/data/generated_recipe_images:ro
+      - ../data/images/generated_recipe_images:/app/data/generated_recipe_images:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import json,urllib.request; r=json.load(urllib.request.urlopen('http://127.0.0.1:8001/health/matching',timeout=5)); assert r['mode']==r['runtime_mode']"]
       interval: 30s

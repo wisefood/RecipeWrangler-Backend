@@ -197,3 +197,11 @@ def test_pasta_shapes_are_retained_without_claiming_different_nutrition(matcher)
     assert source_match(matcher, 'penne pasta, raw', 'Macaroni, boiled')['status'] != 'proposal'
 
 
+
+
+def test_generic_meat_part_on_an_exact_catalogue_label_does_not_contradict_the_cut(matcher):
+    import copy
+    query, candidate = copy.deepcopy(matcher.annotate('chicken breast')), copy.deepcopy(matcher.annotate('chicken breast'))
+    query['facets']['food_part'], candidate['facets']['food_part'] = 'breast', 'meat'
+    assert 'property.food_part' in [r['rule_id'] for r in assess_compatibility(query, candidate).rules if r['relation'] == 'reject']
+    assert 'property.food_part' not in [r['rule_id'] for r in assess_compatibility(query, candidate, exact_description=True).rules if r['relation'] == 'reject']

@@ -29,7 +29,11 @@ def source_description_name(name: str, original: str, released_labels: set[str])
     normalize = lambda value: ' '.join(value.casefold().split())
     head, separator, _ = description.partition(',')
     # "and/or" is part of a table label, not an alternative.
-    if not separator or re.search(r'(?<!and/)\bor\b|\balternatively\b',description,re.I) or not _head_covers(head, name):
+    if re.search(r'(?<!and/)\bor\b|\balternatively\b',description,re.I):
+        return name
+    if not separator:  # "Cream sour" has no comma: a parser that kept only "cream" must not turn it into ice cream
+        return description if ' ' in description and normalize(description) in released_labels and _head_covers(description, name) else name
+    if not _head_covers(head, name):
         return name
     if normalize(description) in released_labels:
         return description

@@ -283,6 +283,8 @@ def assess_compatibility(query: dict, candidate: dict, *, exact_description: boo
         left, right = normalized_value(field, a.get(field)), normalized_value(field, b.get(field))
         left = None if left == 'unknown' else left
         right = None if right == 'unknown' else right
+        if exact_description and field == 'food_part' and right == 'meat':  # 'Chicken meat, breast ...': 'meat' is the substance, not a cut that contradicts 'breast'
+            right = None
         if left is None and right is None:
             continue
         relation = ('needs_review' if left is None or right is None else 'agree' if left == right

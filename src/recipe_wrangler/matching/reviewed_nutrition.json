@@ -12559,6 +12559,82 @@
    "eu_food_id": "cofid:14-327",
    "food_name": "Oranges, flesh only",
    "note": "reviewed 2026-11-06"
+  },
+  {
+   "alias": "whole berry cranberry sauce",
+   "canned": "usda_sr_legacy:09081",
+   "eu_food_id": "usda_sr_legacy:09081",
+   "food_name": "Cranberry sauce, canned, sweetened",
+   "note": "reviewed 2026-11-19, variant of cranberry sauce",
+   "public": {
+    "usda_sr_legacy:09081": {
+     "food_name": "Cranberry sauce, canned, sweetened",
+     "source": "usda_sr_legacy:09081",
+     "values": {
+      "carbs_g": 40.4,
+      "energy_kcal": 159.0,
+      "fat_g": 0.15,
+      "fibre_g": 1.1,
+      "protein_g": 0.9,
+      "saturated_fat_g": 0.007,
+      "sodium_mg": 5.0,
+      "sugar_g": 31.75
+     }
+    }
+   }
+  },
+  {
+   "alias": "whole cranberry sauce",
+   "canned": "usda_sr_legacy:09081",
+   "eu_food_id": "usda_sr_legacy:09081",
+   "food_name": "Cranberry sauce, canned, sweetened",
+   "note": "reviewed 2026-11-19, variant of cranberry sauce",
+   "public": {
+    "usda_sr_legacy:09081": {
+     "food_name": "Cranberry sauce, canned, sweetened",
+     "source": "usda_sr_legacy:09081",
+     "values": {
+      "carbs_g": 40.4,
+      "energy_kcal": 159.0,
+      "fat_g": 0.15,
+      "fibre_g": 1.1,
+      "protein_g": 0.9,
+      "saturated_fat_g": 0.007,
+      "sodium_mg": 5.0,
+      "sugar_g": 31.75
+     }
+    }
+   }
+  },
+  {
+   "alias": "cranberry sauce, whole berry",
+   "canned": "usda_sr_legacy:09081",
+   "eu_food_id": "usda_sr_legacy:09081",
+   "food_name": "Cranberry sauce, canned, sweetened",
+   "note": "reviewed 2026-11-19, variant of cranberry sauce",
+   "public": {
+    "usda_sr_legacy:09081": {
+     "food_name": "Cranberry sauce, canned, sweetened",
+     "source": "usda_sr_legacy:09081",
+     "values": {
+      "carbs_g": 40.4,
+      "energy_kcal": 159.0,
+      "fat_g": 0.15,
+      "fibre_g": 1.1,
+      "protein_g": 0.9,
+      "saturated_fat_g": 0.007,
+      "sodium_mg": 5.0,
+      "sugar_g": 31.75
+     }
+    }
+   }
+  },
+  {
+   "alias": "low sodium salt",
+   "approximate": "LoSalt-type low-sodium salt (nevo:1212, 13.1 g sodium per 100 g); other brands differ.",
+   "eu_food_id": "nevo:1212",
+   "food_name": "Salt low sodium LoSalt",
+   "note": "reviewed 2026-11-19"
   }
  ],
  "fills": {
@@ -17482,6 +17558,36 @@
    "sugar_g": {
     "source": "catalogue:[\"Norwegian Food Composition Database 2026\",\"EFSA EU FCDB 2026\",\"634\"]",
     "value": 0.2
+   }
+  },
+  "catalogue:[\"Anses. 2025. CIQUAL French food composition table\",\"EFSA EU FCDB 2026\",\"20195\"]": {
+   "sugar_g": {
+    "source": "ciqual:20203",
+    "value": 2.5
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"c40a5785-8428-475c-8f6e-ef8981b7ffa8\"]": {
+   "sugar_g": {
+    "source": "efsa_italy:PC0044",
+    "value": 3.1
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4114004\"]": {
+   "sugar_g": {
+    "source": "reviewed:raw_meat_no_sugar",
+    "value": 0.0
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"150020\"]": {
+   "saturated_fat_g": {
+    "source": "efsa_portugal:2122000008",
+    "value": 4.2
+   }
+  },
+  "ciqual:20195": {
+   "sugar_g": {
+    "source": "ciqual:20203",
+    "value": 2.5
    }
   }
  }

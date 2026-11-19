@@ -275,3 +275,24 @@ def test_stated_can_outranks_dried_read_from_patted_dry(monkeypatch):
     monkeypatch.setattr(runtime,'calculation_decision',lambda *args,**kwargs:{'kind':'unresolved'})
     result=engine.resolve('chickpeas','eu','400g can chickpeas, rinsed, drained, patted dry')
     assert result['decision']['reason']=='resolved:canned chickpeas'
+
+
+def test_comma_free_source_label_is_restored_after_a_shortened_head():
+    assert source_description_name('cream', '90g Cream sour', {'cream sour'}) == 'Cream sour'
+    assert source_description_name('cream', '90g Cream sour', set()) == 'cream'
+    assert source_description_name('cream', '90g Cream sour or yoghurt', {'cream sour or yoghurt'}) == 'cream'
+    assert source_description_name('flour', '90g Cream sour', {'cream sour'}) == 'flour'
+
+
+def test_reviewed_fills_complete_records_missing_a_score_nutrient():
+    from recipe_wrangler.matching.reviewed_aliases import RECORD_FILLS, REVIEWED_SELECTIONS
+    anses = 'catalogue:["Anses. 2025. CIQUAL French food composition table","EFSA EU FCDB 2026","20195"]'
+    assert RECORD_FILLS[anses]['sugar_g']['value'] == 2.5
+    assert 'whole berry cranberry sauce' in REVIEWED_SELECTIONS
+
+
+def test_low_sodium_salt_text_selects_the_losalt_record_whatever_the_parser_name_is():
+    from recipe_wrangler.matching.reviewed_aliases import low_salt_name, REVIEWED_SELECTIONS
+    assert low_salt_name('salt', '15g / ½ oz. of low-sodium salt (LoSalt)') == 'low sodium salt'
+    assert low_salt_name('salt', '1 tsp salt') is None
+    assert 'low sodium salt' in REVIEWED_SELECTIONS

@@ -164,6 +164,8 @@ def reviewed_record_compatible(name: str, original: str, source: dict) -> bool:
 
 def low_salt_name(name, original):
     """The reviewed record for stock or soy sauce stated as low or reduced salt, else None."""
+    if re.search(r'\blosalt\b|\blow[- ]sodium salt\b', original or '', re.I) and re.search(r'\bsalt\b', name, re.I):
+        return 'low sodium salt'  # the parser often keeps only 'salt' from 'low-sodium salt (LoSalt)'
     if not re.search(r'\b(?:low|reduced)[- ](?:salt|sodium)\b', f'{name} {original}', re.I):
         return None
     text = name.casefold()

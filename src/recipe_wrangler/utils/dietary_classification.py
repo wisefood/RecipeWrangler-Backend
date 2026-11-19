@@ -1,18 +1,21 @@
 """Shared ingredient/recipe dietary classification used by batch and projection."""
 from __future__ import annotations
 
+import json
 import re
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from recipe_wrangler.utils.consumer_suitability import (
     dietary_keyword_evidence, dietary_title_evidence, DEFINITION_SOURCES, DIETARY_ORIGINS, GROUP_RULES, PLANT_STAPLE_PATTERNS,
-    POSITIVE_EVIDENCE_EXCLUSIONS, PESCATARIAN_NAME_EXCLUSIONS, ORIGIN_CLASSIFICATION_VERSION,
+    POSITIVE_EVIDENCE_EXCLUSIONS, PESCATARIAN_AMBIGUOUS_UNKNOWN, PESCATARIAN_NAME_EXCLUSIONS, ORIGIN_CLASSIFICATION_VERSION,
     SUPPORTED_CONSUMER_GROUPS, VEGAN_NAME_EXCLUSIONS,
     VEGETARIAN_NAME_EXCLUSIONS, classification_version, keyword_regex, positive_keyword_regex,
 )
 from recipe_wrangler.utils.foodon_matching import ingredient_link_batches
 from recipe_wrangler.utils.es_recipe_evidence import allergen_filter_values
-from recipe_wrangler.utils.dietary_ingredient_evidence import canonical_ingredient_name, ingredient_diet_evidence
+from recipe_wrangler.utils.dietary_ingredient_evidence import canonical_ingredient_name, clean_ingredient_name, ingredient_diet_evidence
 
 # A plant/dairy ancestor of a prepared food does not describe every component.
 # Independent whole-name rules or external dietary properties can still confirm it.
@@ -59,6 +62,8 @@ def _group_params(group: str) -> dict[str, Any]:
         "plant_staple_regexes": PLANT_STAPLE_PATTERNS,
         "definition_sources": DEFINITION_SOURCES[group],
         "version": classification_version(group),
+        "vegetarian_version": classification_version("vegetarian"),
+        "ambiguous_unknown_regex": PESCATARIAN_AMBIGUOUS_UNKNOWN,
         "origin_version": ORIGIN_CLASSIFICATION_VERSION,
         # Generic organs/gelatin/collagen do not establish a land-animal source.
         "blocking_roots": ["FOODON_00001006", "FOODON_00001131", "FOODON_00002201", "FOODON_00001237"],
@@ -66,6 +71,35 @@ def _group_params(group: str) -> dict[str, Any]:
                            if origin["name"] not in {"animal_meat", "animal_derivative"}
                            for root in origin["roots"]],
     }
+
+
+@lru_cache(maxsize=1)
+def reviewed_diet_rows() -> list[dict[str, Any]]:
+    """Owner-reviewed whole-name statuses (see data/reviewed_diet_ingredients.json); rules always win, this only fills unknowns."""
+    return json.loads(Path(__file__).with_name("data").joinpath("reviewed_diet_ingredients.json").read_text())
+
+
+def _apply_reviewed(session, group: str, ingredient_ids: list[str] | None = None) -> int:
+    rows = [{"name": row["name"], "status": row[group], "reason": row["reason"]}
+            for row in reviewed_diet_rows() if row[group]]  # null = the reviewer did not know: stays unknown
+    return _scalar(
+        session,
+        """
+        UNWIND $rows AS row
+        MATCH (i:Ingredient) WHERE toLower(i.name) = row.name
+          AND ($ingredient_ids IS NULL OR elementId(i) IN $ingredient_ids)
+        MATCH (i)-[rel:SUITABILITY_FOR]->(:ConsumerGroup {name: $group})
+        WHERE rel.status = "unknown" AND rel.classification_version = $version
+        SET rel.status = row.status,
+            rel.scope = "ingredient_composition",
+            rel.reason_codes = ["reviewed_table"],
+            rel.sources = ["reviewed_ingredient_table"],
+            rel.reviewed_reason = row.reason,
+            rel.updated_at = datetime()
+        RETURN count(DISTINCT i) AS count
+        """,
+        rows=rows, ingredient_ids=ingredient_ids, group=group, version=classification_version(group),
+    )
 
 
 def _initialize_unknown(session, group: str, ingredient_ids: list[str] | None = None) -> int:
@@ -178,6 +212,12 @@ def _classify_positive(session, group: str, ingredient_ids: list[str] | None = N
                          WHERE item.evidence_name =~ pattern)
                 THEN ["plant_staple_name"] ELSE [] END
          + item.external_positive AS keyword_hits
+    // Anything vegetarian-suitable has no meat, so it is pescatarian-suitable.
+    OPTIONAL MATCH (i)-[vegetarian:SUITABILITY_FOR]->(:ConsumerGroup {{name: "vegetarian"}})
+    WHERE $group = "pescatarian" AND vegetarian.status = "suitable"
+      AND vegetarian.classification_version = $vegetarian_version
+    WITH i, suitable_origins,
+         keyword_hits + CASE WHEN vegetarian IS NULL THEN [] ELSE ["vegetarian_suitable"] END AS keyword_hits
     OPTIONAL MATCH (i)-[:HAS_ALLERGEN]->(allergen:Allergen)
     OPTIONAL MATCH (i)-[:HAS_DECLARATION]->(d:AllergenDeclaration)-[:CONCERNS]->(declared:Allergen)
     WITH i, suitable_origins, keyword_hits,
@@ -191,7 +231,8 @@ def _classify_positive(session, group: str, ingredient_ids: list[str] | None = N
         OR size(allowed_allergens) > 0
         OR size(keyword_hits) > 0
       )
-      AND size(possible_allergens) = 0
+      // "Possible"/"may contain" is a precautionary statement, not an ingredient: it is not an exclusion
+      // (owner decision 18 Nov 2026), so possible_allergens is computed but never gates suitability.
       AND none(pattern IN $positive_exclusions
                WHERE toLower(coalesce(i.name, "")) =~ pattern)
     MATCH (i)-[rel:SUITABILITY_FOR]->
@@ -218,7 +259,7 @@ def _classify_positive(session, group: str, ingredient_ids: list[str] | None = N
     count = 0
     for batch in ingredient_link_batches(session, ingredient_ids=ingredient_ids, positive_evidence=True):
         for item in batch:
-            item['evidence_name'] = canonical_ingredient_name(item['name'])
+            item['evidence_name'] = canonical_ingredient_name(clean_ingredient_name(item['name']))
             evidence = ingredient_diet_evidence(item['name'], group)
             item['allow_origin'] = (
                 not _COMPOUND_ORIGIN.search(item['evidence_name'])
@@ -300,10 +341,12 @@ def _aggregate_recipe_batch(
                WHEN size(blocking_ingredients) > 0 OR title_blocked
                  OR size(declared_blockers) > 0
                  OR size(ingredient_allergen_blockers) > 0 THEN "not_suitable"
-               WHEN size(possible_allergen_blockers) > 0 THEN "unknown"
                WHEN ingredient_count > 0
                  AND suitable_count = ingredient_count
                  AND size(unknown_ingredients) = 0 THEN "suitable"
+               // Pescatarian excludes only meat: an unconfirmed ingredient (a spice) is not meat evidence.
+               WHEN $group = "pescatarian" AND ingredient_count > 0
+                 AND none(n IN unknown_ingredients WHERE toLower(n) =~ $ambiguous_unknown_regex) THEN "suitable"
                ELSE "unknown"
              END AS status
         MERGE (r)-[rel:SUITABILITY_FOR]->(g)
@@ -320,7 +363,8 @@ def _aggregate_recipe_batch(
                 + CASE WHEN title_blocked THEN ["blocking_title"] ELSE [] END
                 + CASE WHEN size(declared_blockers) > 0 THEN ["recipe_declared_allergen"] ELSE [] END
                 + CASE WHEN size(ingredient_allergen_blockers) > 0 THEN ["allergen_evidence"] ELSE [] END
-              WHEN "suitable" THEN ["all_ingredients_suitable"]
+              WHEN "suitable" THEN CASE WHEN size(unknown_ingredients) = 0
+                                        THEN ["all_ingredients_suitable"] ELSE ["no_meat_evidence"] END
               ELSE CASE WHEN size(possible_allergen_blockers) > 0
                         THEN ["possible_allergen_presence"] ELSE ["incomplete_ingredient_evidence"] END END,
             rel.sources = ["ingredient_suitability"]
@@ -368,6 +412,7 @@ def refresh_recipe_suitability(recipe_ids: list[str]) -> int:
                 _initialize_unknown(tx, group, batch)
                 _classify_negative(tx, group, batch)
                 _classify_positive(tx, group, batch)
+                _apply_reviewed(tx, group, batch)
             if _aggregate_recipe_batch(tx, [recipe_id], group) != 1:
                 raise ValueError("Recipe suitability refresh did not complete")
         return 1

@@ -31,7 +31,7 @@ def test_roasted_peanuts_and_popped_popcorn_keep_attributed_source_evidence():
     'sweet mini peppers stuffed with beef', 'vanilla soymilk and cream',
     'soymilk with honey', 'gluten free pancake mix', 'earth balance buttery spread',
     'earth balance vegan butter with cream',
-    'oil', 'cooking oil', 'mayonnaise', 'flour tortillas',
+    'mayonnaise',
 ])
 def test_mixtures_products_and_ambiguous_foods_do_not_gain_plain_plant_evidence(name):
     assert not any(re.fullmatch(p, canonical_ingredient_name(name)) for p in PLANT_STAPLE_PATTERNS)

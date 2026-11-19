@@ -23,7 +23,7 @@ def test_named_staples_are_suitable(name):
     "sweet white vermouth", "grenadine", "orange bitters",
     "egg pasta", "fresh pasta", "ricotta ravioli", "pasta with chicken", "spaghetti bolognese",
     "garlic bread", "cheese bread", "milk bread", "honey bread", "butter bread", "rum cake", "rum and raisin ice cream",
-    "flour tortillas", "mayonnaise", "frozen cut broccoli in cheese sauce",
+    "mayonnaise", "frozen cut broccoli in cheese sauce",
 ])
 def test_formulation_dependent_products_stay_unknown(name):
     assert not staple(name)

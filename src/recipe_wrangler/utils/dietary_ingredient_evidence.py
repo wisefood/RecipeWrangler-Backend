@@ -29,6 +29,38 @@ _PREPARATION = re.compile(
 )
 
 
+_LEADING_QUANTITY = frozenset(
+    "or about approx approximately a an one two three few some large small medium big heaped level packed generous "
+    "handful handfuls bunch bunches sprig sprigs pinch pinches dash dashes tin tins can cans packet packets of".split())
+_TRAILING_PREP = re.compile(
+    r"(?:[ ,]+(?:cubed|chopped|diced|sliced|minced|grated|shredded|peeled|halved|quartered|crushed|drained|rinsed|softened|"
+    r"melted|beaten|trimmed|torn|thawed|optional|to (?:taste|serve)|for (?:serving|garnish|frying|greasing)|"
+    r"in (?:water|brine|oil|juice|natural juice|spring water)))+$")
+
+
+def _food_token(token: str) -> str:
+    from recipe_wrangler.utils.food_identity import _IRREGULAR, _SYNONYMS
+    token = _IRREGULAR.get(token) or (token[:-1] if token.endswith("s") and len(token) > 3 else token)
+    return _SYNONYMS.get(token, token)
+
+
+def clean_ingredient_name(name: str) -> str:
+    """Parser residue only: leading quantity words, trailing preparation, and synonym pairs ("eggplant aubergine").
+
+    Used for positive evidence only; blocking rules still read the original name. Never rewrites the stored name.
+    """
+    text = _TRAILING_PREP.sub("", normalize(name))
+    tokens = text.split()
+    while len(tokens) > 1 and (tokens[0] in _LEADING_QUANTITY or re.fullmatch(r"\d+(?:[./]\d+)?", tokens[0])):
+        tokens.pop(0)
+    kept: list[str] = []
+    for token in tokens:
+        if kept and _food_token(token) == _food_token(kept[-1]):
+            continue
+        kept.append(token)
+    return " ".join(kept) or normalize(name)
+
+
 def canonical_ingredient_name(name: str) -> str:
     """Apply only the reviewed spelling equivalences shared with local rules."""
     key = normalize(name)

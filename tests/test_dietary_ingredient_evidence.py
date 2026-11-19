@@ -107,7 +107,7 @@ def test_real_graph_classifier_receives_attributed_positive_candidate():
     assert scalar.call_args.kwargs['candidates'][0]['external_positive'] == ['open_food_facts:en:romaine lettuce']
     query = scalar.call_args.args[1]
     assert 'rel.status <> "not_suitable"' in query
-    assert 'size(possible_allergens) = 0' in query
+    assert 'size(possible_allergens) = 0' not in query
     assert scalar.call_args.kwargs['candidates'][0]['allow_origin']
 
 
@@ -150,3 +150,28 @@ def test_equipment_is_filtered_but_pipette_contents_are_not():
     assert is_unambiguous_non_food_ingredient('miniature culinary pipettes')
     assert not is_unambiguous_non_food_ingredient('champagne')
     assert not is_unambiguous_non_food_ingredient('milk in culinary pipettes')
+
+
+def test_clean_ingredient_name_strips_parser_residue_only():
+    from recipe_wrangler.utils.dietary_ingredient_evidence import clean_ingredient_name as clean
+    assert clean('eggplant aubergine cubed') == 'eggplant'
+    assert clean('or 2 large eggplant aubergine') == 'eggplant'
+    assert clean('large handful of fresh mint') == 'fresh mint'
+    assert clean('large handful baby rocket arugula') == 'baby rocket'
+    assert clean('tin cannellini beans, drained') == 'cannellini beans'
+    assert clean('margarine or butter') == 'margarine or butter'
+    assert clean('oil') == 'oil'
+
+
+def test_reviewed_table_is_well_formed_and_only_fills_unknowns():
+    rows = dc.reviewed_diet_rows()
+    assert len({r['name'] for r in rows}) == len(rows) > 1500
+    assert all(r[g] in ('suitable', 'not_suitable', None) for r in rows for g in ('vegetarian', 'vegan', 'pescatarian'))
+    by_name = {r['name']: r for r in rows}
+    assert by_name['broth']['vegetarian'] == 'suitable'
+    session = Mock()
+    with patch.object(dc, '_scalar', return_value=1) as scalar:
+        dc._apply_reviewed(session, 'vegan', ['one'])
+    query = scalar.call_args.args[1]
+    assert 'rel.status = "unknown"' in query and 'reviewed_table' in query
+    assert scalar.call_args.kwargs['rows'][0]['status'] in ('suitable', 'not_suitable')

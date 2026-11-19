@@ -25,11 +25,12 @@ def test_scoped_refresh_is_atomic_and_resets_before_classifying():
          patch.object(classification, "_initialize_unknown", side_effect=lambda _, g, ids:calls.append(("unknown", g, ids))), \
          patch.object(classification, "_classify_negative", side_effect=lambda _, g, ids:calls.append(("negative", g, ids))), \
          patch.object(classification, "_classify_positive", side_effect=lambda _, g, ids:calls.append(("positive", g, ids))), \
+         patch.object(classification, "_apply_reviewed", side_effect=lambda _, g, ids:calls.append(("reviewed", g, ids))), \
          patch.object(classification, "_aggregate_recipe_batch", return_value=1) as aggregate:
         assert classification.refresh_recipe_suitability(["r", "r"]) == 1
     assert session.execute_write.call_count == 1
-    assert len(calls) == 18
-    assert [c[0] for c in calls[:6]] == ["unknown", "negative", "positive"] * 2
+    assert len(calls) == 24
+    assert [c[0] for c in calls[:8]] == ["unknown", "negative", "positive", "reviewed"] * 2
     assert all(0 < len(c[2]) <= 100 for c in calls)
     assert aggregate.call_args_list[0].args == (tx, ["r"], "vegan")
     assert session.execute_write.call_args.args[0].timeout == 60

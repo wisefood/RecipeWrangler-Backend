@@ -1,6 +1,6 @@
 """Pescatarian composition is assessed, never inferred from absent meat."""
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import importlib.util
 from pathlib import Path
 
@@ -60,7 +60,7 @@ def test_creation_blocks_meat_and_never_promotes_missing_ingredient_evidence(ing
 def test_group_policy_is_versioned_and_presence_alone_does_not_resolve_a_mixture():
     params = _group_params('pescatarian')
     assert params['version'] == PESCATARIAN_CLASSIFICATION_VERSION
-    assert classification_version('vegetarian') == 'vegan-vegetarian-v10'
+    assert classification_version('vegetarian') == 'vegan-vegetarian-v11'
     assert params['blocking_allergens'] == params['positive_allergens'] == []
     assert 'FOODON_00001006' in params['blocking_roots']
     assert 'FOODON_00001248' in params['positive_roots']
@@ -167,3 +167,17 @@ def test_foodchat_response_preserves_current_assessments(monkeypatch):
     assert card['consumer_suitability'][-1]['classification_version']==PESCATARIAN_CLASSIFICATION_VERSION
     assert card['allergen_uncertainty'] is True
     assert 'consumer_suitability' in foodchat._SOURCE_FIELDS
+
+
+def test_pescatarian_inherits_current_vegetarian_suitability_after_vegetarian_runs():
+    from recipe_wrangler.utils import dietary_classification as dc
+    from recipe_wrangler.utils.consumer_suitability import SUPPORTED_CONSUMER_GROUPS, classification_version
+    assert SUPPORTED_CONSUMER_GROUPS.index('vegetarian') < SUPPORTED_CONSUMER_GROUPS.index('pescatarian')
+    assert dc._group_params('pescatarian')['vegetarian_version'] == classification_version('vegetarian')
+    session = Mock()
+    session.run.return_value.single.return_value = {'count': 0}
+    with patch.object(dc, 'ingredient_link_batches', return_value=[[{'element_id': 'e1', 'name': 'skim milk', 'class_ids': []}]]):
+        dc._classify_positive(session, 'pescatarian', ['e1'])
+    query = session.run.call_args.args[0]
+    assert '$group = "pescatarian" AND vegetarian.status = "suitable"' in query
+    assert 'vegetarian.classification_version = $vegetarian_version' in query

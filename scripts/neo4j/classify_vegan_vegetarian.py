@@ -27,6 +27,7 @@ from recipe_wrangler.utils.consumer_suitability import (
     SUITABILITY_CLASSIFICATION_VERSION,
     ORIGIN_CLASSIFICATION_VERSION,
     SUPPORTED_CONSUMER_GROUPS,
+    DIETARY_RULE_NOTES,
     origin_rows,
     classification_version,
 )
@@ -34,7 +35,7 @@ from recipe_wrangler.utils.env_loader import load_runtime_env
 from recipe_wrangler.utils.food_ontology import CONSUMER_GROUP_IRIS
 from recipe_wrangler.utils.dietary_classification import (
     _scalar, _group_params, _initialize_unknown, _classify_negative,
-    _classify_positive, _aggregate_recipe_batch,
+    _classify_positive, _aggregate_recipe_batch, _apply_reviewed, reviewed_diet_rows,
 )
 
 load_runtime_env()
@@ -104,6 +105,40 @@ def _ensure_schema_and_origins(session) -> None:
         """,
         origins=origins,
         version=ORIGIN_CLASSIFICATION_VERSION,
+    ).consume()
+
+
+def _write_rule_notes(session) -> None:
+    session.run(
+        "CREATE CONSTRAINT dietary_rule_note_id IF NOT EXISTS FOR (n:DietaryRuleNote) REQUIRE n.id IS UNIQUE"
+    ).consume()
+    session.run(
+        """
+        UNWIND $notes AS item
+        MERGE (n:DietaryRuleNote {id: item.id})
+        SET n.summary = item.summary, n.foods = item.foods, n.updated_at = datetime()
+        WITH n, item
+        UNWIND item.groups AS group
+        MATCH (g:ConsumerGroup {name: group})
+        MERGE (n)-[:ABOUT]->(g)
+        """,
+        notes=DIETARY_RULE_NOTES,
+    ).consume()
+
+
+def _write_reviewed_table(session) -> None:
+    session.run(
+        "CREATE CONSTRAINT reviewed_diet_ingredient_name IF NOT EXISTS "
+        "FOR (n:ReviewedDietIngredient) REQUIRE n.name IS UNIQUE"
+    ).consume()
+    session.run(
+        """
+        UNWIND $rows AS row
+        MERGE (n:ReviewedDietIngredient {name: row.name})
+        SET n.vegetarian = row.vegetarian, n.vegan = row.vegan, n.pescatarian = row.pescatarian,
+            n.reason = row.reason, n.updated_at = datetime()
+        """,
+        rows=reviewed_diet_rows(),
     ).consume()
 
 
@@ -179,14 +214,17 @@ def main() -> None:
 
             if args.apply:
                 _ensure_schema_and_origins(session)
+                _write_rule_notes(session)
+                _write_reviewed_table(session)
                 if not args.skip_ingredients:
                     for group in SUPPORTED_CONSUMER_GROUPS:
                         initialized = _initialize_unknown(session, group)
                         negative = _classify_negative(session, group)
                         positive = _classify_positive(session, group)
+                        reviewed = _apply_reviewed(session, group)
                         print(
                             f"{group}: initialized={initialized} "
-                            f"not_suitable={negative} suitable={positive}"
+                            f"not_suitable={negative} suitable={positive} reviewed={reviewed}"
                         )
 
                 if not args.skip_recipes:

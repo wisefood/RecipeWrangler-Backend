@@ -1,4 +1,4 @@
-"""LLM stages for small-gain adaptation: culinary choice between candidates, then one structured rewrite.
+"""LLM stages for nutrition adaptation: culinary choice between candidates, then one structured rewrite.
 
 Call 1 picks the most culinarily sensible candidate (or none) after seeing each candidate's before/after nutrient table.
 Call 2 returns title, instructions (as a list tied to the original steps), reworded changed ingredient lines and notes.
@@ -20,7 +20,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from . import small_gain as sg
+from . import nutrition_adaptation as sg
 
 MAX_TOKENS = 3000
 UNITS = {'°': 'deg', 'degrees': 'deg', 'degree': 'deg', 'minutes': 'min', 'minute': 'min', 'mins': 'min', 'min': 'min',
@@ -28,7 +28,7 @@ UNITS = {'°': 'deg', 'degrees': 'deg', 'degree': 'deg', 'minutes': 'min', 'minu
          'tablespoons': 'tbsp', 'tablespoon': 'tbsp', 'tbsp': 'tbsp', 'teaspoons': 'tsp', 'teaspoon': 'tsp', 'tsp': 'tsp',
          'dessertspoons': 'dsp', 'dessertspoon': 'dsp', 'cup': 'cup', 'cups': 'cup', 'oz': 'oz', 'lb': 'lb'}
 FRACTIONS = {'½': '0.5', '¼': '0.25', '¾': '0.75', '⅓': '0.33', '⅔': '0.67'}
-QUANTITY = re.compile(r'(\d+(?:[.,]\d+)?|[½¼¾⅓⅔])\s*(°\s?[CF]?|degrees?|minutes?|mins?|hours?|hrs?|kg|ml|tablespoons?|tbsp|teaspoons?|tsp|dessertspoons?|cups?|oz|lb|g|l|h)(?![a-z])', re.I)
+QUANTITY = re.compile(r'(\d+(?:[.,]\d+)?\s?[½¼¾⅓⅔]|\d+(?:[.,]\d+)?|[½¼¾⅓⅔])\s*(°\s?[CF]?|degrees?|minutes?|mins?|hours?|hrs?|kg|ml|tablespoons?|tbsp|teaspoons?|tsp|dessertspoons?|cups?|oz|lb|g|l|h)(?![a-z])', re.I)
 
 
 class ChoiceOut(BaseModel):
@@ -86,7 +86,8 @@ REWRITE_SYSTEM = (
     'Good: "2.5 ml olive oil", "450g turkey breast, diced", "250g lean pork loin medallions", "100g reduced-fat cottage cheese". '
     'In the steps, never restate or convert a quantity of a changed ingredient (write "the oil", not "0.5 tsp oil"); keep the unit of the original line; when a line gives a second unit in brackets, drop the bracket. Always return an empty notes list (notes are written elsewhere). For a wholemeal or wholewheat swap keep the original shape or kind (penne stays penne: "wholewheat penne", not "wholewheat spaghetti"). Copy every step word for word: change only the words that name a changed or swapped food or its quantity. Do not fix typos, spelling, headings, punctuation or wording, and do not merge, split, drop or reorder steps: exactly one output step per input step, with source_steps equal to [n]. '
     'tip: one friendly sentence for the cook saying what was swapped or cut and why it is better; write the placeholder {benefit} exactly '
-    'once where the gain goes (code fills in the measured number) and use no digits anywhere else in the tip.')
+    'once where the gain goes (code fills in the measured number) and use no digits anywhere else in the tip. {benefit} is a whole clause '
+    'such as "it has 20% less saturated fat per serving", so put it right after "while" or "and": "... keeps the dish just as hearty while {benefit}."')
 DB_WORDING = re.compile(r'(?i:\b(?:raw|skinless|boneless|without (?:bone|skin)|reduced fat|plain,))|^[^,]*\b[A-Z][a-z]+, [a-z]')
 STEP_NUMBER = re.compile(r'^\s*(?:step\s*)?\d+\s*[.):]\s+', re.I)
 FILLER_NOTE = re.compile(r'as requested|as instructed|as specified', re.I)
@@ -107,7 +108,8 @@ def quantities(text: str) -> set[tuple[str, str]]:
     for number, unit in QUANTITY.findall(text or ''):
         u = unit.lower().replace(' ', '')
         u = 'deg' if u.startswith('°') else UNITS.get(u, UNITS.get(u.rstrip('s'), u))
-        n = FRACTIONS.get(number, number.replace(',', '.'))
+        mixed = re.fullmatch(r'(\d+)\s?([½¼¾⅓⅔])', number)
+        n = str(int(mixed.group(1)) + float(FRACTIONS[mixed.group(2)])) if mixed else FRACTIONS.get(number, number.replace(',', '.'))
         out.add((str(float(n)).rstrip('0').rstrip('.') if '.' in n else n, u))
     return out
 
@@ -130,6 +132,8 @@ def cookbook_line(text: str) -> str:
     A lowercase line is only stripped of noise words; a 'Head, qualifier, ...' line is reordered to 'qualifier head'. Quantities are untouched."""
     prefix, name = QTY_PREFIX.match(text).groups()
     name = re.sub(r'\s*\([^)]*\)', '', name)
+    name = re.sub(r'(?i),?\s*\b(meat|flesh|kernel)s? only\b(?=\s+raw)', '', name)
+    name = re.sub(r'(?i)\b(chicken|turkey),? light meat\b', r'\1 breast', name)  # 'chicken, light meat' is a record name
     name = re.sub(r'(?i)\bskinless,? boneless\b,?|\bwithout (?:bone|skin)\b( and (?:bone|skin))?,?', '', name)
     parts = [p.strip() for p in re.split(r',\s*', name) if p.strip() and not NOISE.fullmatch(NOISE.sub(lambda m: m.group(1), p.strip()))]
     parts = [NOISE.sub('', p).strip() for p in parts]
@@ -175,13 +179,90 @@ def database_style(line: str, matched_label: str | None) -> bool:
     return name.casefold() == (matched_label or '').strip().casefold() or bool(re.match(r'[A-Z][a-z]+, [a-z]', name))
 
 
-def display_line(old: str, model_new: str, suggested_new: str, swap: bool, candidate_label: str | None, matched_label: str | None = None) -> str:
+def half_quantities(q: set) -> set:
+    """The two halves of a half-and-half swap: 850 g -> 425 g (each half is written on its own)."""
+    out = set()
+    for n, u in q:
+        half = float(n) / 2
+        out.add((str(int(half)) if half == int(half) else str(round(half, 2)).rstrip('0').rstrip('.'), u))
+    return out
+
+
+def half_amount(prefix: str) -> str:
+    """'50 g ' -> '25 g ', '5 g ' -> '2.5 g ' (the amount of each half of a half-and-half swap)."""
+    m = re.match(r'(\s*)(\d+(?:[.,]\d+)?)(.*)', prefix)
+    if not m:
+        return prefix
+    half = float(m.group(2).replace(',', '.')) / 2
+    return f"{m.group(1)}{int(half) if half == int(half) else round(half, 2)}{m.group(3)}"
+
+
+AROUND_WEIGHT = re.compile(r'(?:around|about|approx\.?)\s*([\d½¼¾.,]+\s?(?:kg|g))\b', re.I)
+PACK_WORD = re.compile(r'\b(?:tin|can|jar)s?\b', re.I)
+
+
+def decimal_fractions(text: str) -> str:
+    """'1½ kg' -> '1.5 kg': the profiler reads '1½ kg' as 2 kg."""
+    return re.sub(r'(\d*)([½¼¾])', lambda m: str((int(m.group(1) or 0)) + {'½': .5, '¼': .25, '¾': .75}[m.group(2)]), text)
+
+
+def tin_unit(old: str) -> str:
+    return 'ml' if re.search(r'\d\s?ml\b', old) and not re.search(r'\d\s?g\b', old) else 'g'
+
+
+def tin_total(old: str) -> float | None:
+    """Total pack weight of a tin/can/jar line: '2 x 400g cans' -> 800, '400g tin' -> 400, '2 small tins (420g)' -> 420 (the bracket is the total)."""
+    if not PACK_WORD.search(old):
+        return None
+    num = r'(\d+(?:[.,]\d+)?)\s?(?:g|ml)\b'
+    for pattern, mult in ((r'(\d+)\s*x\s*' + num, True), (r'\(\s*' + num, False), (r'^\s*' + num, False), (num, False)):
+        if m := re.search(pattern, old, re.I):
+            g = [float(x.replace(',', '.')) for x in m.groups()]
+            return g[0] * g[1] if mult else g[-1]
+    return None
+
+
+def display_line(old: str, model_new: str, suggested_new: str, swap: bool, candidate_label: str | None, matched_label: str | None = None,
+                 scaled: bool = False, partial: bool = False, weight_g: float | None = None) -> str:
     """The ingredient line the user sees. A database-style source line is matched exactly by the profiler, so it keeps the
     database name and only the amount or food changes; a cookbook line gets the model's wording, cleaned."""
     if database_style(old, matched_label):
-        line = QTY_PREFIX.match(old).group(1) + candidate_label if swap and candidate_label else suggested_new
+        prefix = QTY_PREFIX.match(old).group(1)
+        if partial and swap and candidate_label and matched_label:  # database-style half-and-half: both halves, each with its own database name
+            return f'{half_amount(prefix)}{matched_label} and {half_amount(prefix)}{candidate_label}'
+        if scaled and AMOUNT_TEXT.match(suggested_new):  # low-sodium salt at 75%: the new amount, not the old one
+            prefix = AMOUNT_TEXT.match(suggested_new).group(0).strip() + ' '
+        line = prefix + candidate_label if swap and candidate_label else suggested_new
+    elif partial and swap and (m := re.match(r'\s*\d+(?:[.,]\d+)?\s*(?:g|ml|kg|tbsp|tsp|(?:table|tea|dessert)spoons?|cups?)\b', old, re.I)):
+        half = half_amount(m.group(0)).strip()  # '250g flour, half white, half wholemeal' reads as 250 g in total: state both halves, one per line
+        return f'{half} plain flour\n{half} wholemeal flour'  # two lines: a parser merges 'and' lines into one food and loses half the flour
     else:
         line = cookbook_line(model_new)
+        line = re.sub(r'(?i)\blean or turkey ham\b', 'turkey ham', line)  # 'lean or' reads as an alternative and the profiler falls back to plain ham
+        line = re.sub(r'(?i)\bpork ham roasted w/o gravy frozen product\b', 'cooked ham', line)
+        line = re.sub(r'(?i)\bsalt low sodium losalt\b', 'low-sodium salt (LoSalt)', re.sub(r'(?i)\bwrap/tortilla( wheat)?\b', 'wrap', line))  # record names are not cookbook wording
+        if re.match(r'\s*use\s', line, re.I):  # the model copied the instruction: put the original count back, drop the word 'use'
+            line = (QTY_PREFIX.match(old).group(1) + line.split(None, 1)[1]) if len(line.split(None, 1)) > 1 else line
+        tin = tin_total(old)
+        if swap and tin and (not PACK_WORD.search(line) or re.match(r'\s*\d+\s+(?:\w+\s+)?' + PACK_WORD.pattern, line, re.I)):
+            food = re.sub(r'^\s*(?:\d+\s*x\s*)?[\d½¼¾.,/ ]*(?:g|ml|oz\.?)?\s*(?:/\s*[\d.½]+\s*oz\.?\s*)?(?:(?:\w+\s+)?' + PACK_WORD.pattern + r'\s*)?(?:of\s+)?', '', re.sub(r'\s*\([^)]*\)', '', line), flags=re.I)  # a cooked food is no longer a tin: state the weight
+            food = re.sub(r'^(\w+),? boiled in unsalted water', r'boiled \1', food)
+            grams = tin * 0.6 if re.search(r'\bdrained\b(?!\s+weight)', old, re.I) else tin  # the tin weight includes the liquid: about 60% is the drained food (what the profiler reads)
+            line = f'{round(grams / 5) * 5}{tin_unit(old)} of {food}'
+        around = AROUND_WEIGHT.search(old)
+        if swap and around and not tin and re.match(r'\s*\d+\s+\D', line):  # '1 ham, around 2kg': a profiler reads the count, not the weight, once the food name changes
+            stated = decimal_fractions(around.group(1).strip())
+            stated_g = float(re.match(r'[\d.]+', stated).group()) * (1000 if 'kg' in stated.lower() else 1)
+            if weight_g and abs(stated_g - weight_g) > 0.2 * weight_g:  # the stated weight is the whole bird or joint with bone; the baseline used the edible weight
+                stated = f'{round(weight_g / 5) * 5}g'
+            line = f'{stated} of ' + re.sub(r'\s*[,-]?\s*' + AROUND_WEIGHT.pattern + r'.*$', '', re.sub(r'^\s*\d+\s+', '', line), flags=re.I).strip(' ,-–')
+        elif (swap and weight_g and re.match(r'\s*\d+\s+[a-z]', old, re.I) and re.match(r'\s*\d+\s+[a-z]', line, re.I)
+              and {m.lower().rstrip('s') for m in CUT_NOUN.findall(old)} != {m.lower().rstrip('s') for m in CUT_NOUN.findall(line)}):
+            line = f'{round(weight_g / 5) * 5}g of ' + re.sub(r'^\s*\d+\s+', '', line)  # '8 thighs' -> '8 breast fillets' is a different weight: state the baseline weight
+        elif swap and weight_g and re.match(r'\s*\d', old) and not re.match(r'\s*[\d½¼¾]', line):  # the model dropped the count ('8 thighs' -> 'chicken fillet'): state the weight
+            line = f'{round(weight_g / 5) * 5}g of {line}'
+        if re.search(r'\bcubes?\b', old, re.I) and not re.search(r'\bcubes?\b', line, re.I) and swap:
+            line += ' cube'
     return re.sub(r'(^|\s)(\d+\s)?(1|½|¼|¾|⅓|⅔) (tablespoon|teaspoon|cup|dessertspoon)s\b',
                   lambda m: m.group(0) if m.group(2) else f'{m.group(1)}{m.group(3)} {m.group(4)}', line)  # '½ tablespoons' -> '½ tablespoon', '1 ½ tablespoons' stays
 
@@ -212,9 +293,14 @@ def swap_words(candidate: dict) -> list[tuple[str, str]]:
             continue
         old = food_word(c.get('source_line') or c['matched_label']) if role_of(c.get('source_line') or '') in ANIMAL else food_word(c['matched_label'])
         new = food_word(c['candidate_label'])
-        if old != new and (c.get('category') == 'protein_swap' or (role_of(c['matched_label']) in ANIMAL and role_of(c['candidate_label']) in ANIMAL)):
+        if old != new and not re.search(rf'\b{re.escape(old)}\b', c['candidate_label'], re.I) \
+                and (c.get('category') == 'protein_swap' or (role_of(c['matched_label']) in ANIMAL and role_of(c['candidate_label']) in ANIMAL)):
             out.append((old, new))
     return out
+
+
+AMOUNT_TEXT = re.compile(r'^\s*[\d.,½¼¾⅓⅔/ ]+\s*(g|kg|ml|l|tbsp|tsp|tablespoons?|teaspoons?|dessertspoons?|cups?)\b', re.I)
+DATABASE_WORDS = re.compile(r'\b(same weight|retail|uncooked|prepacked|unspecified|average|norwegian|imported)\b', re.I)
 
 
 def candidate_lines(candidate: dict, lines: list[dict]) -> list[dict]:
@@ -226,16 +312,31 @@ def candidate_lines(candidate: dict, lines: list[dict]) -> list[dict]:
             item = by_pos[pos]
             frac = ch.get('reduction_fraction') or 0
             new, note = sg.rewrite(dict(ch, source_line=item['text'], weight_before_g=item['weight_g'], weight_after_g=item['weight_g'] * (1 - frac)))
+            scaled = False
             if ch['operation'] not in ('REDUCE_AMOUNT', 'INCREASE_VEG'):
                 new = 'use ' + new.replace('**', '').split('  →  use ')[-1]
-            out.append({'position': pos, 'old': item['text'], 'suggested_new': new + (f' ({note})' if note else ''), 'swap': ch['operation'] not in ('REDUCE_AMOUNT', 'INCREASE_VEG'), 'label': ch.get('candidate_label'), 'matched': ch.get('matched_label')})
+                lead = QTY_PREFIX.match(item['text']).group(1)
+                if lead.strip() and ch.get('category') not in sg.PARTIAL_SWAPS:
+                    new = lead + new[4:]  # '½ vegetable stock cube' -> '½ reduced-salt stock', not 'use reduced-salt stock'
+                wb, wa = ch.get('weight_before_g'), ch.get('weight_after_g')
+                if ch.get('category') not in sg.PARTIAL_SWAPS and isinstance(wb, (int, float)) and isinstance(wa, (int, float)) and wb and abs(wa / wb - 1) > 0.05:
+                    # a swap that also changes the amount (low-sodium salt at 75%, oil at 80% of the butter) states the new amount
+                    cut, _ = sg.rewrite(dict(ch, operation='REDUCE_AMOUNT', reduction_fraction=1 - wa / wb, source_line=item['text']))
+                    amount = AMOUNT_TEXT.match(cut)
+                    if amount and quantities(amount.group(0)):
+                        new, scaled = f'{amount.group(0).strip()} {new[4:]}', True
+            out.append({'position': pos, 'old': item['text'], 'suggested_new': new + (f' ({note})' if note else ''), 'swap': ch['operation'] not in ('REDUCE_AMOUNT', 'INCREASE_VEG'),
+                        'scaled': scaled, 'partial': ch.get('category') in sg.PARTIAL_SWAPS, 'label': ch.get('candidate_label'), 'matched': ch.get('matched_label'), 'weight_g': item['weight_g']})
     return out
 
 
 def final_line_problems(candidate: dict, lines: list[dict], final_lines: list[dict]) -> list[str]:
     """Safety net: the finished ingredient lines must still pass the allergen/diet gate against the original recipe."""
     ops = {p: ch['operation'] for ch in candidate['changes'] for p in (ch['position'] if isinstance(ch['position'], list) else [ch['position']])}
-    parts = [{'operation': ops[l['position']], 'candidate_label': l['new']} for l in final_lines if ops.get(l['position']) != 'REDUCE_AMOUNT']
+    matched = {p: ch.get('matched_label') for ch in candidate['changes'] for p in (ch['position'] if isinstance(ch['position'], list) else [ch['position']])}
+    # the replaced food's record counts as already in the recipe ('4 large wraps' is a wheat tortilla even if the line never says wheat)
+    parts = [{'operation': ops[l['position']], 'candidate_label': l['new'], 'matched_label': matched.get(l['position'])}
+             for l in final_lines if ops.get(l['position']) != 'REDUCE_AMOUNT']
     return sg.restriction_problems(parts, [x['text'] for x in lines])
 
 
@@ -287,16 +388,131 @@ def restore_unrelated_steps(out: RewriteOut, steps: list[str], candidate: dict, 
             if free[best] & set(map(stem, words(line.new))):
                 line.position = best
                 free.pop(best)
+    if len(out.ingredient_lines) == len(wanted) and {l.position for l in out.ingredient_lines} != set(wanted):
+        # swapped foods that share no word (lard -> canola oil) cannot be matched by words; the model lists the lines in recipe order
+        for line, pos in zip(out.ingredient_lines, sorted(wanted)):
+            line.position = pos
     if [s.source_steps for s in out.instructions] != [[i] for i in range(1, len(steps) + 1)]:
         return
     allowed = {stem(w) for t in [c['old'] + ' ' + c['suggested_new'] for c in changed] + [l.new for l in out.ingredient_lines]
                + [x for ch in candidate['changes'] for x in (ch.get('matched_label'), ch.get('candidate_label'), ch.get('source_line')) if x] for w in words(t)}
+    allowed |= stale_quantity_tokens(steps, changed)
     for i, step in enumerate(out.instructions):
         if unexplained_edits(STEP_NUMBER.sub('', steps[i]), STEP_NUMBER.sub('', step.text), allowed):
             step.text = steps[i]
 
 
-def validate_rewrite(out: RewriteOut, title: str, steps: list[str], candidate: dict, changed: list[dict]) -> list[str]:
+STEP_QUANTITY = re.compile(r'\d[\d.,½¼¾⅓⅔/]*\s*(?:g|kg|ml|l|tbsp|tsp|tablespoons?|teaspoons?|dessertspoons?|cups?)\b\.?\s*(?:of\s+)?(?:the\s+|your\s+)?(?:[a-z-]+\s+){0,2}[a-z-]+', re.I)
+
+
+STEP_QUANTITY_LEAD = re.compile(r'\d[\d.,½¼¾⅓⅔/]*\s*(?:g|kg|ml|l|tbsp|tsp|tablespoons?|teaspoons?|dessertspoons?|cups?)\b\.?\s*(?:of\s+)?(?:the\s+|your\s+)?', re.I)
+
+
+def stale_quantity_tokens(steps: list[str], changed: list[dict]) -> set[str]:
+    """Stems of the old-amount words ('20ml of') that code removes from steps for a cut or rescaled ingredient; edits to them are explained."""
+    out = set()
+    for c in changed:
+        if c['swap'] and not c.get('scaled'):
+            continue
+        word = food_word(c.get('matched') or c['old'])
+        for step in steps:
+            for m in STEP_QUANTITY.finditer(step):
+                lead = STEP_QUANTITY_LEAD.match(m.group(0))
+                if lead and re.search(rf'\b{re.escape(word)}', m.group(0), re.I):
+                    out |= {stem(w) for w in words(lead.group(0))}
+    return out
+
+
+def fix_leftover_swap_words(out: RewriteOut, candidate: dict) -> None:
+    """Code names the new meat or fish where a step still says the old one ('when the lamb is cooked' -> 'when the turkey is cooked');
+    the validator demands exactly this, and the model keeps missing a mention."""
+    for old, new in swap_words(candidate):
+        for step in out.instructions:
+            step.text = re.sub(rf'\b{re.escape(old)}(?:s)?\b', lambda m: new.capitalize() if m.group(0)[0].isupper() else new, step.text, flags=re.I)
+
+
+def fix_pasta_shape(out: RewriteOut, steps: list[str], changed: list[dict]) -> None:
+    """A wholemeal swap copies the database shape ('wholewheat spaghetti'); code puts the recipe's own shape back."""
+    recipe = set(re.findall(SHAPES, ' '.join(steps + [c['old'] for c in changed]).casefold()))
+    if len(recipe) != 1:
+        return
+    (shape,) = recipe
+    sub = lambda t: re.sub(SHAPES, lambda m: m.group(0) if m.group(0).lower() in recipe else shape, t, flags=re.I)
+    for line in out.ingredient_lines:
+        line.new = sub(line.new)
+    for step in out.instructions:
+        step.text = sub(step.text)
+
+
+def fix_stale_quantities(out: RewriteOut, changed: list[dict]) -> None:
+    """Code, not the model, removes an old amount of a cut or rescaled ingredient from a step ('20ml of olive oil' -> 'the olive oil'),
+    because the model is told to copy steps word for word and cannot be trusted to do both."""
+    for c in changed:
+        if c['swap'] and not c.get('scaled'):
+            continue
+        word, new_q = food_word(c.get('matched') or c['old']), quantities(c['suggested_new'])
+        for step in out.instructions:
+            for m in list(STEP_QUANTITY.finditer(step.text))[::-1]:
+                lead = STEP_QUANTITY_LEAD.match(m.group(0))
+                q = quantities(m.group(0))
+                if lead and q and not q & new_q and re.search(rf'\b{re.escape(word)}', m.group(0), re.I):
+                    step.text = step.text[:m.start()] + 'the ' + step.text[m.start() + len(lead.group(0)):]
+
+
+def stale_quantity_problems(step_texts: list[str], changed: list[dict]) -> list[str]:
+    """A cut or rescaled ingredient may not keep its old amount in a step ('sprinkle over 20ml of olive oil' after the line says 22 ml):
+    the step must say 'the oil' or carry the new amount."""
+    out = []
+    for c in changed:
+        if c['swap'] and not c.get('scaled'):
+            continue
+        word, new_q = food_word(c.get('matched') or c['old']), quantities(c['suggested_new'])
+        for i, text in enumerate(step_texts, 1):
+            for m in STEP_QUANTITY.finditer(text):
+                q = quantities(m.group(0))
+                if q and not q & new_q and re.search(rf'\b{re.escape(word)}', m.group(0), re.I):
+                    out.append(f'step {i} gives an old amount of the changed {word} ("{m.group(0).strip()}"): write "the {word}" or the new amount')
+    return out
+
+
+def role_word_problems(texts: list[str], candidate: dict, lines: list[dict] | None) -> list[str]:
+    """Cheese or cream swapped for yoghurt or milk must not survive as a generic word ('grated cheese') in the steps or lines,
+    unless another unchanged ingredient really is that food (a parmesan topping)."""
+    from .food_roles import role_of
+    changed_pos = {p for ch in candidate['changes'] for p in (ch['position'] if isinstance(ch['position'], list) else [ch['position']])}
+    others = ' '.join(l['text'] for l in (lines or []) if l['position'] not in changed_pos).casefold()
+    out = []
+    for ch in candidate['changes']:
+        if ch.get('operation') == 'REDUCE_AMOUNT' or not ch.get('candidate_label'):
+            continue
+        if role_of(ch.get('matched_label') or '') in ('cheese', 'cream') and role_of(ch['candidate_label']) in ('yogurt', 'milk'):
+            word = food_word(ch.get('matched_label') or ch.get('source_line') or '')
+            if word and re.search(rf'\b{word}', ' '.join(texts), re.I) and not re.search(rf'\b{word}', others):
+                out.append(f'"{word}" is still mentioned although the {word} was replaced by {food_word(ch["candidate_label"])}: say "the {food_word(ch["candidate_label"])}"')
+    return out
+
+
+CUT_NOUN = re.compile(r'\b(chops?|cutlets?|steaks?|escalopes?|thighs?|drumsticks?|wings?|rashers?|sausages?|joint|loin|fillets?|ribs?|rack|shoulder|leg)\b', re.I)
+
+
+def cut_word_problems(step_texts: list[str], lines: list[dict] | None, final_lines: list) -> list[str]:
+    """A cut that the swap replaced ('4 pork chops' -> chicken) must not survive in the steps ('rub each chop')."""
+    old = {l['position']: l['text'] for l in (lines or [])}
+    steps = ' '.join(step_texts)
+    others = ' '.join(t for p, t in old.items() if p not in {l.position for l in final_lines}).casefold()
+    out = []
+    for l in final_lines:
+        gone = {m.lower().rstrip('s') for m in CUT_NOUN.findall(old.get(l.position, ''))} - {m.lower().rstrip('s') for m in CUT_NOUN.findall(l.new)}
+        for word in sorted(gone):
+            if re.search(rf'\b{word}s?\b', steps, re.I) and not re.search(rf'\b{word}s?\b', others):
+                out.append(f'"{word}" is still mentioned in the steps although the line is now "{l.new}": name the new food instead')
+    return out
+
+
+PER_HEAD = r'\b(per (person|head|serving|portion)|a head|each|pp)\b'
+
+
+def validate_rewrite(out: RewriteOut, title: str, steps: list[str], candidate: dict, changed: list[dict], lines: list[dict] | None = None) -> list[str]:
     problems, swaps = [], swap_words(candidate)
     # title: renamed only when the main food changes
     if swaps:
@@ -316,6 +532,7 @@ def validate_rewrite(out: RewriteOut, title: str, steps: list[str], candidate: d
     else:
         allowed = {stem(w) for t in [c['old'] + ' ' + c['suggested_new'] for c in changed] + [l.new for l in out.ingredient_lines]
                    + [x for ch in candidate['changes'] for x in (ch.get('matched_label'), ch.get('candidate_label'), ch.get('source_line')) if x] for w in words(t)}
+        allowed |= stale_quantity_tokens(steps, changed)
         for i, step in enumerate(out.instructions):
             bad = unexplained_edits(STEP_NUMBER.sub('', steps[i]), STEP_NUMBER.sub('', step.text), allowed)
             if bad:
@@ -337,8 +554,21 @@ def validate_rewrite(out: RewriteOut, title: str, steps: list[str], candidate: d
             problems.append(f'ingredient line {pos} is missing')
             continue
         old_q, new_q, line_q = quantities(c['old']), quantities(c['suggested_new']), quantities(line.new)
-        if c['swap'] and line_q != old_q:
+        if c['swap'] and not c.get('scaled') and (metric(line_q) != metric(old_q) if metric(old_q) else line_q != old_q) and not (c.get('partial') and line_q and line_q <= half_quantities(old_q) | old_q and half_quantities(old_q) <= line_q):
             problems.append(f'ingredient line {pos} must keep the original quantities {sorted(old_q)}')
+        per = re.search(PER_HEAD, c['old'], re.I)
+        if c['swap'] and per and not re.search(PER_HEAD, line.new, re.I):
+            problems.append(f'ingredient line {pos} must keep "{per.group(0)}" (the amount is per head, the profiler multiplies it by the servings)')
+        count = re.match(r'\s*([\d½¼¾⅓⅔][\d.,/½¼¾⅓⅔]*)', c['old'])
+        if count and (re.match(r'\s*\d+\s*x\s*\d', c['old']) or (re.search(r'\b(tin|can|jar|pack(et)?)\b', c['old'], re.I) and metric(old_q) and metric(old_q) <= line_q)):
+            count = None  # "1 x 240g tin", "1 small tin (210g)": the weight is the amount, the pack count may be dropped
+        if c['swap'] and count and not c.get('scaled') and not c.get('partial') and not re.match(rf'\s*{re.escape(count.group(1))}', line.new):
+            problems.append(f'ingredient line {pos} must start with the original count "{count.group(1)}" (write "{count.group(1)} ..."), never "use ..."')
+        if c.get('scaled') and line_q != new_q:
+            problems.append(f'ingredient line {pos} must use the new amount {sorted(new_q)}')
+        bad = {m.group(0).lower() for m in DATABASE_WORDS.finditer(line.new)} - {m.group(0).lower() for m in DATABASE_WORDS.finditer(c['old'])}
+        if bad:
+            problems.append(f'ingredient line {pos} must read like a recipe line, without database words ({", ".join(sorted(bad))})')
         elif not c['swap'] and metric(new_q) and not close(metric(line_q), metric(new_q)):
             problems.append(f'ingredient line {pos} must use the reduced quantities {sorted(new_q)}')
     # numbers: nothing invented
@@ -349,6 +579,8 @@ def validate_rewrite(out: RewriteOut, title: str, steps: list[str], candidate: d
         problems.append('invented quantities not in the original steps or notes: ' + ', '.join(f'{n} {u}' for n, u in sorted(invented)))
     if out.tip and (out.tip.count('{benefit}') != 1 or re.search(r'\d', out.tip.replace('{benefit}', ''))):
         problems.append('tip must contain {benefit} exactly once and no digits')
+    elif out.tip and not re.search(r'\b(while|and|so|because)\s+\{benefit\}[\s.,;!]*$|\b(while|and|so|because)\s+\{benefit\}[\s.,;!]', out.tip):
+        problems.append("{benefit} is a whole clause ('it has 20% less saturated fat per serving'): put it right after 'while' or 'and', e.g. '... while {benefit}.'")
     # removed foods must not survive, new food must appear
     text = ' '.join([s.text for s in out.instructions] + [l.new for l in out.ingredient_lines])
     for old, new in swaps:
@@ -356,6 +588,9 @@ def validate_rewrite(out: RewriteOut, title: str, steps: list[str], candidate: d
             problems.append(f'"{old}" is still mentioned')
         if not re.search(rf'\b{new}\b', text, re.I):
             problems.append(f'"{new}" never appears in the steps or ingredient lines')
+    problems += stale_quantity_problems([s.text for s in out.instructions], changed)
+    problems += cut_word_problems([s.text for s in out.instructions], lines, out.ingredient_lines)
+    problems += role_word_problems([s.text for s in out.instructions] + [l.new for l in out.ingredient_lines], candidate, lines)
     return problems
 
 
@@ -376,15 +611,24 @@ def benefit_metric(candidate: dict) -> dict:
         return dict(facet='sustainability', name='co2e_kg_per_serving', unit='kg CO2e', before=b['co2_kg'], after=a['co2_kg'],
                     change=round(-cut, 3), text=f"it cuts {cut:.2f} kg CO2e per serving ({cut / b['co2_kg']:.0%} less)")
     drops = {m: (b[m] - a[m]) / b[m] for m in LABELS if b.get(m) and a.get(m) is not None and a[m] < b[m]}
+    if (any(re.search(r'whole|brown|barley|grain', ch.get('category') or '') for ch in candidate.get('changes', []))
+            and b.get('fibre_g') and a.get('fibre_g') is not None and a['fibre_g'] - b['fibre_g'] >= 1):  # only a wholegrain swap leads with fibre (other swaps change fibre through table differences)
+        drops['fibre_g'] = (a['fibre_g'] - b['fibre_g']) / b['fibre_g']
     top = max(drops, key=drops.get) if drops else None
     parts = []
     if candidate['grade_after'] != candidate['grade_before']:
         parts.append(f"the Nutri-Score improves from {candidate['grade_before'][-1]} to {candidate['grade_after'][-1]}")
     if top:
-        parts.append(f"it has {drops[top]:.0%} less {LABELS[top]} per serving")
+        parts.append(f"it has {drops[top]:.0%} more fibre per serving" if top == 'fibre_g' else f"it has {drops[top]:.0%} less {LABELS[top]} per serving")
     return dict(facet='nutrition', name=top or 'nutri_score', unit='per serving', before=b.get(top) if top else candidate['grade_before'],
                 after=a.get(top) if top else candidate['grade_after'], change=round(a[top] - b[top], 3) if top else None,
                 grade_before=candidate['grade_before'], grade_after=candidate['grade_after'], text=' and '.join(parts) or 'it is a little healthier')
+
+
+def tidy_tip(text: str) -> str:
+    """'X keeps the dish just as hearty while it has 20% less salt' -> 'X: the dish has 20% less salt' (the 'just as hearty' filler did not fit a cake or a wrap)."""
+    text = re.sub(r'\s+keeps\s+(?:the\s+)?[\w\- ]+?\s+just as \w+\s+(?:while|and)\s+', ': ', text)
+    return re.sub(r'\bit has\b', 'the dish has', text)
 
 
 def benefit_block(candidate: dict, tip: str, notes: list[dict]) -> dict:
@@ -395,6 +639,8 @@ def benefit_block(candidate: dict, tip: str, notes: list[dict]) -> dict:
     fallback = (f"Swap the {' and '.join(x['from'] for x in swaps)} for {' and '.join(x['to'] for x in swaps)}: {metric['text']}." if swaps
                 else f"{candidate['summary'].split(';')[0]}: {metric['text']}.")
     text = tip.replace('{benefit}', metric['text']) if tip else fallback
+    if metric['facet'] == 'nutrition':
+        text = tidy_tip(text)
     return {'facet': metric['facet'], 'tip': text, 'tip_source': 'llm' if tip else 'code', 'metric': {k: v for k, v in metric.items() if k not in ('text', 'facet')},
             'swap': swaps, 'notes': notes}
 
@@ -436,14 +682,14 @@ def run_llm_stages(result: dict, recipe: dict, lines: list[dict], llm) -> dict:
     candidate = next(c for c in pack if c['id'] == choice.choice)
     changed = candidate_lines(candidate, lines)
     rewrite, problems = _call(llm, rewrite_messages(title, lines, steps, candidate, changed), RewriteOut,
-                              lambda o: (restore_unrelated_steps(o, steps, candidate, changed), validate_rewrite(o, title, steps, candidate, changed))[1], calls)
+                              lambda o: (restore_unrelated_steps(o, steps, candidate, changed), fix_stale_quantities(o, changed), fix_pasta_shape(o, steps, changed), fix_leftover_swap_words(o, candidate), validate_rewrite(o, title, steps, candidate, changed, lines))[4], calls)
     out['calls'] = len(calls)
     out['candidate'] = candidate
     if rewrite is None:
         swaps = swap_words(candidate)
         return dict(out, status='rewrite_failed', failure=problems, last_raw=LAST_RAW.get('RewriteOut'), fallback_title=fallback_title(title, swaps))
     by_pos = {c['position']: c for c in changed}
-    final_lines = [dict(l.model_dump(), new=display_line(by_pos[l.position]['old'], l.new, by_pos[l.position]['suggested_new'], by_pos[l.position]['swap'], by_pos[l.position].get('label'), by_pos[l.position].get('matched')), model_new=l.new) for l in rewrite.ingredient_lines]
+    final_lines = [dict(l.model_dump(), new=display_line(by_pos[l.position]['old'], l.new, by_pos[l.position]['suggested_new'], by_pos[l.position]['swap'], by_pos[l.position].get('label'), by_pos[l.position].get('matched'), by_pos[l.position].get('scaled', False), by_pos[l.position].get('partial', False), by_pos[l.position].get('weight_g')), model_new=l.new) for l in rewrite.ingredient_lines]
     bad = final_line_problems(candidate, lines, final_lines)
     if bad:
         return dict(out, status='restriction_failed', failure=bad)

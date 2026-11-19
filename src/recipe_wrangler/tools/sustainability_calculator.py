@@ -1,263 +1,24 @@
-# Purpose: Compute sustainability/carbon footprint totals via Elasticsearch matches.
+# Purpose: Compute recipe carbon footprint totals from the reviewed AGRIBALYSE 3.2 ingredient mapping (see sustainability_factors).
 
 import math
-import re
-from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
 from langchain.tools import tool
 
 from recipe_wrangler.schemas import RecipeState
-from recipe_wrangler.repositories.vector_matchers import (
-    query_sustainability_candidates as query_sustainability_db,
-)
-from recipe_wrangler.repositories.vector_matchers import get_vector_collection_page
-from recipe_wrangler.repositories.sustainability_references import (
-    POLICY_VERSION, complete_recipe_selection, lookup_references, normalize as reference_normalize,
-)
-from recipe_wrangler.tools.nutrition_match import (
-    clean_query as _nm_clean,
-    classes_compatible as _nm_compat,
-    food_class as _nm_class,
-    _tokens as _nm_tokens,
-    _bm25_scores as _nm_bm25,
-    _singular as _nm_singular,
-    _PROCESSED_MARKERS as _NM_MARKERS,
-)
+from recipe_wrangler.tools.sustainability_factors import factor_for
 
-SOURCE_SUSTAINABILITY = "Sustainable FooDB"
-
-# --------------------------------------------------------------------------- #
-# Same strategy as the nutrition matcher, scaled down: exact / alias / vector
-# with a food-class hard gate, BM25 rerank and cooking-state demotion, and a
-# confidence label on every result.  Carbon-footprint values in the
-# "Sustainable FooDB" Elasticsearch collection are category-quantised (all beef ≈ the
-# same cf_val, etc.), so getting the right *category* is what matters most.
-# --------------------------------------------------------------------------- #
-_TOKEN_RE = re.compile(r"[a-z0-9]+")
+SOURCE_LABEL = {"agribalyse": "AGRIBALYSE 3.2", "concito": "CONCITO v1.2 (fallback)", "estimate": "role average (estimate)"}
+POLICY_VERSION = "agribalyse-3.2-reviewed-name-mapping-v1"
 
 
-def _norm(s: object) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", str(s or "").lower())).strip()
-
-
-@lru_cache(maxsize=1)
-def _cf_index() -> Dict[str, float]:
-    """normalized ingredient name -> cf_val (kg CO2e / kg) for every DB entry."""
-    idx: Dict[str, float] = {}
-    page_size = 5000
-    offset = 0
-    while True:
-        try:
-            rows = get_vector_collection_page(
-                "sustainability_ingredients",
-                limit=page_size,
-                offset=offset,
-            )
-        except Exception:
-            return idx
-        if not rows:
-            break
-        for row in rows:
-            meta = row.get("metadata") or {}
-            name = _norm(meta.get("ingredient") or row.get("document"))
-            try:
-                cf = float(meta.get("cf_val"))
-            except (TypeError, ValueError):
-                continue
-            if name and cf > 0:
-                idx.setdefault(name, cf)
-        if len(rows) < page_size:
-            break
-        offset += len(rows)
-    return idx
-
-
-# recipe ingredient -> a Sustainable-FooDB entry name (all targets verified to
-# exist in the collection). Plurals are handled by singularising, so only the
-# non-trivial mappings are listed here.
-_SUST_ALIAS = {
-    "ground beef": "beef", "minced beef": "beef", "beef mince": "beef", "beef chuck": "beef",
-    "chuck roast": "beef", "stewing beef": "beef", "stew beef": "beef", "beef stew meat": "beef",
-    "beef sirloin": "beef", "beef tenderloin": "beef", "beef brisket": "beef", "steak": "beef",
-    "sirloin steak": "beef", "ribeye": "beef", "chuck steak": "beef",
-    "ground pork": "pork", "minced pork": "pork", "pork mince": "pork", "pork loin": "pork",
-    "pork chop": "pork", "pork chops": "pork", "pork tenderloin": "pork", "pork shoulder": "pork",
-    "bacon": "pork", "ham": "pork", "sausage": "pork", "pork sausage": "pork", "prosciutto": "pork",
-    "ground lamb": "lamb", "minced lamb": "lamb", "lamb mince": "lamb", "lamb chop": "lamb",
-    "lamb chops": "lamb", "lamb shoulder": "lamb", "lamb loin chop": "lamb",
-    "ground chicken": "chicken", "minced chicken": "chicken", "chicken mince": "chicken",
-    "chicken breast": "chicken", "chicken thigh": "chicken", "chicken breast fillet": "chicken",
-    "boneless skinless chicken breast": "chicken", "skinless chicken breast": "chicken",
-    "boneless skinless chicken thigh": "chicken", "chicken drumstick": "chicken", "chicken leg": "chicken",
-    "salmon fillet": "salmon", "fresh salmon": "salmon",
-    "unsalted butter": "butter", "salted butter": "butter",
-    "whole milk": "milk", "skim milk": "milk", "skimmed milk": "milk", "low fat milk": "milk",
-    "2% milk": "milk", "1% milk": "milk", "nonfat milk": "milk", "buttermilk": "milk", "full fat milk": "milk",
-    "greek yogurt": "yogurt", "plain yogurt": "yogurt", "natural yogurt": "yogurt", "low fat yogurt": "yogurt",
-    "nonfat yogurt": "yogurt", "yoghurt": "yogurt", "greek yoghurt": "yogurt", "plain yoghurt": "yogurt",
-    "low-fat yoghurt": "yogurt",
-    "mozzarella cheese": "cheese", "cream cheese": "cheese", "ricotta cheese": "cheese",
-    "cottage cheese": "cheese", "grated cheese": "cheese", "shredded cheese": "cheese", "mozzarella": "cheese",
-    "ricotta": "cheese", "feta": "feta cheese",
-    "all purpose flour": "flour", "all-purpose flour": "flour", "plain flour": "flour", "white flour": "flour",
-    "bread flour": "flour", "self raising flour": "flour", "self-raising flour": "flour",
-    "whole wheat flour": "wheat flour", "wholemeal flour": "wheat flour", "wholewheat flour": "wheat flour",
-    "white rice": "rice", "brown rice": "rice", "basmati rice": "rice", "jasmine rice": "rice",
-    "long grain rice": "rice", "arborio rice": "rice", "risotto rice": "rice",
-    "penne": "pasta", "macaroni": "pasta", "fusilli": "pasta", "rigatoni": "pasta", "linguine": "pasta",
-    "fettuccine": "pasta", "noodles": "pasta", "egg noodles": "pasta", "lasagne": "pasta", "lasagna noodles": "pasta",
-    "rolled oats": "oats", "porridge oats": "oats", "oatmeal": "oats", "old fashioned oats": "oats",
-    "granulated sugar": "sugar", "white sugar": "sugar", "caster sugar": "sugar", "castor sugar": "sugar",
-    "brown sugar": "sugar", "light brown sugar": "sugar", "dark brown sugar": "sugar",
-    "powdered sugar": "sugar", "icing sugar": "sugar", "confectioners sugar": "sugar",
-    "extra virgin olive oil": "olive oil", "evoo": "olive oil",
-    "canola oil": "vegetable oil", "sunflower oil": "vegetable oil", "rapeseed oil": "vegetable oil",
-    "sesame oil": "vegetable oil", "coconut oil": "vegetable oil", "cooking oil": "vegetable oil",
-    "spring onion": "onion", "scallion": "onion", "green onion": "onion", "red onion": "onion",
-    "yellow onion": "onion", "white onion": "onion", "brown onion": "onion", "shallot": "onion",
-    "garlic cloves": "garlic", "garlic clove": "garlic", "minced garlic": "garlic", "fresh garlic": "garlic",
-    "crushed garlic": "garlic",
-    "cherry tomatoes": "tomato", "cherry tomato": "tomato", "grape tomatoes": "tomato",
-    "canned tomatoes": "tomato", "tinned tomatoes": "tomato", "chopped tomatoes": "tomato",
-    "diced tomatoes": "tomato", "crushed tomatoes": "tomato", "tomato paste": "tomato",
-    "fresh tomatoes": "tomato", "vine tomatoes": "tomato", "plum tomatoes": "tomato",
-    "broccoli florets": "broccoli", "baby spinach": "spinach", "fresh spinach": "spinach",
-    "button mushrooms": "mushroom", "white mushrooms": "mushroom", "cremini mushrooms": "mushroom",
-    "portobello mushrooms": "mushroom", "portabella mushrooms": "mushroom", "chestnut mushrooms": "mushroom",
-    "baby carrots": "carrot",
-    "cheddar": "cheddar cheese", "sharp cheddar": "cheddar cheese", "mature cheddar": "cheddar cheese",
-    "grated cheddar": "cheddar cheese", "parmesan": "parmesan cheese", "parmigiano": "parmesan cheese",
-    "grated parmesan": "parmesan cheese",
-    "fresh ginger": "ginger", "ginger root": "ginger",
-    "fresh parsley": "parsley", "fresh basil": "basil", "fresh mint": "mint", "fresh thyme": "thyme",
-    "lemon juice": "lemon", "lime juice": "lime", "orange juice": "orange",
-    "milk chocolate": "chocolate", "semisweet chocolate": "chocolate", "semisweet chocolate chips": "chocolate",
-    "chocolate chips": "chocolate", "white chocolate": "chocolate",
-    "smooth peanut butter": "peanut butter", "crunchy peanut butter": "peanut butter",
-    "dry white wine": "white wine", "dry red wine": "red wine", "lager": "beer", "ale": "beer",
-    "table salt": "salt", "sea salt": "salt", "kosher salt": "salt", "cooking salt": "salt",
-    "pepper": "black pepper", "ground black pepper": "black pepper",
-    "firm tofu": "tofu", "silken tofu": "tofu", "extra firm tofu": "tofu",
-}
-
-
-# Hand-corrected cf_val for a few ingredients the DB clearly got wrong: it
-# tagged stock/broth with the *solid* meat's CF (≈20 kg CO2e/kg for "beef
-# stock"!), and salt/spices with vegetable-ish values. Stock is mostly water
-# (~1–2 kg/kg liquid); salt's footprint is negligible. These override even an
-# exact DB hit.  cf_val is kg CO2e / kg.
-_SUST_CF_OVERRIDE = {
-    "beef stock": 2.0, "beef broth": 2.0, "beef bouillon": 2.0, "beef stock cube": 4.0,
-    "chicken stock": 1.5, "chicken broth": 1.5, "chicken bouillon": 1.5, "chicken stock cube": 3.0,
-    "vegetable stock": 0.4, "vegetable broth": 0.4, "vegetable bouillon": 0.4,
-    "fish stock": 2.0, "fish broth": 2.0, "bone broth": 2.0, "stock": 1.5, "broth": 1.5, "bouillon": 1.5,
-    "salt": 0.02, "table salt": 0.02, "sea salt": 0.02, "kosher salt": 0.02, "cooking salt": 0.02,
-    "rock salt": 0.02, "fine salt": 0.02, "flaky salt": 0.02,
-}
-
-
-def _cf_from_name(name: str) -> Tuple[Optional[float], Optional[str]]:
-    """Override / exact / alias / singularised lookup. (cf_val, source) or (None, None)."""
-    idx = _cf_index()
-    key = _norm(name)
-    if not key:
-        return None, None
-    if key in _SUST_CF_OVERRIDE:
-        return _SUST_CF_OVERRIDE[key], "override"
-    if not idx:
-        return None, None
-    if key in idx:
-        return idx[key], "exact"
-    alt = _SUST_ALIAS.get(key)
-    if alt:
-        alt_n = _norm(alt)
-        if alt_n in idx:
-            return idx[alt_n], "alias"
-    sg = " ".join(_nm_singular(w) for w in key.split())
-    if sg != key and sg in idx:
-        return idx[sg], "exact"
-    return None, None
-
-
-def best_sustainability_match(ing_name: str) -> Tuple[Optional[float], Optional[str], str]:
-    """Return (cf_val, matched_name, confidence). confidence ∈ {exact, alias, strong, weak, none}.
-    cf_val is None when nothing compatible was found (the ingredient then contributes 0 CO2e)."""
-    cleaned = _nm_clean(ing_name) or str(ing_name or "").strip().lower()
-    cf, src = _cf_from_name(cleaned)
-    if cf is None and _norm(ing_name) != _norm(cleaned):
-        cf, src = _cf_from_name(ing_name)
-    if cf is not None:
-        return float(cf), cleaned, (src if src in {"exact", "alias", "override"} else "exact")
-
-    # vector path: candidates -> food-class hard gate -> bm25 + overlap rerank -> cooking-state demotion
-    q_class = _nm_class(cleaned)
-    q_tok = set(_nm_tokens(cleaned))
-    q_raw = set(_TOKEN_RE.findall(str(ing_name or "").lower()))
-    cands: list[dict] = []
-    for query in (cleaned, str(ing_name or "")):
-        try:
-            hits = query_sustainability_db(query) or []
-        except Exception:
-            hits = []
-        for c in hits:
-            if not isinstance(c, dict):
-                continue
-            meta = c.get("metadata") or {}
-            cn = str(meta.get("ingredient") or meta.get("food_name") or c.get("document") or "")
-            try:
-                cv = float(meta.get("cf_val"))
-            except (TypeError, ValueError):
-                continue
-            if cv <= 0 or not _nm_compat(q_class, _nm_class(cn)):
-                continue
-            cands.append({
-                "name": cn,
-                "cf": cv,
-                "distance": c.get("distance"),
-                "rrf_score": c.get("rrf_score"),
-            })
-        if hits:
-            break
-    if not cands:
+def best_sustainability_match(ing_name: str, weight_g: float = 0.0, region: Optional[str] = None) -> Tuple[Optional[float], Optional[str], str]:
+    """(cf_val kg CO2e/kg, matched record, confidence). cf_val is None when no rule covers the ingredient (it then contributes 0 CO2e).
+    Confidence: source_reviewed (AGRIBALYSE rule), fallback (CONCITO), estimate (role average), none."""
+    cf, source, record = factor_for(ing_name, weight_g, region)
+    if cf is None:
         return None, None, "none"
-
-    corpus = [_nm_tokens(c["name"]) for c in cands]
-    bm = _nm_bm25(list(q_tok), corpus) if q_tok else [0.0] * len(cands)
-    n_q = max(1, len(q_tok))
-    max_rrf = max(
-        (float(candidate.get("rrf_score") or 0.0) for candidate in cands),
-        default=0.0,
-    )
-    best = None
-    for c, ct, b in zip(cands, corpus, bm):
-        d = c.get("distance")
-        sim = (1.0 - float(d)) if d is not None else 0.0
-        overlap = len(q_tok & set(ct))
-        rrf = (
-            float(c.get("rrf_score") or 0.0) / max_rrf
-            if max_rrf > 0.0
-            else 0.0
-        )
-        pen = 0.0
-        if overlap == 0 and sim < 0.90:
-            pen -= 0.5
-        if (_NM_MARKERS & set(_TOKEN_RE.findall(c["name"].lower()))) - q_raw:
-            pen -= 0.12
-        score = (
-            0.60 * sim
-            + 0.30 * float(b)
-            + 0.10 * rrf
-            + 0.15 * min(1.0, overlap / n_q)
-            + pen
-        )
-        if best is None or score > best[0]:
-            best = (score, sim, overlap, c)
-    score, sim, overlap, c = best
-    if score < 0.30:
-        return None, None, "none"
-    strong = score >= 0.50 and (overlap > 0 or sim >= 0.90)
-    return float(c["cf"]), c["name"], ("strong" if strong else "weak")
+    return float(cf), record, {"agribalyse": "source_reviewed", "concito": "fallback", "estimate": "estimate"}[source]
 
 
 def _to_float_or_none(value: object) -> Optional[float]:
@@ -278,10 +39,11 @@ def sustainability_tool_vector(
     serving_size_g: Optional[float] = None,
     serves: Optional[float] = None,
     min_similarity: float = 0.5,
+    region: Optional[str] = None,
 ) -> Dict:
     """
     Compute recipe carbon footprint (kg CO2e). 
-    Matches ingredients via Elasticsearch.
+    Ingredient names are mapped to AGRIBALYSE 3.2 records by reviewed name rules (CONCITO and role averages only complete the total).
     """
     details: List[Dict] = []
     total_sustainability = 0.0
@@ -290,10 +52,6 @@ def sustainability_tool_vector(
     weights = [float(weight) for weight in weights]
     if any(not math.isfinite(weight) or weight < 0 for weight in weights):
         raise ValueError("Sustainability weights must be finite, nonnegative grams.")
-    selected, reference_status = lookup_references(ingredient_names)
-    use_references = complete_recipe_selection(ingredient_names, weights, selected)
-    recipe_source = "AGRIBALYSE" if use_references else SOURCE_SUSTAINABILITY
-
     serves_value: Optional[float] = None
     if serves is not None:
         try:
@@ -303,50 +61,28 @@ def sustainability_tool_vector(
         if serves_value <= 0:
             serves_value = None
 
+    sources = set()
     for ing_name, weight_g in zip(ingredient_names, weights):
-        reference = selected.get(ing_name)
-        if use_references:
-            cf_val = reference["metrics"]["climate_change"]["value"] if reference else 0.0
-            matched_name = reference["name"] if reference else None
-            conf = ("source_exact" if reference_normalize(ing_name) == reference_normalize(matched_name)
-                    else "source_reviewed") if reference else "zero_weight"
-        else:
-            cf_val, matched_name, conf = best_sustainability_match(ing_name)
+        cf_val, matched_name, conf = best_sustainability_match(ing_name, weight_g, region)
+        source = {"source_reviewed": "agribalyse", "fallback": "concito", "estimate": "estimate"}.get(conf)
+        sources.add(source)
         provenance = {
-            "sustainability_policy": POLICY_VERSION if use_references else "legacy_v1",
-            "sustainability_reference_status": reference_status,
-            "sustainability_reference": reference if use_references else None,
-            "alternative_sustainability_reference": reference if not use_references else None,
-            "sustainability_provenance_status": "source_verified" if use_references else "legacy_unverified",
+            "sustainability_policy": POLICY_VERSION,
+            "sustainability_provenance_status": "source_verified" if source == "agribalyse" else "fallback_or_estimate" if source else "no_factor",
             "sustainability_calculation_status": "matched" if cf_val is not None else "missing_factor_partial_total",
-            "sustainability_scope": "FR consumer-product estimate; recipe cooking excluded" if use_references else "legacy lifecycle scope unverified",
+            "sustainability_scope": "FR consumer-product estimate (AGRIBALYSE no-preparation scenario); recipe cooking excluded",
         }
-
-        if cf_val is None:
-            details.append({
-                "ingredient": ing_name,
-                "matched_sustainability_ingredient": None,
-                "weight_g": float(weight_g),
-                "cf_val": None,
-                "distance": None,
-                "contribution": 0.0,
-                "sustainability_match_confidence": conf,
-                "source_sustainability": recipe_source,
-                **provenance,
-            })
-            continue
-
-        contribution = (float(weight_g) / 1000.0) * float(cf_val)
+        contribution = 0.0 if cf_val is None else (float(weight_g) / 1000.0) * float(cf_val)
         total_sustainability += contribution
         details.append({
             "ingredient": ing_name,
             "matched_sustainability_ingredient": matched_name,
             "weight_g": float(weight_g),
-            "cf_val": float(cf_val),
+            "cf_val": None if cf_val is None else float(cf_val),
             "distance": None,
             "contribution": float(contribution),
             "sustainability_match_confidence": conf,
-            "source_sustainability": recipe_source,
+            "source_sustainability": SOURCE_LABEL.get(source),
             **provenance,
         })
 
@@ -379,16 +115,15 @@ def sustainability_tool_vector(
         if sustainability_per_kg is None
         else float(sustainability_per_kg),
         "serves": serves_value,
-        "source_sustainability": recipe_source,
-        "sustainability_policy": POLICY_VERSION if use_references else "legacy_v1",
+        "source_sustainability": SOURCE_LABEL["agribalyse"] + (" + fallback" if sources & {"concito", "estimate"} else ""),
+        "sustainability_policy": POLICY_VERSION,
         "sustainability_status": recipe_status,
-        "sustainability_reference_status": reference_status,
     }
 
 
 def Sustainability_Node(state: RecipeState) -> RecipeState:
     """
-    Node to compute carbon footprint via Elasticsearch, scale by ingredient weight/serves,
+    Node to compute carbon footprint from the AGRIBALYSE name mapping, scale by ingredient weight/serves,
     and store per-ingredient details plus per-serving/total CO2e in state.
     """
     debug = bool(state.debug)
@@ -422,6 +157,7 @@ def Sustainability_Node(state: RecipeState) -> RecipeState:
         "min_similarity": state.min_similarity if state.min_similarity is not None else 0.5,
         "serving_size_g": state.serving_size_g,
         "serves": state.serves,
+        "region": state.region,
     })
 
     state.total_sustainability = res["total_sustainability"]                # kg CO2e
@@ -431,7 +167,7 @@ def Sustainability_Node(state: RecipeState) -> RecipeState:
     state.sustainability_serves = res.get("serves")
 
     if debug:
-        print(f"\n[Sustainability_Node] Computed (Elasticsearch) for recipe '{state.title}'.")
+        print(f"\n[Sustainability_Node] Computed (AGRIBALYSE mapping) for recipe '{state.title}'.")
         print(f"   total_sustainability = {res['total_sustainability']:.4f} kg CO2e")
         per_serving = res.get("total_sustainability_per_serving")
         if per_serving is not None:

@@ -21,7 +21,7 @@ else:
 # The driver is created once per process and shared: it owns the connection
 # pool, and each session() call borrows a pooled connection rather than
 # dialing a new one. Pool knobs are surfaced as env vars with driver defaults.
-driver = GraphDatabase.driver(
+_driver = GraphDatabase.driver(
     uri,
     auth=(username, password),
     max_transaction_retry_time=float(os.getenv("NEO4J_MAX_RETRY_TIME_SECONDS", "30")),
@@ -31,6 +31,37 @@ driver = GraphDatabase.driver(
     ),
     max_connection_lifetime=float(os.getenv("NEO4J_MAX_CONNECTION_LIFETIME_SECONDS", "3600")),
 )
+
+# The database sessions open when a caller names none. Unset, the server's
+# home database for this user, as before. Set when the graph shares a server
+# with other services (production: FoodScholar keeps `neo4j`, the recipe graph
+# is `recipewrangler`), since `neo4j-admin database load` replaces a whole
+# database and a recipe dump would otherwise take the neighbours' data with it.
+database = os.getenv("NEO4J_DATABASE", "").strip() or None
+
+
+class _DatabaseDriver:
+    """The shared driver; sessions and execute_query default to `database`."""
+
+    def __init__(self, inner, default_database):
+        self._inner = inner
+        self._database = default_database
+
+    def session(self, **kwargs):
+        if self._database:
+            kwargs.setdefault("database", self._database)
+        return self._inner.session(**kwargs)
+
+    def execute_query(self, *args, **kwargs):
+        if self._database:
+            kwargs.setdefault("database_", self._database)
+        return self._inner.execute_query(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
+driver = _DatabaseDriver(_driver, database)
 
 
 # Cypher clauses that mutate. Matched as whole words so a property named

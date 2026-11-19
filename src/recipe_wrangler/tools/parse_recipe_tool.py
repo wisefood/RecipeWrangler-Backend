@@ -1868,6 +1868,22 @@ def _container_total(line: str) -> Optional[str]:
     return f"{_format_quantity(count * size)} {unit}"
 
 
+_COUNT_THEN_CONTAINER_RE = re.compile(r"\s*(\d+)\s+(?:cans?|tins?|jars?|bags?|boxe?s?|packages?|packets?|tubs?)\b", re.IGNORECASE)
+_SIZE_AFTER_NAME_RE = re.compile(r"\b(?:approx\.?|approximately|about|around)\s*(\d+(?:\.\d+)?)\s*(g|grams?|kg|ml|l)\b", re.IGNORECASE)
+
+
+def _container_total_after_name(line: str) -> Optional[str]:
+    """'2 tins of tuna, drained, approx. 198g / 7 oz.': N containers whose size follows the name, so the total is N x size. Without this the
+    generic override below replaces even a correct model total with the line's leading count ('2.0 g'). A stated drained weight is left alone."""
+    text = line.replace("⁄", "/")
+    count = _COUNT_THEN_CONTAINER_RE.match(text)
+    size = _SIZE_AFTER_NAME_RE.search(text)
+    if not count or not size or int(count.group(1)) < 2 or re.search(r"\bdrained\s+weight\b", text, re.IGNORECASE):
+        return None
+    unit = _CONTAINER_UNITS.get(size.group(2).casefold(), size.group(2).casefold())
+    return f"{_format_quantity(int(count.group(1)) * float(size.group(1)))} {unit}"
+
+
 def _unsum_alternatives(measurement: str, line: str) -> Optional[str]:
     """'5 lbs A or 5 lbs B' is one choice; the model sometimes adds both amounts."""
     sides = re.split(r"\bor\b", line.replace("⁄", "/"), maxsplit=1, flags=re.IGNORECASE)
@@ -1903,6 +1919,10 @@ def _apply_deterministic_overrides(entries: List[dict], lines: List[str]) -> Non
         container_total = _container_total(line)
         if container_total is not None:
             entry["measurement"] = container_total
+            continue
+        after_name_total = _container_total_after_name(line)
+        if after_name_total is not None:
+            entry["measurement"] = after_name_total
             continue
         unsummed = _unsum_alternatives(entry.get("measurement") or "", line)
         if unsummed is not None:

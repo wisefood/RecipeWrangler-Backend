@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from recipe_wrangler.utils.food_ontology import ALLERGEN_ONTOLOGY_MAPPINGS
+from recipe_wrangler.utils.food_ontology import ALLERGEN_ONTOLOGY_MAPPINGS, expand_allergen_exclusions
 
 from recipe_wrangler.utils.consumer_suitability import (
     GROUP_RULES,
@@ -293,9 +293,14 @@ _ALLERGEN_UMBRELLAS = {
 
 
 def allergen_filter_groups(values: list[str]) -> set[str]:
-    """Resolve request spellings; preserve unrecognized identifiers verbatim."""
+    """Resolve request spellings; preserve unrecognized identifiers verbatim.
+
+    Requests are folded through the shared alias table first (the one the UI,
+    gateway and FoodChat copy: lactose -> milk, gluten implies wheat), then the
+    stored-label families below; the union is excluded.
+    """
     output: set[str] = set()
-    for value in _clean_list(values):
+    for value in _clean_list([*_clean_list(values), *expand_allergen_exclusions(values)]):
         key = value.replace("-", "_").replace(" ", "_")
         if key in _ALLERGEN_UMBRELLAS:
             output.update(_ALLERGEN_UMBRELLAS[key])

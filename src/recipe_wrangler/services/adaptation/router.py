@@ -6,7 +6,9 @@ standalone development runs.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Path
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException, Path, Query
 
 from .schemas import (
     SimulateRequest,
@@ -21,6 +23,23 @@ from .enhancement_response import EnhancementResponse
 
 
 router = APIRouter(prefix="/api/v1/recipes", tags=["adaptation"])
+
+
+@router.get("/{recipe_id}/adaptations")
+def stored_adaptation(
+    recipe_id: str = Path(..., description="Recipe ID as stored in PostgreSQL profile."),
+    mode: Literal["sustainability", "nutrition", "cost"] = Query("sustainability"),
+    region: Literal["IE", "HU", "SI", "EU"] = Query(..., description="Region of the adaptation."),
+) -> dict:
+    """The stored adaptation of a recipe for one mode and region, or the reason code and sentence when there is none."""
+    from recipe_wrangler.repositories.recipe_adaptations import get_adaptation
+    row = get_adaptation(recipe_id, mode, region)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"No stored {mode} adaptation row for recipe {recipe_id} in region {region}.")
+    if row["status"] != "adapted":
+        from .sustainability_reasons import WHY
+        row["reason"] = WHY.get(row["reason_code"]) if mode == "sustainability" else None
+    return row
 
 
 @router.post("/{recipe_id}/adapt/enhance", response_model=EnhancementResponse)

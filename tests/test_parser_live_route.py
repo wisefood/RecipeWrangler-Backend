@@ -82,6 +82,7 @@ def test_row_without_a_source_line_keeps_its_own_text():
     ('2 x 400g tins chopped tomatoes', '400.0 g', '800.0 g'),
     ('1 x 400g tin of black beans', '1.0 g', '400.0 g'),
     ('4 x 175g (6oz) chicken breasts', '4.0', '700.0 g'),
+    ('2 tins of tuna in brine, drained, approx. 198g / 7 oz. food', '2.0 g', '396.0 g'),
 ])
 def test_container_totals_come_from_source_arithmetic(line, wrong, expected):
     entries = [entry('food', wrong, '')]
@@ -141,6 +142,19 @@ def test_container_total_keeps_a_stated_drained_mass(line, measurement):
     entries = [entry('food', measurement, '')]
     parser._apply_deterministic_overrides(entries, [line])
     assert entries[0]['measurement'] == measurement
+
+
+@pytest.mark.parametrize('measurement,expected', [('2.0 g', '396.0 g'), ('396.0 g', '396.0 g')])
+def test_size_after_the_name_gives_the_total_even_when_the_model_was_right(measurement, expected):
+    entries = [entry('food', measurement, '')]
+    parser._apply_deterministic_overrides(entries, ['2 tins of tuna, approx. 198g food'])
+    assert entries[0]['measurement'] == expected
+
+
+def test_a_single_tin_with_a_size_after_the_name_is_left_to_the_model():
+    entries = [entry('food', '1.0 g', '')]
+    parser._apply_deterministic_overrides(entries, ['1 tin of tuna, approx. 198g food'])
+    assert entries[0]['measurement'] != '396.0 g'
 
 
 def test_container_total_still_applies_when_only_told_to_drain():

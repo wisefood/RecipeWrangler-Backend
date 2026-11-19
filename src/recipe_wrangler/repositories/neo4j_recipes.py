@@ -28,6 +28,7 @@ from recipe_wrangler.utils.food_ontology import (
     CLASSIFICATION_VERSION,
     FATO_ALLERGEN_CLASS_IRI,
     FATO_ALLERGEN_DECLARATION_CLASS_IRI,
+    allergen_name_terms,
 )
 from recipe_wrangler.utils.diet_tags import compute_diet_tags
 from recipe_wrangler.utils.es_recipe_evidence import allergen_filter_values, recipe_allergen_fields
@@ -1232,7 +1233,13 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
 
     results: dict[str, list[dict]] = {}
 
-    allergies = _normalize_foodchat_terms(request_data.user_profile.allergies)
+    # The CONTAINS filter below matches ingredient and FoodOn-ancestor *names*,
+    # so a canonical identifier like `tree_nut` or `crustacean_shellfish` has
+    # to become the words that name it (almond, prawn ...) before it can
+    # exclude anything. Unknown names pass through as themselves.
+    allergies = _normalize_foodchat_terms(
+        allergen_name_terms(request_data.user_profile.allergies)
+    )
     allergen_labels = allergen_filter_values(request_data.user_profile.allergies)
     exclude_ingredients = _normalize_foodchat_terms(request_data.constraints.exclude_ingredients)
     combined_exclusions = list(dict.fromkeys(allergies + exclude_ingredients))

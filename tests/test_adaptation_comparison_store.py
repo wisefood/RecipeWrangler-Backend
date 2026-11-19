@@ -483,3 +483,12 @@ def test_new_source_mass_evidence_blocks_stale_baseline_without_mutation(databas
     with pytest.raises(adapter.ComparisonLoadError, match='source_mass_requires_baseline_recalculation'):
         adapter.load_active_snapshot('recipe-1', 'irish', allow_input_estimates=True)
     assert active == before
+
+
+def test_label_state_reads_the_state_a_record_label_states():
+    from recipe_wrangler.services.adaptation.comparison_store import label_state
+    assert label_state('Beef, stewing steak, raw, lean') == 'raw'
+    assert label_state('Beef, topside, microwaved, lean') == 'cooked'
+    assert label_state('Chicken, wing quarter, casseroled, meat only') == 'cooked'
+    assert label_state('Apples, cooking, baked with sugar, flesh only') == 'cooked'
+    assert label_state('lettuce') is None and label_state('Salmon raw, smoked cooked') is None

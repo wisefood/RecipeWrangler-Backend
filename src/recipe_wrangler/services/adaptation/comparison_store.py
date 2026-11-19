@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import math
+import re
 from collections.abc import Sequence
 
 from pydantic import ValidationError
@@ -40,6 +41,16 @@ class ComparisonLoadError(ValueError):
 def _evidence(reference: str, method: str, *, stated: bool = False, proxy: bool = False) -> Evidence:
     return Evidence(reference=reference, method=method, version=VERSION,
                     status="stated" if stated else "proxy" if proxy else "inferred")
+
+
+_STATE_WORDS = (('raw', re.compile(r'\b(raw|uncooked)\b', re.I)),
+                ('cooked', re.compile(r'\b(cooked|boiled|steamed|stewed|fried|grilled|roast\w*|baked|casserol\w*|microwav\w*|poached|braised)\b', re.I)))
+
+
+def label_state(label: str) -> str | None:
+    """Preparation state a record label states in words; None when absent or when raw and cooked words both appear."""
+    found = {state for state, rx in _STATE_WORDS if rx.search(label or "")}
+    return found.pop() if len(found) == 1 else None
 
 
 def _assertions(annotation: dict, reference: str) -> dict[str, PropertyAssertion]:
@@ -178,6 +189,10 @@ def _composition(row: dict) -> ComparisonComposition:
             properties[field] = PropertyAssertion(value=normalized, evidence=_evidence(
                 reference + "/annotation/native_annotation/facets/" + field, "native_facet_mapping",
             ))
+    if "preparation_state" not in properties and label_state(facts["label"]):
+        # The annotator skips the state when it cannot resolve the food; the label still states it.
+        properties["preparation_state"] = PropertyAssertion(value=label_state(facts["label"]), evidence=_evidence(
+            reference + "/label_state_word", "label_state_word", stated=True))
     from .nutritional_variants import recover_product_claims
     properties = recover_product_claims(properties, facts['label'], reference)
     definitions = {}

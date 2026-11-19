@@ -100,10 +100,27 @@ HAM = re.compile(r'\bham\b', re.I)
 DIET_GROUPS = ('vegan', 'vegetarian', 'pescatarian')
 
 
-def restriction_problems(parts, line_texts):
+def user_restriction_problems(texts, allergens=(), diet=None):
+    """The user's own restrictions (allergens and one diet), whether or not the recipe already has the food. Same lexical detection."""
+    from recipe_wrangler.repositories.neo4j_recipes import detect_allergen_evidence_from_names
+    from recipe_wrangler.utils.consumer_suitability import dietary_keyword_evidence
+    from recipe_wrangler.utils.es_recipe_evidence import allergen_filter_groups
+    forbidden = allergen_filter_groups(list(allergens)) if allergens else set()
+    out = set()
+    for text in texts:
+        if forbidden:
+            out |= {f"{text}: contains allergen {r['allergen']} (user restriction)" for r in detect_allergen_evidence_from_names([text])
+                    if allergen_filter_groups([r['allergen']]) & forbidden}
+        if diet and dietary_keyword_evidence(text, diet)[1] == 'contains':
+            out.add(f'{text}: not {diet} (user restriction)')
+    return sorted(out)
+
+
+def restriction_problems(parts, line_texts, allergens=(), diet=None):
     """Hard safety gate: a change may not add an allergen the original recipe does not already contain, nor put a food that a
     diet excludes into a recipe that respected it. Detection is lexical, so an allergen that is only 'possible' on the new food
-    counts as added. Amount cuts add no food. Returns a list of reasons, empty when safe."""
+    counts as added. Amount cuts add no food. allergens/diet are the user's own restrictions and block regardless of the recipe.
+    Returns a list of reasons, empty when safe."""
     from recipe_wrangler.repositories.neo4j_recipes import detect_allergen_evidence_from_names
     from recipe_wrangler.utils.consumer_suitability import dietary_keyword_evidence
     new_foods = [p['candidate_label'] for p in parts if p.get('candidate_label') and p.get('operation') != 'REDUCE_AMOUNT']
@@ -117,7 +134,7 @@ def restriction_problems(parts, line_texts):
         if any(dietary_keyword_evidence(t, group)[1] == 'contains' for t in line_texts):
             continue  # the original recipe already breaks this diet
         reasons += [f'{label}: not {group}' for label in new_foods if dietary_keyword_evidence(label, group)[1] == 'contains']
-    return reasons
+    return reasons + [r for r in user_restriction_problems(new_foods, allergens, diet) if r not in reasons]
 
 
 def score(values_total, mass, fvl, food_type):
@@ -905,15 +922,15 @@ def candidate_pack(qualifying, limit=10, max_combinations=3):
     return pack
 
 
-def gate_restrictions(candidates, texts):
+def gate_restrictions(candidates, texts, allergens=(), diet=None):
     for c in candidates:
         if c.get('status') == 'qualifies':
-            bad = restriction_problems(c['changes'] if c['operation'] == 'COMBINED' else [c], texts)
+            bad = restriction_problems(c['changes'] if c['operation'] == 'COMBINED' else [c], texts, allergens, diet)
             if bad:
                 c.update(status='rejected_restriction', reasons=['restriction:' + b for b in bad])
 
 
-def adapt_snapshot(case, screen, snapshot, profile, recipe, records):
+def adapt_snapshot(case, screen, snapshot, profile, recipe, records, allergens=(), diet=None):
     """case: {recipe_id, region, title}; screen: production swap candidates and occurrences (see screen_production_swaps)."""
     title, steps = recipe.get('title') or case['title'], instructions_text(recipe)
     baked = is_baked(title, steps, snapshot)
@@ -938,7 +955,7 @@ def adapt_snapshot(case, screen, snapshot, profile, recipe, records):
                 c.update(status='rejected_nutrition', reasons=['letter_only_gain_with_baseline_match_pitfall'])
     texts = [i.original_text or i.name for i in snapshot.ingredients]
     texts += [d.get('matched_nutritional_ingredient') or '' for d in profile['details']]  # 'yoghurt (ideally strawberry or cherry)' reads as an alternative; the record does not
-    gate_restrictions(candidates, texts)
+    gate_restrictions(candidates, texts, allergens, diet)
     # Owner, 16 Nov: eggs, whole fruit, oily fish, whole nuts and seeds, and avocado are never swapped or cut.
     label_at = {d.get('position', n): (d.get('matched_nutritional_ingredient') or d.get('name') or '') for n, d in enumerate(profile['details'])}
     # Owner, 16 Nov: change the ingredients that carry the recipe's negative points, not the healthy ones.
@@ -970,7 +987,7 @@ def adapt_snapshot(case, screen, snapshot, profile, recipe, records):
         diag = diagnose(profile['nutri_score_breakdown'], profile['details'], {i.position: i.original_text or '' for i in snapshot.ingredients},
                         recipe.get('title') or case['title'])
         adds = additions(case, snapshot, profile, recipe, records, diag)
-        gate_restrictions(adds, texts)
+        gate_restrictions(adds, texts, allergens, diet)
         candidates += adds
         good = [c for c in adds if c['status'] == 'qualifies']
         order = [g['component'] for g in sorted(diag['gaps'], key=lambda g: g['points'])]  # the least-earned gap first
@@ -1230,7 +1247,7 @@ def screen_production_swaps(snapshot, profile, targets_per_metric=10):
     return out
 
 
-def adapt_active_recipe(recipe_id: str, nutrition_source: str) -> dict:
+def adapt_active_recipe(recipe_id: str, nutrition_source: str, allergens=(), diet=None) -> dict:
     """Adapt one recipe in its regional profile. Read-only; returns an unsaved result with a deterministic card."""
     from recipe_wrangler.repositories import matching_store as store
     from recipe_wrangler.tools import fetch_recipe_info as fetch
@@ -1247,14 +1264,20 @@ def adapt_active_recipe(recipe_id: str, nutrition_source: str) -> dict:
         recipe = fetch.fetch_recipe_info_by_id(recipe_id)
         _verify_source_binding(snapshot, recipe, before['profile'])
         case['title'] = recipe.get('title') or recipe_id
+        own = user_restriction_problems([i.original_text or i.name or '' for i in snapshot.ingredients], allergens, diet)
+        if own:  # a swap cannot make the recipe safe for this user, so none is offered
+            return dict(case, outcome='not_suitable_for_user', reason='recipe_breaks_user_restriction', offending=own,
+                        applied_restrictions={'allergens': list(allergens), 'diet': diet}, unsaved=True)
         screen = screen_production_swaps(snapshot, before['profile'])
         screen['live_run_id'] = before['run_id']
-        result = adapt_snapshot(case, screen, snapshot, before['profile'], recipe, release_records(snapshot.release_id))
+        result = adapt_snapshot(case, screen, snapshot, before['profile'], recipe, release_records(snapshot.release_id), allergens, diet)
         if store.active_profile(recipe_id, nutrition_source, include_provenance=True) != before:
             raise ComparisonLoadError('active_profile_changed_during_execution')
     except ComparisonLoadError as error:
         return dict(case, outcome='failed', reason=error.reason, unsaved=True)
     result['unsaved'] = True
+    if allergens or diet:
+        result['applied_restrictions'] = {'allergens': list(allergens), 'diet': diet}
     if result['outcome'] == 'enriched':
         result['card'] = enrichment_card(result['enrichment'])
     if result['outcome'] == 'adapted':

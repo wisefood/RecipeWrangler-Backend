@@ -82,3 +82,58 @@ def test_legacy_evaluators_use_the_same_gate():
     details = [{'ingredient': '100 g tofu'}, {'ingredient': '1 onion'}]
     assert service._restriction_blocked({'name': 'Cheese, gouda'}, {'name': 'tofu'}, details)
     assert not service._restriction_blocked({'name': 'tempeh'}, {'name': 'tofu'}, details)
+
+
+# ---- user restrictions (allergens and diet sent with the request) ----
+
+def user(parts, lines, allergens=(), diet=None):
+    return sg.restriction_problems(parts, lines, allergens, diet)
+
+
+def test_user_allergen_blocks_even_when_the_recipe_already_has_it():
+    # recipe has milk, so the recipe-relative gate passes; the user's milk allergy must still block
+    parts = [swap('reduced-fat crème fraîche')]
+    assert not user(parts, ['100 ml cream'])
+    assert user(parts, ['100 ml cream'], allergens=['milk'])
+
+
+def test_user_allergen_aliases_are_resolved():
+    assert user([swap('reduced-fat crème fraîche')], ['100 ml cream'], allergens=['lactose'])
+    assert user([swap('Pasta, wholewheat, spaghetti, dried, raw')], ['200 g spaghetti'], allergens=['gluten'])
+
+
+def test_user_allergen_does_not_block_other_foods():
+    assert not user([swap('Pasta, wholewheat, spaghetti, dried, raw')], ['200 g spaghetti'], allergens=['milk'])
+
+
+def test_user_diet_blocks_even_when_the_recipe_already_breaks_it():
+    parts = [swap('Turkey breast, skinless boneless raw')]
+    assert not user(parts, ['300 g beef mince'])
+    assert user(parts, ['300 g beef mince'], diet='vegetarian')
+    assert user(parts, ['300 g beef mince'], diet='pescatarian')
+
+
+def test_user_vegan_blocks_dairy_swap():
+    assert user([swap('Cheese, gouda')], ['100 g cheddar'], diet='vegan')
+    assert not user([swap('Cheese, gouda')], ['100 g cheddar'], diet='vegetarian')
+
+
+def test_user_restrictions_ignore_amount_cuts():
+    assert not user([{'operation': 'REDUCE_AMOUNT', 'source_line': '10 g butter'}], ['10 g butter'], allergens=['milk'], diet='vegan')
+
+
+def test_recipe_lines_that_break_the_user_restriction_are_listed():
+    lines = ['200 g spaghetti', '50 g butter', '1 onion']
+    assert sg.user_restriction_problems(lines, ['milk'], None) == ['50 g butter: contains allergen milk (user restriction)']
+    assert sg.user_restriction_problems(lines, [], 'vegan')
+    assert sg.user_restriction_problems(lines, [], None) == []
+
+
+def test_route_passes_the_restrictions_and_defaults_to_none(monkeypatch):
+    from recipe_wrangler.services.adaptation import router, schemas
+    seen = {}
+    monkeypatch.setattr(sg, 'adapt_active_recipe', lambda rid, src, allergens=(), diet=None: seen.update(a=list(allergens), d=diet) or {})
+    router.nutrition_adaptation(schemas.SmallGainRequest(region='IE'), 'r1')
+    assert seen == {'a': [], 'd': None}
+    router.nutrition_adaptation(schemas.SmallGainRequest(region='IE', allergens=['milk'], diet='vegan'), 'r1')
+    assert seen == {'a': ['milk'], 'd': 'vegan'}

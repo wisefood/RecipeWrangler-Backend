@@ -56,7 +56,7 @@ def nutrition_adaptation(payload: SmallGainRequest, recipe_id: str = Path(...)) 
     """Healthier version by amount cuts, curated food swaps and extra vegetables; unsaved, deterministic, no LLM."""
     from .service import _region_to_source
     from .nutrition_adaptation import adapt_active_recipe
-    return adapt_active_recipe(recipe_id, _region_to_source(payload.region))
+    return adapt_active_recipe(recipe_id, _region_to_source(payload.region), allergens=payload.allergens, diet=payload.diet)
 
 
 @router.post(

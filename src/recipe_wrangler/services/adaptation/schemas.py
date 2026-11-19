@@ -37,6 +37,8 @@ class SmallGainRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     region: Region
+    allergens: list[str] = Field(default_factory=list, description="User's allergens (e.g. milk, gluten, nuts); no swap may contain them.")
+    diet: Literal["vegan", "vegetarian", "pescatarian"] | None = Field(None, description="User's diet; no swap may break it.")
 
 
 class SuggestionsRequest(BaseModel):

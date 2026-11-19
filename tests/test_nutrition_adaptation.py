@@ -71,7 +71,7 @@ def test_router_maps_region_and_returns_unsaved_result(monkeypatch):
     from recipe_wrangler.services.adaptation import router
     from recipe_wrangler.services.adaptation.schemas import SmallGainRequest
     seen = {}
-    monkeypatch.setattr(sg, 'adapt_active_recipe', lambda rid, source: seen.update(rid=rid, source=source) or {'unsaved': True})
+    monkeypatch.setattr(sg, 'adapt_active_recipe', lambda rid, source, **_: seen.update(rid=rid, source=source) or {'unsaved': True})
     assert router.nutrition_adaptation(SmallGainRequest(region='IE'), recipe_id='abc') == {'unsaved': True}
     assert seen == {'rid': 'abc', 'source': 'irish'}
 

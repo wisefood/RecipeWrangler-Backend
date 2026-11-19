@@ -1,0 +1,257 @@
+# Status
+
+Daily record of work done, newest first; every entry carries its date. Open tasks are in [TODO.md](TODO.md); how to run and deploy is in [OPERATIONS.md](OPERATIONS.md).
+
+## 2026-11-19 — Repository tidy-up, data/ restructure, API reads reference data from Postgres
+
+- **data/ restructure (local, gitignored):** `data/` is now `recipes/`, `nutrition/` (`composition_tables/`, `reference_recipes/`, `matching/`), `portions/`, `sustainability/`, `cost/`, `images/`, `retired/`. Run and experiment outputs moved to the root `analysis/`. About 5 GB of old runs from `analysis/` and 3.8 GB from `data/` were archived (`backups/archives/*.tar.zst`, verified) and removed; the empty `deployment/` folder, the old `handoff` dump and the incident logs were deleted; `dumps/` keeps the two latest sent exports. Hardcoded paths in scripts, `src/`, tests and docs follow.
+- **API / database:** the API reads `reviewed_portion_foods`, `structured_external_portions` (11,467 rows) and `healthyfoods_nutrition` from `pipeline_static_data` instead of files, through `utils/pipeline_data_pg.load_pipeline_data_or_file` (Postgres first, warning plus file fallback). Importer: `scripts/postgres/import_pipeline_static_data.py --only ...`. The five matcher files are still read from disk, now under `data/nutrition/matching/`. Deployment steps: [OPERATIONS.md](OPERATIONS.md#runtime-reference-data-in-postgres).
+- **Docker:** the `Dockerfile` COPY lines and the `recipe-api-docker` images mount follow the new layout. The running `recipe-wrangler-api` container (baked image `matching-2026-11-04-v31`) was not rebuilt or restarted.
+- **Git:** commits `61e0464`, `ee0cc70`, `fd31362`, `cb896ac` pushed to PR #13 (`adaptation-and-matching-fixes`) after merging 9 upstream commits; local branch fast-forwarded; PR comment with the API notes posted.
+- **Docs:** every guide now has one purpose and a state date: [OPERATIONS.md](OPERATIONS.md) (run, deploy, rollback), [DATA.md](DATA.md) (reference data and stored tables), [ANALYSIS.md](ANALYSIS.md) (recipe profile pipeline and contracts), [MATCHING.md](MATCHING.md) (ingredient matching), [COST.md](COST.md) (price pipeline and cost categories), [ADAPTATION.md](ADAPTATION.md) (all four adaptation modes, rewritten from the code; cost adaptation rules moved there from COST). Previous texts are kept locally in `analysis/docs-history-2026-11-19/`. `PLAN.md` split into this file and [TODO.md](TODO.md); dated deployment records moved here from `OPERATIONS.md`; `docs/README.md` removed; `docs/specs/` (generated Elasticsearch mapping copies, untracked and unused outside one test) removed together with `scripts/catalog/dump_mappings.py` and the test that compared the copies; `catalog/es_schema.py` stays the single source for the index mappings.
+
+## 2026-11-19 (late) — Nutrition adaptation frozen, awaiting owner go for commits
+
+**Dataset:** 537 Living Lab recipes: 284 adapted (83 up a letter), 204 enriched, 49 nothing; 283 LLM rewrites, 1 code card (`llm-runs/withdrawn.json`). Frozen in `evaluation/adaptation/results/` (`nutrition_results.json`, `nutrition_llm_rewrites.json`, `living_lab_adaptations.md/.csv`, `review_table.*`, `nutrition_e2e_check.json`, `summary.json`); README updated; golden test `test_packaged_module_reproduces_the_recorded_results` now reads the frozen results.
+
+**End-to-end check (all 284, local parser, no hosted calls):** 220 pass; flags gain_not_confirmed 51, worsening 23, grade_drop 1; labels stale_baseline 32, sodium_gain_unverifiable 1; 73 of 83 claimed letter gains confirmed. No recipe is left without a Nutri-Score. Report `analysis/nutrition-adaptation-2026-11-11/e2e-final-2026-11-19/report.json` (`e2e_final_report.py`).
+
+**Changes today (all uncommitted; ham swaps blocked as unverifiable, "per person" kept on rewritten amounts, matching release manifest got the new asset paths):** rules (`food_roles.py`, `nutrition_adaptation.py`: lentil variety, implausible-fibre descriptor swaps, nut butter stays a butter, vague average fish, nicer fractions), LLM stage (`nutrition_adaptation_llm.py`: tin/bone-in/count weights, wording cleanup, tips, cut-word validator), matching/data (`hybrid.py`, `occurrence_facts.py`, `reviewed_aliases.py`, `reviewed_nutrition.json`: live profiling only), Postgres row fill for chickpea saturated fat 0.28 g/100 g (backup `backups/matching_compositions_chickpea_004005_20261119.json`), tests. Full suite: 5,403 passed, 20 deselected (`tests/test_consumer_suitability.py`, fails for a change outside this work).
+
+**Open:** commits (owner go; 4 themed + optional 5th for matching/data); hosted-parser check of the LoSalt wording (cents, not run); 33 stale baselines left unmarked; unused `llm-runs/reapplied-2026-11-19*` dirs on disk; shared vLLM still up (owner to say when to stop).
+
+## 2026-11-19 (night) — Nutrition adaptation: report relabelled, rewrite-line bugs fixed, 27-recipe re-check
+
+**Step 1, report recount** (`e2e_recount.py`, rebuilds `e2e-local-2026-11-18/report.json`): 157 pass, 138 flagged (gain_not_confirmed 110, worsening 41, pipeline_no_score 14, grade_drop 4). Labels, not failures: `stale_baseline` 32 (21 also flagged), `sodium_gain_unverifiable` (salt line <= 1 g) 29. Four further relaxations (noise correction, claims < 5% skipped, protein/fibre trade-off, LoSalt > 1 g unverifiable) exist only as the `EXT` diagnostic in `e2e_report.py` (would give 77 flagged); not agreed criteria, not applied.
+
+**Step 2, causes:**
+- Rewrite text, fixed in `display_line` (12 new tests): tin forms (plural "tins", "400g tin", "1 tin" without weight, "2 x 400g cans") now state the drained grams (60%, not for "drained weight"); a swapped meat line that lost its count states the weight; "1 X, around N kg" states the weight as a decimal ("1.5 kg", the profiler reads "1½ kg" as 2 kg). 19 stored rewrites re-applied without an LLM call into `llm-runs/reapplied-2026-11-19c` (earlier `-19`, `-19b` dirs unused, left on disk).
+- Pipeline, not fixed: unchanged line "Cream sour" is matched to "Cream ice cream" in the rewrite run (herb soup, mashed potatoes, chicken paprikash, beef in horseradish; sugar jumps). Reproduces on re-run, so it is matcher sensitivity, not random noise.
+- Baseline-side parse: "¼ chicken stock cube" reads 0.25 g (one pot roast chicken, sodium 156->484); "⅔ stock cube ... dissolved in" reads 0.7 g in 3 recipes (weight LLM).
+- Trade-offs that equal the claim: banana peanut butter, red lentil pottage (bad candidate, red -> green lentils), beef in horseradish (Parmesan -> cottage cheese). Fish cakes and peanut butter toast not diagnosed.
+
+**Step 3, no Nutri-Score:** "boiled chickpeas" is matched to `Chickpeas, dried, boiled without salt, drained` when the parser drops "boiled" from the name; that record has no saturated fat (data gap, EU table). When the name keeps "boiled" it matches `Chick pea, boiled/cooked in water` and scores. Chicken fried/stew: the unchanged line "Chicken meat, breast without skin, boneless" is unresolved (`property.food_part`) in the local run, before and after. Butter bean, béchamel, cranberry sauce records lack sugar. Decision needed: fill the missing nutrient or prefer the complete record (engine change).
+
+**Re-check** (27 recipes, local vLLM, duty 0.4, 0 failures): casserole, drumsticks, thai butternut curry, provencal now score or pass; chickpea recipes still unscored by the record gap above; lamb and roast chicken to be re-run with the decimal weight (tmux `e2e_recheck2`).
+
+**Step 4, baselines:** second local run of the 32: 31 reproduce the first run exactly (differences -35% to +120% vs stored, so deterministic, not random noise), 1 varies (sweet cheese strukli). Caveat: both runs use the local parser/weight LLM; stored profiles may come from the hosted parser, so part of the gap can be parser difference, not staleness. A re-profile write should use the production parser; needs approval, backup first. Dry-run list: `baseline-reprofile-dryrun-2026-11-19.json`. No Postgres write done.
+
+**Lamb / roast chicken re-run with decimal weight** (`e2e-local-2026-11-19c`): lamb worsening gone (energy gain 0.37 claimed, -0.05 measured); roast chicken still energy 0.41 vs 0.19 and sodium 278->332 (whole chicken with bone 1600 g -> "meat only" 2000 g: bad rewrite text/weight).
+
+**Update (later 19 Nov):**
+- Cream sour fixed in `matching/occurrence_facts.py` (`source_description_name` restores a comma-free released label); 4 recipes re-run, 3 now pass, beef in horseradish keeps its real protein trade-off.
+- Chickpea `saturated_fat_g` 0.28 g/100 g filled by hand (owner, 2026-11-19) in `matching_compositions` release `2026-10-27-v11`, record CREA 004005 (three jsonb fields); row backup `backups/matching_compositions_chickpea_004005_20261119.json`.
+- Stale baselines checked with the production models (llama-3.3-70b parse, gpt-4o-mini weights, originals only, 32 recipes, measured $0.1434 on the shared key): 8 reproduce the stored baseline (Idrija, barbecue chicken and others were local-model errors), 24 still differ from stored and match the local run (real difference between stored profile and today's pipeline). Table: `baseline-hosted-check-2026-11-19.json`. No Postgres write.
+
+Nothing committed. Hosted calls: only the 32-original baseline check above ($0.1434).
+
+## 2026-11-19 — Nutrition adaptation: local end-to-end check done, 149 of 295 flagged, fixes pending
+
+**Result:** all 295 adapted Living Lab recipes re-profiled (original and rewritten text) through the real parser, matcher and Nutri-Score, 0 failures. 146 pass, 149 flagged. Of 86 claimed letter gains, 60 confirmed, 26 not. **Not ready to freeze.** Nothing committed or deployed.
+
+Flags: gain_not_confirmed 110, worsening 41, baseline_issue 32, pipeline_no_score 14, grade_drop 4 (a recipe can carry several).
+
+**Where:** report `analysis/nutrition-adaptation-2026-11-11/e2e-local-2026-11-18/report.json` (built with `e2e_report.check`, per-recipe JSON beside it). Run script `e2e_check.py` (`--resume --duty 0.4`), local parse via shared vLLM (Qwen3-32B-AWQ, 127.0.0.1:8005, 0.50 GPU, 2 seqs, tmux `vllm_shared`, still up; shut down when the sustainability chat is done). No hosted calls.
+
+### Done this session
+- Final rewrite text per recipe = latest ok rewrite across all LLM run dirs (`merged_llm`); offline audit `check_candidates.py`: 295/295 have a current candidate and clean lines (3 database-style: ESSRG_146, 66, 94).
+- Fixes in `nutrition_adaptation_llm.py`: cookbook flour halves stated as two lines (was halving the flour), tin swapped for cooked pulses states the drained weight, recipe pasta shape kept, count rule relaxed for tin lines. `nutrition_adaptation.py`: canned chickpeas -> `boiled chickpeas` (the old name matched a record with no sugar, so no Nutri-Score). Tests added; suite 5,368 passed with `tests/test_consumer_suitability.py` deselected (its new CHICKEN EGG test fails, changed outside this session).
+- `e2e_report.py`: sodium gains from salt lines of 1 g or less are labelled unverifiable (pipeline reads them as plain salt, policy `salt_pepper_1g_per_recipe_v1`). Not yet applied to the local report.
+
+### Open (to fix next)
+1. Apply the <=1 g salt label and a stale-baseline label to the local report, then re-count the real failures.
+2. Real failures seen, cause not yet read: falafel burgers (energy 475->809, sodium 285->877), one pot roast chicken (sodium 156->484), honey roast ham (protein 16.9->0.2), herb soup (sugar 1.0->4.2), mashed potatoes (sugar 4.4->8.2), chicken paprikash (sugar 6.3->10.5), thai chilli chicken (sat fat 2.0->2.5), plus protein drops on peanut butter toast, banana peanut butter, red lentil pottage, beef in horseradish, fish cakes. Decide per recipe: parse/match error on the rewrite, bad rewrite text, or bad candidate.
+3. 14 `pipeline_no_score` (e.g. chicken fried, chicken stew, thai butternut curry, vegetables provencal): no Nutri-Score for original or rewrite.
+4. 32 `baseline_issue`: stored profile differs from today's pipeline (drained tins 210 g vs about 126 g, idrija dumplings 1121 vs 510 kcal, oven chips, chicken goujons, others). Engine requires baseline reproduction (537/537), so the fix is re-profiling stored baselines (Postgres write, needs owner approval).
+5. 26 letter gains not confirmed: separate noise and local-parser LoSalt reading from real.
+6. Then: owner reviews `review_table.md` and about 15 final texts; freeze results, review table and merged LLM outputs into `evaluation/adaptation/results/`; update `docs/PLAN.md` and README numbers (still 296 adapted / 402 LLM texts); fix golden test `test_packaged_module_reproduces_the_recorded_results`; 4 themed commits only when the owner says.
+
+### Limits
+No paid hosted run (owner). AGENTS.md exception for the shared 0.50 vLLM was not recorded (edit blocked); owner adds it if wanted.
+
+## 2026-11-18 — Diet tagging (vegetarian, vegan, pescatarian) fixed and pushed
+
+**Result:** on a scratch copy of the graph (7,743 recipes) suitable counts went vegetarian 90→3,723, vegan 33→1,314, pescatarian 75→5,019. Unknown: 89 / 94 / 36. **Live Neo4j and ES are not updated yet.**
+
+**Pushed:** commit `352ceab` on PR #13 (`adaptation-and-matching-fixes`), with a PR comment holding the explanation and numbers. Pushed from a clean checkout of origin (the local tree was 8 commits behind); only the tagging files went. Dumps not exported.
+
+### Cause
+Almost every ingredient stayed `unknown`, and the recipe roll-up turns any unknown ingredient into an unknown recipe.
+
+### What changed
+- **Pescatarian:** only meat and fish block. Suitable when no meat/fish and no unknown stock, broth, gravy, gelatine, marshmallow or kofta (`no_meat_evidence`). `possible_allergens` no longer decides suitability.
+- **Name cleaning:** quantity/prep words and synonyms stripped before positive evidence; stored names unchanged.
+- **Reviewed table:** `utils/data/reviewed_diet_ingredients.json`, 1,965 names, fills only still-unknown ingredients. Used by the batch classifier and `refresh_recipe_suitability`, so new imports reuse it. Written to the graph as `ReviewedDietIngredient`. Reviewer "strict default" rows (262 diet entries) kept `unknown`.
+- **Owner rules:** Parmesan, Pecorino, Grana Padano, Gruyère, Manchego, pesto, gelatine, Worcestershire block vegetarian; Emmental conditional; halloumi vegetarian only; wine, plain oil, margarine, vegetable stock, tortillas, custard powder, miso suitable; jelly not vegan/vegetarian. Six `DietaryRuleNote` nodes written on `--apply`.
+- **Titles:** "mac 'n' cheese" and "nice cream" no longer block vegan. Titles are never altered by the pipeline.
+- Versions unchanged: `vegan-vegetarian-v11`, `pescatarian-v9`.
+
+### Checks
+- 150-recipe audit: 90/90 suitable side correct, 52/60 blocked side. 8 false blocks traced to strict-default rows; 7 of 8 now clear.
+- Scratch run on `neo4j-scratch` (127.0.0.1:7690): 5395 tests passed. On the PR branch 7 failures also fail without this commit (`test_catalog_es_schema`, portion tests); `test_recipe_instruction_scrapers.py` fails at collection (missing `backfill_healthyfoods_instructions`).
+
+### Next
+- Go-ahead for live: back up `SUITABILITY_FOR` to `backups/`, `tag_allergens.py --replace`, classifier `--apply`, ES re-index, v5-vs-v6 diff gate before any alias switch.
+- Tomorrow: send the dumps.
+- Parser fix at source for new imports (prep words to `note`).
+- Remove `neo4j-scratch` container and `neo4j-scratch-data` volume when done; `stash@{0}` left alone.
+
+## 2026-11-18 — Sustainability (CO2e) adaptation finished and pushed
+
+**Result:** 105 of 537 Living Lab recipes (20%) adapted with lower-CO2e swaps. 392 have no valid suggestion, 40 are not scored. Same 105 in all four regions (IE, HU, SI, EU).
+
+**Pushed:** commit `fc034bd` on PR #13 (`adaptation-and-matching-fixes`, base `main`). Nothing went to main.
+
+### What changed
+- **Swap mechanism** (`services/adaptation/sustainability_adaptation.py`, `sustainability_swap_rules.py`): hotspot ingredients (≥20% of recipe CO2e) are swapped by curated rules (red meat→poultry/mince, half meat→lentils, butter→margarine, cheese→mozzarella, tuna→sardines etc.) plus related-food search. Protected foods are never swapped. Allergen/diet gate kept. Lines without a stated amount are not swap sources.
+- **CO2 factors:** pipeline now uses AGRIBALYSE 3.2 via a reviewed name mapping (`tools/sustainability_factors.py`). CONCITO and role averages only complete totals. The legacy FooDB factor path was removed from the calculator.
+- **Parser fix:** "N containers … approx. Xg" now gives N×X grams.
+- **LLM rewrites:** local Qwen3-32B (shared vLLM :8005) wrote the adapted text; 3 recipes went through capped OpenRouter. 105/105 ok. The note on each swap is one code-written CO2e sentence.
+- **Checks:** end-to-end original vs adapted run through the production profiling pipeline, 29/29 ok.
+
+### Storage and API
+- New Postgres table `recipe_adaptations` (PK `recipe_id, mode, region`; `status` adapted|no_suggestion|not_scored; generated `is_adapted` boolean). Alembic 0010 and 0011. 2148 rows loaded via `scripts/sustainability/load_adaptations.py`.
+- New endpoint `GET /api/v1/recipes/{recipe_id}/adaptations?mode=sustainability&region=IE|HU|SI|EU`. 404 if no row. Non-adapted rows carry a `reason` sentence.
+
+### Frontend hookup
+- Branch on `is_adapted`.
+- Show `adapted.title/lines/steps`, highlight `changed_positions`.
+- `benefit.tip` is the only text; `benefit.metric` gives before/after/change.
+- Flags: `provenance.flags.changes_dish_identity`, `provenance.flags.indicative`, `swap.half_lentils`.
+
+### Known limits / next
+- `/adapt/enhance` still has its own flow and a second AGRIBALYSE path (`sustainability_references`); unify onto the single mapping.
+- `scripts/sustainability/publish_release.py` is stale: update or retire.
+- White-fish swaps (→hake) are indicative only.
+- FooDB data kept (legacy).
+- Swap-search test skips until the nutrition modules (`nutrition_adaptation`, `food_roles` additions) land on the branch.
+- Nutrition rows are not in `recipe_adaptations` yet.
+- Local working tree still holds the same changes uncommitted and is behind origin; after pulling, reset these files to the pushed version.
+
+## 2026-11-17 — Nutrition LLM run (local vLLM under a one-off owner exception, last 22 on hosted qwen3-32b for $0.02)
+
+283 adapted recipes through choice + rewrite: 270 ok (95%), 6 the model judged not worth it, 7 withdrawn or failed and keep the code card (flour lines or validator limits); a bug that halved flour amounts (the rescaled-amount logic read the half-wholemeal swap as a cut) was found and fixed, all affected rewrites regenerated; local vLLM was stopped twice by its guard when free VRAM on the shared GPU suddenly fell to 1.5 GB (cause not identified), so further local runs wait for a quiet GPU; 207 enriched recipes get a code-written "serve with" card (no LLM). Outputs `analysis/nutrition-adaptation-2026-11-11/llm-runs/local-2026-11-17-full/`. Two validator gaps found and fixed the same day: a replaced cheese or cream no longer survives as a generic word in steps ("grated cheese" after cheese -> yoghurt), and code now removes the old amount of a cut ingredient from steps ("20ml of olive oil" -> "the olive oil"); the 10 affected rewrites were regenerated, 0 of 267 remain affected. The 10 failed rewrites keep the code card (the model keeps naming the swapped food, adds extra ingredient lines or mishandles a rescaled quantity). Next is the end-to-end re-profile of the rewritten texts. Files renamed: `small_gain*` -> `nutrition_adaptation.py`, `nutrition_adaptation_llm.py`, `nutrition_swap_rules.py` (route `/adapt/small-gain` unchanged).
+
+## 2026-11-17 — Sustainability rework, Living Lab dev set
+
+CO2e adaptation rebuilt on the nutrition mechanisms (`sustainability_adaptation.py`, `sustainability_swap_rules.py`): 108 adapted, no nutrition judging (cod to hake indicative, bone-in meat with edible-yield factor, tuna to sardines, prawns to mussels, half-lentil swaps in stews and curries, poultry ham added), 497 scorable, CIQUAL code join first then reviewed name rules (audited: 1.4% of CO2e questionable), 95% of the saving from red meat to poultry; AGRIBALYSE first, CONCITO fallback for totals only; diagnosis by >= 20% CO2e share, curated table plus related-food search, strict nutrition guard, protected foods. Mapping bugs fixed in the local copy (bell pepper as black pepper, stock as meat, "plain"/"cow's milk" record names). Details: [evaluation/sustainability](../evaluation/sustainability/README.md#adaptation-rework-17-november). Mapping sections A, C, D approved by the owner 18 Nov (B, fish, not approved). LLM choice + rewrite run 18 Nov (local vLLM, owner OK): full read of the rewrites found and fixed junk targets, half-lentil wording, wrong notes, database wording, leftover old foods; 106 adapted, 103 rewrites ok, 3 keep the code card. End-to-end check (30 recipes, 0 failures, 0 new allergens): 21 ok, 6 smaller gain, 3 not lower; meat, margarine, lentil swaps confirmed, fish/dairy/tin-count lines disagree because the pipeline uses other sustainability factors and misparses '2 tins'; AGRIBALYSE mapping applied to the pipeline in the working tree (uncommitted), parser fix for '2 tins of X, approx. Yg', red-to-red swaps allowed, no-amount lines skipped; final e2e 29 of 29 ok; all 105 adapted recipes have an LLM rewrite (last 3 via capped OpenRouter). UI wording, /adapt/enhance wiring and commit wait for the owner. Uncommitted.
+
+## 2026-11-16 — Nutrition rework, Living Lab dev set
+
+283 adapted, 79 up a letter, 207 enriched (served-with addition), 47 with nothing; candidates ranked by Nutri-Score points removed; full review table in the local analysis folder (was 363 / 63 / - / 174); swaps only on the ingredients carrying the negative points, descriptor search route, regional table first then EU. Same-family swap rules, protected foods, curated rows (low-sodium salt, canned to cooked pulses, skinless poultry, tuna in water, poultry sausages, lean ham, reduced-sugar ketchup/jam, feta to cottage cheese, pastry to filo), oil/butter quarter cuts, Nutri-Score diagnosis (`diagnosis.py`), additions judged per serving. Details and limits: [evaluation/adaptation](../evaluation/adaptation/README.md#nutrition-rework-16-november). Uncommitted.
+
+## 2026-11-13 — All tests green
+
+all 4,959 tests pass. Root causes: tests inherited the developer `.env` (`NUTRITION_MATCHER_MODE=new`; now pinned to legacy in `tests/conftest.py`); stale fixtures (catalogue rows without `annotation`, unversioned suitability claims) and stale expectations (1 g salt/pepper policy, gluten-free as allergen-absence filter, parser `max_tokens`). Two real matcher fixes in `contextual_parser.py`: stock cubes/powder/paste and scoped stock phrases no longer get the liquid `broth_or_stock` facet; a suppressed cut word ("breast fillet") is no longer flagged as unexplained text. Both change live matching only for newly computed profiles.
+
+## 2026-11-13 — Scripts kept for the API image
+
+scripts are not in the API image (`.dockerignore`); kept only data-pipeline/operational tools and evaluation scorers. 46 internal check/audit/pilot scripts and the tests that only tested them archived under `analysis/archived-*-2026-11-13/`; evaluation dataset CSVs now tracked (matching gold stays local, partner data); cost figures tracked.
+
+## 2026-11-13 — Push audit
+
+dead experimental matching chain (`matcher`, `foodon`, `foodon_policy`, `identity_retrieval`, `compounds`, `interfaces`, `wisefood/`) and 7 tests of gitignored analysis runners archived under `analysis/archived-*-2026-11-13/`; evaluation trimmed to one README + data/results per area (adaptation rewritten for the four modes, sustainability reports combined, nutrition repairs folded into its README); root `Fineli_Rel20` zip moved to `data/`. 50 tests still fail (pre-existing).
+
+## 2026-11-13 — Repo cleanup
+
+`matching/experimental/` (the live `new` matcher) merged into `matching/` and the folder removed; `matching/identity.py` shim and `facet_retrieval.py`, `adaptation/input_basis.py`, `restriction_evidence.py` folded into their users; 38 unreferenced one-off scripts moved to gitignored `analysis/archived-scripts-2026-11-13/`; `test_experimental_*` renamed `test_matching_*`. Backup `backups/pre_cleanup_20261113_125948.tar.gz`. Nothing committed.
+
+## 2026-11-13 — UI benefit facet
+
+every LLM-stage result now carries a separate `benefit` block (facet, free-text `tip`, code-measured `metric`, `swap`, `notes`) for nutrition, cost, sustainability and time; the model writes the sentence with a `{benefit}`/`{minutes}` placeholder and no digits, code fills the measured number; without a model tip a code sentence is used. First time example with one hosted call: Roast pork with ratatouille, 5-8 min saved. Existing nutrition/cost/sustainability results need the LLM re-run to get model tips.
+
+## 2026-11-13 — Time adaptation
+
+overlap discovery now runs code-only (`deterministic_understanding`) with any passive anchor (simmer/boil/rise/..., not just bake) and an opt-in start-only draft with no minutes claim: 49 Living Lab recipes with a candidate (Irish 43, Hungarian 6), word-overlap independence still noisy, review still required. Prepared-rice pilot removed as too specific (module, rice fields in time extraction, rice scripts; backup `backups/adaptation_untracked_20261113_112926.tar.gz`); time-extraction prompt now `source_fragments_v6`. Cleanup: five adaptation `*_models.py` merged into `services/adaptation/models.py`; unused `matching_variants.py`, the nutrition prototype launcher and four one-off pilot scripts deleted (backup `backups/adaptation_untracked_20261113_115126.tar.gz`).
+
+## 2026-11-13 — Cost mode repaired, sustainability example
+
+existing cost mode repaired (profile-format break) and tightened with the shared role filter and visible-saving floors instead of a parallel engine: 48 Living Lab recipes with a cost suggestion; end-to-end example Grilled salmon cutlets -> trout (EUR 3.80 -> 1.91/serving). Sustainability end-to-end example: Roast lamb -> roast turkey (pipeline CO2 1.82 -> 0.23 kg/serving). Next: fold sustainability into the existing sustainability mode the same way, then the single /adapt/enhance merge.
+
+## 2026-11-13 — Night (unattended): graph route and role filter
+
+graph + FoodOn route added to the nutrition screen; shared culinary-role filter (`food_roles.py`: same job in the dish, no prepared dishes, drinks or baby food as targets, no produce-for-produce, compound records excluded) -> nutrition 363 adapted (Irish 218, Hungarian 84, Slovenian 61), 63 up a letter, 81 graph-route swaps (cream -> Greek yogurt, couscous/rice -> quinoa/barley, feta -> mozzarella); baseline recalculation extracted as `make_evaluator` for every facet. Generic facet engine (`analysis/facet_candidates.py`): sustainability 433 scored / 150 with a sensible candidate (reviewed AGRIBALYSE mapping, legacy CO2 factors were wrong for courgette, milk, stock, water); cost 286 scored / 73 with a candidate (catalogue prices only 152 base foods); time coverage measured (no model). Still pending: nutrition LLM re-run on local vLLM (owner go-ahead), then time understanding on local vLLM, mapping sign-off, repo inventory.
+
+## 2026-11-12 — Night: no invisible cuts
+
+Owner: halving 1 g of salt or a few grams of oil is not a suggestion a user would accept. Amount cuts of salt, oil/fat, cheese, cream and cured meat removed (lighter-version swaps stay; sugar, sauce, jam, chocolate, nut butter and stock-cube cuts stay). 336 of 537 adapted (Irish 207, Hungarian 80, Slovenian 49), 44 up a letter; the LLM accepted 246 (Irish 155, Hungarian 64, Slovenian 27) and judged 88 not worth making, mostly the extra-vegetable fallback. Open: cheese swaps are rare (no reduced-fat feta etc. in the data), owner to decide on a different cheese type; baselines miss cooking water/stock and do not count mushrooms/onions as vegetables (inflates B-and-below).
+
+## 2026-11-12 — Evening: full LLM run
+
+on local vLLM (owner exception, see AGENTS.md): 402 of 441 adapted recipes have the LLM title/steps/lines (Irish 233, Hungarian 93, Slovenian 76) after the 16 validation failures were retried with fixed checks; 39 the model rejected every candidate and keep the deterministic card. GPU peaked at 79 C. Next: file inventory, merge into one `/adapt/enhance` endpoint, themed PRs, then sustainability.
+
+## 2026-11-12 — Afternoon: safety gate, LLM stage, end-to-end check
+
+allergen/diet safety gate, bone-in and mince rule fixes: 441 adapted. LLM stage (hosted qwen3-32b) validated on 46 recipes. End-to-end profiling check of original vs final text: 30 of 41 measured pass, 6 baseline-reproduction only, 4 pipeline noise, 1 fail. OpenRouter key near its $20 limit; full LLM run and the rest of the end-to-end check wait for credit. Next: fix the half-wholemeal-flour line, owner decisions on named dishes and filo, then commit on owner's go-ahead.
+
+## 2026-11-12 — Nutrition adaptation v1
+
+537 screening-ready recipes, 445 adapted, 92 with no sensible healthier change, 0 failed. Deterministic endpoint `POST /api/v1/recipes/{id}/adapt/small-gain`, no LLM. In the `held-baseline-repair` worktree, uncommitted. `/adapt/enhance` unchanged.
+
+## 2026-11-11 — Baseline repairs
+
+10-11 Nov repairs raised complete profiles from 357 to 458 of 576; 109 recipes still held. See [baseline repairs](../evaluation/nutrition/README.md#baseline-repairs).
+
+## 2026-11-04 — Matching release 2
+
+**State 4 Nov 18:00 UTC:** v31 image deployed; promotion `matching-release-2-2026-11` active (30,972 profiles, 15:07 UTC; reports in
+`analysis/matching-release-2/`: prepare/rehearsal/promote JSON). Projection worker draining 7,743 recipes to Neo4j/ES/cache (~12/min,
+done ~02:00 UTC 5 Nov). Rollback: `promote_matching_production rollback --promotion-id matching-release-2-2026-11` (restores rows,
+re-queues projection). Next steps: see [TODO.md](TODO.md).
+
+API code: image `wisefood/recipe-wrangler:matching-2026-11-04-v30` deployed 4 Nov (user-run compose update); v31
+(`matching-2026-11-04-v31`) built and pending deployment. Each image is the 29 Oct image (pinned by digest
+`sha256:ef7228…`) plus ten matching source files copied into `site-packages` and `/app/src`; no package operations.
+Overlay equality was verified against the workspace (711 ingredient resolutions, 40 recipe calculations, identical).
+Rollback of the code: set the compose image back to `wisefood/recipe-wrangler:matching-2026-10-29` and `up -d`.
+The compose file before the change is saved in `backups/pre_v30_backfill_20261104/`.
+
+Profiles: v31 backfill writes inactive runs (`scripts/composition/backfill_matching_profiles.py --shard i --shards 4`,
+2 CPUs / 8 GB each, watchdog on host memory and live search latency). Served profiles change only through
+`promote_matching_production.py prepare --mechanism-version … / promote [--rehearse]`, which now allows a second
+promotion within the same release, backs up every replaced row, and queues projection for every affected recipe in the
+same transaction; `rollback` restores the backups and queues projection again. Pre-backfill dumps:
+`backups/pre_v30_backfill_20261104/` (profiles table 32,680 rows verified, active pointers, deployment, promotions).
+
+## 2026-10-29 — Matching deployment recorded
+
+The saved deployment uses release `2026-10-27-v11`, database mode `new`, API mechanism `occurrence_matching_v13_quality_fixes`, and catalogue alias `recipes -> recipes_matching_20261029`. The prior `recipes_v5`, legacy matching code, immutable matching runs and predecessor serving rows remain for rollback. The saved audit records 7,743 recipes, 30,972 regional profiles and 309,536 current graph occurrences.
+
+The API container is `recipe-wrangler-api`, port 8001, restart policy `unless-stopped`. Pinned model/parser assets were packaged for offline startup; `.env` is mounted, not built into the image. Generated-image storage is the only public data mount in that recorded deployment.
+
+Deployment commands preserved from the activation run:
+
+```bash
+make build IMGTAG=wisefood/recipe-wrangler:matching-2026-10-29
+docker compose --env-file .env -f recipe-api-docker/docker-compose.yml up -d
+curl -fsS http://127.0.0.1:8001/health/matching
+```
+
+Before rerunning, verify the current release, Docker configuration, build constraints, pinned-model cache and database access. The recorded build uses the released PostgreSQL assets and cached model rather than sending operational data/secrets into the build context.
+
+Saved validation includes 125 focused regressions, offline model selection checks, a served recipe GET, an incremental temporary-recipe projection check followed by cleanup, and a full projection audit. Reference-only rows retained fingerprint `b413545a71a4db8a910e50845c8e4262`. These checks do not establish a full-suite pass, current database state, high nutrient completeness, or adaptation readiness.
+
+Evidence is under `analysis/matching_production_2026-10-29/`: `activation.json`, `final_verification.json`, `incremental_smoke.json`, `rollback_rehearsal.json`, and related deployment/preflight records. New reports go to `analysis/<run-id>/`; do not relocate these historical paths while scripts and manifests still depend on them.
+
+## Decisions
+
+| Date | Decision |
+|---|---|
+| 30 Oct | Four adaptation facets: nutrition, sustainability, cost, time |
+| 30 Oct | Curated Irish, Hungarian and Slovenian sets are the primary nutrition references |
+| 30 Oct | No external expert annotation campaign; internal and public evaluation only. Study participants judge complete platform tasks |
+| 30 Oct | Unresolved allergen status: keep the recipe and flag the uncertainty, including in filtered results. Known conflicts stay excluded; never claim confirmed absence |
+| 30 Oct | Nutrition adaptation may count meaningful improvements within the same Nutri-Score letter |
+| 30 Oct | Plan is dependency-led, no artificial deadline |
+| 3 Nov | Allergen reference is EU 1169/2011 Annex II (rules in [METHODS](../evaluation/METHODS.md)) |
+| 3 Nov | Profile diet and allergens are hard search constraints; preferred ingredients are soft |
+| 3 Nov | Gold-table restriction in matching is an evaluation run only; production keeps regional source policy |
+| 4 Nov | 165 matching-backfill gram changes approved |
+| 10 Nov | Adaptation testing focuses on the Living Lab recipes in their native region |
+| 11 Nov | "Even a small change counts" for nutrition adaptation tiers; no grade drop allowed |
+| 16 Nov | Living Lab recipes are the adaptation dev set; fix there first, then roll out |
+| 16 Nov | A recipe staying A needs a 10% gain; oil and butter may be cut by a quarter, cheese not; salt gets low-sodium salt plus a quarter less |
+| 16 Nov | Never swap or cut eggs, whole fruit, oily fish, whole nuts and seeds, avocado; poultry swaps with meat only; no olive-oil advice |
+| 16 Nov | Additions (served-with) are judged per serving, not by Nutri-Score, and carry no grade |
+| 17-18 Nov | Sustainability adaptation: protected foods apply; change only ingredients with >= 20% of recipe CO2e; nutrition is not judged at all (18 Nov: separate facet), allergen and diet gate stays; butter to margarine only; no grain swaps, no feta to cottage cheese; title-food swaps allowed and flagged; cod to hake on hold; no red meat to lentils; cheese-type swaps allowed |
+| Standing | Resource limits in the local `AGENTS.md` (not in Git); local generative LLMs prohibited; ask before paid batches and package changes |

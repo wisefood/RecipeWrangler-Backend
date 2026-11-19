@@ -1,0 +1,201 @@
+{
+ "computed": "2026-11-16",
+ "source": "nutri_score_breakdown in nutrients-recipe-profiles; one profile per recipe (irish, else eu, else others); 3,178 of 7,743 recipes have a Nutri-Score",
+ "all_recipes": {
+  "recipes": 3178,
+  "grades": {
+   "A": 2015,
+   "B": 674,
+   "C": 303,
+   "D": 147,
+   "E": 39
+  },
+  "largest_negative_component_pct": {
+   "none": 29,
+   "energy": 29,
+   "sodium": 17,
+   "sugar": 13,
+   "saturated_fat": 12
+  },
+  "largest_unearned_positive_component_pct": {
+   "fruit_veg": 44,
+   "fibre": 43,
+   "protein": 13
+  },
+  "mean_points": {
+   "energy": 0.8,
+   "sugar": 0.5,
+   "saturated_fat": 0.8,
+   "sodium": 0.8,
+   "fibre_of_5": 1.3,
+   "protein_of_5": 2.1,
+   "fruit_veg_of_5": 0.6
+  },
+  "fibre_points_le_1_pct": 66,
+  "protein_points_le_2_pct": 57,
+  "fruit_veg_points_0_pct": 73,
+  "by_grade": {
+   "A": {
+    "recipes": 2015,
+    "mean_negative_points": 1.7,
+    "mean_points": {
+     "energy": 0.6,
+     "sugar": 0.2,
+     "saturated_fat": 0.3,
+     "sodium": 0.5,
+     "fibre": 1.4,
+     "protein": 2.4,
+     "fruit_veg": 0.8
+    },
+    "protein_points_not_counted_pct": 0
+   },
+   "B": {
+    "recipes": 674,
+    "mean_negative_points": 3.4,
+    "mean_points": {
+     "energy": 0.8,
+     "sugar": 0.7,
+     "saturated_fat": 0.8,
+     "sodium": 1.0,
+     "fibre": 1.0,
+     "protein": 1.6,
+     "fruit_veg": 0.2
+    },
+    "protein_points_not_counted_pct": 0
+   },
+   "C": {
+    "recipes": 303,
+    "mean_negative_points": 6.3,
+    "mean_points": {
+     "energy": 1.5,
+     "sugar": 1.5,
+     "saturated_fat": 1.8,
+     "sodium": 1.4,
+     "fibre": 1.3,
+     "protein": 1.9,
+     "fruit_veg": 0.1
+    },
+    "protein_points_not_counted_pct": 20
+   },
+   "D": {
+    "recipes": 147,
+    "mean_negative_points": 10.4,
+    "mean_points": {
+     "energy": 2.2,
+     "sugar": 2.3,
+     "saturated_fat": 3.9,
+     "sodium": 2.0,
+     "fibre": 1.3,
+     "protein": 2.4,
+     "fruit_veg": 0.0
+    },
+    "protein_points_not_counted_pct": 67
+   },
+   "E": {
+    "recipes": 39,
+    "mean_negative_points": 1.8,
+    "mean_points": {
+     "energy": 0.4,
+     "sugar": 0.6,
+     "saturated_fat": 0.8,
+     "sodium": 0.0,
+     "fibre": 0.3,
+     "protein": 0.3,
+     "fruit_veg": 0
+    },
+    "protein_points_not_counted_pct": 8
+   }
+  }
+ },
+ "living_lab_native_region": {
+  "recipes": 537,
+  "grades": {
+   "A": 348,
+   "B": 113,
+   "C": 47,
+   "D": 29
+  },
+  "largest_negative_component_pct": {
+   "energy": 33,
+   "sodium": 29,
+   "saturated_fat": 18,
+   "sugar": 11,
+   "none": 8
+  },
+  "largest_unearned_positive_component_pct": {
+   "fruit_veg": 60,
+   "fibre": 30,
+   "protein": 10
+  },
+  "mean_points": {
+   "energy": 1.2,
+   "sugar": 0.5,
+   "saturated_fat": 1.1,
+   "sodium": 1.4,
+   "fibre_of_5": 1.6,
+   "protein_of_5": 3.1,
+   "fruit_veg_of_5": 0.6
+  },
+  "fibre_points_le_1_pct": 57,
+  "protein_points_le_2_pct": 37,
+  "fruit_veg_points_0_pct": 69,
+  "by_grade": {
+   "A": {
+    "recipes": 348,
+    "mean_negative_points": 2.3,
+    "mean_points": {
+     "energy": 0.9,
+     "sugar": 0.2,
+     "saturated_fat": 0.4,
+     "sodium": 0.9,
+     "fibre": 1.7,
+     "protein": 3.1,
+     "fruit_veg": 0.8
+    },
+    "protein_points_not_counted_pct": 0
+   },
+   "B": {
+    "recipes": 113,
+    "mean_negative_points": 5.0,
+    "mean_points": {
+     "energy": 1.2,
+     "sugar": 0.6,
+     "saturated_fat": 1.4,
+     "sodium": 1.8,
+     "fibre": 1.3,
+     "protein": 2.6,
+     "fruit_veg": 0.3
+    },
+    "protein_points_not_counted_pct": 0
+   },
+   "C": {
+    "recipes": 47,
+    "mean_negative_points": 9.4,
+    "mean_points": {
+     "energy": 2.2,
+     "sugar": 1.4,
+     "saturated_fat": 2.8,
+     "sodium": 2.9,
+     "fibre": 2.0,
+     "protein": 3.6,
+     "fruit_veg": 0.2
+    },
+    "protein_points_not_counted_pct": 28
+   },
+   "D": {
+    "recipes": 29,
+    "mean_negative_points": 14.4,
+    "mean_points": {
+     "energy": 3.0,
+     "sugar": 1.8,
+     "saturated_fat": 6.1,
+     "sodium": 3.4,
+     "fibre": 1.2,
+     "protein": 4.3,
+     "fruit_veg": 0.0
+    },
+    "protein_points_not_counted_pct": 100
+   }
+  }
+ }
+}

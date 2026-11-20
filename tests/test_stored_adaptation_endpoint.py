@@ -22,7 +22,7 @@ def fake(row):
 def test_adapted_row_is_returned(monkeypatch):
     monkeypatch.setattr(repo, "get_adaptation", fake(ADAPTED))
     r = client.get("/api/v1/recipes/r1/adaptations", params={"region": "IE"})
-    assert r.status_code == 200 and r.json()["adapted"]["title"] == "Chicken stew" and r.json()["is_adapted"] is True and "reason" not in r.json()
+    assert r.status_code == 200 and r.json()["adapted"]["title"] == "Chicken stew" and r.json()["is_adapted"] is True and r.json()["reason"] is None
 
 
 def test_no_suggestion_row_carries_the_reason_sentence(monkeypatch):
@@ -31,9 +31,17 @@ def test_no_suggestion_row_carries_the_reason_sentence(monkeypatch):
     assert body["is_adapted"] is False and body["reason_code"] == "no_lower_impact_option" and "lower-impact" in body["reason"]
 
 
-def test_missing_row_is_404(monkeypatch):
+def test_missing_row_is_404_for_a_mode_without_an_engine(monkeypatch):
     monkeypatch.setattr(repo, "get_adaptation", fake(None))
-    assert client.get("/api/v1/recipes/nope/adaptations", params={"region": "HU"}).status_code == 404
+    assert client.get("/api/v1/recipes/nope/adaptations", params={"region": "HU", "mode": "cost"}).status_code == 404
+
+
+def test_missing_row_runs_the_modes_engine(monkeypatch):
+    from recipe_wrangler.services.adaptation import adaptation_row as ar
+    monkeypatch.setattr(repo, "get_adaptation", fake(None))
+    monkeypatch.setitem(ar.MODES, "nutrition", (lambda *a: dict(ADAPTED, mode="nutrition", source="live"), False, {}))
+    body = client.get("/api/v1/recipes/r1/adaptations", params={"region": "IE", "mode": "nutrition"}).json()
+    assert body["source"] == "live" and body["is_adapted"] is True
 
 
 def test_bad_region_or_missing_region_is_422():

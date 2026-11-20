@@ -279,3 +279,23 @@ class SimulateResponse(BaseModel):
     original_co2e_per_serving_kg: Optional[float] = None
     simulated_co2e_per_serving_kg: Optional[float] = None
     co2e_reduction_per_serving_kg: Optional[float] = None
+
+
+class AdaptationResponse(BaseModel):
+    """One answer shape for every mode (a recipe_adaptations row). `adapted`, `original`, `swap` and `benefit` are filled when status is `adapted`;
+    otherwise `reason_code` and `reason` say why. `offending` and `applied_restrictions` appear when the user sent allergens or a diet."""
+
+    model_config = ConfigDict(extra="allow")
+    recipe_id: str
+    mode: Literal["nutrition", "sustainability", "cost"]
+    region: Region
+    version: str
+    status: Literal["adapted", "no_suggestion", "not_scored", "not_suitable_for_user"]
+    is_adapted: bool
+    reason_code: str | None = None
+    reason: str | None = None
+    original: dict | None = None
+    adapted: dict | None = None
+    swap: dict | list | None = None
+    benefit: dict | None = None
+    provenance: dict | None = None

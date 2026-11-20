@@ -1328,7 +1328,8 @@ def adapt_active_recipe(recipe_id: str, nutrition_source: str, allergens=(), die
     if allergens or diet:
         result['applied_restrictions'] = {'allergens': list(allergens), 'diet': diet}
     if result['outcome'] == 'enriched':
-        result['card'] = enrichment_card(result['enrichment'])
+        result['card'] = dict(enrichment_card(result['enrichment']), ingredients=[{'old': i.original_text or i.name, 'new': ''} for i in snapshot.ingredients],
+                              instructions=recipe.get('instructions'))
     if result['outcome'] == 'adapted':
         result['card'] = {'ingredients': ingredient_lines(result, snapshot),
                           'notes': list(dict.fromkeys(STEP_NOTES[c['category']] for c in result['adaptation']['changes'] if c.get('category') in STEP_NOTES)),
@@ -1346,7 +1347,41 @@ def restrict_stored_row(row, allergens=(), diet=None):
     own = user_restriction_problems(row['original']['lines'], allergens, diet)
     if own:
         return dict(row, status='not_suitable_for_user', is_adapted=False, reason_code='recipe_breaks_user_restriction', offending=own, adapted=None, swap=None, benefit=None)
-    bad = restriction_problems(row['swap'], row['original']['lines'], allergens, diet)
+    bad = restriction_problems(row['swap'] if isinstance(row['swap'], list) else [row['swap']], row['original']['lines'], allergens, diet)  # sustainability stores one swap as an object
     if bad:
         return dict(row, status='no_suggestion', is_adapted=False, reason_code='alternatives_add_allergen', offending=bad, adapted=None, swap=None, benefit=None)
     return row
+
+
+def live_row(result, region):
+    """A live `adapt_active_recipe` result in the shape of a stored `recipe_adaptations` row (code-written card, no model text)."""
+    from .nutrition_adaptation_llm import STEP_NUMBER, flat_steps
+    row = dict(recipe_id=result['recipe_id'], mode='nutrition', region=region, version='live', source='live', reason_code=None, is_adapted=False,
+               original=None, adapted=None, swap=None, benefit=None, provenance={'text': 'code_card', 'source': 'live'})
+    if result.get('applied_restrictions'):
+        row['applied_restrictions'] = result['applied_restrictions']
+    outcome, title = result['outcome'], result['title']
+    if outcome == 'not_suitable_for_user':
+        return dict(row, status='not_suitable_for_user', reason_code=result['reason'], offending=result['offending'])
+    if outcome == 'failed':
+        return dict(row, status='not_scored', reason_code='not_scored', provenance=dict(row['provenance'], reason=result.get('reason')))
+    if outcome == 'no_sensible_adaptation':
+        return dict(row, status='no_suggestion', reason_code=result.get('reason_code') or 'no_healthier_option')
+    card = result['card']
+    lines = [x['old'] for x in card['ingredients']]
+    steps = [STEP_NUMBER.sub('', x) for x in flat_steps(card.get('instructions'))]
+    if outcome == 'enriched':
+        add, serve = result['enrichment'], card['serve_with']
+        return dict(row, status='adapted', is_adapted=True, swap=[{'addition': add['addition'], 'grams_per_serving': add['grams_per_serving']}],
+                    original=dict(title=title, lines=lines, steps=steps),
+                    adapted=dict(title=title, lines=lines + [serve], steps=steps + [serve], changed_positions=[len(lines)]),
+                    benefit=dict(facet='nutrition', tip=card['benefit'], tip_source='code', metric={}, swap=[], notes=[card['note']]))
+    a = result['adaptation']
+    best = (a['gates']['improvements'] or [{'metric': 'energy_kcal'}])[0]['metric']
+    before, after = a['before_per_serving'].get(best), a['after_per_serving'].get(best)
+    return dict(row, status='adapted', is_adapted=True, swap=a['changes'],
+                original=dict(title=title, lines=lines, steps=steps),
+                adapted=dict(title=title, lines=[x['new'] or x['old'] for x in card['ingredients']], steps=steps, changed_positions=[i for i, x in enumerate(card['ingredients']) if x['new']]),
+                benefit=dict(facet='nutrition', tip='; '.join(f"{c['source_line']}: use {c.get('candidate_label') or 'less'}" for c in a['changes']), tip_source='code',
+                             metric=dict(name=best, unit='per serving', before=before, after=after, change=None if None in (before, after) else round(after - before, 3),
+                                         grade_before=a['grade_before'], grade_after=a['grade_after']), swap=[], notes=card['notes']))

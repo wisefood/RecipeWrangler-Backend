@@ -208,3 +208,45 @@ def test_stored_row_blocked_when_the_swap_adds_the_users_allergen():
 def test_stored_no_suggestion_row_is_returned_with_the_restrictions():
     out = sg.restrict_stored_row({'status': 'no_suggestion', 'reason_code': 'already_healthy'}, ['milk'])
     assert out['reason_code'] == 'already_healthy' and out['applied_restrictions']['allergens'] == ['milk']
+
+
+def live_result(outcome, **extra):
+    return dict({'recipe_id': 'r1', 'title': 'T', 'outcome': outcome}, **extra)
+
+
+def test_live_row_adapted_has_the_stored_row_shape():
+    changes = [{'position': 0, 'source_line': '200 g pasta', 'candidate_label': 'Pasta, wholewheat'}]
+    result = live_result('adapted', adaptation={'changes': changes, 'gates': {'improvements': [{'metric': 'fibre_g'}]}, 'grade_before': 'A', 'grade_after': 'A',
+                                                'before_per_serving': {'fibre_g': 3.0}, 'after_per_serving': {'fibre_g': 12.0}},
+                         card={'ingredients': [{'old': '200 g pasta', 'new': '200 g wholewheat pasta'}, {'old': 'salt', 'new': ''}], 'notes': [], 'instructions': ['1. Boil.']})
+    row = sg.live_row(result, 'IE')
+    assert row['status'] == 'adapted' and row['is_adapted'] and row['source'] == 'live'
+    assert row['adapted']['lines'] == ['200 g wholewheat pasta', 'salt'] and row['adapted']['changed_positions'] == [0]
+    assert row['benefit']['metric']['change'] == 9.0 and row['original']['steps'] == ['Boil.']
+
+
+def test_live_row_other_outcomes():
+    assert sg.live_row(live_result('no_sensible_adaptation'), 'IE')['status'] == 'no_suggestion'
+    assert sg.live_row(live_result('failed', reason='no_active_profile'), 'IE')['status'] == 'not_scored'
+    blocked = sg.live_row(live_result('not_suitable_for_user', reason='recipe_breaks_user_restriction', offending=['x']), 'IE')
+    assert blocked['status'] == 'not_suitable_for_user' and blocked['offending'] == ['x']
+    enriched = sg.live_row(live_result('enriched', enrichment={'addition': 'lentils', 'grams_per_serving': 40},
+                                       card={'serve_with': 'Serve with lentils.', 'benefit': '+2 g fibre', 'note': 'n', 'ingredients': [{'old': 'rice', 'new': ''}], 'instructions': ['Cook.']}), 'IE')
+    assert enriched['is_adapted'] and enriched['adapted']['lines'] == ['rice', 'Serve with lentils.'] and enriched['original']['lines'] == ['rice']
+
+
+def test_adaptation_row_falls_back_to_the_stored_row_when_the_live_engine_fails(monkeypatch):
+    from recipe_wrangler.repositories import recipe_adaptations
+    from recipe_wrangler.services.adaptation import adaptation_row as ar
+    stored_row = stored(['200 g pasta'], [swap('Pasta, wholewheat, dried, raw')])
+    monkeypatch.setattr(recipe_adaptations, 'get_adaptation', lambda *a: dict(stored_row))
+    monkeypatch.setitem(ar.MODES, 'sustainability', (lambda *a: {'status': 'failed', 'reason_code': 'x'}, True, {}))
+    assert ar.adaptation_row('r1', 'sustainability', 'IE', ['nuts'])['status'] == 'adapted'
+    monkeypatch.setattr(recipe_adaptations, 'get_adaptation', lambda *a: None)
+    assert ar.adaptation_row('r1', 'sustainability', 'IE', ['nuts'])['status'] == 'not_scored'
+
+
+def test_stored_row_with_a_single_swap_object_is_checked_too():
+    row = stored(['1 x tin tuna'], swap('Sardines, canned in brine, drained'))
+    assert sg.restrict_stored_row(row, ['fish'])['status'] == 'not_suitable_for_user'
+    assert sg.restrict_stored_row(stored(['pasta'], swap('Almond butter')), ['nuts'])['status'] == 'no_suggestion'

@@ -33,11 +33,11 @@ def adaptation_row(recipe_id, mode, region, allergens=(), diet=None):
     from .nutrition_adaptation import restrict_stored_row
     live, recompute_when_restricted, why = MODES[mode]
     restricted = bool(allergens or diet)
-    stored = row = get_adaptation(recipe_id, mode, region)
+    row = get_adaptation(recipe_id, mode, region)
     if live and (row is None or (restricted and recompute_when_restricted)):
         row = live(recipe_id, region, allergens, diet)
-        if row['status'] == 'failed':  # the engine could not load this recipe: fall back to the stored row, else report it as not scored
-            row = restrict_stored_row(stored, allergens, diet) if stored else dict(row, status='not_scored', is_adapted=False)
+        if row['status'] == 'failed':  # never answer a restricted request from a stored row the engine could not check
+            row = dict(row, status='not_scored', is_adapted=False)
     elif row is not None and restricted:
         row = restrict_stored_row(row, allergens, diet)
     if row is not None and row['status'] != 'adapted':

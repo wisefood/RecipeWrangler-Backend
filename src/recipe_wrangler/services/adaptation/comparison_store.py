@@ -238,11 +238,11 @@ def _composition(row: dict) -> ComparisonComposition:
 
 
 def _without_rules(value):
-    """Anatomy rule names (scoped_anatomy_v1 -> v2) are labels, not nutrition content."""
+    """Rule and parser version labels are not nutrition content; tuples and lists compare equal."""
     if isinstance(value, dict):
         return {k: _without_rules(v) for k, v in value.items()
-                if k != "rule" and not (k == "version" and str(v).startswith("scoped_anatomy"))}
-    if isinstance(value, list):
+                if k not in ("rule", "parser_version") and not (k == "version" and str(v).startswith("scoped_anatomy"))}
+    if isinstance(value, (list, tuple)):
         return [_without_rules(v) for v in value]
     return value
 

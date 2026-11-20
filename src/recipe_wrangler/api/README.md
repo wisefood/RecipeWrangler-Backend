@@ -28,7 +28,6 @@ Environment:
 - `POST /api/v1/recipes/url/preview` — safely extract schema.org Recipe JSON-LD
   from a public URL; missing values stay missing
 - `POST /api/v1/recipes/url/import` — import only a complete URL preview
-- `POST /api/v1/recipes/{recipe_id}/substitute` — swap one ingredient using Neo4j substitution graph; returns either recalculated profile or fallback modified ingredient payload
 - `POST /api/v2/tools/food_safety` — retrieve topic-ranked, cited SafeFood
   Ireland guidance
 - `POST /api/v2/recipes/search` — direct catalog search with `q` and ANDed

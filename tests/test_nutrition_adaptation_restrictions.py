@@ -235,13 +235,13 @@ def test_live_row_other_outcomes():
     assert enriched['is_adapted'] and enriched['adapted']['lines'] == ['rice', 'Serve with lentils.'] and enriched['original']['lines'] == ['rice']
 
 
-def test_adaptation_row_falls_back_to_the_stored_row_when_the_live_engine_fails(monkeypatch):
+def test_restricted_request_never_falls_back_to_the_stored_row_when_the_live_engine_fails(monkeypatch):
     from recipe_wrangler.repositories import recipe_adaptations
     from recipe_wrangler.services.adaptation import adaptation_row as ar
     stored_row = stored(['200 g pasta'], [swap('Pasta, wholewheat, dried, raw')])
     monkeypatch.setattr(recipe_adaptations, 'get_adaptation', lambda *a: dict(stored_row))
     monkeypatch.setitem(ar.MODES, 'sustainability', (lambda *a: {'status': 'failed', 'reason_code': 'x'}, True, {}))
-    assert ar.adaptation_row('r1', 'sustainability', 'IE', ['nuts'])['status'] == 'adapted'
+    assert ar.adaptation_row('r1', 'sustainability', 'IE', ['nuts'])['status'] == 'not_scored'
     monkeypatch.setattr(recipe_adaptations, 'get_adaptation', lambda *a: None)
     assert ar.adaptation_row('r1', 'sustainability', 'IE', ['nuts'])['status'] == 'not_scored'
 

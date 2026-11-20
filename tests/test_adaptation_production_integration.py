@@ -103,7 +103,7 @@ def test_cost_rejects_unsupported_proxies_category_or_insufficient_savings(flow,
     match = {"match_status": "matched", "price_scope": "detailed_product", "match_method": "exact_detail:name",
         "matched_product_id": "breast", "food_category": "meat", "cost_reference_version": "fixture-v1",
         "economic_reference_price_eur_kg": 5}
-    if issue == "broad": match["price_scope"] = "base_product"
+    if issue == "broad": match["price_scope"] = "foodon_group"
     elif issue == "version": match.pop("cost_reference_version")
     elif issue == "version_mismatch": match["cost_reference_version"] = "other-version"
     elif issue == "category": match["food_category"] = "offal"
@@ -115,10 +115,31 @@ def test_cost_rejects_unsupported_proxies_category_or_insufficient_savings(flow,
     assert result["adapted_recipe"] is None and not flow[1][0]
 
 
-def test_impact_mode_does_not_allow_nutrition_regression(flow, references):
+def test_cost_accepts_base_product_alias_matches_as_estimates(flow, references):
+    for name in (flow[0][1][0].provenance["candidate"]["document"], flow[0][1][1].provenance["candidate"]["document"]):
+        references[name] = {"match_status": "matched", "price_scope": "base_product", "match_method": "reviewed_alias:ingredient_name",
+            "matched_product_id": "base__" + name, "food_category": "meat", "cost_reference_version": "fixture-v1",
+            "economic_reference_price_eur_kg": 5}
+    references["chicken thigh"] = {**references[name], "matched_product_id": "base__thigh", "economic_reference_price_eur_kg": 10}
+    result = pipeline.enhance_recipe(flow[0][0], title="Chicken dish", instructions=["Cook the chicken thigh gently."],
+        mode="cost", score_context=context(flow[0][0]), cost_country="IE")
+    assert result["adapted_recipe"]["impact_estimate"]["evidence_status"] == "proxy"
+
+
+def test_cost_ignores_nutrition_regression_while_guards_are_off(flow, references):
     for item in flow[0][1]: item.values_per_100g.update(sugar_g=60, sodium_mg=2000, saturated_fat_g=30)
     result = pipeline.enhance_recipe(flow[0][0], title="Chicken dish", instructions=["Cook the chicken thigh gently."],
         mode="cost", score_context=context(flow[0][0]), cost_country="IE")
+    assert result["adapted_recipe"]["impact_estimate"]["metric"] == "cost_eur"
+
+
+@pytest.mark.parametrize("mode", ["cost", "sustainability"])
+def test_impact_mode_does_not_allow_nutrition_regression(flow, references, monkeypatch, mode):
+    from recipe_wrangler.services.adaptation import objective_approval
+    monkeypatch.setattr(objective_approval, "COST_NUTRITION_GUARDS", True)
+    for item in flow[0][1]: item.values_per_100g.update(sugar_g=60, sodium_mg=2000, saturated_fat_g=30)
+    result = pipeline.enhance_recipe(flow[0][0], title="Chicken dish", instructions=["Cook the chicken thigh gently."],
+        mode=mode, score_context=context(flow[0][0]), cost_country="IE")
     assert result["adapted_recipe"] is None and not flow[2][2]
     assert not result["model_calls"]
     assert all("nutrition_grade_regression" in item["objective_preflight"]["reasons"] for item in result["candidates"])
@@ -129,7 +150,9 @@ def test_impact_mode_does_not_allow_nutrition_regression(flow, references):
     ("sodium_mg", 2000., 4000.), ("sugar_g", 60., 70.),
     ("saturated_fat_g", 30., 40.), ("protein_g", 20., 10.), ("fibre_g", 5., 1.),
 ])
-def test_unchanged_or_better_grade_cannot_hide_nutrient_regression(flow, references, mode, metric, before, after):
+def test_unchanged_or_better_grade_cannot_hide_nutrient_regression(flow, references, monkeypatch, mode, metric, before, after):
+    from recipe_wrangler.services.adaptation import objective_approval
+    monkeypatch.setattr(objective_approval, "COST_NUTRITION_GUARDS", True)
     source = flow[0][0].ingredients[0].composition
     source.values_per_100g.update(energy_kcal=600., sugar_g=60., saturated_fat_g=30., sodium_mg=2000., fibre_g=5.)
     source.values_per_100g[metric] = before

@@ -31,9 +31,13 @@ def test_no_suggestion_row_carries_the_reason_sentence(monkeypatch):
     assert body["is_adapted"] is False and body["reason_code"] == "no_lower_impact_option" and "lower-impact" in body["reason"]
 
 
-def test_missing_row_is_404_for_a_mode_without_an_engine(monkeypatch):
+def test_cost_runs_its_engine_and_a_recipe_without_profile_is_not_scored(monkeypatch):
+    from fastapi import HTTPException
+    from recipe_wrangler.services.adaptation import service
     monkeypatch.setattr(repo, "get_adaptation", fake(None))
-    assert client.get("/api/v1/recipes/nope/adaptations", params={"region": "HU", "mode": "cost"}).status_code == 404
+    monkeypatch.setattr(service, "_load_profile", lambda *a: (_ for _ in ()).throw(HTTPException(404)))
+    body = client.get("/api/v1/recipes/nope/adaptations", params={"region": "HU", "mode": "cost"}).json()
+    assert body["status"] == "not_scored" and body["is_adapted"] is False
 
 
 def test_missing_row_runs_the_modes_engine(monkeypatch):

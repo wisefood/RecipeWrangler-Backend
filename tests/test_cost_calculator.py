@@ -364,3 +364,20 @@ def test_actual_catalogue_maps_chicken_wings_to_chicken_base() -> None:
     assert match["matched_product_id"] == "base__chicken"
     assert match["match_method"].startswith("reviewed_alias")
     assert match["price_scope"] == "base_product"
+
+
+def test_fish_price_forms_are_compared_only_when_both_sides_are_fresh_priced() -> None:
+    def row(pid, name, detail, level):
+        return {"food_category": "fish and seafood", "global_cost_tier": "€€€", "within_category_position": "Middle",
+            "parent_within_category_position": None, "price_evidence_confidence": "Medium", "cost_reference_version": "t",
+            "product_id": pid, "source_ingredient_id": pid, "canonical_name": name, "product_detail": detail,
+            "product_level": level, "eu_reference_price_eur_kg": 10.0, "price_ie_eur_kg": 10.0,
+            "price_hu_eur_kg": 10.0, "price_si_eur_kg": 10.0}
+    catalogue = CostCatalogue(pd.DataFrame([
+        row("base__salmon", "salmon", "", "base"), row("detail__salmon_fresh_fillets", "salmon", "fresh, fillets", "detail"),
+        row("base__trout", "trout", "", "base"), row("detail__trout_fresh_fillets", "trout", "fresh, fillets", "detail"),
+        row("base__tuna", "tuna", "", "base"), row("detail__tuna_canned", "tuna", "prepared/preserved, canned", "detail")]))
+    salmon, trout, tuna = (catalogue.resolve(name, "IE") for name in ("salmon fillet", "trout", "tuna"))
+    assert catalogue.same_price_form(salmon, trout)
+    assert not catalogue.same_price_form(salmon, tuna)
+    assert catalogue.same_price_form({"food_category": "meat"}, {"food_category": "meat"})

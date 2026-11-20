@@ -144,8 +144,31 @@ def _base_confidence(values: pd.Series) -> str:
     return labels[median_level]
 
 
+_FISH_GROUP = "fish and seafood"
+_PROCESSED_FORM = re.compile(r"smoked|prepared|preserved|canned|breaded|battered|cooked|peeled|sticks|slices|rings|sauce|\boil\b")
+_WHOLE_FORM = re.compile(r"whole|gutted")
+
+
+def _plain_fish_forms(group: pd.DataFrame) -> pd.DataFrame:
+    """Keep the plain forms that describe the fish itself: fresh fillets, else other fresh, else frozen, else all."""
+    detail = group["ingredient_detail"].fillna("").str.lower()
+    fresh, frozen = detail.str.startswith("fresh"), detail.str.startswith("frozen")
+    plain = ~detail.str.contains(_PROCESSED_FORM)
+    for keep in (fresh & plain & detail.str.contains("fillet"), fresh & plain & ~detail.str.contains(_WHOLE_FORM), fresh & plain, frozen & plain):
+        if keep.any():
+            return group[keep]
+    return group
+
+
 def build_base_lookup(selected: pd.DataFrame) -> pd.DataFrame:
-    """Build one general median price per base product and target country."""
+    """Build one general median price per base product and target country.
+
+    A fish base price uses plain fresh forms only (see _plain_fish_forms): smoked, frozen-and-breaded
+    or canned products must not move the general price of the fish.
+    """
+    fish = selected["food_group"] == _FISH_GROUP
+    selected = pd.concat([selected[~fish], *(_plain_fish_forms(g) for _, g in selected[fish].groupby(
+        ["ingredient_name", "target_country"], sort=False))], ignore_index=True)
 
     def aggregate(group: pd.DataFrame) -> pd.Series:
         values = group["estimated_eur_per_kg"]

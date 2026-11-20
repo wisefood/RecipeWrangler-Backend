@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from .nutrition_reasons import WHY as NUTRITION_WHY
 from .sustainability_reasons import WHY as SUSTAINABILITY_WHY
+from .cost_reasons import WHY as COST_WHY
 
 
 def _nutrition_live(recipe_id, region, allergens, diet):
@@ -13,17 +14,23 @@ def _nutrition_live(recipe_id, region, allergens, diet):
     return live_row(adapt_active_recipe(recipe_id, _region_to_source(region), allergens=allergens, diet=diet), region)
 
 
+def _cost_live(recipe_id, region, allergens, diet):
+    from .cost_live import adapt_active_recipe
+    from .cost_llm import client
+    return adapt_active_recipe(recipe_id, region, allergens=allergens, diet=diet, llm=client())
+
+
 def _sustainability_live(recipe_id, region, allergens, diet):
     from .sustainability_live import adapt_active_recipe
     return adapt_active_recipe(recipe_id, region, allergens=allergens, diet=diet)
 
 
 # live engine, whether a restricted request recomputes instead of checking the stored swap, reason sentences
-# ponytail: nutrition live takes minutes, so restricted nutrition checks the stored swap; cost has no engine behind this route yet
+# ponytail: nutrition live takes minutes, so restricted nutrition checks the stored swap
 MODES = {
     'nutrition': (_nutrition_live, False, NUTRITION_WHY),
     'sustainability': (_sustainability_live, True, SUSTAINABILITY_WHY),
-    'cost': (None, False, {}),
+    'cost': (_cost_live, True, COST_WHY),
 }
 
 

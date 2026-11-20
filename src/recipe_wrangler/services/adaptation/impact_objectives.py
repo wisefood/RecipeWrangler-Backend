@@ -68,8 +68,8 @@ def build_impact_objective(snapshot: ComparisonSnapshot, targets: list[Compariso
                            mode: str, country: str | None = None) -> tuple[NutrientObjective | None, list[str]]:
     """Resolve production catalogues, allowing only specific supported matches.
 
-    References are estimates. Broad/group price proxies and weak/generic emissions
-    mappings cannot establish a benefit between distinct composition variants.
+    References are estimates. Cost accepts detailed and base-product prices (alias or base matches
+    included) but not FoodOn group medians; weak/generic emissions mappings cannot establish a benefit.
     """
     from .service import COST_MIN_REDUCTION_PCT, SUSTAINABILITY_MIN_REDUCTION_PCT
     if mode not in {"cost", "sustainability"}:
@@ -100,8 +100,10 @@ def build_impact_objective(snapshot: ComparisonSnapshot, targets: list[Compariso
         record = None
         if mode == "cost":
             match = catalogue.resolve(name, country.upper())
-            if (match.get("match_status") != "matched" or match.get("price_scope") != "detailed_product"
-                    or not str(match.get("match_method", "")).startswith("exact_detail")):
+            # Owner decision: alias and base-product matches are accepted as labelled estimates; the
+            # different-product, same-category and minimum-saving checks in objective_delta still apply.
+            # The FoodOn group median stays excluded.
+            if match.get("match_status") != "matched" or match.get("price_scope") not in {"detailed_product", "base_product"}:
                 return None
             value, product, category = match.get("economic_reference_price_eur_kg"), match.get("matched_product_id"), match.get("food_category")
             version = match.get("cost_reference_version")

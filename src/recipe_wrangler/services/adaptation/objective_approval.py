@@ -17,6 +17,9 @@ from .impact_objectives import objective_delta
 from .comparison import nutrition_basis
 from .nutrition_benefit import NutritionPolicy, DEFAULT_POLICY, STRICT_POLICY, ROUNDING_TOLERANCE, assess_nutrition_benefit, validate_nutrition_policy
 
+# ponytail: off for cost until nutrition and cost are combined (docs/TODO.md); sustainability keeps its guards.
+COST_NUTRITION_GUARDS = False
+
 
 class InputScoreContext(ComparisonModel):
     """Caller-verified scoring assumptions; never inferred by the LLM.
@@ -208,16 +211,20 @@ def approve_nutrition_candidate(
                 if checked.recipe_delta_per_serving.get(metric) is None]
         return result
     # Until development cases justify trade-offs, an aggregate grade cannot excuse a nutrient regression.
+    # Cost is adapted on its own for now (owner, 19 Nov): its nutrient deltas are reported, not enforced.
+    guard = objective.metric != "cost_eur" or COST_NUTRITION_GUARDS
     for metric in mapping:
         change = checked.recipe_delta_per_serving.get(metric)
         if change is None or not math.isfinite(change):
+            if not guard:
+                continue
             result["reasons"] = ["complete_comparable_guard_nutrients_required"]
             return result
         result["nutrient_deltas_per_serving"][metric] = change
         before = checked.before["complete_totals_per_serving"][metric]
         after = checked.after["complete_totals_per_serving"][metric]
         worsened = after < before if metric in {"fibre_g", "protein_g"} else after > before
-        if worsened and not math.isclose(before, after, rel_tol=1e-9, abs_tol=1e-9):
+        if guard and worsened and not math.isclose(before, after, rel_tol=1e-9, abs_tol=1e-9):
             result["reasons"].append("nutrient_regression:" + metric)
     delta = objective_delta(checked, objective)
     if delta is None or not math.isfinite(delta):
@@ -230,7 +237,7 @@ def approve_nutrition_candidate(
     if before_grade not in grades or after_grade not in grades:
         result.update(status="blocked", reasons=["invalid_score_grade"])
         return result
-    if grades[after_grade] > grades[before_grade]:
+    if guard and grades[after_grade] > grades[before_grade]:
         result["reasons"].append("nutrition_grade_regression")
     result["impact_estimate"] = {"metric": objective.metric, "delta_per_serving": delta,
         "before_total": objective.impact_context.baseline_total,

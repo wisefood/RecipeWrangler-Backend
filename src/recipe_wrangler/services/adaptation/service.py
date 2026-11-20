@@ -601,11 +601,11 @@ def _serves_from_row(row: dict[str, Any]) -> float:
     return 1.0
 
 
-def _restriction_blocked(candidate: dict[str, Any], offender: dict[str, Any], details: list[dict[str, Any]]) -> bool:
+def _restriction_blocked(candidate: dict[str, Any], offender: dict[str, Any], details: list[dict[str, Any]], allergens=(), diet=None) -> bool:
     """Hard allergen/diet gate shared with the nutrition adaptation route (see nutrition_adaptation.restriction_problems)."""
     from .nutrition_adaptation import restriction_problems
     part = {"operation": "SWAP_FOOD", "candidate_label": candidate["name"], "matched_label": offender["name"]}
-    return bool(restriction_problems([part], [d.get("ingredient") or "" for d in details]))
+    return bool(restriction_problems([part], [d.get("ingredient") or "" for d in details], allergens, diet))
 
 
 def _evaluate_candidate(
@@ -1860,6 +1860,7 @@ def _enrich_with_cost(details: list[dict[str, Any]], region: str) -> list[dict[s
                 price = float(match["economic_reference_price_eur_kg"])
                 food_category = match.get("food_category")
                 confidence = match.get("cost_match_confidence")
+                d["cost_match"] = match
         d["cost_price_eur_kg"] = price
         d["cost_food_category"] = food_category
         d["cost_match_confidence"] = confidence
@@ -1915,6 +1916,8 @@ def _evaluate_cost_candidate(
     fvl_pct: float,
     current_grade: str,
     region: str,
+    allergens=(),
+    diet=None,
 ) -> dict[str, Any] | None:
     """Resolve CF for ``candidate``, filter, compute simulated cost, attach metadata.
 
@@ -1928,7 +1931,7 @@ def _evaluate_cost_candidate(
     # Shared culinary-role guard (all facets): same job in the dish, no prepared dishes/drinks, no produce-for-produce.
     if role_problems(offender["name"], candidate["name"]):
         return None
-    if _restriction_blocked(candidate, offender, details):
+    if _restriction_blocked(candidate, offender, details, allergens, diet):
         return None
 
     catalogue = load_cost_catalogue()
@@ -1945,6 +1948,9 @@ def _evaluate_cost_candidate(
     if offender["food_category"] and cand_category and cand_category != offender["food_category"]:
         return None
 
+    if not catalogue.same_price_form(offender["detail"].get("cost_match") or {}, match):
+        return None
+
     cand_price = float(match["economic_reference_price_eur_kg"])
     orig_price = float(offender["price_eur_kg"])
     if orig_price <= 0:
@@ -1956,7 +1962,8 @@ def _evaluate_cost_candidate(
     # Nutri-guard: simulate the swap's nutrition and drop it if the grade worsens.
     # If the candidate has no composition match we can't judge nutrition — keep it
     # (the cost benefit is known; the LLM judge is a further backstop).
-    cand_profile = _fetch_candidate_profile(candidate["name"], source)
+    from .objective_approval import COST_NUTRITION_GUARDS
+    cand_profile = _fetch_candidate_profile(candidate["name"], source) if COST_NUTRITION_GUARDS else None
     if cand_profile:
         _t, guard_per_100g, _w = _recipe_per_100g(
             details,
@@ -2037,15 +2044,29 @@ def _build_cost_explanation(
     }
 
 
+def _cost_details(row: dict[str, Any]) -> list[dict[str, Any]]:
+    """Cost needs only the stored (name, weight_g) pairs; unlike _recompute_ingredient_details it does not re-run the nutrition matcher."""
+    out = []
+    for d in row.get("nutrition_profiling_details") or []:
+        name = (d.get("name") or d.get("ingredient") or "").strip()
+        try:
+            weight = float(d.get("weight_g") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if name and weight > 0:
+            hint = d.get("sustainability_ingredient") or d.get("matched_sustainability_ingredient")
+            out.append({"ingredient": name, "weight_g": weight, "graph_name": resolve_graph_name(name, [str(hint)] if hint else [])})
+    return out
+
+
 def _generate_cost_suggestions(
-    recipe_id: str, region: str, max_swaps: int, use_llm: bool,
+    recipe_id: str, region: str, max_swaps: int, use_llm: bool, allergens=(), diet=None,
 ) -> dict[str, Any]:
     """Cost-mode orchestrator: target the top cost contributor with same-category, cheaper substitutes."""
 
     row = _load_profile(recipe_id, region)
     source = _profile_source(row, region)
-    details = _recompute_ingredient_details(row, source)
-    details = _enrich_with_cost(details, region)
+    details = _enrich_with_cost(_cost_details(row), region)
     serves = _serves_from_row(row)
 
     # Context for the nutri-guard (a cost swap must not worsen the grade).
@@ -2061,21 +2082,21 @@ def _generate_cost_suggestions(
     })
     current_total_cost_eur = sum(float(d["cost_eur"]) for d in priced)
     if current_total_cost_eur <= 0:
-        return _no_suggestions_response(
+        return dict(_no_suggestions_response(
             recipe_id, region, "cost",
             "Could not compute a recipe cost — none of the ingredients matched "
             "the cost catalogue.",
             breakdown,
-        )
+        ), reason_code="no_prices")
     current_per_serving_cost_eur = current_total_cost_eur / (serves or 1.0)
 
     offender_pool = _rank_cost_offenders(details)
     if not offender_pool:
-        return _no_suggestions_response(
+        return dict(_no_suggestions_response(
             recipe_id, region, "cost",
             "No priced ingredient has viable substitutes in the graph.",
             breakdown,
-        )
+        ), reason_code="no_substitute_found")
 
     offender: dict[str, Any] | None = None
     evaluated: list[dict[str, Any]] = []
@@ -2097,7 +2118,7 @@ def _generate_cost_suggestions(
         for cand in raw_candidates:
             result = _evaluate_cost_candidate(
                 cand, candidate_offender, details, serves, original_allergens,
-                source, fvl_pct, current_grade, region,
+                source, fvl_pct, current_grade, region, allergens, diet,
             )
             if result:
                 results.append(result)
@@ -2107,12 +2128,12 @@ def _generate_cost_suggestions(
             break
 
     if not offender or not evaluated:
-        return _no_suggestions_response(
+        return dict(_no_suggestions_response(
             recipe_id, region, "cost",
             f"No same-category substitute cuts price by at least "
             f"{int(COST_MIN_REDUCTION_PCT * 100)}% for any priced ingredient.",
             breakdown,
-        )
+        ), reason_code="no_cheaper_option")
 
     # Rank by absolute cost reduction per serving — biggest saving first,
     # FlavorDB similarity to the original as the tiebreak.

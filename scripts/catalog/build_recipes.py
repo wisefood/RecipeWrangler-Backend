@@ -577,6 +577,11 @@ def main() -> None:
             "were silently wiped once already."
         ),
     )
+    ap.add_argument(
+        "--no-swap",
+        action="store_true",
+        help="With --new-index: build the index but leave the alias alone, so it can be diffed first.",
+    )
     ap.add_argument("--dry-run", action="store_true", help="Assemble but do not write.")
     ap.add_argument("--apply", action="store_true", help="Actually write.")
     args = ap.parse_args()
@@ -722,7 +727,9 @@ def main() -> None:
 
     if not args.dry_run:
         client.refresh(target)
-        if args.new_index:
+        if args.new_index and args.no_swap:
+            logger.info("index %s built, alias %s left on its current target (--no-swap)", args.new_index, alias)
+        elif args.new_index:
             # The documents are already in `new_index`; the alias just has to
             # start pointing at it. Reindexing into yet another index (as an
             # earlier draft did) would duplicate the corpus for no reason.

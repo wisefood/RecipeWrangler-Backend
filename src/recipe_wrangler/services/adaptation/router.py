@@ -47,7 +47,7 @@ def stored_adaptation(
         raise HTTPException(status_code=404, detail=f"No stored {mode} adaptation row for recipe {recipe_id} in region {region}.")
     if row["status"] != "adapted":
         from .sustainability_reasons import WHY
-        row["reason"] = WHY.get(row["reason_code"]) if mode == "sustainability" else None
+        row["reason"] = WHY.get(row["reason_code"]) if mode == "sustainability" else (row.get("provenance") or {}).get("reason")
     return row
 
 

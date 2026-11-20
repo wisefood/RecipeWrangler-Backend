@@ -1237,6 +1237,12 @@ def release_records(release_id: str) -> list[dict]:
     return _RECORDS[release_id]
 
 
+def _memo(cache, key, compute):
+    if key not in cache:
+        cache[key] = compute()
+    return cache[key]
+
+
 def screen_production_swaps(snapshot, profile, targets_per_metric=10):
     """Production product/part variants through compare_raw_part and the approval function (as in the 11 Nov screen)."""
     from .comparison import compare_raw_part
@@ -1257,10 +1263,11 @@ def screen_production_swaps(snapshot, profile, targets_per_metric=10):
         ranked = sorted((i for i in snapshot.ingredients if i.composition is not None and (i.composition.values_per_100g.get(metric) or 0) > 0),
                         key=lambda i: -i.composition.values_per_100g[metric] * i.quantity.weight_g)
         for rank, item in enumerate(ranked[:targets_per_metric]):
+            # Results depend on the position only, so each lookup runs once per position across metrics.
             routes = [('nutritional_variant', lambda: nutritional_variant_records(snapshot, item.position, metric)),
-                      ('food_part_variant', lambda: part_rows.setdefault(item.position, food_part_candidate_records(snapshot, item.position)[0]))]
+                      ('food_part_variant', lambda: _memo(part_rows, item.position, lambda: food_part_candidate_records(snapshot, item.position)[0]))]
             if rank < GRAPH_POSITIONS_PER_METRIC:  # graph/FoodOn retrieval is slow: only the biggest contributors
-                routes.append(('graph_foodon', lambda: graph_rows.setdefault(item.position, production_candidate_records(snapshot, item.position)[0])))
+                routes.append(('graph_foodon', lambda: _memo(graph_rows, item.position, lambda: production_candidate_records(snapshot, item.position)[0])))
             for route, lookup in routes:
                 try:
                     rows = lookup()

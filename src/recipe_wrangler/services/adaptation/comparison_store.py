@@ -237,6 +237,16 @@ def _composition(row: dict) -> ComparisonComposition:
     )
 
 
+def _without_rules(value):
+    """Anatomy rule names (scoped_anatomy_v1 -> v2) are labels, not nutrition content."""
+    if isinstance(value, dict):
+        return {k: _without_rules(v) for k, v in value.items()
+                if k != "rule" and not (k == "version" and str(v).startswith("scoped_anatomy"))}
+    if isinstance(value, list):
+        return [_without_rules(v) for v in value]
+    return value
+
+
 def load_active_snapshot(recipe_id: str, nutrition_source: NutritionSource, *,
                          allow_input_estimates: bool = False) -> ComparisonSnapshot:
     """Load an active run; opt-in production assumptions remain explicit proxies."""
@@ -284,7 +294,7 @@ def load_active_snapshot(recipe_id: str, nutrition_source: NutritionSource, *,
             if row is None:
                 issues.append(f"occurrence:{position}.selected_composition_not_found")
             else:
-                if matching_store.digest(source_anatomy(row["annotation"])) != matching_store.digest(source_anatomy(facts)):
+                if matching_store.digest(_without_rules(source_anatomy(row["annotation"]))) != matching_store.digest(_without_rules(source_anatomy(facts))):
                     raise ComparisonLoadError("saved_selection_source_mismatch", blocked=True)
                 composition = _composition(row)
                 saved_values = detail.get("values_per_100g") or {}

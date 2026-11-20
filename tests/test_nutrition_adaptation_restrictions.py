@@ -184,3 +184,27 @@ def test_graph_failure_falls_back_to_keywords(monkeypatch):
     monkeypatch.setattr(sg, 'USE_TAGS', True)
     monkeypatch.setattr(sg, 'ingredient_tags', lambda keys: (_ for _ in ()).throw(RuntimeError('neo4j down')))
     assert user([swap('Cheese, gouda')], ['100 g tofu'], diet='vegan')
+
+
+def stored(lines, parts, status='adapted'):
+    return {'status': status, 'is_adapted': status == 'adapted', 'original': {'lines': lines}, 'adapted': {'lines': lines}, 'swap': parts, 'benefit': {'tip': 't'}}
+
+
+def test_stored_row_passes_when_nothing_conflicts():
+    row = stored(['200 g pasta'], [swap('Pasta, wholewheat, dried, raw')])
+    assert sg.restrict_stored_row(row, ['nuts'], 'vegetarian')['status'] == 'adapted'
+
+
+def test_stored_row_blocked_when_recipe_has_the_users_allergen():
+    out = sg.restrict_stored_row(stored(['200 g dried pasta'], [swap('Pasta, wholewheat, dried, raw')]), ['gluten'])
+    assert out['status'] == 'not_suitable_for_user' and out['reason_code'] == 'recipe_breaks_user_restriction' and out['offending']
+
+
+def test_stored_row_blocked_when_the_swap_adds_the_users_allergen():
+    out = sg.restrict_stored_row(stored(['1 tbsp oil'], [swap('Almond butter')]), ['nuts'])
+    assert out['status'] == 'no_suggestion' and out['reason_code'] == 'alternatives_add_allergen' and out['swap'] is None
+
+
+def test_stored_no_suggestion_row_is_returned_with_the_restrictions():
+    out = sg.restrict_stored_row({'status': 'no_suggestion', 'reason_code': 'already_healthy'}, ['milk'])
+    assert out['reason_code'] == 'already_healthy' and out['applied_restrictions']['allergens'] == ['milk']

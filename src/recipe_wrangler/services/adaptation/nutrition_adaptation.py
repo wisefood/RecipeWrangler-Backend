@@ -1334,3 +1334,19 @@ def adapt_active_recipe(recipe_id: str, nutrition_source: str, allergens=(), die
                           'notes': list(dict.fromkeys(STEP_NOTES[c['category']] for c in result['adaptation']['changes'] if c.get('category') in STEP_NOTES)),
                           'instructions': recipe.get('instructions')}
     return result
+
+
+def restrict_stored_row(row, allergens=(), diet=None):
+    """A stored nutrition row (recipe_adaptations) checked against the user's allergens and diet; no live search.
+    Adapted row: kept when the original lines and the swapped-in foods pass, else `no_suggestion` with the offending foods.
+    ponytail: a blocked swap gets no alternative (the live search takes minutes); a `no_suggestion` row has no stored lines to check."""
+    row = dict(row, applied_restrictions={'allergens': list(allergens), 'diet': diet})
+    if row['status'] != 'adapted':
+        return row
+    own = user_restriction_problems(row['original']['lines'], allergens, diet)
+    if own:
+        return dict(row, status='not_suitable_for_user', is_adapted=False, reason_code='recipe_breaks_user_restriction', offending=own, adapted=None, swap=None, benefit=None)
+    bad = restriction_problems(row['swap'], row['original']['lines'], allergens, diet)
+    if bad:
+        return dict(row, status='no_suggestion', is_adapted=False, reason_code='alternatives_add_allergen', offending=bad, adapted=None, swap=None, benefit=None)
+    return row

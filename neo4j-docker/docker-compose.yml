@@ -5,15 +5,15 @@ services:
     build: .
     container_name: neo4j-apoc
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
     volumes:
       - neo4j-data:/data
       - neo4j-logs:/logs
       - neo4j-import:/var/lib/neo4j/import
     restart: always
     environment:
-      - NEO4J_AUTH=neo4j/password123
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:?run with --env-file ../.env}
       - NEO4J_apoc_export_file_enabled=true
       - NEO4J_apoc_import_file_enabled=true
       - NEO4J_apoc_import_file_use__neo4j__config=true

@@ -25,6 +25,7 @@ __pycache__/
 *.pkl
 *.jsonl
 *.csv
+!src/recipe_wrangler/tools/data/*.csv
 *.xlsx
 .idea/
 /deployment
@@ -162,8 +163,17 @@ CLAUDE.md
 # Repository documentation kept in Git despite the local docs workspace ignore.
 !/docs/
 /docs/*
-!/docs/README.md
-!/docs/Living_Lab_feedback_aggregated(RecipeWrangler).csv
+!/docs/PLAN.md
+!/docs/ANALYSIS.md
+!/docs/MATCHING.md
+!/docs/ADAPTATION.md
+!/docs/COST.md
+!/docs/DATA.md
+!/docs/figures/
+!/docs/figures/*.png
+/docs/figures/recipe_profile_distributions.png
+!/docs/OPERATIONS.md
+!/docs/feedback/
 
 # Alembic is the reproducible PostgreSQL schema history.
 !/alembic/
@@ -171,3 +181,32 @@ CLAUDE.md
 !/alembic/versions/
 !/alembic/versions/*.py
 !/alembic.ini
+
+/analysis/*
+!/analysis/README.md
+!/analysis/documentation_inventory.csv
+
+# Internal security incident report (do not commit)
+SECURITY_INCIDENT_*.md
+
+# Evaluation: working, repair and rollback artifacts stay local (only README/data/results are shared)
+/evaluation/**/activation-backups/
+/evaluation/**/*-resource.json
+/evaluation/**/*-receipt.json
+/evaluation/**/__pycache__/
+/evaluation/nutrition/*-repair-*/
+/evaluation/nutrition/*-refresh-*/
+/evaluation/nutrition/*-rematch-*/
+/evaluation/nutrition/*-fallback-*/
+/evaluation/nutrition/*-reconstruction-*/
+/evaluation/sustainability/data/
+
+# Evaluation datasets and predictions belong in the repo; matching gold/predictions are
+# Living Lab partner-derived and stay local until publication is agreed.
+!/evaluation/*/data/*.csv
+!/evaluation/*/results/*.csv
+/evaluation/matching/data/*.csv
+/evaluation/matching/results/*.csv
+
+# Temporary Neo4j data written by scripts/maintenance/dump_all_lite.py
+/.neo4j-dump-staging/

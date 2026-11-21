@@ -61,11 +61,11 @@ from recipe_wrangler.catalog.writer import commit as commit_recipe  # noqa: E402
 REGIONS = [("IE", "irish"), ("HU", "hungarian"), ("EU", "eu"), ("SI", "slovenian")]
 
 DATASETS = {
-    "supervalu": REPO_ROOT / "data" / "SuperValu" / "supervalu.json",
-    "hungarysoul": REPO_ROOT / "data" / "TheHungarySoul" / "thehungarysoul.json",
-    "bestofhungary": REPO_ROOT / "data" / "BestOfHungary" / "bestofhungary.json",
-    "irishheart": REPO_ROOT / "data" / "IrishHeart" / "irish-heart.json",
-    "sloveniankitchen": REPO_ROOT / "data" / "SlovenianKitchen" / "slovenian-kitchen.json",
+    "supervalu": REPO_ROOT / "data" / "recipes" / "supervalu" / "supervalu.json",
+    "hungarysoul": REPO_ROOT / "data" / "recipes" / "hungary_soul" / "thehungarysoul.json",
+    "bestofhungary": REPO_ROOT / "data" / "recipes" / "best_of_hungary" / "bestofhungary.json",
+    "irishheart": REPO_ROOT / "data" / "recipes" / "irish_heart" / "irish-heart.json",
+    "sloveniankitchen": REPO_ROOT / "data" / "recipes" / "slovenian_kitchen" / "slovenian-kitchen.json",
 }
 
 CHECKPOINT = REPO_ROOT / "data" / "checkpoints" / "import_web_scraped_recipes.json"

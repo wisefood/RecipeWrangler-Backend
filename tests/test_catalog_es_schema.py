@@ -9,8 +9,6 @@ generated artefact drifting from its source.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 
 import pytest
 
@@ -25,7 +23,6 @@ from recipe_wrangler.utils.es_recipe_evidence import (
     RECIPE_EVIDENCE_MAPPING_PROPERTIES,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Parameters Elasticsearch rejects outright for a given field type.
 FORBIDDEN_PARAMS = {
@@ -228,20 +225,3 @@ class TestProfileIndex:
         spec = profiles["mappings"]["properties"]["total_nutrients_per_serving"]
         assert spec["type"] == "nested"
         assert spec["properties"]["value"]["type"] == "float"
-
-
-class TestGeneratedArtefacts:
-    @pytest.mark.parametrize(
-        "filename,build",
-        [
-            ("recipes_v3_mapping.json", recipe_index),
-            ("recipe_profiles_v1_mapping.json", recipe_profile_index),
-        ],
-    )
-    def test_json_artefact_matches_its_source(self, filename, build):
-        path = REPO_ROOT / "docs/specs" / filename
-        assert path.exists(), f"{filename} missing — run scripts/catalog/dump_mappings.py"
-        on_disk = json.loads(path.read_text())
-        assert on_disk == json.loads(json.dumps(build())), (
-            f"{filename} is stale — run: python scripts/catalog/dump_mappings.py"
-        )

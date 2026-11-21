@@ -15,7 +15,7 @@ from recipe_wrangler.utils.env_loader import load_runtime_env
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SNAPSHOT_ROOT = REPO_ROOT / "data/processed/ingredient_parsing_final/2026-09-24"
+SNAPSHOT_ROOT = REPO_ROOT / "data/recipes/parsed_snapshot/2026-09-24"
 DEFAULT_AUDIT = SNAPSHOT_ROOT / "weight/final_deterministic_weight_audit.json"
 DEFAULT_OUTPUT = SNAPSHOT_ROOT / "weight/llm/gpt_oss_120b_pending_review.jsonl"
 MODEL = "openai/gpt-oss-120b:exacto"

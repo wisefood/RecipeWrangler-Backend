@@ -1,0 +1,952 @@
+{
+ "baseline-100": {
+  "original_baseline": {
+   "recipes": 100,
+   "source_lines": 545,
+   "normalized_primary_ingredients": 546,
+   "schema_valid_recipes": 97,
+   "primary_food_head": {
+    "correct": 497,
+    "gold_eligible": 537,
+    "predicted_eligible": 518,
+    "precision": 0.9594594594594594,
+    "recall": 0.925512104283054,
+    "f1": 0.9421800947867299
+   },
+   "primary_food_information_any_field": {
+    "correct": 517,
+    "gold_eligible": 537,
+    "predicted_eligible": 518,
+    "precision": 0.9980694980694981,
+    "recall": 0.962756052141527,
+    "f1": 0.9800947867298578
+   },
+   "food_head_valid_outputs_only": {
+    "correct": 497,
+    "eligible": 518
+   },
+   "quantity": {
+    "correct": 519,
+    "eligible": 544,
+    "fraction": 0.9540441176470589
+   },
+   "quantity_valid_outputs_only": {
+    "correct": 519,
+    "eligible": 524,
+    "fraction": 0.9904580152671756
+   },
+   "unit_compatibility": {
+    "correct": 521,
+    "eligible": 545,
+    "fraction": 0.9559633027522936
+   },
+   "unit_valid_outputs_only": {
+    "correct": 521,
+    "eligible": 525,
+    "fraction": 0.9923809523809524
+   },
+   "explicit_native_unit_preservation": {
+    "correct": 371,
+    "eligible": 385,
+    "fraction": 0.9636363636363636
+   },
+   "range_display": {
+    "correct": 7,
+    "eligible": 7,
+    "fraction": 1.0
+   },
+   "unspecified_amount_preservation": {
+    "correct": 44,
+    "eligible": 52,
+    "fraction": 0.8461538461538461
+   },
+   "unspecified_amount_preservation_valid_outputs_only": {
+    "correct": 44,
+    "eligible": 49,
+    "fraction": 0.8979591836734694
+   },
+   "annotated_detail_retention": {
+    "PART": {
+     "retained": 14,
+     "gold_annotations": 14,
+     "recall": 1.0
+    },
+    "PROCESS": {
+     "retained": 140,
+     "gold_annotations": 152,
+     "recall": 0.9210526315789473
+    },
+    "PHYSICAL_QUALITY": {
+     "retained": 113,
+     "gold_annotations": 122,
+     "recall": 0.9262295081967213
+    },
+    "TASTE": {
+     "retained": 18,
+     "gold_annotations": 20,
+     "recall": 0.9
+    },
+    "COLOR": {
+     "retained": 31,
+     "gold_annotations": 32,
+     "recall": 0.96875
+    },
+    "PURPOSE": {
+     "retained": 16,
+     "gold_annotations": 17,
+     "recall": 0.9411764705882353
+    },
+    "DIET": {
+     "retained": 2,
+     "gold_annotations": 2,
+     "recall": 1.0
+    }
+   },
+   "cross_field_ingredient_status": {
+    "pass": 504,
+    "review": 8,
+    "fail": 34
+   },
+   "cross_field_recipe_status": {
+    "pass": 79,
+    "review": 6,
+    "fail": 15
+   },
+   "scored_field_ingredient_status": {
+    "pass": 485,
+    "fail": 53,
+    "review": 8
+   },
+   "scored_field_recipe_status": {
+    "pass": 67,
+    "fail": 29,
+    "review": 4
+   },
+   "low_overlap_or_food_mismatch_review_count": 24,
+   "extra_unaligned_predictions": 0,
+   "identity_unscored_gold_ids": [
+    "tasteset:59:3",
+    "tasteset:93:2",
+    "tasteset:682:1",
+    "tasteset:103:5",
+    "tasteset:903:2",
+    "tasteset:401:2",
+    "tasteset:947:5",
+    "tasteset:947:6",
+    "tasteset:392:3"
+   ],
+   "quantity_unscored_gold_ids": [
+    "tasteset:49:0",
+    "tasteset:392:4"
+   ],
+   "unit_unscored_gold_ids": [
+    "tasteset:49:0"
+   ],
+   "limitations": "Retrospective primary-food-head retention and numeric/unit/annotation-retention scores under published rules. Not exact NER/full semantic accuracy; unexported typed precision not assessed. Updated replay reuses original generations and retains original3 schema failures."
+  },
+  "updated_postprocessing_replay": {
+   "recipes": 100,
+   "source_lines": 545,
+   "normalized_primary_ingredients": 546,
+   "schema_valid_recipes": 97,
+   "primary_food_head": {
+    "correct": 498,
+    "gold_eligible": 537,
+    "predicted_eligible": 518,
+    "precision": 0.9613899613899614,
+    "recall": 0.9273743016759777,
+    "f1": 0.9440758293838863
+   },
+   "primary_food_information_any_field": {
+    "correct": 517,
+    "gold_eligible": 537,
+    "predicted_eligible": 518,
+    "precision": 0.9980694980694981,
+    "recall": 0.962756052141527,
+    "f1": 0.9800947867298578
+   },
+   "food_head_valid_outputs_only": {
+    "correct": 498,
+    "eligible": 518
+   },
+   "quantity": {
+    "correct": 522,
+    "eligible": 544,
+    "fraction": 0.9595588235294118
+   },
+   "quantity_valid_outputs_only": {
+    "correct": 522,
+    "eligible": 524,
+    "fraction": 0.9961832061068703
+   },
+   "unit_compatibility": {
+    "correct": 524,
+    "eligible": 545,
+    "fraction": 0.9614678899082569
+   },
+   "unit_valid_outputs_only": {
+    "correct": 524,
+    "eligible": 525,
+    "fraction": 0.9980952380952381
+   },
+   "explicit_native_unit_preservation": {
+    "correct": 374,
+    "eligible": 385,
+    "fraction": 0.9714285714285714
+   },
+   "range_display": {
+    "correct": 7,
+    "eligible": 7,
+    "fraction": 1.0
+   },
+   "unspecified_amount_preservation": {
+    "correct": 47,
+    "eligible": 52,
+    "fraction": 0.9038461538461539
+   },
+   "unspecified_amount_preservation_valid_outputs_only": {
+    "correct": 47,
+    "eligible": 49,
+    "fraction": 0.9591836734693877
+   },
+   "annotated_detail_retention": {
+    "PART": {
+     "retained": 14,
+     "gold_annotations": 14,
+     "recall": 1.0
+    },
+    "PROCESS": {
+     "retained": 140,
+     "gold_annotations": 152,
+     "recall": 0.9210526315789473
+    },
+    "PHYSICAL_QUALITY": {
+     "retained": 113,
+     "gold_annotations": 122,
+     "recall": 0.9262295081967213
+    },
+    "TASTE": {
+     "retained": 18,
+     "gold_annotations": 20,
+     "recall": 0.9
+    },
+    "COLOR": {
+     "retained": 31,
+     "gold_annotations": 32,
+     "recall": 0.96875
+    },
+    "PURPOSE": {
+     "retained": 16,
+     "gold_annotations": 17,
+     "recall": 0.9411764705882353
+    },
+    "DIET": {
+     "retained": 2,
+     "gold_annotations": 2,
+     "recall": 1.0
+    }
+   },
+   "cross_field_ingredient_status": {
+    "pass": 510,
+    "review": 8,
+    "fail": 28
+   },
+   "cross_field_recipe_status": {
+    "pass": 84,
+    "review": 6,
+    "fail": 10
+   },
+   "scored_field_ingredient_status": {
+    "pass": 492,
+    "review": 8,
+    "fail": 46
+   },
+   "scored_field_recipe_status": {
+    "pass": 73,
+    "review": 4,
+    "fail": 23
+   },
+   "low_overlap_or_food_mismatch_review_count": 23,
+   "extra_unaligned_predictions": 0,
+   "identity_unscored_gold_ids": [
+    "tasteset:59:3",
+    "tasteset:93:2",
+    "tasteset:682:1",
+    "tasteset:103:5",
+    "tasteset:903:2",
+    "tasteset:401:2",
+    "tasteset:947:5",
+    "tasteset:947:6",
+    "tasteset:392:3"
+   ],
+   "quantity_unscored_gold_ids": [
+    "tasteset:49:0",
+    "tasteset:392:4"
+   ],
+   "unit_unscored_gold_ids": [
+    "tasteset:49:0"
+   ],
+   "limitations": "Retrospective primary-food-head retention and numeric/unit/annotation-retention scores under published rules. Not exact NER/full semantic accuracy; unexported typed precision not assessed. Updated replay reuses original generations and retains original3 schema failures."
+  }
+ },
+ "fresh-100": {
+  "recipes": 100,
+  "source_lines": 533,
+  "normalized_primary_ingredients": 530,
+  "schema_valid_first_attempt": 100,
+  "final_successful_recipes": 100,
+  "requests": 100,
+  "requests_per_case_histogram": {
+   "1": 100
+  },
+  "schema_recovery_case_ids": [],
+  "primary_food_head": {
+   "correct": 494,
+   "gold_eligible": 521,
+   "predicted_eligible": 525,
+   "precision": 0.940952380952381,
+   "recall": 0.9481765834932822,
+   "f1": 0.9445506692160611
+  },
+  "primary_food_information_any_field": {
+   "correct": 518,
+   "gold_eligible": 521,
+   "predicted_eligible": 525,
+   "precision": 0.9866666666666667,
+   "recall": 0.9942418426103646,
+   "f1": 0.9904397705544933
+  },
+  "quantity": {
+   "correct": 523,
+   "eligible": 525,
+   "fraction": 0.9961904761904762
+  },
+  "unit_compatibility": {
+   "correct": 527,
+   "eligible": 529,
+   "fraction": 0.996219281663516
+  },
+  "quantity_valid_outputs_only": {
+   "correct": 523,
+   "eligible": 525,
+   "fraction": 0.9961904761904762
+  },
+  "unit_valid_outputs_only": {
+   "correct": 527,
+   "eligible": 529,
+   "fraction": 0.996219281663516
+  },
+  "explicit_native_unit_preservation": {
+   "correct": 371,
+   "eligible": 372,
+   "fraction": 0.9973118279569892
+  },
+  "range_display": {
+   "correct": 6,
+   "eligible": 6,
+   "fraction": 1.0
+  },
+  "unspecified_amount_preservation": {
+   "correct": 59,
+   "eligible": 60,
+   "fraction": 0.9833333333333333
+  },
+  "annotated_detail_retention": {
+   "COLOR": {
+    "retained": 34,
+    "gold_annotations": 35,
+    "recall": 0.9714285714285714
+   },
+   "PROCESS": {
+    "retained": 164,
+    "gold_annotations": 168,
+    "recall": 0.9761904761904762
+   },
+   "PHYSICAL_QUALITY": {
+    "retained": 97,
+    "gold_annotations": 98,
+    "recall": 0.9897959183673469
+   },
+   "TASTE": {
+    "retained": 19,
+    "gold_annotations": 19,
+    "recall": 1.0
+   },
+   "PART": {
+    "retained": 8,
+    "gold_annotations": 8,
+    "recall": 1.0
+   },
+   "PURPOSE": {
+    "retained": 11,
+    "gold_annotations": 11,
+    "recall": 1.0
+   },
+   "DIET": {
+    "retained": 9,
+    "gold_annotations": 9,
+    "recall": 1.0
+   }
+  },
+  "scored_field_recipe_status": {
+   "pass": 63,
+   "fail": 28,
+   "review": 9
+  },
+  "cross_field_recipe_status": {
+   "pass": 75,
+   "fail": 13,
+   "review": 12
+  },
+  "extra_unaligned_predictions": 4,
+  "alignment_review_count": 27,
+  "identity_unscored_gold_ids": [
+   "tasteset:456:3",
+   "tasteset:352:2",
+   "tasteset:660:1",
+   "tasteset:587:6",
+   "tasteset:368:5",
+   "tasteset:78:5",
+   "tasteset:583:0",
+   "tasteset:233:1",
+   "tasteset:578:0"
+  ],
+  "quantity_unscored_gold_ids": [
+   "tasteset:352:2",
+   "tasteset:81:1",
+   "tasteset:330:2",
+   "tasteset:730:4",
+   "tasteset:223:2"
+  ],
+  "unit_unscored_gold_ids": [
+   "tasteset:352:2"
+  ],
+  "efficiency": {
+   "evaluation_cost_usd": 0.06450675999999995,
+   "smoke_cost_usd": 0.0022778399999999997,
+   "input_tokens": 534475,
+   "output_tokens": 17998,
+   "summed_parser_seconds": 553.4680000000001,
+   "median_recipe_seconds": 4.99,
+   "p95_recipe_seconds_nearest_rank": 10.07,
+   "total_cost_usd": 0.06678459999999996
+  },
+  "limitations": "Frozen source/prediction-independent targets; reviewed retrospective historical scorer reused. Lexical primary-field task metrics, not exact NER or complete semantic/typed-facet accuracy. Fresh from recorded development/baseline families; public-model training overlap unknown. No parser tuning on these outputs. Source-only exclusions retained, reviewed alignments do not change frozen scores."
+ },
+ "final-200": {
+  "historical_gold_with_v2_rules": {
+   "recipes": 200,
+   "successful_recipes": 200,
+   "failed_case_ids": [],
+   "quantity": {
+    "correct": 1061,
+    "eligible": 1070,
+    "fraction": 0.9916,
+    "ci95_recipe_bootstrap": [
+     0.9849,
+     0.9972
+    ]
+   },
+   "unit": {
+    "correct": 1067,
+    "eligible": 1076,
+    "fraction": 0.9916,
+    "ci95_recipe_bootstrap": [
+     0.9858,
+     0.9964
+    ]
+   },
+   "quantity_and_unit_together": {
+    "correct": 1055,
+    "eligible": 1067,
+    "fraction": 0.9888,
+    "ci95_recipe_bootstrap": [
+     0.9808,
+     0.9953
+    ]
+   },
+   "explicit_native_unit": {
+    "correct": 787,
+    "eligible": 801,
+    "fraction": 0.9825
+   },
+   "unspecified_stays_unspecified": {
+    "correct": 101,
+    "eligible": 107,
+    "fraction": 0.9439
+   },
+   "range_display": {
+    "correct": 6,
+    "eligible": 7,
+    "fraction": 0.8571
+   },
+   "food_in_name": {
+    "correct": 1027,
+    "eligible": 1061,
+    "fraction": 0.968,
+    "ci95_recipe_bootstrap": [
+     0.9548,
+     0.9798
+    ]
+   },
+   "food_in_any_field": {
+    "correct": 1055,
+    "eligible": 1061,
+    "fraction": 0.9943,
+    "ci95_recipe_bootstrap": [
+     0.9896,
+     0.9981
+    ]
+   },
+   "alternatives_kept": {
+    "correct": 61,
+    "eligible": 66,
+    "fraction": 0.9242
+   },
+   "rows_lost": 3,
+   "rows": 1076,
+   "extra_rows_food": 0,
+   "extra_rows_non_food": 1,
+   "rows_with_unsupported_words": 10,
+   "clean_recipes": {
+    "correct": 184,
+    "recipes": 200,
+    "fraction": 0.92,
+    "ci95_wilson": [
+     0.874,
+     0.9502
+    ]
+   }
+  },
+  "audited_gold": {
+   "recipes": 200,
+   "successful_recipes": 200,
+   "failed_case_ids": [],
+   "quantity": {
+    "correct": 1067,
+    "eligible": 1076,
+    "fraction": 0.9916,
+    "ci95_recipe_bootstrap": [
+     0.985,
+     0.9972
+    ]
+   },
+   "unit": {
+    "correct": 1067,
+    "eligible": 1076,
+    "fraction": 0.9916,
+    "ci95_recipe_bootstrap": [
+     0.9858,
+     0.9964
+    ]
+   },
+   "quantity_and_unit_together": {
+    "correct": 1061,
+    "eligible": 1073,
+    "fraction": 0.9888,
+    "ci95_recipe_bootstrap": [
+     0.9809,
+     0.9954
+    ]
+   },
+   "explicit_native_unit": {
+    "correct": 787,
+    "eligible": 801,
+    "fraction": 0.9825
+   },
+   "unspecified_stays_unspecified": {
+    "correct": 101,
+    "eligible": 107,
+    "fraction": 0.9439
+   },
+   "range_display": {
+    "correct": 6,
+    "eligible": 7,
+    "fraction": 0.8571
+   },
+   "food_in_name": {
+    "correct": 1050,
+    "eligible": 1075,
+    "fraction": 0.9767,
+    "ci95_recipe_bootstrap": [
+     0.9668,
+     0.9863
+    ]
+   },
+   "food_in_any_field": {
+    "correct": 1070,
+    "eligible": 1075,
+    "fraction": 0.9953,
+    "ci95_recipe_bootstrap": [
+     0.9908,
+     0.9991
+    ]
+   },
+   "alternatives_kept": {
+    "correct": 61,
+    "eligible": 66,
+    "fraction": 0.9242
+   },
+   "rows_lost": 3,
+   "rows": 1076,
+   "extra_rows_food": 0,
+   "extra_rows_non_food": 1,
+   "rows_with_unsupported_words": 10,
+   "clean_recipes": {
+    "correct": 185,
+    "recipes": 200,
+    "fraction": 0.925,
+    "ci95_wilson": [
+     0.88,
+     0.954
+    ]
+   },
+   "adjudicated_rows": 38,
+   "dropped_rows": 0
+  }
+ },
+ "unseen-100-a": {
+  "historical_gold_with_v2_rules": {
+   "recipes": 100,
+   "successful_recipes": 100,
+   "failed_case_ids": [],
+   "quantity": {
+    "correct": 519,
+    "eligible": 525,
+    "fraction": 0.9886,
+    "ci95_recipe_bootstrap": [
+     0.977,
+     0.9981
+    ]
+   },
+   "unit": {
+    "correct": 528,
+    "eligible": 532,
+    "fraction": 0.9925,
+    "ci95_recipe_bootstrap": [
+     0.9829,
+     1.0
+    ]
+   },
+   "quantity_and_unit_together": {
+    "correct": 518,
+    "eligible": 524,
+    "fraction": 0.9885,
+    "ci95_recipe_bootstrap": [
+     0.9773,
+     0.9981
+    ]
+   },
+   "explicit_native_unit": {
+    "correct": 365,
+    "eligible": 368,
+    "fraction": 0.9918
+   },
+   "unspecified_stays_unspecified": {
+    "correct": 62,
+    "eligible": 66,
+    "fraction": 0.9394
+   },
+   "range_display": {
+    "correct": 13,
+    "eligible": 13,
+    "fraction": 1.0
+   },
+   "food_in_name": {
+    "correct": 502,
+    "eligible": 521,
+    "fraction": 0.9635,
+    "ci95_recipe_bootstrap": [
+     0.9441,
+     0.9791
+    ]
+   },
+   "food_in_any_field": {
+    "correct": 518,
+    "eligible": 521,
+    "fraction": 0.9942,
+    "ci95_recipe_bootstrap": [
+     0.9867,
+     1.0
+    ]
+   },
+   "alternatives_kept": {
+    "correct": 22,
+    "eligible": 28,
+    "fraction": 0.7857
+   },
+   "rows_lost": 1,
+   "rows": 532,
+   "extra_rows_food": 0,
+   "extra_rows_non_food": 0,
+   "rows_with_unsupported_words": 8,
+   "clean_recipes": {
+    "correct": 94,
+    "recipes": 100,
+    "fraction": 0.94,
+    "ci95_wilson": [
+     0.8752,
+     0.9722
+    ]
+   }
+  },
+  "audited_gold": {
+   "recipes": 100,
+   "successful_recipes": 100,
+   "failed_case_ids": [],
+   "quantity": {
+    "correct": 525,
+    "eligible": 530,
+    "fraction": 0.9906,
+    "ci95_recipe_bootstrap": [
+     0.9817,
+     0.9981
+    ]
+   },
+   "unit": {
+    "correct": 530,
+    "eligible": 532,
+    "fraction": 0.9962,
+    "ci95_recipe_bootstrap": [
+     0.9905,
+     1.0
+    ]
+   },
+   "quantity_and_unit_together": {
+    "correct": 524,
+    "eligible": 529,
+    "fraction": 0.9905,
+    "ci95_recipe_bootstrap": [
+     0.9819,
+     0.9981
+    ]
+   },
+   "explicit_native_unit": {
+    "correct": 366,
+    "eligible": 368,
+    "fraction": 0.9946
+   },
+   "unspecified_stays_unspecified": {
+    "correct": 63,
+    "eligible": 66,
+    "fraction": 0.9545
+   },
+   "range_display": {
+    "correct": 13,
+    "eligible": 13,
+    "fraction": 1.0
+   },
+   "food_in_name": {
+    "correct": 518,
+    "eligible": 532,
+    "fraction": 0.9737,
+    "ci95_recipe_bootstrap": [
+     0.9575,
+     0.9869
+    ]
+   },
+   "food_in_any_field": {
+    "correct": 530,
+    "eligible": 532,
+    "fraction": 0.9962,
+    "ci95_recipe_bootstrap": [
+     0.9902,
+     1.0
+    ]
+   },
+   "alternatives_kept": {
+    "correct": 22,
+    "eligible": 28,
+    "fraction": 0.7857
+   },
+   "rows_lost": 1,
+   "rows": 532,
+   "extra_rows_food": 0,
+   "extra_rows_non_food": 0,
+   "rows_with_unsupported_words": 6,
+   "clean_recipes": {
+    "correct": 94,
+    "recipes": 100,
+    "fraction": 0.94,
+    "ci95_wilson": [
+     0.8752,
+     0.9722
+    ]
+   },
+   "adjudicated_rows": 24,
+   "dropped_rows": 0
+  }
+ },
+ "unseen-100-b": {
+  "historical_gold_with_v2_rules": {
+   "recipes": 100,
+   "successful_recipes": 100,
+   "failed_case_ids": [],
+   "quantity": {
+    "correct": 546,
+    "eligible": 548,
+    "fraction": 0.9964,
+    "ci95_recipe_bootstrap": [
+     0.9908,
+     1.0
+    ]
+   },
+   "unit": {
+    "correct": 550,
+    "eligible": 552,
+    "fraction": 0.9964,
+    "ci95_recipe_bootstrap": [
+     0.9909,
+     1.0
+    ]
+   },
+   "quantity_and_unit_together": {
+    "correct": 545,
+    "eligible": 547,
+    "fraction": 0.9963,
+    "ci95_recipe_bootstrap": [
+     0.9907,
+     1.0
+    ]
+   },
+   "explicit_native_unit": {
+    "correct": 393,
+    "eligible": 397,
+    "fraction": 0.9899
+   },
+   "unspecified_stays_unspecified": {
+    "correct": 64,
+    "eligible": 65,
+    "fraction": 0.9846
+   },
+   "range_display": {
+    "correct": 9,
+    "eligible": 9,
+    "fraction": 1.0
+   },
+   "food_in_name": {
+    "correct": 532,
+    "eligible": 547,
+    "fraction": 0.9726,
+    "ci95_recipe_bootstrap": [
+     0.9592,
+     0.9847
+    ]
+   },
+   "food_in_any_field": {
+    "correct": 545,
+    "eligible": 547,
+    "fraction": 0.9963,
+    "ci95_recipe_bootstrap": [
+     0.9908,
+     1.0
+    ]
+   },
+   "alternatives_kept": {
+    "correct": 23,
+    "eligible": 26,
+    "fraction": 0.8846
+   },
+   "rows_lost": 1,
+   "rows": 552,
+   "extra_rows_food": 0,
+   "extra_rows_non_food": 0,
+   "rows_with_unsupported_words": 5,
+   "clean_recipes": {
+    "correct": 96,
+    "recipes": 100,
+    "fraction": 0.96,
+    "ci95_wilson": [
+     0.9016,
+     0.9843
+    ]
+   }
+  },
+  "audited_gold": {
+   "recipes": 100,
+   "successful_recipes": 100,
+   "failed_case_ids": [],
+   "quantity": {
+    "correct": 550,
+    "eligible": 552,
+    "fraction": 0.9964,
+    "ci95_recipe_bootstrap": [
+     0.9908,
+     1.0
+    ]
+   },
+   "unit": {
+    "correct": 550,
+    "eligible": 552,
+    "fraction": 0.9964,
+    "ci95_recipe_bootstrap": [
+     0.9909,
+     1.0
+    ]
+   },
+   "quantity_and_unit_together": {
+    "correct": 549,
+    "eligible": 551,
+    "fraction": 0.9964,
+    "ci95_recipe_bootstrap": [
+     0.9907,
+     1.0
+    ]
+   },
+   "explicit_native_unit": {
+    "correct": 393,
+    "eligible": 397,
+    "fraction": 0.9899
+   },
+   "unspecified_stays_unspecified": {
+    "correct": 64,
+    "eligible": 65,
+    "fraction": 0.9846
+   },
+   "range_display": {
+    "correct": 9,
+    "eligible": 9,
+    "fraction": 1.0
+   },
+   "food_in_name": {
+    "correct": 540,
+    "eligible": 549,
+    "fraction": 0.9836,
+    "ci95_recipe_bootstrap": [
+     0.9726,
+     0.9928
+    ]
+   },
+   "food_in_any_field": {
+    "correct": 547,
+    "eligible": 549,
+    "fraction": 0.9964,
+    "ci95_recipe_bootstrap": [
+     0.9908,
+     1.0
+    ]
+   },
+   "alternatives_kept": {
+    "correct": 23,
+    "eligible": 26,
+    "fraction": 0.8846
+   },
+   "rows_lost": 1,
+   "rows": 552,
+   "extra_rows_food": 0,
+   "extra_rows_non_food": 0,
+   "rows_with_unsupported_words": 5,
+   "clean_recipes": {
+    "correct": 96,
+    "recipes": 100,
+    "fraction": 0.96,
+    "ci95_wilson": [
+     0.9016,
+     0.9843
+    ]
+   },
+   "adjudicated_rows": 17,
+   "dropped_rows": 0
+  }
+ }
+}

@@ -1,16 +1,8 @@
-"""The `diet_tags` facet -- single source of truth for allergen-absence rules.
+"""Dietary request vocabulary and known-conflict rules.
 
-Shared between scripts/facets/tag_diet.py (batch materialization over the
-existing corpus) and repositories.neo4j_recipes.upsert_recipe_to_neo4j (same
-rules applied to a brand-new recipe at import time), so the two never drift
-into disagreeing definitions of what "nut_free" means -- the exact failure
-mode tag_diet.py's docstring documents as the reason this facet exists.
-
-Every allergen listed here has a FoodOn root configured in
-food_ontology.ALLERGEN_DETECTION_RULES (checked -- see roots for milk, egg,
-peanut, tree_nut, wheat, soy, fish, crustacean_shellfish, sesame, gluten,
-molluscs), so absence is computed from the full keyword+FoodOn-ancestry
-allergen set (neo4j_recipes Step 3 + 3b), not keyword matches alone.
+Free-from requests exclude known allergen presence; unresolved evidence remains
+visible with response warnings. Detection cannot establish absence or
+cross-contact safety, so recipe creation generates no free-from claims.
 """
 
 from __future__ import annotations
@@ -46,9 +38,9 @@ DIET_TAG_NAMES: tuple[str, ...] = (
 
 
 def compute_diet_tags(allergens: set[str]) -> list[str]:
-    """Derive allergen-absence diet tags from a recipe's complete allergen set."""
-    return [
-        tag
-        for tag, blocking in ALLERGEN_ABSENCE_RULES.items()
-        if not allergens.intersection(blocking)
-    ]
+    """Presence detection cannot establish absence or cross-contact safety.
+
+    Keep this import-compatible entry point for recipe creation; explicit
+    source claims are retained separately by its callers.
+    """
+    return []

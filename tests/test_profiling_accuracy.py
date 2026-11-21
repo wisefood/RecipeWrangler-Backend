@@ -156,42 +156,29 @@ def _scand(ingredient_name, distance, cf=1.0):
 
 
 class SustainabilityMatchTests(unittest.TestCase):
-    def test_exact_cf_index_lookup_wins(self):
-        with patch.object(sc, "_cf_index", return_value={"beef": 19.5, "chicken": 6.0}):
-            cf, name, conf = sc.best_sustainability_match("ground beef")
-        self.assertEqual(cf, 19.5)
-        self.assertEqual(conf, "alias")
+    """Reviewed AGRIBALYSE 3.2 name mapping (sustainability_factors); values are the no-preparation scenario, kg CO2e/kg."""
 
-    def test_alias_to_db_entry(self):
-        with patch.object(sc, "_cf_index", return_value={"flour": 1.4}):
-            cf, name, conf = sc.best_sustainability_match("all-purpose flour")  # alias -> "flour"
-        self.assertEqual(cf, 1.4)
-        self.assertEqual(conf, "alias")
+    def test_meat_names_map_to_their_own_records(self):
+        beef, _, conf = sc.best_sustainability_match("minced beef")
+        chicken, _, _ = sc.best_sustainability_match("chicken breast fillets")
+        self.assertEqual(conf, "source_reviewed")
+        self.assertGreater(beef, 5 * chicken)  # beef is the high-impact meat; not one value for every meat
 
-    def test_vector_path_food_class_guard(self):
-        # query "chicken breast" (animal protein): skip the closer-but-incompatible
-        # "wheat flour" candidate, take the compatible "chicken meat" one.
-        with patch.object(sc, "_cf_index", return_value={}), \
-             patch.object(sc, "query_sustainability_db",
-                          return_value=[_scand("wheat flour", 0.10, 1.4), _scand("chicken meat", 0.25, 5.0)]):
-            cf, name, conf = sc.best_sustainability_match("chicken breast fillet")
-        self.assertEqual(name, "chicken meat")
-        self.assertEqual(cf, 5.0)
-        self.assertIn(conf, {"strong", "weak"})
+    def test_stock_is_not_the_meat(self):
+        stock, _, _ = sc.best_sustainability_match("beef stock cube")
+        beef, _, _ = sc.best_sustainability_match("beef")
+        self.assertLess(stock, beef)
 
-    def test_vector_path_none_when_no_compatible(self):
-        with patch.object(sc, "_cf_index", return_value={}), \
-             patch.object(sc, "query_sustainability_db", return_value=[_scand("wheat flour", 0.10, 1.4)]):
-            cf, name, conf = sc.best_sustainability_match("chicken breast")
-        self.assertIsNone(cf)
-        self.assertEqual(conf, "none")
+    def test_composite_and_unknown_names_are_unscored(self):
+        for name in ("pizza dough", "zzzz unknown thing"):
+            cf, _, conf = sc.best_sustainability_match(name)
+            self.assertIsNone(cf)
+            self.assertEqual(conf, "none")
 
-    def test_survives_empty_db(self):
-        with patch.object(sc, "_cf_index", return_value={}), \
-             patch.object(sc, "query_sustainability_db", return_value=[]):
-            cf, name, conf = sc.best_sustainability_match("Boneless, skinless chicken breast (about 1 lb)")
-        self.assertIsNone(cf)
-        self.assertEqual(conf, "none")
+    def test_concito_fallback_only_for_listed_foods(self):
+        cf, _, conf = sc.best_sustainability_match("button mushrooms", region="IE")
+        self.assertIsNotNone(cf)
+        self.assertIn(conf, {"source_reviewed", "fallback"})
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ Strategy (in order):
   3. Groq LLM fallback – estimate from title + ingredients + instructions
 
 Writes to:
-  - data/MyPlate/myplate_recipes_clean.json   (source JSON)
+  - data/recipes/myplate/myplate_recipes_clean.json   (source JSON)
   - Neo4j Recipe nodes  (SET r.duration)
   - PostgreSQL trace column is NOT touched (the nutrition values are unaffected)
 
@@ -50,7 +50,7 @@ from tqdm import tqdm  # noqa: E402
 
 from recipe_wrangler.utils.neo4j_utils import run_query  # noqa: E402
 
-DEFAULT_INPUT = REPO_ROOT / "data" / "MyPlate" / "myplate_recipes_clean.json"
+DEFAULT_INPUT = REPO_ROOT / "data" / "recipes" / "myplate" / "myplate_recipes_clean.json"
 GROQ_MODEL = "llama-3.1-8b-instant"
 LLM_BATCH_SIZE = 10
 LLM_RATE_LIMIT_SLEEP = 2.0  # seconds between batches (stay under 30 req/min)

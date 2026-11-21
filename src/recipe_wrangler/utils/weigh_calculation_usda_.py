@@ -65,6 +65,17 @@ def _weight_rows(weights_path: str) -> list[dict]:
 
 
 @lru_cache(maxsize=1)
+def _weight_food_names(weights_path: str) -> dict[str, str]:
+    return {str(row['usda_id']): row.get('food_name', '')
+            for row in _weight_rows(weights_path) if row.get('usda_id')}
+
+
+def weight_food_name(usda_id: str, weights_path: Path = DEFAULT_WEIGHTS) -> Optional[str]:
+    """Return the actual portion-table food label, not a canonical-link alias."""
+    return _weight_food_names(str(weights_path)).get(str(usda_id))
+
+
+@lru_cache(maxsize=1)
 def _unit_volumes_ml(unit_volumes_path: str) -> dict[str, float]:
     path_str = str(unit_volumes_path)
     if path_str.startswith(":pg:"):
@@ -163,7 +174,7 @@ def find_weight_match_by_name(
     rows = _weight_rows(str(weights_path))
     exact = []
     prefix = []
-    contains = []
+    token_matches = []
     for row in rows:
         if not allow_unlinked and not row.get("usda_id"):
             continue
@@ -171,14 +182,16 @@ def find_weight_match_by_name(
         if not food_name:
             continue
         food_key = food_name.lower()
+        if not portion_food_form_compatible(key, food_key):
+            continue
         if food_key == key:
             exact.append(row)
         elif food_key.startswith(f"{key},") or food_key.startswith(f"{key} "):
             prefix.append(row)
-        elif key in food_key:
-            contains.append(row)
+        elif (_token_set(key) - {"fresh", "raw"}) and (_token_set(key) - {"fresh", "raw"}) <= _token_set(food_key):
+            token_matches.append(row)
 
-    for candidates in (exact, sorted(prefix, key=lambda r: len(str(r.get("food_name", "")))), sorted(contains, key=lambda r: len(str(r.get("food_name", ""))))):
+    for candidates in (exact, sorted(prefix, key=lambda r: len(str(r.get("food_name", "")))), sorted(token_matches, key=lambda r: len(str(r.get("food_name", ""))))):
         for row in candidates:
             food_name = str(row.get("food_name", "")).strip()
             unit_matches = [
@@ -229,7 +242,7 @@ def _norm_unit(unit: str) -> str:
 def _portion_unit(portion_desc: str) -> str:
     cleaned = portion_desc.strip().lower()
     cleaned = cleaned.split("(")[0].strip()
-    cleaned = re.sub(r"^[0-9./\\s]+", "", cleaned).strip()
+    cleaned = re.sub(r"^[0-9./\s]+", "", cleaned).strip()
     if not cleaned:
         return ""
 
@@ -247,11 +260,15 @@ def _portion_unit(portion_desc: str) -> str:
 
 
 def _normalize_token(token: str) -> str:
+    irregular = {'leaves': 'leaf', 'halves': 'half', 'loaves': 'loaf',
+                 'potatoes': 'potato', 'tomatoes': 'tomato', 'mangoes': 'mango'}
+    if token in irregular:
+        return irregular[token]
     if len(token) <= 3:
         return token
     if token.endswith("ies"):
         return token[:-3] + "y"
-    if token.endswith("es"):
+    if token.endswith(("ches", "shes", "xes", "zes", "sses")):
         return token[:-2]
     if token.endswith("s") and not token.endswith("ss"):
         return token[:-1]
@@ -263,7 +280,75 @@ def _token_set(text: Optional[str]) -> set[str]:
     return {_normalize_token(t) for t in tokens if t}
 
 
+def portion_food_form_compatible(source: str, candidate: str) -> bool:
+    """Do not widen a food name into a different preparation or derivative."""
+    source_tokens = _token_set(source)
+    candidate_tokens = _token_set(candidate)
+    produce = {'carrot', 'zucchini', 'courgette', 'squash', 'cucumber', 'spinach',
+               'lettuce', 'beetroot', 'potato', 'aubergine', 'eggplant', 'corn'}
+    if source_tokens & produce and (('baby' in source_tokens) != ('baby' in candidate_tokens)):
+        return False
+    if 'celeriac' in source_tokens and not ('celeriac' in candidate_tokens or {'celery', 'root'} <= candidate_tokens):
+        return False
+    if source_tokens & {'turnip', 'beet', 'beetroot', 'radish', 'mustard'}:
+        leaf_words = r'\b(?:greens|leaf|leaves)\b'
+        if bool(re.search(leaf_words, source.lower())) != bool(re.search(leaf_words, candidate.lower())):
+            return False
+    if 'egg' in source_tokens:
+        for part in ('white', 'yolk'):
+            if (part in source_tokens) != (part in candidate_tokens):
+                return False
+    if {'coconut', 'water'} <= candidate_tokens and 'water' not in source_tokens:
+        return False
+    cooked = {"cooked", "boiled", "fried", "roasted", "baked"}
+    staples = {'rice', 'pasta', 'lentil', 'bean', 'quinoa', 'oat', 'couscous', 'noodle', 'spaghetti',
+               'macaroni', 'barley', 'chickpea', 'bulgur', 'egg'}
+    stated_state = cooked | {'raw', 'dry', 'dried', 'uncooked', 'canned', 'steamed', 'instant'}
+    # A recipe's "1 cup rice" is the dry staple unless a state is written.
+    if source_tokens & staples and not source_tokens & stated_state and candidate_tokens & (cooked | {'steamed', 'instant'}):
+        return False
+    if 'gluten' in candidate_tokens and 'gluten' not in source_tokens:
+        return False
+    # Words that name a different food or variety must be written by the user.
+    for token in ('wild', 'squash', 'babyfood', 'sheep', 'goat', 'buffalo', 'human',
+                  'chocolate', 'buttermilk', 'evaporated', 'condensed', 'glutinous'):
+        token = _normalize_token(token)
+        if token in candidate_tokens and token not in source_tokens:
+            if token == 'squash' and source_tokens & {'zucchini', 'courgette', 'pumpkin', 'butternut'}:
+                continue  # USDA files these under "Squash"
+            return False
+    varieties = {'white', 'brown', 'black', 'red', 'wild'}
+    if source_tokens & varieties and candidate_tokens & varieties and not source_tokens & candidate_tokens & varieties:
+        return False
+    if ((source_tokens & {"raw", "fresh"} and candidate_tokens & cooked)
+            or (source_tokens & cooked and candidate_tokens & {"raw", "fresh"})):
+        return False
+    dry_staple = bool(candidate_tokens & {'lentil', 'soybean', 'chickpea', 'bean', 'rice', 'barley', 'oat'}
+                      and 'raw' in candidate_tokens and not candidate_tokens & {'green', 'snap', 'sprout'})
+    for markers in (
+        {"dry", "dried", "dehydrated"}, {"frozen"}, {"canned"},
+        {"ground", "minced"},
+        {"smoked", "kippered"}, {"pickled"},
+        {"juice"}, {"milk", "beverage"}, {"oil"}, {"syrup"},
+        {"butter"}, {"flour"}, {"powder", "powdered"}, {"paste"},
+        {"flake", "flaked"}, {"topping"}, {"sausage"}, {"cream"}, {"bean", "soybean"},
+    ):
+        if markers == {"dry", "dried", "dehydrated"} and dry_staple and source_tokens & markers and not candidate_tokens & markers:
+            continue  # USDA "raw" pulses and grains are the dry, uncooked state
+        if markers == {"dry", "dried", "dehydrated"} and source_tokens & (staples - {'egg'}) and not source_tokens & stated_state:
+            continue  # unstated staple state means the dry product
+        if bool(source_tokens & markers) != bool(candidate_tokens & markers):
+            return False
+    return True
+
+
 def _best_portion_for_name(matches: list[dict], name: Optional[str]) -> Optional[dict]:
+    # "medium wedge" is a sized piece, not a medium whole fruit.
+    cut_parts = {"slice", "wedge", "chunk", "bite", "half"}
+    named_parts = _token_set(name) & cut_parts
+    matches = [p for p in matches
+               if _portion_unit(str(p.get("portion_desc", ""))) not in {"small", "medium", "large"}
+               or not (_token_set(str(p.get("portion_desc", ""))) & cut_parts) - named_parts]
     if not matches:
         return None
     if not name:
@@ -273,9 +358,14 @@ def _best_portion_for_name(matches: list[dict], name: Optional[str]) -> Optional
         return matches[0]
 
     best = matches[0]
-    best_score = -1
+    best_score = (-1, -1)
+    preparations = {"chopped", "ground", "sliced", "diced", "shredded", "whole", "halved"}
+    requested = name_tokens & preparations
     for portion in matches:
-        score = len(_token_set(str(portion.get("portion_desc", ""))) & name_tokens)
+        portion_tokens = _token_set(str(portion.get("portion_desc", "")))
+        # Unspecified preparation should not prefer a transformed form over whole.
+        unexpected = (portion_tokens & preparations) - requested - {"whole"}
+        score = (len(portion_tokens & name_tokens), -len(unexpected))
         if score > best_score:
             best = portion
             best_score = score
@@ -289,6 +379,14 @@ def _volume_ml_for_unit(
     unit_norm = _norm_unit(str(unit))
     if not unit_norm:
         return None
+    # Metric volumes are definitions; the configurable table supplies kitchen units.
+    metric = {"ml": 1.0, "milliliter": 1.0, "milliliters": 1.0,
+              "millilitre": 1.0, "millilitres": 1.0,
+              "dl": 100.0, "deciliter": 100.0, "decilitre": 100.0,
+              "l": 1000.0, "liter": 1000.0, "litre": 1000.0,
+              "liters": 1000.0, "litres": 1000.0}
+    if unit_norm in metric:
+        return metric[unit_norm]
     return _unit_volumes_ml(str(unit_volumes_path)).get(unit_norm)
 
 
@@ -321,22 +419,12 @@ def _density_from_portions(
     if not candidates:
         return None
 
-    densities = sorted(c["density_g_per_ml"] for c in candidates)
-    mid = len(densities) // 2
-    if len(densities) % 2 == 0:
-        density_g_per_ml = (densities[mid - 1] + densities[mid]) / 2.0
-    else:
-        density_g_per_ml = densities[mid]
-
     best_source = _best_portion_for_name(candidates, name)
     if best_source is None:
-        best_source = min(
-            candidates,
-            key=lambda c: abs(c["density_g_per_ml"] - density_g_per_ml),
-        )
+        return None
 
     return {
-        "density_g_per_ml": float(density_g_per_ml),
+        "density_g_per_ml": float(best_source["density_g_per_ml"]),
         "candidate_count": len(candidates),
         "source_portion_desc": best_source.get("portion_desc"),
         "source_unit": best_source.get("unit"),
@@ -392,7 +480,7 @@ def _parse_measurement(measurement: object) -> tuple[Optional[str], Optional[str
     text = str(measurement).strip()
     if not text:
         return None, None
-    match = re.match(r"^([0-9./\\s-]+)\\s*(.*)$", text)
+    match = re.match(r"^([0-9./\s-]+)\s*(.*)$", text)
     if not match:
         return None, None
     qty = match.group(1).strip() or None

@@ -32,6 +32,9 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
+from recipe_wrangler.utils.diet_tags import ALLERGEN_ABSENCE_RULES
+from recipe_wrangler.utils.es_recipe_evidence import known_allergen_exclusions
+
 # Ingredient-name fragments that contradict a diet.
 #
 # Matched as substrings against `ingredients.name`, case-insensitively, so
@@ -215,6 +218,10 @@ def exclusion_filters(diets: Iterable[str]) -> list[dict[str, Any]]:
     """
     out: list[dict[str, Any]] = []
     for diet in diets or ():
+        diet = canonical_diet(diet) or diet
+        if diet in ALLERGEN_ABSENCE_RULES:
+            out.append({"bool": {"must_not": known_allergen_exclusions(ALLERGEN_ABSENCE_RULES[diet])}})
+            continue
         fragments = excluded_ingredients(diet)
         if not fragments:
             continue
@@ -249,3 +256,19 @@ def exclusion_filters(diets: Iterable[str]) -> list[dict[str, Any]]:
 
         out.append({"bool": {"must_not": clauses}})
     return out
+
+
+def pescatarian_assessment_filter() -> dict[str, Any]:
+    """Require the supported composition assessment, including its version."""
+    from recipe_wrangler.utils.consumer_suitability import PESCATARIAN_CLASSIFICATION_VERSION
+
+    positive = {"nested": {"path": "consumer_suitability", "query": {"bool": {"filter": [
+        {"term": {"consumer_suitability.group": "pescatarian"}},
+        {"term": {"consumer_suitability.status": "suitable"}},
+        {"term": {"consumer_suitability.classification_version": PESCATARIAN_CLASSIFICATION_VERSION}},
+    ]}}}}
+    conflict = {"nested": {"path": "consumer_suitability", "query": {"bool": {"filter": [
+        {"term": {"consumer_suitability.group": "pescatarian"}},
+        {"term": {"consumer_suitability.classification_version": PESCATARIAN_CLASSIFICATION_VERSION}},
+    ], "must_not": [{"term": {"consumer_suitability.status": "suitable"}}]}}}}
+    return {"bool": {"filter": [positive], "must_not": [conflict]}}

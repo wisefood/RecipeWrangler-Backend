@@ -24,6 +24,7 @@ from recipe_wrangler.catalog.vocabularies import SOURCE_CUISINE_PRIOR
 from recipe_wrangler.utils.food_ontology import expand_allergen_exclusions
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 from recipe_wrangler.utils.recipe_status import es_not_disabled_clause
+from recipe_wrangler.utils.es_recipe_evidence import recipe_allergen_fields, known_allergen_exclusions, recipe_consumer_fields
 
 logger = logging.getLogger(__name__)
 
@@ -508,34 +509,24 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
     # `gluten` brings `wheat` with it.
     allergens = expand_allergen_exclusions(c.exclude_allergens)
     if allergens:
-        must_not.append({"terms": {"allergens": allergens}})
+        must_not.extend(known_allergen_exclusions(allergens))
 
     # Supported consumer groups use the explicit, three-state composition
     # assessment. Other legacy dietary labels continue to use recipe tags.
     for tag in _norm_tags(c.diet_tags):
+        tag = D.canonical_diet(tag) or tag
+        if D.canonical_diet(tag) == "pescatarian":
+            filter_.append(D.pescatarian_assessment_filter())
+            continue
+        if tag in D.ALLERGEN_ABSENCE_RULES:
+            filter_.extend(D.exclusion_filters([tag]))
+            continue
         if tag in _SUPPORTED_CONSUMER_GROUPS:
-            # vegan/vegetarian: prefer the FATO three-state assessment, fall
-            # back to the source tag.
-            #
-            # Filtering on `suitable_for` alone made every vegetarian and vegan
-            # search return zero. The field is real and correct — it is simply
-            # unpopulated, because classify_vegan_vegetarian.py has never been
-            # run against this corpus (the graph holds zero ConsumerGroup
-            # nodes), while `tags` carries vegetarian on 3,916 recipes and
-            # vegan on 2,143. Matching either uses the evidence where it exists
-            # and stays correct once the classifier is run.
-            filter_.append(
-                {
-                    "bool": {
-                        "should": [
-                            {"term": {"suitable_for": tag}},
-                            {"term": {"diet_tags": tag}},
-                            {"term": {"tags": tag}},
-                        ],
-                        "minimum_should_match": 1,
-                    }
-                }
-            )
+            # vegan/vegetarian: the three-state assessment only. Legacy source
+            # tags admitted recipes the assessment rejects (Steamed Hake was
+            # tagged vegan); `unknown` recipes are excluded, as diet is a hard
+            # constraint.
+            filter_.append({"term": {"suitable_for": tag}})
         else:
             filter_.append(
                 {
@@ -653,8 +644,7 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
 
     # Preference boosts — pure scoring, never filtering: a recipe matching a
     # preferred ingredient or diet tag ranks higher, one matching none still
-    # qualifies. Member diet groups ride here (tag coverage in the index is
-    # too sparse for them to be hard filters without emptying results).
+    # qualifies.
     should: list[dict] = []
     for ing in _norm(c.boost_ingredients):
         should.append({"match_phrase": {"ingredients": {"query": ing, "boost": 2.0}}})
@@ -812,8 +802,8 @@ def _hit_to_card(hit: dict, region: str) -> dict[str, Any]:
         "status": src.get("status") or "active",
         "allergens": src.get("allergens") or [],
         "allergen_evidence": src.get("allergen_evidence") or [],
-        "suitable_for": src.get("suitable_for") or [],
-        "consumer_suitability": src.get("consumer_suitability") or [],
+        **recipe_allergen_fields(src.get("allergens"), src.get("allergen_evidence")),
+        **recipe_consumer_fields(src.get("consumer_suitability"), allergens=src.get("allergens"), evidence=src.get("allergen_evidence")),
         # Folded to one spelling before it leaves the API. The index holds both
         # main-dish/main_dish, desserts/dessert and snacks/snack because two
         # builders wrote it from two different owners; clients should never have

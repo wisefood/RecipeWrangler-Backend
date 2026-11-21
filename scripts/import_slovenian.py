@@ -42,7 +42,7 @@ from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_tra
 SOURCE = "Curated Slovenian Recipes"
 NUTRITION_SOURCE = "slovenian_original"
 PIPELINE_VERSION = "opkp_direct"
-XLSX_FILE = REPO_ROOT / "data" / "Slovenia" / "Slovenian_Recipes.xlsx"
+XLSX_FILE = REPO_ROOT / "data" / "recipes" / "slovenia" / "Slovenian_Recipes.xlsx"
 CHECKPOINT_FILE = REPO_ROOT / "scripts" / "import_slovenian.checkpoint.json"
 
 NUTRIENT_MAP = {

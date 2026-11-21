@@ -44,6 +44,7 @@ from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog import variety
 from recipe_wrangler.catalog import vocabularies as V
 from recipe_wrangler.catalog.entities import recipe_entity
+from recipe_wrangler.utils.es_recipe_evidence import recipe_allergen_fields, recipe_consumer_fields
 
 logger = logging.getLogger(__name__)
 
@@ -359,7 +360,8 @@ def _filters(
 CARD_FIELDS = [
     "recipe_id", "title", "image_url", "url", "source", "duration", "serves",
     "course_types", "cuisines", "moods", "flavor_profiles", "food_groups",
-    "diet_tags", "allergens", "default_nutri_score", "expert_recipe",
+    "diet_tags", "allergens", "allergen_evidence", "default_nutri_score", "expert_recipe",
+    "consumer_suitability", "suitable_for",
     # Recipe text. A planning surface that returns only cards forces its caller
     # to make a second round of detail lookups before it can do anything with
     # the plan — FoodChat's grader reads ingredients and directions to judge a
@@ -396,6 +398,8 @@ def _plan_card(recipe: dict[str, Any]) -> dict[str, Any]:
     # `directions` is the name FoodChat's candidate contract uses; carried
     # alongside `instructions` so both vocabularies read the same text.
     recipe["directions"] = recipe.get("instructions") or ""
+    recipe.update(recipe_allergen_fields(recipe.get("allergens"), recipe.get("allergen_evidence")))
+    recipe.update(recipe_consumer_fields(recipe.get("consumer_suitability"), allergens=recipe.get("allergens"), evidence=recipe.get("allergen_evidence")))
     recipe_id = str(recipe.get("recipe_id") or "").strip()
     if recipe_id:
         recipe["adaptation"] = {

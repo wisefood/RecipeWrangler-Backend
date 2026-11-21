@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-DEFAULT_INPUT = Path("data/FoodHero/foodhero_recipes.json")
-DEFAULT_OUTPUT = Path("data/FoodHero/foodhero_recipes_clean.json")
+DEFAULT_INPUT = Path("data/recipes/foodhero/foodhero_recipes.json")
+DEFAULT_OUTPUT = Path("data/recipes/foodhero/foodhero_recipes_clean.json")
 
 
 def _as_clean_list(value: Any) -> list[str]:

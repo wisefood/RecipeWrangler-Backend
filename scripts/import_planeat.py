@@ -39,7 +39,7 @@ from recipe_wrangler.utils.nutri_score import compute_nutri_score_breakdown_from
 SOURCE = "Curated Hungarian Recipes"
 NUTRITION_SOURCE = "planeat"
 PIPELINE_VERSION = "cofid_direct"
-RECIPES_FILE = REPO_ROOT / "data" / "ESSRG" / "ESSRG_recipes_clean.json"
+RECIPES_FILE = REPO_ROOT / "data" / "recipes" / "essrg" / "ESSRG_recipes_clean.json"
 CHECKPOINT_FILE = REPO_ROOT / "scripts" / "import_planeat.checkpoint.json"
 
 

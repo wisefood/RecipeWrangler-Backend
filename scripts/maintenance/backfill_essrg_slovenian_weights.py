@@ -10,9 +10,9 @@ every recipe on both datasets falls through to a blank-measurement re-derive,
 which is where the 1000g/whole-item fallback bug (see HANDOFF) comes from.
 
 Sources (exact per-ingredient gram amounts, already resolved):
-  - Curated Hungarian Recipes: data/ESSRG/ESSRG_recipes_clean.json
+  - Curated Hungarian Recipes: data/recipes/essrg/ESSRG_recipes_clean.json
       ingredient_details: [{name, quantity, unit, weight_g}, ...] in position order
-  - Curated Slovenian Recipes: data/Slovenia/Slovenian_Recipes.xlsx, sheet "Sestavine"
+  - Curated Slovenian Recipes: data/recipes/slovenia/Slovenian_Recipes.xlsx, sheet "Sestavine"
       rows keyed by RECID (== recipe_id), in file order == recipe position order
 
 Joins strictly by recipe_id (both datasets keep graph recipe_id == source id,
@@ -46,8 +46,8 @@ import openpyxl
 from neo4j import GraphDatabase
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ESSRG_FILE = REPO_ROOT / "data/ESSRG/ESSRG_recipes_clean.json"
-SLOVENIAN_XLSX = REPO_ROOT / "data/Slovenia/Slovenian_Recipes.xlsx"
+ESSRG_FILE = REPO_ROOT / "data/recipes/essrg/ESSRG_recipes_clean.json"
+SLOVENIAN_XLSX = REPO_ROOT / "data/recipes/slovenia/Slovenian_Recipes.xlsx"
 
 
 def _short_name(full_name: str) -> str:
@@ -152,7 +152,7 @@ def main() -> None:
                 report["written"].append({"source": source_label, "recipe_id": rid, "n": len(pairs)})
 
     driver.close()
-    out_path = REPO_ROOT / "data/processed/ingredient_parsing_final/2026-09-24/essrg_slovenian_weight_backfill_report.json"
+    out_path = REPO_ROOT / "data/recipes/parsed_snapshot/2026-09-24/essrg_slovenian_weight_backfill_report.json"
     out_path.write_text(json.dumps(report, indent=2, ensure_ascii=False))
     print({k: len(v) for k, v in report.items()}, "applied" if args.apply else "dry-run")
     print(f"Report: {out_path}")

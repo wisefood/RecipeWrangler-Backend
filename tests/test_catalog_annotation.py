@@ -145,3 +145,121 @@ class TestFacetPartitioning:
             "moods",
         }
         assert "course_types" in A.SYSTEM_PROMPT
+
+
+class TestFoodGroupResolution:
+    @staticmethod
+    def path(ingredient, foodon_id, distance, ingredient_id=None):
+        return {
+            "ingredient": ingredient,
+            "ingredient_id": ingredient_id or ingredient,
+            "foodon_id": foodon_id,
+            "distance": distance,
+        }
+
+    def test_egg_group_beats_broader_poultry_ancestor(self):
+        groups, evidence = A.derive_food_groups({"ingredient_foodon_paths": [
+            self.path("egg white", "FOODON_03304840", 1),
+            self.path("egg white", "FOODON_02020686", 3),
+        ]})
+        assert groups == ["eggs"]
+        assert evidence[0]["supporting_ingredients"] == ["egg white"]
+
+    def test_egg_removes_stale_preserved_poultry_group(self):
+        groups, _ = A.derive_food_groups({
+            "ingredient_foodon_paths": [
+                self.path("egg white", "FOODON_03304840", 1),
+                self.path("egg white", "FOODON_02020686", 3),
+            ],
+            "existing_food_groups": ["dairy", "eggs", "poultry"],
+        })
+        assert groups == ["dairy", "eggs"]
+
+    def test_different_ingredients_can_supply_eggs_and_poultry(self):
+        groups, _ = A.derive_food_groups({"ingredient_foodon_paths": [
+            self.path("egg", "FOODON_03420225", 0, "egg"),
+            self.path("chicken", "FOODON_02020686", 1, "chicken"),
+        ]})
+        assert groups == ["eggs", "poultry"]
+
+    def test_preserved_poultry_survives_when_chicken_supports_it(self):
+        groups, _ = A.derive_food_groups({
+            "ingredient_foodon_paths": [
+                self.path("egg", "FOODON_03420225", 0, "egg"),
+                self.path("egg", "FOODON_02020686", 3, "egg"),
+                self.path("chicken", "FOODON_02010107", 3, "chicken"),
+                self.path("chicken", "FOODON_02020686", 4, "chicken"),
+            ],
+            "existing_food_groups": ["eggs", "poultry"],
+        })
+        assert groups == ["eggs", "poultry"]
+
+    def test_berries_are_fruit_not_broad_vegetables(self):
+        groups, _ = A.derive_food_groups({"ingredient_foodon_paths": [
+            self.path("mixed berries", "FOODON_00001057", 3),
+            self.path("mixed berries", "FOODON_00001261", 4),
+        ]})
+        assert groups == ["fruit"]
+
+    def test_mixed_berries_repairs_bad_direct_mixed_vegetable_class(self):
+        groups, evidence = A.derive_food_groups({"ingredient_foodon_paths": [
+            self.path("mixed berries", "FOODON_00002683", 0),
+        ]})
+        assert groups == ["fruit"]
+        assert evidence[0]["foodon_ids"] == ["FOODON_00002683"]
+
+    def test_named_berry_repairs_bad_direct_vegetable_class(self):
+        groups, _ = A.derive_food_groups({"ingredient_foodon_paths": [
+            self.path("boysenberries", "FOODON_00002683", 0),
+        ]})
+        assert groups == ["fruit"]
+
+    def test_mint_is_an_herb_not_a_vegetable(self):
+        groups, _ = A.derive_food_groups({"ingredient_foodon_paths": [
+            self.path("fresh mint", "FOODON_00001261", 3),
+        ]})
+        assert groups == ["herbs_and_spices"]
+
+    def test_stale_vegetable_group_is_removed_for_fruit_only_recipe(self):
+        groups, _ = A.derive_food_groups({
+            "ingredient_foodon_paths": [
+                self.path("goji berries", "FOODON_03316579", 1),
+            ],
+            "ingredient_names": ["goji berries", "dark chocolate"],
+            "existing_food_groups": ["fruit", "vegetables"],
+        })
+        assert groups == ["fruit"]
+
+    def test_eggplant_does_not_trigger_the_egg_poultry_rule(self):
+        groups, _ = A.derive_food_groups({
+            "ingredient_foodon_paths": [
+                self.path("eggplant", "FOODON_00001261", 1),
+            ],
+            "ingredient_names": ["eggplant"],
+            "existing_food_groups": ["poultry", "vegetables"],
+        })
+        assert groups == ["poultry", "vegetables"]
+
+    def test_stale_animal_groups_require_an_identifying_ingredient(self):
+        groups, _ = A.derive_food_groups({
+            "ingredient_foodon_paths": [
+                self.path("squash", "FOODON_00001261", 1),
+            ],
+            "ingredient_names": ["squash", "eggs", "walnuts"],
+            "existing_food_groups": ["eggs", "meat", "seafood", "vegetables"],
+        })
+        assert groups == ["eggs", "vegetables"]
+
+    def test_culinary_vegetable_override_beats_botanical_fruit(self):
+        groups, _ = A.derive_food_groups({"ingredient_foodon_paths": [
+            self.path("tomatoes", "FOODON_00001057", 3),
+            self.path("tomatoes", "FOODON_00001261", 4),
+        ]})
+        assert groups == ["vegetables"]
+
+    def test_fruit_and_vegetables_survive_when_supplied_by_different_ingredients(self):
+        groups, _ = A.derive_food_groups({"ingredient_foodon_paths": [
+            self.path("apple", "FOODON_00001057", 2, "apple"),
+            self.path("broccoli", "FOODON_00001261", 2, "broccoli"),
+        ]})
+        assert groups == ["fruit", "vegetables"]

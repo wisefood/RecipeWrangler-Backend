@@ -15,6 +15,14 @@ from __future__ import annotations
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _offline_manifest_statistics(monkeypatch, request):
+    # Manifest contract tests do not evaluate live corpus size.
+    if 'manifest' in request.node.nodeid.lower():
+        from recipe_wrangler.catalog.entities import Recipe
+        monkeypatch.setattr(Recipe, 'count', lambda self, *args, **kwargs: 0)
+
 from recipe_wrangler.api.routers.tools import (
     NUTRI_RANK,
     RELAXATION_ORDER,

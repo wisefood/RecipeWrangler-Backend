@@ -40,7 +40,7 @@ def profiled(monkeypatch):
     monkeypatch.setattr(
         R,
         "_analysis_allergen_fields",
-        lambda names: {"allergens": [], "allergen_evidence": []},
+        lambda names, original_lines=None: {"allergens": [], "allergen_evidence": []},
     )
 
 

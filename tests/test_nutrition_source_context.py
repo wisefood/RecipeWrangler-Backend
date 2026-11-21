@@ -1,6 +1,14 @@
 from recipe_wrangler.tools.recipe_profiling_chain import recover_nutrition_match_name
 
 
+def test_recovers_fat_grain_and_sugar_qualifiers() -> None:
+    assert recover_nutrition_match_name("milk", "semi-skimmed milk") == "semi-skimmed milk"
+    assert recover_nutrition_match_name("bread", "wholemeal bread") == "wholegrain bread"
+    assert recover_nutrition_match_name(
+        "sweetcorn", "tinned sweetcorn, low sugar and salt"
+    ) == "low-sugar low-sodium canned sweetcorn"
+
+
 def test_recovers_canned_chickpea_state_and_packing_medium():
     assert recover_nutrition_match_name(
         "chickpea garbanzo garbanzos",
@@ -45,6 +53,9 @@ def test_does_not_combine_alternative_preparation_states():
     assert recover_nutrition_match_name(
         "corn", "1 can corn or 10 oz frozen corn"
     ) == "canned corn"
+    assert recover_nutrition_match_name(
+        "peas", "300g fresh peas"
+    ) == "fresh peas"
 
 
 def test_can_as_a_verb_is_not_canned_food_context():

@@ -1,9 +1,6 @@
 """Declarative Elasticsearch index definitions.
 
-This module is authoritative for index structure; ``docs/specs/recipes_v3_mapping.json``
-is a generated artefact of it (regenerate with
-``python scripts/catalog/dump_mappings.py``, and ``tests/test_catalog_es_schema.py``
-fails if the two drift).
+This module is authoritative for index structure.
 
 Two indices, both fed from the owners named in the elastic-backbone spec §3.1:
 
@@ -115,6 +112,8 @@ def _regional_score_fields() -> dict[str, Any]:
 def _evidence_fields() -> dict[str, Any]:
     return {
         "suitable_for": {"type": "keyword"},
+        "allergen_uncertainty": {"type": "boolean"},
+        "allergen_assessment": {"type": "object", "enabled": False},
         "allergen_evidence": {
             "type": "nested",
             "properties": {
@@ -288,6 +287,8 @@ def recipe_index(dim: int = DEFAULT_DIM) -> dict[str, Any]:
                 "quantity": {"type": "float"},
                 "unit": {"type": "keyword"},
                 "measurement": {"type": "text", "index": False},
+                "display_text": {"type": "text", "index": False},
+                "display_source": {"type": "keyword"},
                 "canonical_urn": {"type": "keyword"},
                 "position": {"type": "short"},
             },

@@ -145,13 +145,7 @@ class TestNaturalLanguageRequestModel:
         assert RecipeSearchRequest(question="pasta", nutri_scores=["B"]).nutri_scores == ["B"]
 
     def test_require_diet_tags_is_separate_from_diet_tags(self):
-        """The two mean opposite things and must not collapse into one field.
-
-        `diet_tags` are the member's profile groups, applied as soft boosts;
-        `require_diet_tags` is a diet the caller ticked, applied as a hard
-        filter. Merging them would either filter on a preference the member
-        never asked to enforce, or ignore a filter they explicitly chose.
-        """
+        """Profile groups and ticked diets arrive separately; both filter hard."""
         model = RecipeSearchRequest(
             question="dinner", diet_tags=["vegetarian"], require_diet_tags=["vegan"]
         )

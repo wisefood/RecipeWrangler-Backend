@@ -11,137 +11,22 @@ from langchain.tools import tool
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from recipe_wrangler.schemas import RecipeState
+from recipe_wrangler.utils.seasoning_quantities import salt_and_pepper_parts as _salt_and_pepper_parts
 from recipe_wrangler.utils.model_registry import from_env
 
 logger = logging.getLogger(__name__)
 
 
-def _normalize_text(value: str) -> str:
-    normalized = re.sub(r"[^a-z0-9\s]", " ", str(value or "").lower())
-    normalized = re.sub(r"\s+", " ", normalized).strip()
-    return normalized
-
-
-def _singularize(token: str) -> str:
-    if token.endswith("ies") and len(token) > 4:
-        return token[:-3] + "y"
-    if token.endswith("es") and len(token) > 3:
-        return token[:-2]
-    if token.endswith("s") and len(token) > 2:
-        return token[:-1]
-    return token
-
-
-def _measurement_mentions_ingredient(measurement: str, ingredient: str) -> bool:
-    measurement_norm = _normalize_text(measurement)
-    ingredient_norm = _normalize_text(ingredient)
-    if not measurement_norm or not ingredient_norm:
-        return False
-
-    if ingredient_norm in measurement_norm:
-        return True
-
-    measurement_tokens = set(measurement_norm.split())
-    ingredient_tokens = [_singularize(tok) for tok in ingredient_norm.split()]
-    return any(tok in measurement_tokens for tok in ingredient_tokens)
-
-
-def _realign_measurements(
-    ingredient_names: list[str],
-    measurements: list[str],
-) -> list[str]:
-    """Realign measurements to ingredient order when parser output is clearly swapped."""
-    if not ingredient_names or not measurements:
-        return measurements
-
-    n = min(len(ingredient_names), len(measurements))
-    original = measurements[:n]
-    assigned: list[str | None] = [None] * n
-    used_measurement_indices: set[int] = set()
-
-    # First pass: apply only high-confidence 1-to-1 matches.
-    for ing_idx, ingredient in enumerate(ingredient_names[:n]):
-        matches = [
-            m_idx
-            for m_idx, measurement in enumerate(original)
-            if m_idx not in used_measurement_indices
-            and _measurement_mentions_ingredient(measurement, ingredient)
-        ]
-        if len(matches) == 1:
-            chosen = matches[0]
-            assigned[ing_idx] = original[chosen]
-            used_measurement_indices.add(chosen)
-
-    # Second pass: fill remaining slots in original order.
-    remaining = [
-        original[m_idx] for m_idx in range(n) if m_idx not in used_measurement_indices
-    ]
-    rem_i = 0
-    for ing_idx in range(n):
-        if assigned[ing_idx] is None:
-            assigned[ing_idx] = remaining[rem_i]
-            rem_i += 1
-
-    reordered = [m for m in assigned if m is not None]
-    if reordered == original:
-        return measurements
-
-    # Preserve tail measurements (if parser returned more than ingredient count).
-    return reordered + measurements[n:]
-
-
-_SOURCE_MEASUREMENT_RE = re.compile(
-    r"^\s*"
-    r"(?P<qty>(?:\d+\s+)?\d+(?:\.\d+)?(?:/\d+)?|[½⅓⅔¼¾⅛⅜⅝⅞])"
-    r"\s*"
-    r"(?P<unit>tablespoons?|tbsp\.?|teaspoons?|tsp\.?|cups?|ml|millilitres?|milliliters?|"
-    r"g|grams?|kg|oz\.?|ounces?|cloves?|spears?|sprigs?|small|medium|large)\b"
-    r"(?:\s+of\b)?",
-    re.IGNORECASE,
-)
-
-
-def _recover_measurements_from_source(
-    ingredient_names: list[str],
-    measurements: list[str],
-    recipe: str,
-) -> list[str]:
-    """Restore source units when the LLM parser returned a bare number."""
-    source_lines = [line.strip() for line in str(recipe or "").splitlines() if line.strip()]
-    recovered = list(measurements)
-
-    for idx, name in enumerate(ingredient_names):
-        if idx >= len(recovered):
-            break
-        current = str(recovered[idx] or "").strip()
-        if not current or re.search(r"[a-zA-Z]", current):
-            continue
-
-        name_tokens = {
-            _singularize(token)
-            for token in re.findall(r"[a-zA-Z]+", str(name).lower())
-            if len(token) > 2
-        }
-        if not name_tokens:
-            continue
-
-        for line in source_lines:
-            line_tokens = {
-                _singularize(token)
-                for token in re.findall(r"[a-zA-Z]+", line.lower())
-                if len(token) > 2
-            }
-            if not (name_tokens & line_tokens):
-                continue
-            match = _SOURCE_MEASUREMENT_RE.match(line)
-            if match:
-                recovered[idx] = f"{match.group('qty')} {match.group('unit')}".strip()
-                break
-
-    return recovered
+def _plain_recipe_text(text: str) -> str:
+    """The model corrupts non-ASCII it must copy ('3⁄4' -> '3¾', '1⁄4' -> '1⁄'), so send plain text."""
+    def fraction(match: "re.Match[str]") -> str:
+        plain = unicodedata.normalize("NFKC", match.group(2)).replace("⁄", "/")
+        return f"{match.group(1)} {plain}" if match.group(1) else plain
+    text = _fold_accents(text).replace("®", "").replace("©", "")
+    return re.sub(r"(?:(\d)\s*)?([½⅓⅔¼¾⅛⅜⅝⅞])", fraction, text)
 
 
 def _is_budget_exhausted(exc: Exception) -> bool:
@@ -250,25 +135,12 @@ def _aligned_match_names(
     ]
 
 
-_SALT_AND_PEPPER_RE = re.compile(
-    r"^\s*(?P<salt>(?:(?:fine|coarse|kosher|sea|table|rock|pink|himalayan)\s+)*salt)"
-    r"\s*(?:and|&)\s*"
-    r"(?:(?:freshly\s+)?(?:ground|cracked)\s+)*"
-    r"(?P<pepper>(?:black\s+)?pepper(?:corns?)?)\s*$",
-    re.IGNORECASE,
-)
+
 _LEADING_DECIMAL_MEASUREMENT_RE = re.compile(
     r"^\s*(?P<quantity>\d+(?:\.\d+)?)\s*(?P<unit>.*)$"
 )
 
 
-def _salt_and_pepper_parts(name: str) -> tuple[str, str] | None:
-    """Return canonical parts for a standalone salt-and-pepper ingredient."""
-    match = _SALT_AND_PEPPER_RE.fullmatch(str(name or "").strip())
-    if not match:
-        return None
-    salt = re.sub(r"\s+", " ", match.group("salt").lower()).strip()
-    return salt, "black pepper"
 
 
 def _split_shared_measurement(measurement: str) -> tuple[str, str]:
@@ -330,6 +202,35 @@ def split_salt_and_pepper_rows(
     return names_out, measurements_out, match_names_out, weights_out
 
 
+class ParsedRecipeText(BaseModel):
+    title: str
+    ingredient_lines: List[str] = Field(min_length=1)
+    directions: List[str]
+    total_time: float = Field(ge=0)
+    serves: int = Field(ge=0)
+
+
+_RECIPE_TEXT_SYSTEM_PROMPT = (
+    "Split this recipe text into sections. Do not interpret or convert anything.\n"
+    "- title: a heading line naming the dish. If the text starts directly with ingredients, "
+    "title is '' and that first line is an ingredient, even a bare food name such as "
+    "'fudge (optional)' or 'cupcakes (CHOCOLATE)'. Every line of an ingredient-only text is "
+    "an ingredient.\n"
+    "- ingredient_lines: one string per ingredient, copied word for word with its amount, "
+    "unit, parentheses and notes. Keep optional and garnish items. If several ingredients "
+    "share one line, separated by commas, give each its own string and keep preparation "
+    "words with their ingredient: '200g shrimp, peeled, 2 tbsp butter' -> '200g shrimp, "
+    "peeled' and '2 tbsp butter'. Options joined by 'or' stay in one string, even when each "
+    "has its own amount: '1 tbsp oil or 1 tbsp butter'. Leave out section headings such as "
+    "'For the sauce'. Do "
+    "not add an ingredient that only appears in the directions or serving notes.\n"
+    "- directions: the method steps as written; [] if there are none.\n"
+    "- total_time: total minutes only if the text states it, otherwise 0.\n"
+    "- serves: servings only if the text states it, such as 'serves 4' or 'makes 8 "
+    "portions', otherwise 0. Never infer it from the ingredient amounts."
+)
+
+
 @tool
 def parse_recipe_tool(recipe: str) -> dict:
     """Parses a raw recipe text into structured fields."""
@@ -350,121 +251,60 @@ def parse_recipe_tool(recipe: str) -> dict:
     if model_name == "meta-llama/llama-4-maverick-17b-128e-instruct":
         # Legacy value kept in some environments; remap to a model we can serve.
         model_name = "openai/gpt-oss-20b"
-
-    class ParsedRecipe(BaseModel):
-        title: str = Field(min_length=1)
-        ingredient_names: List[str] = Field(min_length=1)
-        ingredient_match_names: List[str] = Field(min_length=1)
-        measurements: List[str] = Field(min_length=1)
-        directions: List[str] = Field(min_length=1)
-        total_time: float = Field(ge=0)
-        serves: int = Field(ge=0)
-
     llm, structured_method = _parser_llm(model_name)
-
     prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "Parse this recipe into three index-aligned lists: 'ingredient_names', "
-                "'ingredient_match_names', and 'measurements'.\n\n"
-                "RULES FOR INGREDIENT NAMES:\n"
-                "- Extract ONLY the core noun. Remove all descriptors, adjectives, and processing instructions "
-                "(e.g., remove 'unsweetened', 'non-fat', 'all-purpose', 'canola', 'large', 'sifted').\n"
-                "- Example: '1 cup applesauce, unsweetened' -> 'applesauce'.\n"
-                "- Remove commercial brand and manufacturer names, but NEVER drop the edible ingredient. "
-                "Replace the branded label with its clear generic food identity in both ingredient lists. "
-                "Examples: 'Farrah’s taco tortillas' -> 'taco tortillas'; "
-                "'Kraft grated parmesan cheese' -> 'grated parmesan cheese'; "
-                "'Coca-Cola' -> 'cola'. If the generic food is genuinely unclear, retain the original food "
-                "label rather than inventing a replacement.\n"
-                "\nRULES FOR INGREDIENT MATCH NAMES:\n"
-                "- Preserve the complete food identity needed to select the correct nutrition record, including "
-                "variety, colour, cooking state, preservation state, fat/sugar/salt level, cut, and species.\n"
-                "- Remove only quantities, units, and preparation instructions that do not change food identity, "
-                "such as 'finely chopped', 'diced', or 'for garnish'.\n"
-                "- Examples: '200 g cooked green lentils' -> 'cooked green lentils'; "
-                "'1 red bell pepper, diced' -> 'red bell pepper'; "
-                "'100 g cherry tomatoes, halved' -> 'cherry tomatoes'.\n"
-                "- Every ingredient_match_names entry must describe the same ingredient at the same index in "
-                "ingredient_names and measurements.\n"
-                "- Do not include recipe section headings, component names, or preparation group titles as "
-                "ingredients when they are followed by the actual ingredients for that component. For example, "
-                "exclude headings like 'For the sauce', 'Dressing', 'Salad', or 'Falafels' if the following "
-                "lines list the sauce/dressing/salad/falafel ingredients.\n"
-                "- A component name can be an ingredient only when it has its own quantity or is clearly used "
-                "as an edible ingredient line, e.g. '4 falafels' or '200g falafel'.\n"
-                "- If a source line has multiple ingredients collapsed together, split it into separate "
-                "ingredient rows instead of returning the collapsed line as one ingredient. "
-                "Example: 'salt and freshly ground black pepper' -> two rows: 'salt' and "
-                "'black pepper', each with its own measurement.\n\n"
-                "- Do not add optional ingredients mentioned only in the instructions or serving notes. "
-                "For example, if the ingredient list does not contain olive oil, do not add olive oil just "
-                "because an instruction says it can optionally be added.\n"
-                "- Prefer the explicit ingredient list over the instructions. Use instructions only for "
-                "directions, timing, and disambiguating preparation.\n\n"
-                "RULES FOR MEASUREMENTS:\n"
-                "- Return a single numeric float followed by the unit (e.g., '2.5 tbsp', '1.0 cup').\n"
-                "- Preserve the original measurement unit. Do not drop units such as tablespoon, teaspoon, "
-                "ml, g, clove, small, medium, or large.\n"
-                "- For countable items with a size adjective, keep the size adjective in the measurement, "
-                "e.g. '2 small onions' -> ingredient_name 'onions', measurement '2.0 small'.\n"
-                "- If a range is given (e.g., '2-3 tbsp'), calculate the mean average (e.g., '2.5 tbsp').\n"
-                "- If no unit is present (e.g., '2 eggs'), return only the number as a string (e.g., '2.0').\n"
-                "- Convert all fractions to decimals (e.g., '1/2' becomes '0.5').\n"
-                "- For 'to taste', 'as needed', 'optional', 'for garnish', or any line with no real quantity, "
-                "return an empty string '' as the measurement. Never return '0' or '0.0' for these — a zero "
-                "quantity is read as 'contains none of this ingredient', not 'unspecified amount'.\n"
-                "- Never return the full ingredient line, or any other prose, as the measurement. A "
-                "measurement is only a number, optionally followed by a unit or size word, or an empty "
-                "string. If you cannot extract a quantity, return '', not the source text."
-            ),
-            ("human", "Recipe: {recipe}"),
-        ]
+        [("system", _RECIPE_TEXT_SYSTEM_PROMPT), ("human", "Recipe: {recipe}")]
     )
-    chain = prompt | llm.with_structured_output(ParsedRecipe, method=structured_method)
-    try:
-        result = chain.invoke({"recipe": recipe})
-    except Exception as exc:
-        # Fallback: try function_calling method if json_schema is not supported
-        if structured_method == "json_schema" and "response format `json_schema`" in str(exc):
-            fallback_chain = prompt | llm.with_structured_output(ParsedRecipe, method="function_calling")
-            result = fallback_chain.invoke({"recipe": recipe})
-        elif _is_budget_exhausted(exc):
-            # The document was still being written when the budget ran out. The
-            # provider returns 400, which its SDK does not retry, so without
-            # this the caller got a 503 for a recipe that is merely long.
-            #
-            # Retry once with room to finish, then once more with
-            # `function_calling`: that path streams arguments rather than
-            # validating one constrained document at the end, so a truncation
-            # that `json_schema` rejects outright can still come back usable.
-            logger.warning(
-                "parse hit the %d-token budget; retrying with %d",
-                _MAX_TOKENS, _MAX_TOKENS * 2,
-            )
-            wider, wider_method = _parser_llm(model_name, max_tokens=_MAX_TOKENS * 2)
-            try:
-                result = (
-                    prompt | wider.with_structured_output(
-                        ParsedRecipe, method=wider_method
-                    )
-                ).invoke({"recipe": recipe})
-            except Exception as retry_exc:
-                if not _is_budget_exhausted(retry_exc):
-                    raise
-                logger.warning(
-                    "parse still over budget at %d tokens; trying function_calling",
-                    _MAX_TOKENS * 2,
-                )
-                result = (
-                    prompt | wider.with_structured_output(
-                        ParsedRecipe, method="function_calling"
-                    )
-                ).invoke({"recipe": recipe})
-        else:
-            raise
-    return result.model_dump()
+    chain = prompt | llm.with_structured_output(ParsedRecipeText, method=structured_method)
+    fallback_chain = prompt | llm.with_structured_output(ParsedRecipeText, method="function_calling")
+    request = {"recipe": _plain_recipe_text(recipe)}
+    last_exc: Optional[Exception] = None
+    for attempt in range(2):
+        try:
+            sections = (chain if last_exc is None else fallback_chain).invoke(request)
+            break
+        except ValidationError as exc:
+            last_exc = exc
+        except Exception as exc:
+            # json_schema is not supported by every Groq model.
+            if structured_method == "json_schema" and "response format `json_schema`" in str(exc):
+                last_exc = exc
+            elif _is_budget_exhausted(exc):
+                # The document was still being written when the budget ran out. The
+                # provider returns 400, which its SDK does not retry, so without
+                # this the caller got a 503 for a recipe that is merely long.
+                # Retry once with room to finish, then once more with
+                # `function_calling`, which can still return a usable document.
+                logger.warning("parse hit the %d-token budget; retrying with %d", _MAX_TOKENS, _MAX_TOKENS * 2)
+                wider, wider_method = _parser_llm(model_name, max_tokens=_MAX_TOKENS * 2)
+                try:
+                    sections = (prompt | wider.with_structured_output(ParsedRecipeText, method=wider_method)).invoke(request)
+                except Exception as retry_exc:
+                    if not _is_budget_exhausted(retry_exc):
+                        raise
+                    logger.warning("parse still over budget at %d tokens; trying function_calling", _MAX_TOKENS * 2)
+                    sections = (prompt | wider.with_structured_output(ParsedRecipeText, method="function_calling")).invoke(request)
+                break
+            else:
+                raise
+    else:
+        raise last_exc
+
+    lines = [line.strip() for line in sections.ingredient_lines if line.strip()]
+    entries = parse_ingredient_lines(lines)
+    names, measurements, originals = prepare_entries_for_weights(entries, lines)
+    # ponytail: whole-line lookup; a step the model re-splits stays folded, sentence alignment if that matters.
+    source = {_plain_recipe_text(line).strip(): line.strip() for line in recipe.splitlines() if line.strip()}
+    return {
+        "title": source.get(sections.title.strip(), sections.title),
+        "ingredient_names": names,
+        "ingredient_match_names": names,
+        "measurements": measurements,
+        "ingredient_original_texts": originals,
+        "directions": [source.get(step.strip(), step) for step in sections.directions],
+        "total_time": sections.total_time,
+        "serves": sections.serves,
+    }
 
 
 _MEASUREMENT_ONLY_SYSTEM_PROMPT = (
@@ -482,9 +322,9 @@ _MEASUREMENT_ONLY_SYSTEM_PROMPT = (
     "method that is not actually used in this recipe, e.g. '3 tbsp vegetable oil "
     "((4 slices of bacon is the traditional method))' or '1 cup butter (or use "
     "margarine instead)'. That aside is NOT a separate ingredient — never create an "
-    "entry for it (no 'bacon' entry, no 'margarine' entry here). Fold it into the "
-    "note of the ingredient the line is actually about, or drop it if it adds "
-    "nothing useful. One entry per real line, not one per mention.\n\n"
+    "entry for it (no 'bacon' entry, no 'margarine' entry here). If it is a genuine "
+    "food choice, keep it in the note of the ingredient the line is actually about "
+    "('or margarine'). One entry per real line, not one per mention.\n\n"
     "RULES FOR 'name':\n"
     "- The core food noun, keeping any word that changes what the food actually IS "
     "(a different nutrition identity) — only drop words that describe how it's "
@@ -498,6 +338,16 @@ _MEASUREMENT_ONLY_SYSTEM_PROMPT = (
     "milk', 'brown sugar' vs 'sugar', 'whole wheat flour' vs 'flour', 'smoked "
     "cheese' vs 'cheese' — these name a different ingredient, not a style of the "
     "same one. When in doubt, keep the word in the name rather than move it to note.\n"
+    "- A fat, sugar or salt level changes the nutrition and stays in the name: 'low-fat "
+    "cheddar', 'low fat milk', 'lean rashers', 'reduced-salt stock', 'skimmed milk'.\n"
+    "- A parenthesis naming the specific kind of a generic food is food identity: "
+    "'1 sheet bread (lavash)' -> name 'lavash bread'; '1 cup cheese (gruyere, or emmental, "
+    "grated)' -> name 'gruyere cheese', note 'or emmental, grated'; 'cupcakes (CHOCOLATE)' "
+    "-> name 'chocolate cupcakes'. A product form also stays in the name: 'olive oil spray', "
+    "'lemon twist' and 'spinach wrap' are not 'olive oil', 'lemon' and 'spinach'.\n"
+    "- Several named kinds of the same food sharing one amount use the first as the name: "
+    "'750g haddock, salmon or cod fillets' -> name 'haddock fillets', measurement '750.0 g', "
+    "note 'or salmon or cod'.\n"
     "- Remove brand/manufacturer names, but never drop the edible ingredient: "
     "'Kraft grated parmesan cheese' -> 'parmesan cheese'; 'Coca-Cola' -> 'cola'. "
     "This also applies when the brand is the RETAILER the recipe site itself belongs "
@@ -536,22 +386,41 @@ _MEASUREMENT_ONLY_SYSTEM_PROMPT = (
     "powder', or '3 green onions, chopped or ¼ cup chopped onion'. This is not a "
     "shared-total list — it means 'use one of these two, not both'. Always "
     "produce EXACTLY ONE entry for it, never two, and never mix the name from one "
-    "side with the quantity from the other: take the name AND the quantity from "
-    "the FIRST-listed side only, and fold the second side's identity and quantity "
-    "into note as plain text. '1 clove garlic, minced or ¼ teaspoon garlic powder' "
-    "-> name 'garlic', measurement '1.0 clove', note 'minced; or ¼ teaspoon garlic "
-    "powder'. '3 green onions, chopped or ¼ cup chopped onion' -> name 'green "
-    "onions', measurement '3.0', note 'chopped; or ¼ cup chopped onion'. Never "
+    "side with the quantity from the other: the entry uses the FIRST-listed side, and "
+    "its note keeps the other side with its own quantity. '1 clove garlic, minced or "
+    "¼ teaspoon garlic powder' -> name 'garlic', measurement '1.0 clove', note 'minced, "
+    "or ¼ teaspoon garlic powder'. '3 green onions, chopped or ¼ cup chopped onion' -> "
+    "name 'green onions', measurement '3.0', note 'chopped, or ¼ cup chopped onion'. Never "
     "output a second entry named 'garlic powder' or 'onion' for these lines, and "
     "never give 'green onions' a cup measurement that actually belongs to the "
     "onion alternative.\n\n"
     "RULES FOR 'note':\n"
+    "- Preserve every explicit source qualifier somewhere in the output: food form, "
+    "colour, freshness, edible part, preparation and purpose. Keep identity terms "
+    "such as 'white sugar', 'all-purpose flour', 'vegetable oil', 'basil leaves' "
+    "and 'candy cane' in name; put freshness and purposes such as 'for coating' "
+    "in note. When combining repeated ingredient amounts, keep the notes from "
+    "ALL contributing lines, including what a reserved portion is used for. "
+    "Do not add qualifiers absent from the source.\n"
     "- Everything about HOW the ingredient is prepared or served that does NOT change "
     "what food it is: chopping/cutting style, texture, temperature, 'to taste', 'for "
     "garnish', 'optional', ripeness, freshness, brand. "
     "Example: '1/4 cup fresh thyme, roughly chopped' -> name 'thyme', measurement "
     "'0.25 cup', note 'fresh, roughly chopped'.\n"
-    "- Empty string '' if the line has no such notes.\n\n"
+    "- Include only notes explicitly supported by the source text. A missing quantity "
+    "does not imply 'to taste', 'as needed', 'optional', or 'for garnish'. Never "
+    "invent these instructions from the ingredient type or an unspecified amount.\n"
+    "- Empty string '' if the line has no such notes: 'whipped cream' -> name "
+    "'whipped cream', measurement '', display '', note ''. 'salt' -> name "
+    "'salt', measurement '', display '', note ''. Explicit instructions must "
+    "still be preserved: 'salt to taste' -> name 'salt', measurement '', note "
+    "'to taste'; '1 tbsp sugar (optional)' -> measurement '1.0 tbsp', note "
+    "'optional'.\n\n"
+    "- Explicit cutting/preparation phrases such as 'freshly grated', 'roughly "
+    "chopped', or 'finely minced' belong in note, not name: '1/2 teaspoon freshly "
+    "grated nutmeg' -> name 'nutmeg', measurement '0.5 teaspoon', note 'freshly "
+    "grated'. Preserve food-identity terms such as 'ground beef', 'evaporated "
+    "milk', and 'whole wheat flour'; do not strip them as preparation notes.\n\n"
     "RULES FOR 'display':\n"
     "- The natural, human-readable way to show this quantity in a recipe, exactly as "
     "someone would expect to read it — this is what a person sees, 'measurement' is "
@@ -629,6 +498,16 @@ _MEASUREMENT_ONLY_SYSTEM_PROMPT = (
     "potatoes', '250ml milk', '30g yeast') — this is still a real quantity, extract "
     "it the same as if it had a space: '800g potatoes' -> name 'potatoes', "
     "measurement '800.0 g'. Never drop it just because there's no space.\n"
+    "- A unit can appear AFTER the ingredient name, including inside a "
+    "parenthetical explanation of the leading amount. Attach that explicit "
+    "unit to the amount rather than leaving it only in note: '1/2 matcha powder "
+    "(level tsp of, green tea also has caffeine)' -> name 'matcha powder', "
+    "measurement '0.5 tsp', display '1/2 level tsp', note 'level, green tea also "
+    "has caffeine'. '2 sugar (heaped tablespoons)' -> measurement '2.0 "
+    "tablespoons', note 'heaped'. Only use a unit that describes this ingredient's "
+    "amount; '2 eggs (serve with 1 cup milk)' stays measurement '2.0', never "
+    "'2.0 cups'. If the measurement already has its own unit, do not replace it "
+    "with a later secondary quantity or an alternative ingredient's unit.\n"
     "- A bare word-quantity with no digit ('pinch of salt', 'a dash of pepper', 'a "
     "handful of herbs') means quantity 1 of that word: 'pinch of salt' -> name "
     "'salt', measurement '1.0 pinch'.\n"
@@ -704,8 +583,9 @@ _MEASUREMENT_ONLY_SYSTEM_PROMPT = (
     "such thing as '1 salt' or '2 oregano'. When one of these appears in the "
     "bare 'N - Item' format with no real unit, the N is not a usable quantity "
     "even though it isn't literally '0' — treat it the same as a genuine "
-    "no-quantity line: measurement '' (empty), note 'to taste'. '1 - Salt' -> "
-    "name 'salt', measurement '', note 'to taste'. Do NOT apply this to an "
+    "no-quantity line: measurement '' (empty), note '' unless the source explicitly "
+    "provides a note. '1 - Salt' -> name 'salt', measurement '', note ''. "
+    "Do NOT infer 'to taste'. Do NOT apply this to an "
     "ingredient that genuinely comes in discrete pieces, even if it's a "
     "seasoning — 'bay leaf', 'garlic clove', a whole chilli, a cinnamon stick, "
     "'sprigs' of an herb — those keep their real bare count as normal ('1 - Bay "
@@ -717,7 +597,8 @@ _MEASUREMENT_ONLY_SYSTEM_PROMPT = (
 
 
 class IngredientEntry(BaseModel):
-    name: str = Field(min_length=1)
+    # Empty names (section headings) are dropped by _is_valid_name, not rejected for the whole recipe.
+    name: str
     # No default on these three: a field with a Python-side default is not
     # marked "required" in the JSON schema handed to the model for function
     # calling, so a model/backend under load can omit the key entirely
@@ -738,9 +619,28 @@ class ParsedIngredientLines(BaseModel):
     ingredients: List[IngredientEntry] = Field(min_length=1)
 
 
+class IngredientChoiceExtraction(BaseModel):
+    is_choice: bool
+    alternatives: List[str]
+
+
+_CHOICE_SYSTEM_PROMPT = (
+    "Identify mutually exclusive ingredient choices joined by or. Return only complete "
+    "alternative text spans, not parsed fields. Every alternative must be an independently "
+    "intelligible full ingredient. Repeat any shared quantity and head food noun into every "
+    "alternative. If a noun appears after the final option and applies to earlier options, "
+    "copy it to them. Preserve different quantities. Instructions like 'or until tender' "
+    "are not choices."
+)
+
+
+def _is_instructional_or(text: str) -> bool:
+    return bool(re.search(r"\bor\s+(?:until|when|as)\b", text, re.IGNORECASE))
+
+
 _BARE_MEASUREMENT_NUMBER_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*$")
 _SIZE_MEASUREMENT_RE = re.compile(
-    r"^\s*(\d+(?:\.\d+)?)\s+(?:small|medium|large)(?:-sized)?\s*$",
+    r"^\s*(\d+(?:\.\d+)?)\s+(?:(?:extra|very)[ -]+)?(?:small|medium|large)(?:-sized)?\s*$",
     re.IGNORECASE,
 )
 _DISPLAY_COUNT_UNIT_RE = re.compile(
@@ -748,10 +648,11 @@ _DISPLAY_COUNT_UNIT_RE = re.compile(
     r"(?:[a-z-]+\s+){0,4}"
     r"(cloves?|stalks?|sticks?|slices?|sprigs?|leaves?|fillets?|heads?|"
     r"bulbs?|bunch(?:es)?|cans?|jars?|packets?|packages?|sheets?|shells?|"
-    r"pieces?|pods?|rashers?|cobs?|breasts?|thighs?|steaks?|wrappers?|"
-    r"bags?|tubs?|tins?|packs?|boxes|box|blocks?|small|medium|large)\b",
+    r"pieces?|pods?|rashers?|cobs?|cubes?|breasts?|thighs?|steaks?|wrappers?|scoops?|"
+    r"bags?|tubs?|tins?|packs?|boxes|box|blocks?|(?:(?:extra|very)[ -]+)?(?:small|medium|large))\b",
     re.IGNORECASE,
 )
+_DISPLAY_SPRAY_COUNT_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s+(sprays?)\b", re.IGNORECASE)
 _SOURCE_PORTION_UNIT_RE = re.compile(
     r"\b(pinch(?:es)?|dash(?:es)?|handfuls?|splash(?:es)?)\b",
     re.IGNORECASE,
@@ -868,6 +769,11 @@ _SOURCE_NOTE_MASS_RE = re.compile(
     r"^\s*\(?\s*(?:about\s+)?(\d+(?:\.\d+)?)\s*(g|grams?|kg|kilograms?|oz|ounces?)\b",
     re.IGNORECASE,
 )
+_SOURCE_TOTAL_MASS_RE = re.compile(
+    r"\b(?:around|about|approx(?:\.|imately)?|roughly|in total|total)\s+(\d+(?:\.\d+)?)\s*(g|grams?|kg|kilograms?)\b(?!\s*(?:each|per|apiece))",
+    re.IGNORECASE,
+)
+_COUNT_MEASUREMENT_RE = re.compile(r"^\s*\d+(?:\.\d+)?\s*(?:fillets?|breasts?|pieces?|thighs?|steaks?|chops?|small|medium|large)?\s*$", re.IGNORECASE)
 _ALTERNATIVE_SPLIT_RE = re.compile(r"(?:^|\s)or\s+|;")
 _IMPLIED_ONE_NOTE_UNIT_RE = re.compile(
     r"^\s*(?:a\s+|one\s+)?(?:small\s+|large\s+|fresh\s+)?"
@@ -1043,7 +949,7 @@ def restore_explicit_source_measurement(
     ``3 eggs`` remain measurement ``3.0`` and are interpreted by weighting.
     """
     measurement = str(entry.get("measurement") or "").strip()
-    display = str(entry.get("display") or "").strip().casefold()
+    display = str(entry.get("display") or "").strip().casefold().replace("⁄", "/")
 
     # Correct impossible parser arithmetic such as "¾ cup" -> "0.75 ml"
     # and compound quantities such as "¼ cup + 3 tbsp" -> "130 ml".
@@ -1053,6 +959,12 @@ def restore_explicit_source_measurement(
         parsed_ml = float(current_ml.group(1))
         if abs(parsed_ml - source_ml) > max(1.0, source_ml * 0.03):
             return f"{_format_quantity(source_ml)} ml", "source_volume"
+
+    # "4 fillets, around 520g": an approximate total mass outranks a count unit the weight tool may not know.
+    total = _SOURCE_TOTAL_MASS_RE.search(str(entry.get("note") or ""))
+    if total and _COUNT_MEASUREMENT_RE.match(measurement):
+        grams = float(total.group(1)) * _SOURCE_EACH_MASS_FACTORS[total.group(2).lower()]
+        return f"{_format_quantity(grams)} g", "source_total_mass"
 
     bare = _BARE_MEASUREMENT_NUMBER_RE.match(measurement)
     sized = _SIZE_MEASUREMENT_RE.match(measurement)
@@ -1100,24 +1012,66 @@ def restore_explicit_source_measurement(
     if implied_note_unit:
         return f"1.0 {implied_note_unit.group(1).lower()}", "source_unit"
 
-    display_count = _DISPLAY_COUNT_UNIT_RE.match(display)
+    # Normalize only the leading numeric spelling; source fractions still carry size/count units.
+    count_quantity, count_end = _leading_quantity_value_and_end(display)
+    count_display = (
+        f"{_format_quantity(count_quantity)}{display[count_end:]}"
+        if count_quantity is not None else display
+    )
+    display_count = _DISPLAY_SPRAY_COUNT_RE.match(count_display) or _DISPLAY_COUNT_UNIT_RE.match(count_display)
+    if display_count and display_count.group(2).lower() in {"cube", "cubes"} and re.search(
+        r"[,;(]|\b(?:or|with|serve|without|not)\b", count_display[:display_count.start(2)]
+    ):
+        display_count = None
     if (
-        (bare or not measurement)
+        (bare or sized or not measurement)
         and display_count
         and (
             not measurement
             or abs(float(quantity) - float(display_count.group(1))) < 0.001
         )
     ):
+        unit = re.sub(r"[-\s]+", " ", display_count.group(2).lower())
+        # The greedy descriptor prefix can consume "extra" before "large".
+        if unit in {"small", "medium", "large"}:
+            modifier = re.search(r"\b(extra|very)[ -]+$", count_display[:display_count.start(2)])
+            if modifier:
+                unit = f"{modifier.group(1)} {unit}"
         return (
-            f"{_format_quantity(float(display_count.group(1)))} "
-            f"{display_count.group(2).lower()}",
+            f"{_format_quantity(float(display_count.group(1)))} {unit}",
             "display_count",
         )
 
     # Recover a standard unit visibly attached to the same quantity in the
     # display text. The parser occasionally kept the number but dropped an
     # explicit "teaspoon", "cup", or metric unit.
+    # Restore only the unit of a simple range already averaged by the model.
+    # A container size or an alternative is not a range for this purpose.
+    if bare:
+        first, end = _match_quantity_token(display, 0)
+        separator = _RANGE_SEP_RE.match(display, end) if first is not None else None
+        if separator:
+            second, end = _match_quantity_token(display, separator.end())
+            range_unit = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_RE.match(display[end:])
+            range_display = f"{quantity} {display[end:].lstrip()}"
+            range_count = _DISPLAY_SPRAY_COUNT_RE.match(range_display) or _DISPLAY_COUNT_UNIT_RE.match(range_display)
+            count_unit = range_count.group(2).lower() if range_count else None
+            # Size words are not count nouns; compound-size ranges need separate handling.
+            if count_unit and re.search(r"\b(?:small|medium|large)\b", count_unit):
+                count_unit = None
+            if (
+                second is not None and (range_unit or count_unit)
+                and abs(float(quantity) - (first + second) / 2) < 0.001
+                and not re.search(r"\b(?:or|plus|can|cans|jar|jars|tin|tins|package|packages|bottle|bottles)\b", display)
+                and "+" not in display
+            ):
+                if range_unit:
+                    unit = re.sub(r"\s+", " ", range_unit.group(1).lower()).strip()
+                    unit = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_ALIASES[unit]
+                else:
+                    unit = _SOURCE_COUNT_UNIT_ALIASES.get(count_unit, count_unit)
+                return f"{quantity} {unit}", "source_range_unit"
+
     display_quantity, display_quantity_end = _leading_quantity_value_and_end(display)
     explicit_unit = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_RE.match(
         display[display_quantity_end:]
@@ -1556,11 +1510,120 @@ def _leading_quantity_value_and_end(text: str) -> tuple:
     return None, 0
 
 
+_ALIGNMENT_MODIFIERS = frozenset({"whole", "fresh", "dried", "raw", "large", "small", "medium", "ground", "chopped",
+                                  "sliced", "low", "fat", "free", "reduced", "light", "extra"})
+
+
+def _alignment_tokens(text: str, *, entry: bool = False) -> set:
+    folded = unicodedata.normalize("NFKD", text.lower())
+    words = re.findall(r"[a-z]+", "".join(c for c in folded if not unicodedata.combining(c)))
+
+    def singular(word: str) -> str:
+        if len(word) > 4 and word.endswith("oes"):
+            return word[:-2]
+        if len(word) > 4 and word.endswith("ies"):
+            return word[:-3] + "y"
+        if len(word) > 5 and word.endswith(("ches", "shes", "sses", "xes")):
+            return word[:-2]
+        return word[:-1] if len(word) > 3 and word.endswith("s") and not word.endswith("ss") else word
+
+    tokens = {singular(w) for w in words}
+    if entry and tokens - _ALIGNMENT_MODIFIERS:
+        tokens -= _ALIGNMENT_MODIFIERS
+    return tokens
+
+
+def align_entries_to_lines(entries: List[dict], lines: List[str]) -> List[Optional[int]]:
+    """Source-line index per entry, in order. Parsed entries follow source order, so each entry
+    binds to the first unused line at or after the previous binding that contains all its name
+    words. Repeated foods therefore bind to their own line; only entries with disjoint names
+    (salt, pepper) may share one line. No containing line means None, never a guess."""
+    from recipe_wrangler.utils.seasoning_quantities import salt_and_pepper_parts, seasoning_source_name
+    # "low salt stock" qualifies the stock; it never binds a salt entry.
+    line_tokens = [_alignment_tokens(_QUALIFIED_SALT_RE.sub(" ", line)) for line in lines]
+    seasonings = [[seasoning_source_name(part) for part in parts]
+                  if (parts := salt_and_pepper_parts(re.sub(r"^\s*(?:a\s+)?pinch\s+of\s+", "", line, flags=re.IGNORECASE))) else []
+                  for line in lines]
+
+    def typo_holds(entry_tokens: set, index: int) -> bool:
+        # One source word misspelt ("parlsey"): every other word present, the odd one at least 85% similar.
+        from difflib import SequenceMatcher
+        missing = entry_tokens - line_tokens[index]
+        return len(missing) == 1 and len(next(iter(missing))) >= 5 and any(
+            SequenceMatcher(None, next(iter(missing)), word).ratio() >= .85 for word in line_tokens[index])
+
+    def holds(entry_tokens: set, kind: Optional[str], index: int) -> bool:
+        return entry_tokens <= line_tokens[index] or (kind is not None and kind in seasonings[index])
+
+    bound: List[Optional[int]] = []
+    pointer = 0
+    previous: Optional[tuple] = None
+    for entry in entries:
+        tokens = _alignment_tokens(_QUALIFIED_SALT_RE.sub(" ", entry["name"]), entry=True)
+        kind = seasoning_source_name(entry["name"])
+        found = None
+        if tokens:
+            if previous is not None and not (tokens & previous[1]) and holds(tokens, kind, previous[0]):
+                found = previous[0]
+            else:
+                for index in range(pointer, len(lines)):
+                    if holds(tokens, kind, index):
+                        found = index
+                        break
+                if found is None:
+                    found = next((index for index in range(pointer, len(lines)) if typo_holds(tokens, index)), None)
+        bound.append(found)
+        if found is not None:
+            pointer = found + 1
+            previous = (found, tokens | (previous[1] if previous and previous[0] == found else set()))
+    return bound
+
+
+_DUAL_UNIT_RE = re.compile(
+    r"(?P<metric>\d+(?:\.\d+)?)\s*(?P<munit>kg|g)\s*/\s*(?P<imperial>\d+(?:\s+\d/\d|\.\d+|\s*[½¼¾])?)\s*"
+    r"(?P<iunit>oz|ozs|ounces?|lbs?|pounds?)\b", re.IGNORECASE)
+
+
+def metric_imperial_conflict(line: str) -> Optional[dict]:
+    """Flag a g/oz display whose two amounts disagree. 'rounded_display' is within half an ounce
+    (the line's metric amount stays authoritative); 'contradiction' needs a human decision."""
+    # "60z" is "6oz" typed with a zero for the letter o (a spaced "60 oz" is left to the contradiction check).
+    match = _DUAL_UNIT_RE.search(re.sub(r"(?<=\d)0z\b", " oz", _normalize_stacked_fractions(line)))
+    if not match:
+        return None
+    fractions = {"½": .5, "¼": .25, "¾": .75}
+    raw = match["imperial"]
+    imperial = float(re.match(r"\d+(?:\.\d+)?", raw)[0]) + sum(fractions.get(c, 0) for c in raw)
+    mixed = re.search(r"\s(\d)/(\d)$", raw)
+    if mixed:
+        imperial += int(mixed[1]) / int(mixed[2])
+    metric_g = float(match["metric"]) * (1000 if match["munit"].lower() == "kg" else 1)
+    unit_g = 453.59237 if match["iunit"].lower().startswith(("lb", "pound")) else 28.349523125
+    expected = metric_g / unit_g
+    if abs(imperial - expected) <= max(.05 * expected, .02):
+        return None
+    kind = "rounded_display" if abs(imperial - expected) <= .5 * (16 if unit_g > 400 else 1) else "contradiction"
+    return {"kind": kind, "metric": f"{match['metric']} {match['munit'].lower()}",
+            "imperial": f"{raw.strip()} {match['iunit'].lower().rstrip('.')}", "expected_imperial": round(expected, 2)}
+
+
+def attach_source_links(entries: List[dict], lines: List[str]) -> None:
+    """Record each entry's source line index; add source_conflict only when the line contradicts itself."""
+    for entry, index in zip(entries, align_entries_to_lines(entries, lines)):
+        entry["source_line_index"] = index
+        conflict = metric_imperial_conflict(lines[index]) if index is not None else None
+        if conflict:
+            entry["source_conflict"] = conflict
+
+
 def _assign_lines_to_entries(entries: List[dict], lines: List[str]) -> List[Optional[str]]:
     """One-to-one, greedy-best-match assignment of a source line to each
     entry, so two entries with the same name (e.g. two "brown sugar" lines
     in one recipe) don't both latch onto the same line — each line is
     consumed at most once, best-overlap-first."""
+    aligned = align_entries_to_lines(entries, lines)
+    if all(index is not None for index in aligned):
+        return [lines[index] for index in aligned]
     name_token_sets = [set(re.findall(r"[a-z]+", e["name"].lower())) for e in entries]
     line_token_sets = [set(re.findall(r"[a-z]+", l.lower())) for l in lines]
     assigned: List[Optional[str]] = [None] * len(entries)
@@ -1584,16 +1647,292 @@ def _assign_lines_to_entries(entries: List[dict], lines: List[str]) -> List[Opti
     return assigned
 
 
+_DISCRETIONARY_NOTE_RE = re.compile(
+    r"\b(?:to taste|to season|optional|garnish|to garnish|for garnishing|to serve|for serving|"
+    r"as needed|for drizzling|for topping|for dusting|to dust)\b",
+    re.IGNORECASE,
+)
+
+
+# Grams yielded by one fruit: juice from USDA SR portions, zest by convention (about 1 tbsp lemon, 2 tbsp orange).
+_CITRUS_PART_GRAMS = {
+    ("lemon", "juice"): 48.0, ("lime", "juice"): 44.0, ("orange", "juice"): 86.0,
+    ("lemon", "zest"): 6.0, ("lime", "zest"): 2.0, ("orange", "zest"): 12.0,
+}
+_CITRUS_FRUIT_RE = re.compile(r"\b(lemon|lime|orange)s?\b", re.IGNORECASE)
+
+
+def restore_citrus_part(entry: dict, line: str) -> tuple[str, str] | None:
+    """'Zest 1 lemon' / 'juice of half a lime' weighed as the zest or juice, not the whole fruit."""
+    name = str(entry.get("name") or "").casefold()
+    fruit = _CITRUS_FRUIT_RE.fullmatch(name.replace(" zest", "").replace(" rind", "").replace(" peel", "").strip())
+    measurement = str(entry.get("measurement") or "").strip()
+    if not fruit or (measurement and not _BARE_MEASUREMENT_NUMBER_RE.match(measurement)):
+        return None
+    cue = f"{name} {entry.get('note') or ''} {line or ''}".casefold()
+    part = "zest" if re.search(r"\b(?:zest|rind|peel)\b", name) else "juice" if re.search(r"\bjuice[d]?\b", cue) \
+        else "zest" if re.search(r"\b(?:zest|rind)\b", cue) else None
+    if part is None:
+        return None
+    qty = float(measurement) if measurement else 0.5 if re.search(r"\bhalf\b", cue) else 1.0
+    spoon = re.search(r"(\d+(?:\.\d+)?)\s*(?:teaspoons?|tsp)\b[^,;]*\bzest\b", cue)
+    if spoon and part == "zest":  # "you need 1 teaspoon zest": about 2 g per level teaspoon
+        return f"{fruit.group(1).lower()} zest", f"{_format_quantity(float(spoon[1]) * 2.0)} g"
+    return f"{fruit.group(1).lower()} {part}", f"{_format_quantity(qty * _CITRUS_PART_GRAMS[fruit.group(1).lower(), part])} g"
+
+
+_QUALIFIED_SALT_RE = re.compile(r"\b(?:low|reduced|no[- ]added)[- ]salt\b|\bsalt[- ]free\b|\bunsalted\b", re.IGNORECASE)
+
+
+def drop_phantom_seasoning(entries: List[dict], lines: List[str]) -> List[dict]:
+    """Drop a salt entry when no source line asks for salt ("low salt stock" qualifies the stock, it is not salt)."""
+    asks_for_salt = any(re.search(r"\bsalt\b", _QUALIFIED_SALT_RE.sub("", line), re.IGNORECASE) for line in lines)
+    return [e for e in entries if asks_for_salt or str(e.get("name") or "").strip().casefold() not in {"salt", "sea salt", "table salt"}]
+
+
+def prepare_entries_for_weights(
+    entries: List[dict], source_lines: List[str]
+) -> tuple[List[str], List[str], List[str]]:
+    """Apply the post-parse repairs the batch path uses; returns names, measurements, originals."""
+    lines = [_fold_accents(str(line).strip()) for line in source_lines if str(line).strip()]
+    names, measurements, originals = [], [], []
+    for entry, line in zip(entries, _assign_lines_to_entries(entries, lines)):
+        current = dict(entry)
+        source_measurement, _ = restore_explicit_source_measurement(current)
+        if source_measurement is not None:
+            current["measurement"] = source_measurement
+        cube = restore_stock_cube_measurement(current["name"], line or current.get("display") or "")
+        if cube is not None:
+            current["measurement"] = cube
+            if "cube" not in current["name"].casefold():
+                current["name"] += " cube"
+        grease = restore_greasing_measurement(current)
+        if grease is not None:
+            current["measurement"] = grease
+        bouillon = restore_bouillon_form(current)
+        if bouillon is not None:
+            current["name"], current["measurement"] = bouillon
+        bird = restore_whole_bird_name(current)
+        if bird is not None:
+            current["name"] = bird
+        if line is not None:
+            corrected = restore_leading_quantity_from_source(
+                current["measurement"], line, current.get("display") or ""
+            )
+            if corrected is not None:
+                current["measurement"] = corrected
+            if not _DISCRETIONARY_NOTE_RE.search(current.get("note") or ""):
+                recovered, _ = restore_explicit_source_measurement(
+                    {**current, "display": line}, allow_quantity_override=False
+                )
+                if recovered is not None:
+                    current["measurement"] = recovered
+        # A metric amount cannot come from a line with no digits ("Salt and pepper to taste"): it leaked from another line.
+        if line is not None and not re.search(r"\d", line) and re.search(r"^\s*[\d.]+\s*(?:g|kg|ml|l)\b", current["measurement"], re.IGNORECASE):
+            current["measurement"] = ""
+        # European decimal comma ("0,2 g"); three digits after the comma is a thousands separator, not a decimal.
+        decimal = re.match(r"\s*(\d+),(\d{1,2})\s*(g|kg|ml|l)\b", line or "", re.IGNORECASE)
+        if decimal:
+            current["measurement"] = f"{_format_quantity(float(decimal[1] + '.' + decimal[2]))} {decimal[3].lower()}"
+        # "1 red and 1 green pepper": the parser keeps only the first count.
+        paired = re.match(r"\s*(\d+)\s+[a-z]+\s+and\s+(\d+)\s+[a-z]+\s+([a-z]+)", line or "", re.IGNORECASE)
+        bare = _BARE_MEASUREMENT_NUMBER_RE.match(current["measurement"])
+        if (paired and bare and float(bare[1]) == float(paired[1])
+                and paired[3].casefold().rstrip("s") == current["name"].casefold().split()[-1].rstrip("s")):
+            current["measurement"] = _format_quantity(float(paired[1]) + float(paired[2]))
+        # "around 3-4lb / 1.5kg": a single stated metric mass outranks an imperial range.
+        metric = re.search(r"/\s*(\d+(?:\.\d+)?)\s*(kg|g)\b", line or "", re.IGNORECASE)
+        if metric and re.match(r"^\s*[\d.]+\s*(?:lbs?|pounds?|oz)\b", current["measurement"], re.IGNORECASE) \
+                and re.search(r"\d\s*-\s*\d", current.get("display") or ""):
+            current["measurement"] = f"{_format_quantity(float(metric[1]) * (1000 if metric[2].lower() == 'kg' else 1))} g"
+        # "24 baby potatoes": baby potatoes are small ones, not the medium default.
+        if re.search(r"\bbaby\b", f"{current.get('display') or ''} {current.get('note') or ''}", re.IGNORECASE) \
+                and re.search(r"\bpotato(?:es)?\b", current["name"], re.IGNORECASE) and _BARE_MEASUREMENT_NUMBER_RE.match(current["measurement"]):
+            current["measurement"] = f"{current['measurement'].strip()} small"
+        citrus = restore_citrus_part(current, line or "")
+        if citrus is not None:
+            current["name"], current["measurement"] = citrus
+        if not current["measurement"].strip() and _DISCRETIONARY_NOTE_RE.search(current.get("note") or ""):
+            current["measurement"] = "optional"
+        names.append(current["name"])
+        measurements.append(current["measurement"])
+        originals.append(line or " ".join(filter(None, [entry.get("display"), entry["name"], entry.get("note")])))
+    return names, measurements, originals
+
+
+_SOURCE_AMOUNT_CUE_RE = re.compile(
+    r"\d|[½⅓⅔¼¾⅛⅜⅝⅞]|\b(?:a|an|zero|one|two|three|four|five|six|seven|eight|nine|ten|"
+    r"eleven|twelve|half|quarter|couple|few|several|some|dozen|single|pair|double|triple|"
+    r"sprays?|scoops?|ladles?|mugs?|bowls?|cans?|packages?|"
+    + "|".join(re.escape(unit) for unit in (
+        *_SOURCE_EXPLICIT_MEASUREMENT_UNIT_ALIASES,
+        *_SOURCE_COUNT_UNIT_ALIASES,
+        *_SOURCE_PORTION_UNIT_ALIASES,
+    )) + r")\b",
+    re.IGNORECASE,
+)
+
+
+def _clearly_quantity_free(entry: dict, line: str, lines: List[str]) -> bool:
+    """Require an unambiguous exact food-name prefix, not fuzzy line assignment."""
+    name = str(entry.get("name") or "").strip()
+    prefix = re.compile(r"^\s*" + re.escape(name) + r"(?=\s*[,;(]|\s*$)", re.IGNORECASE)
+    mention = re.compile(r"(?<!\w)" + re.escape(name) + r"(?!\w)", re.IGNORECASE)
+    matches = [source for source in lines if mention.search(source)]
+    product_spray = bool(re.search(r"\b(?:cooking|oil)\s+spray\b", line, re.IGNORECASE))
+    amount_text = re.sub(r"\b(?:cooking|oil)\s+spray\b", "", line, flags=re.IGNORECASE)
+    # “Ice cube” names a food form, not an explicit count of one.
+    ice_form = bool(re.fullmatch(r"\s*ice\s+cubes?\s*(?:\(optional\))?\s*", line, re.IGNORECASE)) and name.casefold() in {"ice", "ice cube", "ice cubes"}
+    if ice_form:
+        amount_text = ""
+    return (
+        bool(name) and (bool(prefix.match(line)) or ice_form or (product_spray and (name.casefold().endswith("spray") or re.search(r"\boil\b", name, re.IGNORECASE))))
+        and len(matches) == 1 and matches[0] == line
+        and not _SOURCE_AMOUNT_CUE_RE.search(amount_text)
+    )
+
+
+def _preserve_merged_source_purposes(entries: List[dict], lines: List[str]) -> None:
+    """Keep reserved-portion purposes when simple same-unit source rows were summed."""
+    for entry in entries:
+        name = str(entry.get("name") or "").strip().casefold()
+        if not name or sum(e["name"].casefold() == name for e in entries) != 1:
+            continue
+        food = re.escape(name)
+        if name == "flour":
+            food = r"(?:all[- ]purpose\s+)?" + food
+        portions = []
+        for index, line in enumerate(lines):
+            quantity, end = _leading_quantity_value_and_end(line)
+            source_unit = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_RE.match(line[end:])
+            if quantity is None or not source_unit:
+                continue
+            food_start = end + source_unit.end()
+            tail = re.fullmatch(
+                rf"\s*{food}\s*,?\s*(?P<purpose>(?:for|to)\s+[^,;()]+)?\s*(?P<plus>plus)?\s*",
+                line[food_start:], re.IGNORECASE,
+            )
+            if tail and not re.search(r"\b(?:or|not|without|except)\b", line, re.IGNORECASE):
+                raw_unit = source_unit.group(1).casefold()
+                portions.append((index, quantity, _SOURCE_EXPLICIT_MEASUREMENT_UNIT_ALIASES[raw_unit],
+                                 line[:food_start].strip(), tail.group('purpose'), bool(tail.group('plus'))))
+        # shortcut: restore only adjacent explicit plus rows with one common unit;
+        # compound conversions and ambiguous merges need a richer occurrence representation.
+        if len(portions) != 2 or portions[1][0] != portions[0][0] + 1 or not portions[0][-1]:
+            continue
+        if portions[0][2] != portions[1][2]:
+            continue
+        current = str(entry.get("measurement") or "")
+        quantity, end = _leading_quantity_value_and_end(current)
+        current_unit = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_ALIASES.get(current[end:].strip().casefold())
+        if quantity is None or current_unit != portions[0][2] or abs(quantity - sum(p[1] for p in portions)) > .005:
+            continue
+        for _, _, _, amount, purpose, _ in portions:
+            if purpose and purpose.casefold() not in entry.get("note", "").casefold():
+                entry["note"] = "; ".join(filter(None, [entry.get("note", ""), f"{amount} {purpose}"]))
+
+
+_CONTAINER_SIZE_RE = re.compile(
+    r"\s*(?:(?P<open>\()|(?P<times>x)\s*|(?=\d))\s*(?P<size>[\d\s./⁄½⅓⅔¼¾⅛]+?)[\s-]*"
+    r"(?P<unit>fl\.?\s*oz|fluid\s+ounces?|ounces?|oz|lbs?|pounds?|grams?|g|kg|ml|l)\b\.?"
+    r"(?(open)\s*\))",
+    re.IGNORECASE,
+)
+_CONTAINER_WORD_RE = re.compile(
+    r"\s*(?:\([^)]*\)\s*)?(?:cans?|tins?|jars?|bags?|boxe?s?|packages?|packets?|pkgs?|"
+    r"containers?|cartons?|bottles?|tubs?)\b",
+    re.IGNORECASE,
+)
+_CONTAINER_UNITS = {"ounce": "oz", "ounces": "oz", "pound": "lb", "pounds": "lb", "lbs": "lb",
+                    "gram": "g", "grams": "g"}
+
+
+def _container_total(line: str) -> Optional[str]:
+    """Total of '3 (14 1/2 ounce) cans' or '2 x 400g tins'; None for anything else."""
+    if re.search(r"\bdrained\s+weight\b", line, re.IGNORECASE):
+        return None
+    text = line.replace("⁄", "/")
+    count, end = _leading_quantity_value_and_end(text)
+    size_match = _CONTAINER_SIZE_RE.match(text, end) if count else None
+    if not size_match:
+        return None
+    size, size_end = _leading_quantity_value_and_end(size_match.group("size").strip())
+    if size is None or size_end != len(size_match.group("size").strip()):
+        return None
+    if not size_match.group("times") and not _CONTAINER_WORD_RE.match(text, size_match.end()):
+        return None
+    if re.search(r"\d\s*(?:g|grams?|oz|ounces?)\b[^,]*\bdrained\b", text[size_match.end():], re.IGNORECASE):
+        return None
+    unit = re.sub(r"\s+", " ", size_match.group("unit").casefold())
+    unit = "fl oz" if unit.startswith(("fl", "fluid")) else _CONTAINER_UNITS.get(unit, unit)
+    return f"{_format_quantity(count * size)} {unit}"
+
+
+_COUNT_THEN_CONTAINER_RE = re.compile(r"\s*(\d+)\s+(?:cans?|tins?|jars?|bags?|boxe?s?|packages?|packets?|tubs?)\b", re.IGNORECASE)
+_SIZE_AFTER_NAME_RE = re.compile(r"\b(?:approx\.?|approximately|about|around)\s*(\d+(?:\.\d+)?)\s*(g|grams?|kg|ml|l)\b", re.IGNORECASE)
+
+
+def _container_total_after_name(line: str) -> Optional[str]:
+    """'2 tins of tuna, drained, approx. 198g / 7 oz.': N containers whose size follows the name, so the total is N x size. Without this the
+    generic override below replaces even a correct model total with the line's leading count ('2.0 g'). A stated drained weight is left alone."""
+    text = line.replace("⁄", "/")
+    count = _COUNT_THEN_CONTAINER_RE.match(text)
+    size = _SIZE_AFTER_NAME_RE.search(text)
+    if not count or not size or int(count.group(1)) < 2 or re.search(r"\bdrained\s+weight\b", text, re.IGNORECASE):
+        return None
+    unit = _CONTAINER_UNITS.get(size.group(2).casefold(), size.group(2).casefold())
+    return f"{_format_quantity(int(count.group(1)) * float(size.group(1)))} {unit}"
+
+
+def _unsum_alternatives(measurement: str, line: str) -> Optional[str]:
+    """'5 lbs A or 5 lbs B' is one choice; the model sometimes adds both amounts."""
+    sides = re.split(r"\bor\b", line.replace("⁄", "/"), maxsplit=1, flags=re.IGNORECASE)
+    current = re.match(r"\s*(\d+(?:\.\d+)?)(.*)", measurement)
+    if len(sides) != 2 or not current:
+        return None
+    first, _ = _leading_quantity_value_and_end(sides[0].strip())
+    second, _ = _leading_quantity_value_and_end(sides[1].strip())
+    if first is None or second is None or abs(float(current.group(1)) - (first + second)) > 0.01:
+        return None
+    return _format_quantity(first) + current.group(2)
+
+
 def _apply_deterministic_overrides(entries: List[dict], lines: List[str]) -> None:
-    """Mutate ``entries`` in place, replacing a wrong leading number on a
-    simple line with the deterministic parser's value. Only touches the
-    number — unit, name, note, and display text are left as the LLM wrote
-    them, since those have not shown this failure mode."""
+    """Ground quantities/units in assigned source lines; preserve ambiguous cases."""
+    _preserve_merged_source_purposes(entries, lines)
     assigned_lines = _assign_lines_to_entries(entries, lines)
     for entry, line in zip(entries, assigned_lines):
         if line is None:
             continue
+        # Dry garlic/onion forms are food identities, not merely preparation instructions.
+        name = str(entry.get("name") or "").casefold()
+        if name in {"garlic", "onion"} and sum(
+            bool(re.search(rf"\b{name}\b", source, re.IGNORECASE)) for source in lines
+        ) == 1:
+            primary = re.split(r"[,;(]|\b(?:or|not|no|without|instead|except|excluding)\b", line, maxsplit=1, flags=re.IGNORECASE)[0]
+            form = re.search(
+                rf"\b(?:{name}\s+(?:powder|granules)|(?:powdered|granulated)\s+{name})\b",
+                primary, re.IGNORECASE,
+            )
+            if form:
+                entry["name"] = re.sub(r"\s+", " ", form.group(0).lower())
+        container_total = _container_total(line)
+        if container_total is not None:
+            entry["measurement"] = container_total
+            continue
+        after_name_total = _container_total_after_name(line)
+        if after_name_total is not None:
+            entry["measurement"] = after_name_total
+            continue
+        unsummed = _unsum_alternatives(entry.get("measurement") or "", line)
+        if unsummed is not None:
+            entry["measurement"] = unsummed
+            continue
         measurement = entry.get("measurement") or ""
+        if _clearly_quantity_free(entry, line, lines):
+            entry["measurement"] = ""
+            entry["display"] = ""
+            continue
         source_entry = dict(entry)
         source_entry["display"] = line
         restored, _ = restore_explicit_source_measurement(source_entry)
@@ -1648,11 +1987,63 @@ def _split_salt_and_pepper_entries(entries: List[dict]) -> List[dict]:
     return split_entries
 
 
+def _attach_postparse_choices(
+    entries: List[dict],
+    lines: List[str],
+    llm: Any,
+    structured_method: str,
+) -> None:
+    """Attach validated choices when parser input/output remains row-aligned."""
+    if len(entries) != len(lines) and len(lines) != 1:
+        return
+    prompt = ChatPromptTemplate.from_messages(
+        [("system", _CHOICE_SYSTEM_PROMPT), ("human", "{line}")]
+    )
+    chain = prompt | llm.with_structured_output(
+        IngredientChoiceExtraction, method=structured_method
+    )
+    pairs = [(entries[0], lines[0])] if len(lines) == 1 else list(zip(entries, lines, strict=True))
+    for entry, line in pairs:
+        if not re.search(r"\bor\b", line, re.IGNORECASE):
+            continue
+        if _is_instructional_or(line):
+            continue
+        extracted = chain.invoke({"line": line})
+        if not extracted.is_choice or len(extracted.alternatives) < 2:
+            continue
+        alternatives: list[dict] = []
+        for text in extracted.alternatives:
+            parsed = parse_ingredient_lines([text], max_attempts=2, _choices=False)
+            if len(parsed) != 1:
+                alternatives = []
+                break
+            alternative = parsed[0]
+            alternative["original_text"] = text
+            restored, _ = restore_explicit_source_measurement(
+                {**alternative, "display": text}
+            )
+            if restored is not None:
+                alternative["measurement"] = restored
+            alternatives.append(alternative)
+        if len(alternatives) < 2:
+            continue
+        entry["choice"] = {
+            "connector": "or",
+            "alternatives": alternatives,
+            "selected_index": 0,
+            "selection_policy": "first_listed_default",
+        }
+        if len(lines) == 1:
+            entries[:] = [entry]
+
+
 def parse_ingredient_lines(
     ingredient_lines: List[str],
     max_attempts: int = 2,
+    *,
+    _choices: bool = False,
 ) -> List[dict]:
-    """Parse raw ingredient lines into [{name, measurement, note}, ...].
+    """Parse raw lines into ingredient dictionaries with optional choices.
 
     One call per recipe. The input lines are scraper array entries, which do
     NOT reliably correspond 1:1 to real ingredients (fragments split across
@@ -1681,7 +2072,7 @@ def parse_ingredient_lines(
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", _MEASUREMENT_ONLY_SYSTEM_PROMPT),
-            ("human", "Ingredient lines:\n{lines}"),
+            ("human", "Ingredient lines:\n{lines}{schema_feedback}"),
         ]
     )
     lines_text = "\n".join(f"{i + 1}. {l}" for i, l in enumerate(lines))
@@ -1689,14 +2080,22 @@ def parse_ingredient_lines(
     fallback_chain = prompt | llm.with_structured_output(ParsedIngredientLines, method="function_calling")
 
     last_exc: Optional[Exception] = None
+    schema_feedback = ""
     for attempt in range(max_attempts):
         try:
             active_chain = fallback_chain if structured_method != "function_calling" and last_exc is not None else chain
-            result = active_chain.invoke({"lines": lines_text})
+            result = active_chain.invoke({"lines": lines_text, "schema_feedback": schema_feedback})
             if result is None:
                 raise ValueError("structured output call returned no result")
         except Exception as exc:
             last_exc = exc
+            if isinstance(exc, ValidationError):
+                schema_feedback = (
+                    "\n\nThe previous response failed schema validation. Return 'ingredients' "
+                    "as an array of objects, each with string fields 'name', 'measurement', "
+                    "'display', and 'note'. Never return ingredient lines as strings. "
+                    "Use empty strings for unspecified fields; do not invent amounts or notes."
+                )
             continue
 
         entries = []
@@ -1754,6 +2153,8 @@ def parse_ingredient_lines(
             last_exc = ValueError("digit fused into a word, likely corrupted accented character")
             continue
         _apply_deterministic_overrides(entries, lines)
+        if _choices:
+            _attach_postparse_choices(entries, lines, llm, structured_method)
         return _split_salt_and_pepper_entries(entries)
 
     raise RuntimeError(f"parse_ingredient_lines failed after {max_attempts} attempts") from last_exc
@@ -1761,7 +2162,7 @@ def parse_ingredient_lines(
 
 @tool
 def parse_ingredient_lines_tool(ingredient_lines: List[str]) -> dict:
-    """Parses raw ingredient lines into [{name, measurement, note}, ...].
+    """Parse lines into ingredients.
 
     Produces fresh standalone data (name/measurement/note per line) — does
     not read or write any database record.
@@ -1784,15 +2185,7 @@ def Recipe_Parser_Node(state: RecipeState) -> RecipeState:
         state.ingredient_names,
         result.get("ingredient_match_names"),
     )
-    state.measurements = _realign_measurements(
-        state.ingredient_names or [],
-        result["measurements"] or [],
-    )
-    state.measurements = _recover_measurements_from_source(
-        state.ingredient_names or [],
-        state.measurements or [],
-        state.raw_recipe or "",
-    )
+    state.measurements = result["measurements"] or []
     (
         state.ingredient_names,
         state.measurements,
@@ -1804,6 +2197,9 @@ def Recipe_Parser_Node(state: RecipeState) -> RecipeState:
         state.ingredient_match_names,
     )
     state.directions = result["directions"]
+    from recipe_wrangler.matching.source_evidence import unique_source_lines
+    source_lines=[line.strip() for line in (state.raw_recipe or '').splitlines() if line.strip()]
+    state.ingredient_original_texts=result.get("ingredient_original_texts") or unique_source_lines(state.ingredient_names,source_lines)
     state.total_time = result["total_time"]
     trusted_serves = getattr(state, "trusted_serves", None)
     state.serves = trusted_serves or result["serves"]

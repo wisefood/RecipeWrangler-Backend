@@ -24,21 +24,21 @@ from recipe_wrangler.tools.parse_recipe_tool import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SNAPSHOT_ROOT = REPO_ROOT / "data/processed/ingredient_parsing_final/2026-09-24"
+SNAPSHOT_ROOT = REPO_ROOT / "data/recipes/parsed_snapshot/2026-09-24"
 INPUT_ROOT = SNAPSHOT_ROOT / "parsed"
 OUTPUT_ROOT = SNAPSHOT_ROOT / "weight_ready_parsed"
 
 RAW_SOURCE_PATHS = {
-    "healthyfoods_final_parsed_fixed.json": [REPO_ROOT / "data/HealthyFoods/HealthyFood_recipes.json"],
-    "healthyfoods_remaining_a-n_parsed.json": [REPO_ROOT / "data/HealthyFoods/HealthyFood_recipes.json"],
-    "myplate_final_parsed.json": [REPO_ROOT / "data/MyPlate/myplate_recipes.json"],
-    "foodhero_final_parsed.json": [REPO_ROOT / "data/FoodHero/foodhero_recipes.json"],
-    "best_of_hungary_final_parsed.json": [REPO_ROOT / "data/BestOfHungary/bestofhungary.json"],
-    "hungary_soul_final_parsed.json": [REPO_ROOT / "data/TheHungarySoul/thehungarysoul.json"],
-    "safefood_v1_parsed.json": sorted((REPO_ROOT / "data/SafeFood_web").glob("*_recipes.json")),
-    "slovenian_v1_parsed.json": [REPO_ROOT / "data/SlovenianKitchen/slovenian-kitchen.json"],
-    "supervalu_v3_parsed.json": [REPO_ROOT / "data/SuperValu/supervalu.json"],
-    "irishheart_v3_parsed.json": [REPO_ROOT / "data/IrishHeart/irish-heart.json"],
+    "healthyfoods_final_parsed_fixed.json": [REPO_ROOT / "data/recipes/healthyfoods/HealthyFood_recipes.json"],
+    "healthyfoods_remaining_a-n_parsed.json": [REPO_ROOT / "data/recipes/healthyfoods/HealthyFood_recipes.json"],
+    "myplate_final_parsed.json": [REPO_ROOT / "data/recipes/myplate/myplate_recipes.json"],
+    "foodhero_final_parsed.json": [REPO_ROOT / "data/recipes/foodhero/foodhero_recipes.json"],
+    "best_of_hungary_final_parsed.json": [REPO_ROOT / "data/recipes/best_of_hungary/bestofhungary.json"],
+    "hungary_soul_final_parsed.json": [REPO_ROOT / "data/recipes/hungary_soul/thehungarysoul.json"],
+    "safefood_v1_parsed.json": sorted((REPO_ROOT / "data/recipes/safefood_web").glob("*_recipes.json")),
+    "slovenian_v1_parsed.json": [REPO_ROOT / "data/recipes/slovenian_kitchen/slovenian-kitchen.json"],
+    "supervalu_v3_parsed.json": [REPO_ROOT / "data/recipes/supervalu/supervalu.json"],
+    "irishheart_v3_parsed.json": [REPO_ROOT / "data/recipes/irish_heart/irish-heart.json"],
 }
 
 _DISCRETIONARY_NOTE_RE = re.compile(

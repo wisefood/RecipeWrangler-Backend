@@ -7,8 +7,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-DEFAULT_INPUT = Path("data/HealthyFoods/HealthyFood_recipes.json")
-DEFAULT_OUTPUT = Path("data/HealthyFoods/HealthyFood_recipes_clean.json")
+DEFAULT_INPUT = Path("data/recipes/healthyfoods/HealthyFood_recipes.json")
+DEFAULT_OUTPUT = Path("data/recipes/healthyfoods/HealthyFood_recipes_clean.json")
 
 
 # healthyfood.com renders an inline regional-name tooltip (e.g. "corn

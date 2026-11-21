@@ -795,6 +795,8 @@ def upsert_recipe_profiling_trace(record: dict) -> None:
         with get_connection() as conn:
             tx = conn.begin()
             try:
+                from recipe_wrangler.repositories.matching_store import persist_profile_record
+                persist_profile_record(conn,record)
                 wrote = False
                 if _PROFILES_HAS_UNIQUE:
                     savepoint = conn.begin_nested()

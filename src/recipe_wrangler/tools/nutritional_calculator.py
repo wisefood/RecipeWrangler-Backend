@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 from langchain.tools import tool
 
 from recipe_wrangler.schemas import RecipeState
+from recipe_wrangler.tools.nutrition_completeness import native_values, contribution, completeness, apply_totals_mode
 from recipe_wrangler.repositories.postgres_nutrition import (
     get_eu_ingredient_nutrition,
     get_hungarian_ingredient_nutrition,
@@ -81,7 +82,7 @@ HUNGARIAN_FIBER_KEYS = ("Fiber (g)",)
 # A stock cube, bouillon powder, or plain salt carries per-100g nutrition for
 # the concentrate itself, not for the water/dish it seasons. An upstream
 # parsing bug (fixing the parser is a separate, larger piece of work — see
-# `data/analysis/nutrition_curation/PLAN.md`) can attach the *whole line's*
+# `analysis/nutrition_curation/PLAN.md`) can attach the *whole line's*
 # weight to that concentrate match — e.g. "850g water and 1 vegetable stock
 # cube" resolving to 850g of stock cube nutrition instead of ~10g. That turns
 # a normal soup into ~47,600mg of sodium per serving. This is a backstop, not
@@ -263,8 +264,27 @@ def nutritional_tool_vector(
     min_similarity: float = 0.7,
     source: str = "irish",
     serves: Optional[float] = None,
+    original_texts: Optional[List[str]] = None,
+    recipe_id: Optional[str] = None,
 ) -> Dict:
+    matcher_mode=os.getenv('NUTRITION_MATCHER_MODE','legacy').strip().lower()
+    if matcher_mode not in {'legacy','shadow','new'}:
+        raise ValueError('NUTRITION_MATCHER_MODE must be legacy, shadow or new')
+    proposed=None
+    if matcher_mode!='legacy':
+        from recipe_wrangler.matching.runtime import engine
+        from recipe_wrangler.repositories.matching_store import deployment
+        release_id=os.getenv('NUTRITION_MATCHING_RELEASE') or deployment()['release_id']
+        if not release_id:raise ValueError('No published matching release configured')
+        names=ingredient_identity_names if ingredient_identity_names is not None else ingredient_names
+        contexts=original_texts if original_texts is not None else ingredient_names
+        proposed=engine(release_id).calculate(title=title,ingredient_names=names,weights=weights,
+            original_texts=contexts,source=source.strip().lower(),serves=serves,recipe_id=recipe_id)
+        proposed['matcher_mode']=matcher_mode
+        if matcher_mode=='new':return proposed
     details: List[Dict] = []
+    supported_contributions: List[Dict] = []
+    calculation_assumptions: List[Dict] = []
     total_protein_g = 0.0
     total_carbs_g   = 0.0
     total_fat_g     = 0.0
@@ -353,6 +373,7 @@ def nutritional_tool_vector(
             )
 
         if match is None or rejected_weak:
+            supported_contributions.append(contribution({},float(weight_g),ingredient=ing_name))
             details.append({
                 "ingredient": ing_name,
                 "source": _source_label(active_source),
@@ -409,6 +430,7 @@ def nutritional_tool_vector(
                 nutrient_row = get_slovenian_ingredient_nutrition(str(slovenian_id))
 
         if not nutrient_row:
+            supported_contributions.append(contribution({},float(weight_g),ingredient=ing_name))
             details.append({
                 "ingredient": ing_name,
                 "source": _source_label(active_source),
@@ -529,6 +551,9 @@ def nutritional_tool_vector(
                 ing_name, original_weight_g, weight_g,
             )
 
+        supported_contributions.append(contribution(native_values(nutrient_row),float(weight_g),ingredient=ing_name))
+        if weight_capped:
+            calculation_assumptions.append({'ingredient':ing_name,'kind':'legacy_weight_cap','original_weight_g':original_weight_g,'used_weight_g':weight_g})
         scale = float(weight_g) / 100.0
         protein_g = scale * protein_per_100g
         carbs_g   = scale * carbs_per_100g
@@ -623,7 +648,12 @@ def nutritional_tool_vector(
             k: float(v) / float(serves_value) for k, v in totals_map.items()
         }
 
-    return result
+    result.update(completeness(supported_contributions,serves_value))
+    result['calculation_assumptions']=calculation_assumptions
+    result['mechanism_version']='legacy_with_explicit_completeness_v1'
+    result['matcher_mode']=matcher_mode
+    if proposed is not None:result['shadow_matching_profile']=proposed
+    return apply_totals_mode(result,source_key,os.getenv('NUTRITION_TOTALS_MODE','legacy').strip().lower())
 
 
 def Nutrition_Node(state: RecipeState) -> RecipeState:
@@ -671,6 +701,7 @@ def Nutrition_Node(state: RecipeState) -> RecipeState:
         "title": state.title or "Untitled Recipe",
         "ingredient_names": match_names,
         "ingredient_identity_names": ingredient_names,
+        "original_texts": list(state.ingredient_original_texts[:n]) if state.ingredient_original_texts else None,
         "weights": weights,
         "measurements": list(state.measurements[:n]) if state.measurements else None,
         "min_similarity": state.min_similarity if state.min_similarity is not None else 0.7,
@@ -694,6 +725,7 @@ def Nutrition_Node(state: RecipeState) -> RecipeState:
 
     state.nutritional_totals = totals_per_serving
     state.nutritional_details = res["details"]
+    state.nutrition_completeness = {k:res[k] for k in ['nutrition_status','nutrient_status','complete_totals','complete_totals_per_serving','supported_partial_totals','supported_partial_totals_per_serving','missing_contributions','missing_mass_share','calculation_assumptions','mechanism_version','totals_mode','legacy_totals','legacy_totals_per_serving'] if k in res}
     state.nutritional_source = source
     state.nutrition_serves = res.get("serves")
 

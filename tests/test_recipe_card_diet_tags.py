@@ -141,8 +141,8 @@ class TestTheCache:
         vegetarian. Silent, wrong, and safety-shaped."""
         from recipe_wrangler.api.routers import recipes
 
-        assert recipes._CARD_NUTRITION_CACHE_VERSION == "v2"
-        assert "v2" in recipes._card_nutrition_cache_variant(None)
+        assert recipes._CARD_NUTRITION_CACHE_VERSION == "v4"
+        assert "v4" in recipes._card_nutrition_cache_variant(None)
 
     def test_the_region_still_namespaces_it(self):
         from recipe_wrangler.api.routers import recipes

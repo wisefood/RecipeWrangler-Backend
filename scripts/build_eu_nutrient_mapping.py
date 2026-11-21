@@ -1,4 +1,4 @@
-"""Emit data/EU/eu_nutrient_mapping.csv.
+"""Emit data/nutrition/composition_tables/eu_national/eu_nutrient_mapping.csv.
 
 Auditable mapping table between USDA canonical nutrient names and the source
 columns / codes in Ciqual (FR), CoFID (UK) and NEVO (NL). Drives the EU
@@ -14,7 +14,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-OUT = Path("data/EU/eu_nutrient_mapping.csv")
+OUT = Path("data/nutrition/composition_tables/eu_national/eu_nutrient_mapping.csv")
 
 # (usda_name, usda_id, usda_unit, ciqual_col, cofid_sheet, cofid_col,
 #  nevo_code, nevo_component, eu_canonical_name, notes)

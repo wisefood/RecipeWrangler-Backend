@@ -128,8 +128,10 @@ def fetch_detail(url: str) -> dict:
     method_el = soup.select_one(".method")
     method_steps = []
     if method_el:
-        for p in method_el.find_all("p", recursive=False):
-            text = p.get_text(strip=True)
+        for element in method_el.find_all(["p", "li"]):
+            if element.name == "p" and element.find("li"):
+                continue
+            text = element.get_text(" ", strip=True)
             if text:
                 method_steps.append(text)
 

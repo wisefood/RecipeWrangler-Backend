@@ -81,8 +81,8 @@ not write until `--apply` or `--write` is supplied.
 
 | Script | Purpose | Writes |
 |---|---|---|
-| `build_eu_nutrient_mapping.py` | Build the reviewed source-column-to-canonical nutrient map. | `data/EU/` CSV |
-| `build_eu_global_dataset.py` | Merge current Ciqual, CoFID, and NEVO inputs into the EU composition table. | `data/EU/` outputs |
+| `build_eu_nutrient_mapping.py` | Build the reviewed source-column-to-canonical nutrient map. | `data/nutrition/composition_tables/eu_national/` CSV |
+| `build_eu_global_dataset.py` | Merge current Ciqual, CoFID, and NEVO inputs into the EU composition table. | `data/nutrition/composition_tables/eu_national/` outputs |
 | `composition/export_hungarian_comp_table_csv.py` | Normalize the Hungarian composition workbook for ingestion. | `data/` CSV |
 | `postgres/import_irish_ingredients_nutrition_psql.py` | Load the Irish composition table. | PostgreSQL |
 | `postgres/import_hungarian_ingredients_nutrition_psql.py` | Load the normalized Hungarian composition table. | PostgreSQL |
@@ -97,15 +97,15 @@ not write until `--apply` or `--write` is supplied.
 | `postgres/import_foodhero_profile_trace.py` | Build a selected regional FoodHero profile set. | Dry-run default; PostgreSQL with `--write` |
 | `postgres/import_healthyfoods_profile_trace.py` | Build a selected regional HealthyFoods profile set. | Dry-run default; PostgreSQL with `--write` |
 | `postgres/import_healthyfoods_to_neo4j.py` | Project imported HealthyFoods profiles into the recipe graph. | Dry-run default; Neo4j with `--write` |
-| `scrape_myplate_nutrition.py` | Fetch MyPlate-published reference nutrition from recipe JSON-LD. | `data/MyPlate/` JSON |
+| `scrape_myplate_nutrition.py` | Fetch MyPlate-published reference nutrition from recipe JSON-LD. | `data/recipes/myplate/` JSON |
 | `import_myplate_nutrition.py` | Load MyPlate-published reference nutrition rows. | PostgreSQL |
 | `compute_myplate_reference_nutriscore.py` | Derive MyPlate reference Nutri-Scores from reference nutrients and weights. | PostgreSQL |
 | `myplate/backfill_myplate_duration.py` | Deterministically extract duration, using an LLM only as fallback. | Dry-run default; source JSON and Neo4j with `--write` |
-| `scrape_safefood_recipes.py` | Fetch the current safefood.net recipe corpus. | `data/SafeFood_web/` |
+| `scrape_safefood_recipes.py` | Fetch the current safefood.net recipe corpus. | `data/recipes/safefood_web/` |
 | `safefood_rcsi.py` | Shared pure helpers for matching RCSI lab records to SafeFood web recipes. | None; library module |
 | `import_safefood_web.py` | Profile and import SafeFood web recipes, including matched RCSI reference rows. | Dry-run default; all three stores with `--write` |
-| `prepare_essrg.py` | Convert the PLANEAT workbook into canonical recipe JSON with CoFID provenance. | `data/ESSRG/` JSON |
-| `infer_essrg_serves_time_vllm.py` | Add explicitly marked serving/time estimates to PLANEAT recipe JSON. | `data/ESSRG/` JSON/JSONL |
+| `prepare_essrg.py` | Convert the PLANEAT workbook into canonical recipe JSON with CoFID provenance. | `data/recipes/essrg/` JSON |
+| `infer_essrg_serves_time_vllm.py` | Add explicitly marked serving/time estimates to PLANEAT recipe JSON. | `data/recipes/essrg/` JSON/JSONL |
 | `validate_essrg_completeness.py` | Validate required PLANEAT recipe fields before import. | Audit files only |
 | `validate_essrg_ingredients.py` | Validate PLANEAT ingredient IDs, weights, and composition resolution. | Audit files only |
 | `import_planeat.py` | Import prepared PLANEAT recipes and direct CoFID nutrition. | Dry-run default; all three stores with `--write` |
@@ -152,7 +152,7 @@ the order for each current raw-source pipeline.
 | `postgres/export_source_viz_csvs.py` | Export current source-specific nutrition comparison data. | `artifacts/viz/` |
 | `pricing/generate_base_price_distribution_plot.py` | Generate current cost-catalogue and recipe-category distributions. | Figure artefacts |
 | `generate_recipe_images_grokified.py` | Generate and publish missing recipe images via the configured provider. | Image assets and Neo4j |
-| `generate_safefood_images.py` | Generate local fallback images for SafeFood recipes lacking images. | `data/Irish_SafeFood/images/` and Neo4j |
+| `generate_safefood_images.py` | Generate local fallback images for SafeFood recipes lacking images. | `data/recipes/irish_safefood/images/` and Neo4j |
 
 ## Maintenance rule
 

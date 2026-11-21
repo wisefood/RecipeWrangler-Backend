@@ -13,16 +13,22 @@ from langchain.tools import tool
 
 from recipe_wrangler.tools.ingredient_weight_llm_tool import ingredient_weight_llm_tool
 from recipe_wrangler.tools.reviewed_item_weights import reviewed_default_unit, reviewed_item_grams
+from recipe_wrangler.tools.reviewed_european_portions import european_size_reference
+from recipe_wrangler.matching.portions.core import PortionInput
 from recipe_wrangler.utils.non_food_ingredients import is_unambiguous_non_food_ingredient
+from recipe_wrangler.utils.seasoning_quantities import seasoning_quantity_assumption
 from recipe_wrangler.schemas import RecipeState
 from recipe_wrangler.repositories.vector_matchers import VectorCollection
 from recipe_wrangler.utils.get_embeddings import get_embeddings
 from recipe_wrangler.utils.usda_nutrients_v1 import canonical_name_to_usda, usda_id_to_link
 from recipe_wrangler.utils.weigh_calculation_usda_ import (
+    _normalize_token as _singularize_food_word,
     find_weight_match_by_name,
     match_portion,
+    portion_food_form_compatible,
     weight_from_density_fallback,
     weight_from_ingredient,
+    weight_food_name,
 )
 
 
@@ -649,15 +655,17 @@ VEGETABLES_FOOD_GROUP = "Vegetables and Vegetable Products"
 LLM_UNIT_GRAMS_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
-    / "fallbacks"
+    / "nutrition"
+    / "matching"
+    / "aliases"
     / "ingredient_unit_grams.csv"
 )
 FDA_UNIT_GRAMS_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
-    / "fallbacks"
+    / "nutrition"
+    / "matching"
+    / "aliases"
     / "ingredient_unit_grams_fda.csv"
 )
 LLM_UNIT_GRAMS_MATCH_TYPE = "llm_ingredient_unit_grams_fallback"
@@ -667,8 +675,9 @@ FDA_UNIT_GRAMS_NOTE = "FDA reference portion fallback from ingredient_unit_grams
 RECIPE1M_LLM_WEIGHT_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
+    / "retired"
     / "recipe1m"
+    / "processed"
     / "recipe1m-unmatched-ingredient-weights-llm.csv"
 )
 RECIPE1M_LLM_WEIGHT_MATCH_TYPE = "llm_weight_fallback"
@@ -676,24 +685,32 @@ RECIPE1M_LLM_WEIGHT_NOTE = "LLM fallback from recipe1m-unmatched-ingredient-weig
 RECIPE1M_LLM_PORTION_FALLBACK_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
+    / "retired"
     / "recipe1m"
+    / "processed"
     / "food_weights_updated.csv"
 )
 RECIPE1M_LLM_PORTION_FALLBACK_MATCH_TYPE = "llm_portion_per_unit_fallback"
 RECIPE1M_LLM_PORTION_FALLBACK_NOTE = "LLM per-unit fallback from food_weights_updated.csv"
+REVIEWED_PORTION_FOODS_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "data"
+    / "portions"
+    / "weight_reference"
+    / "reviewed_portion_foods.json"
+)
 OFFLINE_REFERENCE_DATASET_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
+    / "portions"
     / "weight_reference"
     / "ingredient_unit_reference_dataset.csv"
 )
 REVIEWED_OPENROUTER_REFERENCE_CSV_PATH = (
     Path(__file__).resolve().parents[3]
     / "data"
-    / "processed"
-    / "ingredient_parsing_final"
+    / "recipes"
+    / "parsed_snapshot"
     / "2026-09-24"
     / "weight"
     / "reviewed_openrouter_weight_references.csv"
@@ -888,6 +905,7 @@ GENERIC_LLM_PACKAGE_WEIGHTS = {340.0, 425.0, 454.0}
 PROTEIN_IDENTITY_TOKENS = (
     POULTRY_TOKENS
     | BEEF_TOKENS
+    | LAMB_GOAT_TOKENS
     | PORK_TOKENS
     | FISH_SHELLFISH_TOKENS
     | {"rabbit"}
@@ -912,6 +930,7 @@ USDA_LINKS_EMBED_MIN_CONFIDENCE = float(
     os.getenv("USDA_LINKS_EMBED_MIN_CONFIDENCE", "0.65")
 )
 USDA_QUERY_ALIASES = (
+    (re.compile(r"\bchampignons?\b"), "white mushroom"),
     (re.compile(r"\byoghurts?\b"), "yogurt"),
     (re.compile(r"\bbreadcrumbs?\b"), "bread crumbs"),
     (re.compile(r"\baubergines?\b"), "eggplant"),
@@ -929,6 +948,8 @@ USDA_QUERY_ALIASES = (
     (re.compile(r"\b(?:bok\s+choy|pak\s+choi)\b"), "chinese cabbage"),
     (re.compile(r"\bgai\s+lan\b"), "chinese broccoli"),
     (re.compile(r"\bcapsicums?\b"), "bell pepper"),
+    # A bare (coloured) "pepper" with a count/size is a sweet pepper in IE/UK recipes; spice names never fullmatch.
+    (re.compile(r"^(?:((?:red|green|yellow|orange|sweet)\s+))?peppers?$"), r"\1bell pepper"),
     (re.compile(r"\bbocconcini\b"), "mozzarella"),
     (re.compile(r"\bkumara\b"), "sweet potato"),
     (re.compile(r"\bcavolo\s+nero\b"), "kale"),
@@ -940,7 +961,7 @@ USDA_QUERY_ALIASES = (
     (re.compile(r"\bpaw\s*paw\b"), "papaya"),
 )
 # Grams per US cup (240 ml) for volume measures of common foods. Values are from the local USDA SR
-# portion table (data/processed/usda/usda-weights.json) except rows marked "convention". The
+# portion table (data/nutrition/composition_tables/usda/processed/usda-weights.json) except rows marked "convention". The
 # generic USDA name lookup misses many of these (caster/icing sugar, rolled oats, tomato paste...),
 # which left 100+ volume rows unresolved.
 _REVIEWED_CUP_GRAMS = (
@@ -1077,8 +1098,16 @@ def _usda_query_alias(name: str) -> str:
 
 def _candidate_has_lexical_identity(query: str, candidate: dict) -> bool:
     """Reject embedding-only food identities that merely share a portion unit."""
+    qualifiers = {"fresh", "raw", "dried", "dry", "cooked", "chopped", "sliced",
+                  "ground", "small", "medium", "large", "whole", "piece", "roast", "roasted",
+                  "peeled", "unpeeled", "skin", "skinless", "boneless", "without", "with",
+                  "domestic", "nut", "fruit", "vegetable", "bulb", "sheet", "stalk",
+                  "fillet", "leaf", "root", "sprig", "slice", "strip", "king",
+                  "puree", "paste", "flake", "flakes", "seed", "seeds", "red", "green", "white",
+                  "black", "yellow", "average"}
+    identity = set(_search_tokens(query)) - qualifiers
     return any(
-        _lexical_overlap_score(query, text) > 0.0
+        bool(identity & (set(_search_tokens(text)) - qualifiers))
         for text in (_candidate_label(candidate), str(candidate.get("document") or ""))
     )
 
@@ -1097,6 +1126,9 @@ def _lexical_overlap_score(query: str, candidate_text: str) -> float:
 
 
 def _head_token(text: Optional[str]) -> Optional[str]:
+    text = re.sub(r'\([^)]*\)', ' ', str(text or ''))
+    if ',' in text:
+        text = text.split(',', 1)[0]  # "Rice, brown, long-grain": the food is the first segment
     tokens = _search_tokens(text)
     if not tokens:
         return None
@@ -1104,7 +1136,7 @@ def _head_token(text: Optional[str]) -> Optional[str]:
         "fresh", "dried", "dry", "fat", "free", "low", "reduced", "raw",
         "cooked", "prepared", "chopped", "sliced", "ground", "large",
         "medium", "small", "minute", "white", "wheat", "whole", "regular",
-        "quick", "sweet",
+        "quick", "sweet", "uncooked", "unenriched", "enriched", "grain", "long", "short",
     }
     for token in reversed(tokens):
         if token not in stop:
@@ -1373,7 +1405,7 @@ def _embedding_usda_link(name: str, unit: Optional[str] = None) -> Optional[dict
         stripped_query = _strip_qualifiers(query)
         if stripped_query:
             stripped_hit = _embedding_usda_link(stripped_query, unit=unit)
-            if stripped_hit:
+            if stripped_hit and _usda_link_mismatch_reason(original_query, stripped_hit) is None:
                 stripped_hit = dict(stripped_hit)
                 stripped_hit["match_source"] = "embedding_qualifier_stripped"
                 stripped_hit["original_query"] = query
@@ -1419,6 +1451,10 @@ def _clean_unit(unit_part: str) -> Optional[str]:
     unit_part = unit_part.strip()
     if not unit_part:
         return None
+    compound_size = re.fullmatch(r"(?:extra|very)[ -]+(small|medium|large)", unit_part, re.IGNORECASE)
+    if compound_size:
+        # Existing weight references use three size bands; retain that approximation.
+        return compound_size.group(1).lower()
     tokens = [t.strip(".,") for t in unit_part.split()]
     tokens = [t for t in tokens if t]
     tokens = [t for t in tokens if not re.fullmatch(r"\d+(?:\.\d+)?", t)]
@@ -1494,10 +1530,28 @@ def _normalize_for_duplicate_check(value: Any) -> str:
 _BLANK_NEGLIGIBLE_WORDS = {"water", "ice", "leaf", "leaves", "sprig", "sprigs"} | _FRESH_HERB_TOKENS
 
 
+_SPICE_PEPPER_WORDS = {"pepper", "peppers", "peppercorn", "peppercorns", "black", "white", "ground", "freshly", "fresh",
+                       "cracked", "crushed", "coarsely", "milled"}
+
+
+def _is_spice_pepper_without_amount(name: Any, measurement: Any) -> bool:
+    # Pepper with no amount is seasoning, not a capsicum. A bare count needs "black"/"white":
+    # "1 pepper" is the vegetable.
+    text = str(measurement or "").strip()
+    if text and not re.fullmatch(r"\d+(?:\.\d+)?", text):
+        return False
+    words = set(re.findall(r"[a-z]+", str(name or "").lower()))
+    if not words & {"pepper", "peppers", "peppercorn", "peppercorns"} or words - _SPICE_PEPPER_WORDS:
+        return False
+    return not text or bool(words & {"black", "white", "peppercorn", "peppercorns"})
+
+
 def _is_blank_negligible_ingredient(name: Any, measurement: Any) -> bool:
     # Water and garnish herbs with no quantity: nutrient contribution is nil at
     # any plausible amount, so the negligible placeholder is safe. Salt and oil
     # are deliberately excluded (sodium / kcal matter) and stay unresolved.
+    if _is_spice_pepper_without_amount(name, measurement):
+        return True
     if str(measurement or "").strip():
         return False
     words = [w for w in re.findall(r"[a-z]+", str(name or "").lower()) if w not in _QUALIFIER_WORDS]
@@ -1573,7 +1627,8 @@ def _liquid_density_for_name(
     name_norm = str(name or "").strip().lower()
     canonical_norm = str(canonical or "").strip().lower()
     food_group_norm = str(food_group or "").strip().lower()
-    combined = " ".join(v for v in (name_norm, canonical_norm) if v)
+    # A retrieved derivative (e.g. almond oil) must not turn plain almonds liquid.
+    combined = name_norm or canonical_norm
     name_tokens = set(re.findall(r"[a-z]+", combined))
     if name_tokens & _WATER_LIKE_TOKENS:
         if name_tokens & _DRY_VOLUME_EXCLUSION_TOKENS:
@@ -1824,6 +1879,8 @@ def _infer_unit_from_name(name: str, bare_count: bool = True) -> Optional[str]:
         return "whole"
     if bare_count and set(tokens) & {"lettuce", "lettuces"} and set(tokens) & {"iceberg", "cos", "romaine"} and not set(tokens) & {"leaf", "leaves", "cup", "cups"}:
         return "head"
+    if bare_count and ("celeriac" in tokens or {"celery", "root"} <= set(tokens)):
+        return "whole"
     if bare_count and set(tokens) & {"turnip", "turnips"}:
         return "whole"
     if bare_count and set(tokens) & {"brussels", "brussel"} and set(tokens) & {"sprout", "sprouts"}:
@@ -1940,6 +1997,18 @@ def _common_unit_reference_grams(
         (size for size in ("small", "medium", "large") if size in measurement_tokens or size in tokens),
         None,
     )
+    if ("celeriac" in tokens or {"celery", "root"} <= tokens) and unit_norm in (
+        _SIZE_WORDS | {"whole", "piece", "celery", "turnip"}
+    ):
+        return None  # Use the reviewed root reference, never celery stalk/turnip constants.
+
+    if "egg" in tokens and tokens & {"quail", "duck", "goose", "ostrich", "turkey", "emu"}:
+        if ("quail" in tokens and unit_norm in {"egg", "whole", "piece", "medium"}
+                and not tokens & {"white", "whites", "yolk", "yolks", "cooked", "boiled", "fried"}
+                and size_hint not in {"small", "large"}):
+            return 9.0, "quail egg (USDA SR 01140, whole raw)"
+        # Chicken egg/white/yolk conventions do not transfer across species or sizes.
+        return None
 
     if unit_norm == "stick" and "butter" in tokens:
         return 113.0, "butter stick"
@@ -2253,6 +2322,8 @@ def _common_unit_reference_grams(
         return sized(20.0, "large prawn")
     if single_count_unit and "celery" in tokens and tokens & {"stalk", "stalks"}:
         return sized(40.0, "celery stalk")
+    if single_count_unit and "corn" in tokens and tokens & {"tortilla", "tortillas"} and not tokens & {"chip", "chips"}:
+        return sized(26.0, "corn tortilla (USDA SR 18449, medium 6-inch)")
     if single_count_unit and tokens & {"wrap", "wraps", "tortilla", "tortillas"}:
         return sized(50.0, "tortilla/wrap")
     if single_count_unit and tokens & {"pita", "pitta", "pitas", "pittas"}:
@@ -2599,6 +2670,7 @@ def _reference_weight_fallback(
     food_group: Optional[str] = None,
     canonical: Optional[str] = None,
     measurement: Any = None,
+    usda_id: Optional[str] = None,
 ) -> Optional[tuple[float, dict, str]]:
     qty_value = _parse_quantity_value(qty)
     if qty_value is None:
@@ -2607,6 +2679,28 @@ def _reference_weight_fallback(
     name_norm = str(name or "").strip().lower()
     name_tokens = set(re.findall(r"[a-z]+", name_norm))
     unit_norm = str(unit or "").strip().lower() or None
+
+    european = european_size_reference(name, unit_norm) if REVIEWED_TABLES_ENABLED else None
+    if european is not None:
+        return qty_value * european['grams_per_unit'], european, 'reviewed_european_size_reference'
+
+    # A validated food's explicit size reference outranks a generic size multiplier.
+    if usda_id and unit_norm in _SIZE_WORDS:
+        sized_portion = match_portion(usda_id, unit_norm, name=name)
+        actual_food = weight_food_name(usda_id)
+        source_words = {_singularize_token(word) for word in _name_tokens(name)}
+        reference_words = _name_tokens(str((sized_portion or {}).get('portion_desc', '')))
+        named_parts = source_words & {'sheet', 'stalk', 'fillet', 'bulb', 'leaf', 'clove'}
+        cooking = {'cooked', 'boiled', 'fried', 'roasted', 'baked', 'steamed'}
+        if (sized_portion is not None and actual_food
+                and named_parts <= reference_words
+                and (not _name_tokens(actual_food) & cooking or bool(source_words & cooking))
+                and ('king' not in source_words or 'king' in _name_tokens(actual_food))
+                and _usda_link_mismatch_reason(name, {'canonical': actual_food}) is None
+                and _candidate_has_lexical_identity(_usda_query_alias(name), {'canonical': actual_food})):
+            grams_per_unit = float(sized_portion['grams_per_unit'])
+            return (qty_value * grams_per_unit, dict(sized_portion, source='usda_explicit_size'),
+                    'usda_explicit_size_reference')
 
     if unit_norm in GENERIC_LLM_PACKAGE_UNITS:
         package_grams = _explicit_package_size_grams(measurement, name, canonical)
@@ -2692,6 +2786,9 @@ def _reference_weight_fallback(
                     "portion_desc": f"{unit_norm} (USDA cup-density fallback)",
                     "grams_per_unit": grams_per_unit,
                     "source_food_name": volume_reference.get("food_name"),
+                    "source_portion_desc": portion.get("portion_desc"),
+                    "source_unit_ml": 240.0,
+                    "source_grams_per_unit": grams_per_cup,
                     "source": "usda_cup_density",
                 },
                 "usda_cup_density_fallback",
@@ -2972,6 +3069,9 @@ def _protein_identity_mismatch_reason(
 ) -> Optional[str]:
     source_identities = _name_tokens(source_text) & PROTEIN_IDENTITY_TOKENS
     candidate_identities = _name_tokens(candidate_text) & PROTEIN_IDENTITY_TOKENS
+    # Mutton and sheep are the same animal identity as lamb, unlike goat or beef.
+    source_identities = {"lamb" if token in {"mutton", "sheep"} else token for token in source_identities}
+    candidate_identities = {"lamb" if token in {"mutton", "sheep"} else token for token in candidate_identities}
     if not source_identities or not candidate_identities:
         return None
     if source_identities & candidate_identities:
@@ -3023,6 +3123,47 @@ def _usda_link_mismatch_reason(name: str, link: Optional[dict]) -> Optional[str]
         or link.get("canonical")
         or link.get("name")
     )
+    actual_food = weight_food_name(str(link['usda_id'])) if link.get('usda_id') else None
+    if actual_food and actual_food != candidate_text:
+        actual_reason = _usda_link_mismatch_reason(name, {'canonical': actual_food})
+        if actual_reason:
+            return 'portion_table_' + actual_reason
+        if not _candidate_has_lexical_identity(_usda_query_alias(name), {'canonical': actual_food}):
+            return 'portion_table_food_identity_mismatch'
+    source_tokens = _name_tokens(name)
+    candidate_tokens = _name_tokens(str(candidate_text or ""))
+    # A plain or coloured "pepper" is a sweet pepper; other pepper varieties have different sizes.
+    if (re.fullmatch(r"(?:(?:red|green|yellow|orange|sweet|bell)\s+)*peppers?", str(name or "").strip().lower())
+            and candidate_tokens & {'banana', 'hungarian', 'hot', 'chili', 'chilli', 'jalapeno', 'serrano', 'ancho', 'pasilla'}):
+        return 'sweet_pepper_variety_mismatch'
+    from recipe_wrangler.matching.portions.sources import product_identity_compatible
+    if not product_identity_compatible(name, str(candidate_text or '')):
+        return 'compound_product_vs_ingredient_mismatch'
+    maturity_sensitive_produce = {'carrot', 'carrots', 'zucchini', 'courgette', 'courgettes',
+                                  'squash', 'cucumber', 'spinach', 'lettuce', 'beetroot',
+                                  'potato', 'potatoes', 'aubergine', 'eggplant', 'corn'}
+    if source_tokens & maturity_sensitive_produce and (('baby' in source_tokens) != ('baby' in candidate_tokens)):
+        return 'food_maturity_mismatch'
+    if source_tokens & {"turnip", "turnips", "beet", "beets", "beetroot", "radish", "radishes"}:
+        leaves = {'greens', 'leaf', 'leaves'}
+        if bool(source_tokens & leaves) != bool(candidate_tokens & leaves):
+            return 'root_vs_leaf_mismatch'
+    if source_tokens & {'egg', 'eggs'}:
+        for parts in ({'white', 'whites'}, {'yolk', 'yolks'}):
+            if bool(source_tokens & parts) != bool(candidate_tokens & parts):
+                return 'egg_part_mismatch'
+    source_peeled = 'peeled' in source_tokens or 'without skin' in str(name).lower()
+    candidate_label = str(candidate_text or '').lower()
+    if source_peeled and any(label in candidate_label for label in ('with skin', 'flesh and skin', 'includes skin')):
+        return 'peeled_vs_skin_included_mismatch'
+    if {"baltic", "herring"} <= source_tokens and "baltic" not in _name_tokens(str(candidate_text or "")):
+        return "explicit_herring_species_mismatch"
+    if "egg" in source_tokens or "eggs" in source_tokens:
+        species = source_tokens & {"quail", "duck", "goose", "ostrich", "turkey", "emu"}
+        if species and not species & _name_tokens(str(candidate_text or "")):
+            return "egg_species_mismatch"
+    if not portion_food_form_compatible(name, str(candidate_text or "")):
+        return "food_preparation_or_derivative_mismatch"
     return _food_class_mismatch_reason(
         source_text=name,
         candidate_text=str(candidate_text or ""),
@@ -3061,19 +3202,7 @@ def _normalize_lookup_ingredient(name: str) -> str:
 
 
 def _singularize_token(token: str) -> str:
-    if token in {"aubergines", "courgettes"}:
-        return token[:-1]
-    if len(token) <= 3:
-        return token
-    if token.endswith("ies") and len(token) > 4:
-        return token[:-3] + "y"
-    if token.endswith(("les", "ges")) and len(token) > 4:
-        return token[:-1]
-    if token.endswith("es") and not token.endswith(("ses", "xes", "zes", "ches", "shes")):
-        return token[:-2]
-    if token.endswith("s") and not token.endswith("ss"):
-        return token[:-1]
-    return token
+    return _singularize_food_word(token)
 
 
 def _lookup_name_variants(name: str) -> list[str]:
@@ -3714,6 +3843,31 @@ def _live_llm_weight_fallback(
     return grams_f, None, unit_for_llm
 
 
+# Structured path only: a name missing from the reviewed table gets no weight instead of a resolver guess.
+WEIGHT_PORTION_TABLE_ONLY = os.getenv("WEIGHT_PORTION_TABLE_ONLY", "true").lower() == "true"
+
+
+@lru_cache(maxsize=1)
+def _reviewed_portion_table() -> dict:
+    from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data_or_file
+    data = load_pipeline_data_or_file('reviewed_portion_foods', REVIEWED_PORTION_FOODS_PATH)
+    return {' '.join(e['name'].lower().split()): e for e in data.get('entries', [])}
+
+
+def _reviewed_portion_link(name: Any) -> Optional[dict]:
+    """Reviewed name -> portion food for frequent corpus ingredients; the resolver handles the rest."""
+    entry = _reviewed_portion_table().get(' '.join(str(name or '').lower().split()))
+    if not entry:
+        return None
+    link = {'canonical': entry['label'], 'usda_food_label': entry['label'], 'match_source': 'reviewed_portion_table'}
+    food_id = entry['food_id']
+    if food_id.startswith('usda_weights:'):
+        link['usda_id'] = food_id.split(':', 1)[1]
+    else:
+        link['native_food_id'] = food_id
+    return link
+
+
 def _weight_name_usda_link(name: str, unit: Optional[str]) -> Optional[dict]:
     if not unit:
         return None
@@ -3822,6 +3976,8 @@ def _compute_confidence(detail: dict) -> tuple[float, str]:
         reason = "USDA density fallback"
     elif match_type_norm in {
         "common_unit_reference_fallback",
+        "usda_explicit_size_reference",
+        "reviewed_european_size_reference",
         "size_adjusted_reference_unit_fallback",
         "water_like_volume_fallback",
         "liquid_density_volume_fallback",
@@ -3907,6 +4063,10 @@ def _whole_bird_edible_factor(name: str) -> Optional[float]:
         return None
     for bird, (with_skin, meat_only) in _WHOLE_BIRD_YIELD.items():
         if bird in tokens:
+            if bird == "chicken" and not tokens & {"skinless", "skinned"}:
+                # The matcher prices a whole chicken with a "weighed with bone" record (reviewed_aliases._BONE_FOODS),
+                # so the purchased weight is already the right basis; keep the two in step.
+                return None
             return meat_only if tokens & {"skinless", "skinned"} else with_skin
     return None
 
@@ -4049,12 +4209,191 @@ def _compact_detail(detail: dict) -> dict:
     }
 
 
+def _apply_structured_live_llm(details: list[dict], weights: list[float], requests: list) -> None:
+    """Estimate unresolved ranked requests, retaining the deterministic diagnostics."""
+    from recipe_wrangler.matching.portions.core import (
+        PortionFacets,
+        infer_facets,
+        merge_facets,
+    )
+
+    if not LIVE_WEIGHT_LLM_ENABLED:
+        return
+    for index, (detail, request) in enumerate(zip(details, requests)):
+        request = PortionInput.model_validate(request)
+        amount = _parse_quantity_value(detail.get('parsed_quantity'))
+        if (request.match_mode == 'strict' or detail.get('weight_grams') is not None
+                or amount is None or not math.isfinite(amount) or amount <= 0):
+            continue
+        blockers = set(detail.get('facet_matching', {}).get('blockers', []))
+        if blockers - {'not_in_reviewed_portion_table', 'unresolved_food_identity'}:
+            continue
+        name, unit = detail['name'], detail.get('parsed_unit')
+        observed, blockers = infer_facets(name)
+        facets, conflicts = merge_facets(observed, request.facets)
+        if unit in {'small', 'medium', 'large'}:
+            facets, size_conflicts = merge_facets(facets, PortionFacets(size=unit))
+            conflicts += size_conflicts
+        if blockers or conflicts:
+            continue
+        constraints = ', '.join(f'{key}: {value.replace("_", " ")}'
+                                for key, value in facets.model_dump(exclude_none=True).items())
+        llm_name = f'{name} ({constraints})' if constraints else name
+        grams, error, used_unit = _live_llm_weight_fallback(
+            name=llm_name, qty=detail.get('parsed_quantity'), unit=unit)
+        if grams is not None:
+            error = ('non_finite_weight' if not math.isfinite(grams) else
+                     _llm_weight_plausibility_error(llm_name, detail.get('parsed_quantity'), used_unit, grams))
+        if error is not None or grams is None:
+            detail.update(live_llm_fallback=False, live_llm_error=error)
+            continue
+        detail.update(pre_llm_match_type=detail['match_type'], pre_llm_error=detail['error'],
+                      pre_llm_weight_grams=detail['weight_grams'], pre_llm_confidence=detail['confidence'],
+                      match_type='live_llm_missing_portion_fallback', weight_grams=grams, error=None,
+                      live_llm_fallback=True, live_llm_reason='unresolved_portion', live_llm_unit=used_unit,
+                      source='LLM fallback', confidence=0.70, confidence_reason='live LLM estimate without portion reference',
+                      approximate=True)
+        detail['approximation_reasons'] = [*detail.get('approximation_reasons', []),
+                                           {'reason': 'llm_estimate_without_portion_reference'}]
+        weights[index] = grams
+
+
+def _structured_portion_weights(names, measurements, requests, return_details, debug):
+    from recipe_wrangler.matching.portions.core import infer_facets, merge_facets
+    from recipe_wrangler.matching.portions.runtime import match_request
+    from recipe_wrangler.matching.portions.sources import native_food_label
+    from recipe_wrangler.matching.portions.sources import reviewed_name_key
+    from recipe_wrangler.matching.portions.sources import normalize_portion_name, resolve_food_name
+
+    if len(requests) != len(names) or len(measurements) != len(names):
+        raise ValueError('portion_inputs, ingredient_names and measurements must have equal lengths')
+    weights, details = [], []
+    for name, measurement, request in zip(names, measurements, requests):
+        request = PortionInput.model_validate(request)
+        assumption = seasoning_quantity_assumption(name, str(measurement or '')) if request.match_mode != 'strict' else None
+        if assumption is not None:
+            weights.append(assumption['weight_g'])
+            details.append({'name': name, 'measurement_raw': measurement, 'weight_grams': assumption['weight_g'],
+                            'match_type': 'seasoning_policy_estimate', 'quantity_assumption': assumption,
+                            'error': None, 'confidence': 0.5})
+            continue
+        table_link = _reviewed_portion_link(name)
+        name = normalize_portion_name(name)
+        qty, unit, _ = _split_measurement(measurement)
+        extracted = _extract_leading_measurement_from_name(name)
+        if extracted is not None:
+            qty, unit, name = extracted
+        elif qty is None and (count := re.match(r'^(\d+(?:\.\d+)?)\s+(\D.*)$', name)):
+            qty, name = count[1], count[2]  # "2 eggs" with the count inside the name
+        # Same no-amount policy as the legacy route; these must not fall through to 0 g.
+        policy_grams = None
+        if request.match_mode != 'strict':
+            if _is_blank_salt(name, measurement):
+                policy_grams, _ = _common_unit_reference_grams('salt', 'pinch')
+            elif _ZERO_MEASUREMENT_RE.match(str(measurement or '').strip()) or _is_blank_negligible_ingredient(name, measurement):
+                policy_grams = TO_TASTE_MIN_GRAMS
+        if policy_grams is not None:
+            weights.append(policy_grams)
+            details.append({'name': name, 'measurement_raw': measurement, 'parsed_quantity': qty, 'parsed_unit': unit,
+                            'match_type': 'to_taste_min', 'weight_grams': policy_grams, 'error': None,
+                            'confidence': 0.5, 'facet_matching': {'status': 'no_amount_policy'}})
+            continue
+        amount = _parse_quantity_value(qty)
+        result = {'status': 'unresolved', 'record': None}
+        if amount is None or not math.isfinite(amount) or amount < 0:
+            result['blockers'] = ['missing_or_invalid_quantity']
+        elif unit in _MASS_UNITS:
+            grams = amount * _MASS_UNITS[unit]
+            weights.append(grams)
+            details.append({'name': name, 'measurement_raw': measurement, 'parsed_quantity': qty,
+                            'parsed_unit': unit, 'match_type': 'direct_mass', 'weight_grams': grams,
+                            'error': None, 'confidence': 1.0, 'facet_matching': {'status': 'direct_mass'}})
+            continue
+        elif (WEIGHT_PORTION_TABLE_ONLY and not request.food_id and not table_link and _reviewed_portion_table()
+              and reviewed_name_key(normalize_portion_name(name)) is None):
+            weights.append(0.0)
+            details.append({'name': name, 'measurement_raw': measurement, 'parsed_quantity': qty, 'parsed_unit': unit,
+                            'match_type': 'faceted_portion_unresolved', 'weight_grams': None, 'portion_match': None,
+                            'facet_matching': {'status': 'unresolved', 'record': None, 'blockers': ['not_in_reviewed_portion_table'],
+                                               'match_quality': 'unresolved', 'match_score': 0.0, 'approximations': []},
+                            'match_score': 0.0, 'approximate': False, 'approximation_reasons': [],
+                            'error': 'Name is not in the reviewed portion table', 'confidence': 0.0})
+            continue
+        else:
+            supplied_id = request.food_id
+            if supplied_id and supplied_id.startswith('usda_weights:'):
+                code = supplied_id.split(':', 1)[1]
+                label = weight_food_name(code)
+                link = {'usda_id': code, 'canonical': label} if label else None
+            elif supplied_id and supplied_id.startswith(('fndds_weights:', 'ausnut2023:', 'nz_concise2021:', 'fdc_foundation:')):
+                label = native_food_label(supplied_id)
+                link = {'native_food_id': supplied_id, 'canonical': label} if label else None
+            else:
+                link = (table_link or (resolve_food_name(name) if reviewed_name_key(name) is None else None)
+                        or canonical_name_to_usda(name)) if not supplied_id else None
+                if not link and not supplied_id:
+                    link = _weight_name_usda_link(name, unit)
+            if link and link.get('match_source') != 'reviewed_portion_table' and (
+                    _usda_link_mismatch_reason(link.get('identity_query') or name, link) is not None
+                         or (link.get('match_source') != 'reviewed_alias'
+                             and not _candidate_has_lexical_identity(_usda_query_alias(name), link))):
+                link = None
+            if not link and not supplied_id and reviewed_name_key(name) is None:
+                link = _embedding_usda_link(name, unit=unit)
+                if link and (_usda_link_mismatch_reason(name, link) is not None
+                             or not _candidate_has_lexical_identity(_usda_query_alias(name), link)):
+                    link = None
+            resolved_id = str(link['usda_id']) if link and link.get('usda_id') else None
+            id_conflicts = []
+            if supplied_id and link:
+                source_facets, id_conflicts = infer_facets(str(link.get('canonical') or ''))
+                facets, conflicts = merge_facets(source_facets, request.facets)
+                id_conflicts += conflicts
+                request = request.model_copy(update={'facets': facets})
+            result = match_request(name, unit, request, resolved_id,
+                                   link.get('native_food_id') if link else None)
+            if id_conflicts:
+                result.update(status='unresolved', record=None, blockers=id_conflicts,
+                              match_quality='unresolved', match_score=0.0,
+                              approximations=[], alternatives=[])
+            if result.get('record') and re.search(r'\d+(?:\.\d+)?\s*%\s*fat\b', name):
+                source_label = result['record']['food_name'].lower()
+                requested_fat = re.search(r'(\d+(?:\.\d+)?)\s*%\s*fat\b', name).group(1)
+                if not re.search(r'\b' + re.escape(requested_fat) + r'\s*%\s*(?:milk)?fat\b', source_label):
+                    result['match_quality'] = 'approximate'
+                    result['match_score'] = round(max(0, result.get('match_score', 1.0) - 0.10), 4)
+                    result.setdefault('approximations', []).append({
+                        'facet': 'fat_percentage', 'requested': requested_fat,
+                        'reference': source_label, 'reason': 'fat_percentage_not_verified',
+                        'score_penalty': 0.10})
+                    if request.match_mode == 'strict':
+                        result.update(status='unresolved', record=None, match_quality='unresolved',
+                                      match_score=0.0, blockers=['fat_percentage_not_verified'])
+        record = result.get('record')
+        approximate = result.get('match_quality') == 'approximate'
+        grams = amount * record['grams_per_unit'] if record else None
+        weights.append(grams if grams is not None else 0.0)
+        details.append({'name': name, 'measurement_raw': measurement, 'parsed_quantity': qty,
+                        'parsed_unit': unit, 'match_type': ('faceted_portion_approximate' if approximate else 'faceted_portion_reference') if record else 'faceted_portion_unresolved',
+                        'weight_grams': grams, 'portion_match': record, 'facet_matching': result,
+                        'match_score': result.get('match_score'), 'approximate': approximate,
+                        'approximation_reasons': result.get('approximations', []),
+                        'error': None if record else 'No unambiguous compatible portion reference',
+                        'confidence': (0.50 if approximate else 0.65) if record else 0.0})
+    _apply_structured_live_llm(details, weights, requests)
+    if not return_details:
+        return weights
+    # Structured matching diagnostics are retained even when debug is false.
+    return {'weights': weights, 'details': details}
+
+
 @tool
 def ingredient_weight_tool_usda(
     ingredient_names: Any,
     measurements: Any,
     return_details: bool = False,
     debug: bool = False,
+    portion_inputs: Optional[List[PortionInput]] = None,
 ) -> list[float] | dict:
     """
     Calculates estimated weights using USDA portion data when possible.
@@ -4062,11 +4401,21 @@ def ingredient_weight_tool_usda(
     names_list = [str(v) for v in _as_list(ingredient_names)]
     measures_list = _as_list(measurements)
 
+    if portion_inputs is not None:
+        return _structured_portion_weights(names_list, measures_list, portion_inputs, return_details, debug)
+
     weights: list[float] = []
     details: list[dict] = []
     blank_salt_indexes: set[int] = set()
     for idx, name in enumerate(names_list):
         measurement = measures_list[idx] if idx < len(measures_list) else None
+        assumption = seasoning_quantity_assumption(name, str(measurement or ''))
+        if assumption is not None:
+            weights.append(assumption['weight_g'])
+            details.append({'name': name, 'measurement_raw': measurement, 'weight_grams': assumption['weight_g'],
+                            'match_type': 'seasoning_policy_estimate', 'quantity_assumption': assumption,
+                            'blank_quantity_policy': assumption['policy'], 'error': None, 'confidence': 0.5})
+            continue
         if _is_blank_salt(name, measurement):
             measurement = "1 pinch"
             blank_salt_indexes.add(idx)
@@ -4269,12 +4618,13 @@ def ingredient_weight_tool_usda(
                 })
                 continue
 
-        link = canonical_name_to_usda(name)
+        table_link = _reviewed_portion_link(name)
+        link = table_link if table_link and table_link.get('usda_id') else canonical_name_to_usda(name)
         usda_match_source = "direct" if link else None
         usda_match_similarity = None
         rejected_usda_link = None
         rejected_usda_link_reason = None
-        if link:
+        if link and link.get('match_source') != 'reviewed_portion_table':
             rejected_usda_link_reason = _usda_link_mismatch_reason(name, link)
             if rejected_usda_link_reason is not None:
                 rejected_usda_link = link
@@ -4307,6 +4657,7 @@ def ingredient_weight_tool_usda(
             food_group=food_group,
             canonical=None if not link else link.get("canonical"),
             measurement=measurement,
+            usda_id=str(usda_id) if usda_id else None,
         )
         if reference_fallback is not None:
             grams, portion_match, match_type = reference_fallback
@@ -4833,6 +5184,7 @@ def Ingredient_Weight_Node(state: RecipeState) -> RecipeState:
         "measurements": measurements,
         "return_details": True,
         "debug": debug,
+        "portion_inputs": state.portion_inputs,
     })
     if isinstance(result, dict):
         state.weights = result.get("weights", [])

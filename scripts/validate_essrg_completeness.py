@@ -17,8 +17,8 @@ from typing import Any
 import pandas as pd
 
 # ── config ────────────────────────────────────────────────────────────────────
-RECIPES_FILE = Path("data/ESSRG/ESSRG_recipes_clean.json")
-OUTPUT_DIR = Path("data/processed/essrg")
+RECIPES_FILE = Path("data/recipes/essrg/ESSRG_recipes_clean.json")
+OUTPUT_DIR = Path("data/recipes/essrg/processed")
 COMPLETENESS_FILE = OUTPUT_DIR / "recipe_schema_completeness.csv"
 SUMMARY_FILE = OUTPUT_DIR / "recipe_completeness_summary.txt"
 LOW_COVERAGE_FILE = OUTPUT_DIR / "low_coverage_recipes.txt"

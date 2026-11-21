@@ -27,7 +27,7 @@ load_runtime_env()
 from recipe_wrangler.utils.neo4j_utils import driver  # noqa: E402
 from recipe_wrangler.tools.nutrition_match import best_nutrition_match  # noqa: E402
 
-DEFAULT_OUTPUT = REPO_ROOT / "data/processed/nutrition_match_audit.csv"
+DEFAULT_OUTPUT = REPO_ROOT / "analysis/nutrition_match_audit.csv"
 LOW_SIM = 0.78  # similarity below this is "weak"
 _WORD_RE = re.compile(r"[a-z]+")
 _CLEAN_DROP = re.compile(

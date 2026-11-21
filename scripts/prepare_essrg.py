@@ -17,8 +17,8 @@ from typing import Any
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-EXCEL = REPO_ROOT / "data/ESSRG/PLANEAT T442 MEAL DB LL ESSRG.xlsx"
-OUTPUT_DIR = REPO_ROOT / "data/ESSRG"
+EXCEL = REPO_ROOT / "data/recipes/essrg/PLANEAT T442 MEAL DB LL ESSRG.xlsx"
+OUTPUT_DIR = REPO_ROOT / "data/recipes/essrg"
 OUTPUT_FILE = OUTPUT_DIR / "ESSRG_recipes_clean.json"
 AUDIT_FILE = OUTPUT_DIR / "ESSRG_conversion_audit.json"
 
@@ -113,6 +113,11 @@ def build_cofid_lookup() -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
         food_name = _text(row.get("Food Name"))
         if not food_id or not re.fullmatch(r"\d+-\d+", food_id):
             continue
+        if food_id in foods:
+            raise ValueError(
+                f"Duplicate embedded CoFID food code {food_id}: "
+                f"{foods[food_id]['food_name']!r} and {food_name!r}; source review required"
+            )
         foods[food_id] = {"food_name": food_name, "nutrients_per_100": {}}
         if food_name:
             names[food_name] = food_id
@@ -126,10 +131,14 @@ def build_cofid_lookup() -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     for nutrient, (sheet_name, column) in NUTRIENT_COLUMNS.items():
         frame = sheets[sheet_name]
         code_col = sheet_code_columns[sheet_name]
+        seen_codes = set()
         for _, row in frame.iterrows():
             food_id = _text(row.get(code_col))
             if food_id not in foods:
                 continue
+            if food_id in seen_codes:
+                raise ValueError(f"Duplicate embedded CoFID food code {food_id} in {sheet_name}; source review required")
+            seen_codes.add(food_id)
             foods[food_id]["nutrients_per_100"][nutrient] = _nutrient_float(
                 row.get(column)
             )

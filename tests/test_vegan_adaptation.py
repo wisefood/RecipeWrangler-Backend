@@ -128,7 +128,7 @@ def test_candidate_pool_excludes_unknown_and_existing_candidates(
             "name": "vegan cheese",
             "suitability_status": "suitable",
             "suitability_reasons": ["vegan"],
-            "classification_version": "vegan-vegetarian-v1",
+            "classification_version": "vegan-vegetarian-v8",
         }
     ]
 
@@ -258,7 +258,7 @@ def test_vegan_suggestion_reports_blockers_and_unknowns(
             "category_distance": "high",
             "suitability_status": "suitable",
             "suitability_reasons": ["vegan"],
-            "classification_version": "vegan-vegetarian-v1",
+            "classification_version": "vegan-vegetarian-v8",
         }
     ]
 

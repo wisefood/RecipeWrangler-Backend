@@ -28,7 +28,10 @@ def load_runtime_env() -> None:
         if load_dotenv is not None:
             api_dir = Path(__file__).resolve().parents[1] / "api"
             repo_root = Path(__file__).resolve().parents[3]
+            runtime_root = Path(os.getenv('NUTRITION_MATCHING_ASSET_ROOT', str(repo_root)))
+            load_dotenv(runtime_root / 'src' / 'recipe_wrangler' / 'api' / '.env')
             load_dotenv(api_dir / ".env")
+            load_dotenv(runtime_root / '.env')
             load_dotenv(repo_root / ".env")
             load_dotenv()
 

@@ -1,6 +1,6 @@
 """Discover all current MyPlate recipe URLs with resumable pagination."""
 
-# data/MyPlate/export_myplate_recipe_urls.py
+# data/recipes/myplate/export_myplate_recipe_urls.py
 import re
 import time
 from pathlib import Path

@@ -16,12 +16,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = (
     REPO_ROOT
     / "data"
-    / "processed"
-    / "hungarian-comp-table"
+    / "nutrition"
+    / "composition_tables"
+    / "hungarian"
     / "Hungary_FoodCompositionTable_Edited.xlsx"
 )
 DEFAULT_OUTPUT = (
-    REPO_ROOT / "data" / "processed" / "hungarian-comp-table" / "hungarian_comp_table.csv"
+    REPO_ROOT / "data" / "nutrition" / "composition_tables" / "hungarian" / "hungarian_comp_table.csv"
 )
 
 OUTPUT_COLUMNS = [

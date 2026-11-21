@@ -1,0 +1,16 @@
+{
+  "dataset_id": "hybrid_dev_v1_scoped_events_supplement",
+  "label_status": "provisional_assistant_authored_not_independently_reviewed",
+  "purpose": "Additional development checks of modifier scope/polarity; authored during development, not held-out labels. Original fixture remains frozen.",
+  "checks": [
+    {"case_id": "dev-001", "field": "biological_source", "value": "chicken", "quote": "chicken", "polarity": "asserted", "target_food_id": "food:0"},
+    {"case_id": "dev-007", "field": "size", "value": "medium", "quote": "medium", "polarity": "asserted", "target_food_id": "food:0"},
+    {"case_id": "dev-007", "field": "processes", "value": "fried", "quote": "fried", "polarity": "asserted", "target_food_id": "food:0"},
+    {"case_id": "dev-008", "field": "processes", "value": "boiled", "quote": "boiled", "polarity": "negated", "target_food_id": "food:0"},
+    {"case_id": "dev-009", "field": "processes", "value": "fried", "quote": "frying", "polarity": "intended", "target_food_id": "food:0"},
+    {"case_id": "dev-010", "field": "processes", "value": "boiled", "quote": "boiled", "polarity": "alternative", "target_food_id": "food:0"},
+    {"case_id": "dev-010", "field": "processes", "value": "fried", "quote": "fried", "polarity": "alternative", "target_food_id": "food:0"},
+    {"case_id": "dev-011", "field": "processes", "value": "fried", "quote": "fried", "polarity": "asserted", "target_food_id": "food:1"},
+    {"case_id": "dev-029", "field": "processes", "value": "boiled", "quote": "boiling", "polarity": "unresolved", "target_food_id": null}
+  ]
+}

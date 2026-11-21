@@ -9,6 +9,8 @@ Reuses existing helpers (no modifications to upstream code):
 
 from __future__ import annotations
 
+from .food_roles import role_problems
+
 from functools import lru_cache
 import re
 from typing import Any
@@ -30,6 +32,7 @@ from recipe_wrangler.utils.nutrition_postgres import (
 )
 
 from .llm_judge import rerank_with_llm
+from .nutrition_benefit import MIN_TARGET_POINTS
 from .neo4j_queries import (
     fetch_recipe_consumer_context,
     filter_suitable_ingredients,
@@ -57,7 +60,6 @@ REGION_TO_SOURCE = {
     "SI": "slovenian",
 }
 
-MIN_TARGET_POINTS = 3
 NUTRI_SCORE_MAX_NEGATIVE_POINTS = 10
 CANDIDATE_MIN_SIMILARITY = 0.7
 CONSUMER_CANDIDATE_POOL_SIZE = 50
@@ -321,7 +323,7 @@ def _select_graph_name(raw_name: str, hints: list[str]) -> str | None:
     with the ingredient's own food_class and keeps whichever is trustworthy:
     the self-match's own resolution when it has no signal to beat (no
     candidates on either side, or nothing classifiable), the excluded match
-    when it's at least as class-consistent, otherwise the self-match.
+    when it's more class-consistent, otherwise the self-match.
     """
 
     self_candidates = find_substitute_candidates(raw_name)
@@ -341,7 +343,7 @@ def _select_graph_name(raw_name: str, hints: list[str]) -> str | None:
         # No classifiable signal on one side -- don't discard a possibly
         # curated self-match on a coin flip.
         return resolve_graph_name(raw_name, hints)
-    if excl_share >= self_share:
+    if excl_share > self_share:
         return excl_name
     return resolve_graph_name(raw_name, hints)
 
@@ -372,13 +374,12 @@ def _normalize_goal_nutrients(goals: list[str] | None) -> list[str]:
 def _identify_target_nutrient(
     breakdown: dict[str, Any],
     preferred_keys: list[str] | None = None,
+    *, minimum_points: int = MIN_TARGET_POINTS,
 ) -> dict[str, Any] | None:
-    """Step 1: pick the highest-scoring negative nutrient (≥ MIN_TARGET_POINTS).
+    """Rank nutrients by points using the caller's discovery threshold.
 
-    When the member has dietary goals (preferred_keys), the best-ranked
-    nutrient matching a goal wins — provided it still clears
-    MIN_TARGET_POINTS. Goals bias the choice; they never force a target the
-    recipe doesn't actually score badly on.
+    Legacy suggestions retain MIN_TARGET_POINTS; enhancement can use zero and
+    filter to positive requested nutrients before calling this helper.
     """
 
     items = (breakdown.get("negative_points") or {}).get("items") or {}
@@ -388,7 +389,8 @@ def _identify_target_nutrient(
             for key, item in items.items()
             if key in NUTRIENT_MAP
         ),
-        key=lambda t: t[1],
+        # Equal penalties need a stable nutrition priority, not JSON field order.
+        key=lambda t: (t[1], {"saturated_fats": 4, "sodium": 3, "sugar": 2, "energy": 1}.get(t[0], 0)),
         reverse=True,
     )
     if not ranked:
@@ -396,10 +398,10 @@ def _identify_target_nutrient(
     top_key, top_points, top_value, top_unit = ranked[0]
     if preferred_keys:
         for key, points, value, unit in ranked:
-            if key in preferred_keys and points >= MIN_TARGET_POINTS:
+            if key in preferred_keys and points >= minimum_points:
                 top_key, top_points, top_value, top_unit = key, points, value, unit
                 break
-    if top_points < MIN_TARGET_POINTS:
+    if top_points < minimum_points:
         return None
     meta = NUTRIENT_MAP[top_key]
     return {
@@ -574,7 +576,10 @@ def _fvl_pct_from_breakdown(breakdown: dict[str, Any]) -> float:
 def _serves_from_row(row: dict[str, Any]) -> float:
     """Derive serves; fall back to ratio of totals/per-serving if needed."""
 
-    quality = (row.get("nutrition_profiling_debug") or {}).get("profiling_quality") or {}
+    debug = row.get("nutrition_profiling_debug") or {}
+    if isinstance(debug, list):  # newer profiles store one debug entry per stage
+        debug = next((d for d in debug if isinstance(d, dict) and d.get("profiling_quality")), {})
+    quality = debug.get("profiling_quality") or {}
     s = quality.get("serves")
     if s is not None:
         try:
@@ -596,6 +601,13 @@ def _serves_from_row(row: dict[str, Any]) -> float:
     return 1.0
 
 
+def _restriction_blocked(candidate: dict[str, Any], offender: dict[str, Any], details: list[dict[str, Any]], allergens=(), diet=None) -> bool:
+    """Hard allergen/diet gate shared with the nutrition adaptation route (see nutrition_adaptation.restriction_problems)."""
+    from .nutrition_adaptation import restriction_problems
+    part = {"operation": "SWAP_FOOD", "candidate_label": candidate["name"], "matched_label": offender["name"]}
+    return bool(restriction_problems([part], [d.get("ingredient") or "" for d in details], allergens, diet))
+
+
 def _evaluate_candidate(
     candidate: dict[str, Any],
     offender: dict[str, Any],
@@ -612,6 +624,8 @@ def _evaluate_candidate(
 
     # Food-class guard: reject cross-category swaps (e.g. sugar→oil) up front.
     if not _food_class_compatible(offender["name"], candidate["name"]):
+        return None
+    if _restriction_blocked(candidate, offender, details):
         return None
 
     profile = _fetch_candidate_profile(candidate["name"], source)
@@ -1542,6 +1556,8 @@ def _evaluate_sustainability_candidate(
     # Food-class guard: reject cross-category swaps (e.g. beef→dried thyme) up front.
     if not _food_class_compatible(offender["name"], candidate["name"]):
         return None
+    if _restriction_blocked(candidate, offender, details):
+        return None
 
     try:
         cand_cf, _matched, _conf = best_sustainability_match(candidate["name"])
@@ -1813,6 +1829,10 @@ def _generate_sustainability_suggestions(
 # Minimum relative price improvement required for a candidate to be considered.
 # Filters out trivial swaps (e.g. switching between two similarly priced cuts).
 COST_MIN_REDUCTION_PCT = 0.10
+# A suggestion must be visible to the cook: the ingredient carries a real share of the recipe cost, and the saving is a real share of it.
+COST_MIN_OFFENDER_SHARE = 0.10
+COST_MIN_RECIPE_SAVING_SHARE = 0.05
+COST_MIN_SAVING_PER_SERVING_EUR = 0.05
 
 
 def _enrich_with_cost(details: list[dict[str, Any]], region: str) -> list[dict[str, Any]]:
@@ -1840,6 +1860,7 @@ def _enrich_with_cost(details: list[dict[str, Any]], region: str) -> list[dict[s
                 price = float(match["economic_reference_price_eur_kg"])
                 food_category = match.get("food_category")
                 confidence = match.get("cost_match_confidence")
+                d["cost_match"] = match
         d["cost_price_eur_kg"] = price
         d["cost_food_category"] = food_category
         d["cost_match_confidence"] = confidence
@@ -1895,6 +1916,8 @@ def _evaluate_cost_candidate(
     fvl_pct: float,
     current_grade: str,
     region: str,
+    allergens=(),
+    diet=None,
 ) -> dict[str, Any] | None:
     """Resolve CF for ``candidate``, filter, compute simulated cost, attach metadata.
 
@@ -1904,6 +1927,11 @@ def _evaluate_cost_candidate(
 
     # Food-class guard: reject cross-category swaps (e.g. beef→dried thyme) up front.
     if not _food_class_compatible(offender["name"], candidate["name"]):
+        return None
+    # Shared culinary-role guard (all facets): same job in the dish, no prepared dishes/drinks, no produce-for-produce.
+    if role_problems(offender["name"], candidate["name"]):
+        return None
+    if _restriction_blocked(candidate, offender, details, allergens, diet):
         return None
 
     catalogue = load_cost_catalogue()
@@ -1920,6 +1948,9 @@ def _evaluate_cost_candidate(
     if offender["food_category"] and cand_category and cand_category != offender["food_category"]:
         return None
 
+    if not catalogue.same_price_form(offender["detail"].get("cost_match") or {}, match):
+        return None
+
     cand_price = float(match["economic_reference_price_eur_kg"])
     orig_price = float(offender["price_eur_kg"])
     if orig_price <= 0:
@@ -1931,7 +1962,8 @@ def _evaluate_cost_candidate(
     # Nutri-guard: simulate the swap's nutrition and drop it if the grade worsens.
     # If the candidate has no composition match we can't judge nutrition — keep it
     # (the cost benefit is known; the LLM judge is a further backstop).
-    cand_profile = _fetch_candidate_profile(candidate["name"], source)
+    from .objective_approval import COST_NUTRITION_GUARDS
+    cand_profile = _fetch_candidate_profile(candidate["name"], source) if COST_NUTRITION_GUARDS else None
     if cand_profile:
         _t, guard_per_100g, _w = _recipe_per_100g(
             details,
@@ -1965,6 +1997,8 @@ def _evaluate_cost_candidate(
     if reduction_total_eur <= 0:
         return None
     reduction_per_serving_eur = reduction_total_eur / (serves or 1.0)
+    if reduction_total_eur < COST_MIN_RECIPE_SAVING_SHARE * total_old or reduction_per_serving_eur < COST_MIN_SAVING_PER_SERVING_EUR:
+        return None
 
     cand_allergens = set(get_ingredient_allergens(candidate["name"]))
     new_allergens = sorted(cand_allergens - original_allergens)
@@ -2010,15 +2044,29 @@ def _build_cost_explanation(
     }
 
 
+def _cost_details(row: dict[str, Any]) -> list[dict[str, Any]]:
+    """Cost needs only the stored (name, weight_g) pairs; unlike _recompute_ingredient_details it does not re-run the nutrition matcher."""
+    out = []
+    for d in row.get("nutrition_profiling_details") or []:
+        name = (d.get("name") or d.get("ingredient") or "").strip()
+        try:
+            weight = float(d.get("weight_g") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if name and weight > 0:
+            hint = d.get("sustainability_ingredient") or d.get("matched_sustainability_ingredient")
+            out.append({"ingredient": name, "weight_g": weight, "graph_name": resolve_graph_name(name, [str(hint)] if hint else [])})
+    return out
+
+
 def _generate_cost_suggestions(
-    recipe_id: str, region: str, max_swaps: int, use_llm: bool,
+    recipe_id: str, region: str, max_swaps: int, use_llm: bool, allergens=(), diet=None,
 ) -> dict[str, Any]:
     """Cost-mode orchestrator: target the top cost contributor with same-category, cheaper substitutes."""
 
     row = _load_profile(recipe_id, region)
     source = _profile_source(row, region)
-    details = _recompute_ingredient_details(row, source)
-    details = _enrich_with_cost(details, region)
+    details = _enrich_with_cost(_cost_details(row), region)
     serves = _serves_from_row(row)
 
     # Context for the nutri-guard (a cost swap must not worsen the grade).
@@ -2034,25 +2082,27 @@ def _generate_cost_suggestions(
     })
     current_total_cost_eur = sum(float(d["cost_eur"]) for d in priced)
     if current_total_cost_eur <= 0:
-        return _no_suggestions_response(
+        return dict(_no_suggestions_response(
             recipe_id, region, "cost",
             "Could not compute a recipe cost — none of the ingredients matched "
             "the cost catalogue.",
             breakdown,
-        )
+        ), reason_code="no_prices")
     current_per_serving_cost_eur = current_total_cost_eur / (serves or 1.0)
 
     offender_pool = _rank_cost_offenders(details)
     if not offender_pool:
-        return _no_suggestions_response(
+        return dict(_no_suggestions_response(
             recipe_id, region, "cost",
             "No priced ingredient has viable substitutes in the graph.",
             breakdown,
-        )
+        ), reason_code="no_substitute_found")
 
     offender: dict[str, Any] | None = None
     evaluated: list[dict[str, Any]] = []
     for candidate_offender in offender_pool[:MAX_GATED_OFFENDERS]:
+        if candidate_offender["contribution_pct"] < COST_MIN_OFFENDER_SHARE:
+            break  # ranked by contribution: everything below is too small to matter
         # Upgrade to the trustworthy graph name now -- lazily, only for
         # this candidate offender, not the whole recipe (see the ranking
         # functions' docstrings).
@@ -2068,7 +2118,7 @@ def _generate_cost_suggestions(
         for cand in raw_candidates:
             result = _evaluate_cost_candidate(
                 cand, candidate_offender, details, serves, original_allergens,
-                source, fvl_pct, current_grade, region,
+                source, fvl_pct, current_grade, region, allergens, diet,
             )
             if result:
                 results.append(result)
@@ -2078,12 +2128,12 @@ def _generate_cost_suggestions(
             break
 
     if not offender or not evaluated:
-        return _no_suggestions_response(
+        return dict(_no_suggestions_response(
             recipe_id, region, "cost",
             f"No same-category substitute cuts price by at least "
             f"{int(COST_MIN_REDUCTION_PCT * 100)}% for any priced ingredient.",
             breakdown,
-        )
+        ), reason_code="no_cheaper_option")
 
     # Rank by absolute cost reduction per serving — biggest saving first,
     # FlavorDB similarity to the original as the tiebreak.

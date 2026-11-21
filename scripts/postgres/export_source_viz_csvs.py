@@ -88,7 +88,7 @@ SOURCES = {
 }
 
 HEALTHYFOODS_NUTRITION = (
-    REPO_ROOT / "data" / "HealthyFoods" / "HealthyFood_recipes_nutrition_clean.json"
+    REPO_ROOT / "data" / "recipes" / "healthyfoods" / "HealthyFood_recipes_nutrition_clean.json"
 )
 
 

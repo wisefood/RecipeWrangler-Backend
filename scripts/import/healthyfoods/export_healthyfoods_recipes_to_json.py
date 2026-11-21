@@ -9,8 +9,8 @@ import requests
 from bs4 import BeautifulSoup
 
 
-INPUT_URLS = "data/HealthyFoods/recipe_urls.json"
-OUT_RECIPES = "data/HealthyFoods/HealthyFood_recipes.json"
+INPUT_URLS = "data/recipes/healthyfoods/recipe_urls.json"
+OUT_RECIPES = "data/recipes/healthyfoods/HealthyFood_recipes.json"
 
 SITE = "https://www.healthyfood.com"
 RECIPE_PREFIX = "https://www.healthyfood.com/healthy-recipes/"
@@ -109,11 +109,12 @@ def _parse_instructions_from_html(soup: BeautifulSoup) -> List[str]:
 
     # A few one-step recipes use a plain direct child <div> with a visible
     # steps_count span. Exclude the mobile UI/header block explicitly.
-    blocks = [
-        child
-        for child in container.find_all(["p", "div"], recursive=False)
-        if "mobile-instructions-container" not in (child.get("class") or [])
-    ]
+    blocks = []
+    for child in container.find_all(recursive=False):
+        if child.name in {"h2", "h3", "h4", "h5", "h6"} and blocks:
+            break
+        if child.name in {"p", "div"} and "mobile-instructions-container" not in (child.get("class") or []):
+            blocks.append(child)
     return [
         text
         for text in (_clean(block.get_text(" ", strip=True)) for block in blocks)
@@ -274,18 +275,21 @@ def parse_healthyfood_recipe(url: str, session: requests.Session, timeout: int =
 
     image_url = _get_best_image_url(soup, ld)
 
-    ingredients: List[str] = []
-    if ld and isinstance(ld.get("recipeIngredient"), list):
-        ingredients = [_clean(x) for x in ld["recipeIngredient"] if isinstance(x, str) and _clean(x)]
-    else:
-        for li in soup.select("#ingredients-list li.ingredient"):
-            t = _clean(li.get_text(" ", strip=True))
-            if t:
-                ingredients.append(t)
+    # Nested wrapper <li>s repeat their children's text; separate leaf occurrences remain separate.
+    ingredients = [_clean(li.get_text(" ", strip=True))
+                   for li in soup.select("#ingredients-list li.ingredient")
+                   if li.select_one("li.ingredient") is None]
+    ingredients = [text for text in ingredients if text]
+    if not ingredients and ld and isinstance(ld.get("recipeIngredient"), list):
+        ingredients = [_clean(x) for x in ld["recipeIngredient"]
+                       if isinstance(x, str) and _clean(x) not in {"", "...", "…"}]
 
-    instructions = _parse_recipe_instructions((ld or {}).get("recipeInstructions"))
-    if not instructions:
-        instructions = _parse_instructions_from_html(soup)
+    displayed = _parse_instructions_from_html(soup)
+    numbered = [re.match(r"^(\d+)\s+", step) for step in displayed]
+    if displayed and all(numbered) and [int(match[1]) for match in numbered] == list(range(1, len(displayed) + 1)):
+        instructions = displayed
+    else:
+        instructions = _parse_recipe_instructions((ld or {}).get("recipeInstructions")) or displayed
     if not instructions:
         instructions = _parse_mislabelled_serving_suggestion(soup)
 

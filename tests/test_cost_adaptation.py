@@ -33,6 +33,9 @@ class _FakeCatalogue:
     def resolve(self, name: str, country: str) -> dict:
         return _fake_resolve(name, country)
 
+    def same_price_form(self, first: dict, second: dict) -> bool:
+        return True
+
 
 def _fake_substitutes(graph_name: str) -> list[dict]:
     if graph_name == "beef":
@@ -46,7 +49,7 @@ def _fake_substitutes(graph_name: str) -> list[dict]:
 def test_cost_mode_prefers_cheaper_same_category_substitute():
     with (
         patch.object(service, "_load_profile", return_value=_row()),
-        patch.object(service, "_recompute_ingredient_details", return_value=_details()),
+        patch.object(service, "_cost_details", return_value=_details()),
         patch.object(service, "_serves_from_row", return_value=2.0),
         patch.object(service, "_authoritative_grade", return_value="B"),
         patch.object(service, "load_cost_catalogue", return_value=_FakeCatalogue()),
@@ -76,7 +79,7 @@ def test_cost_mode_rejects_swap_below_minimum_saving():
     with (
         patch.object(service, "_load_profile", return_value=_row()),
         patch.object(
-            service, "_recompute_ingredient_details",
+            service, "_cost_details",
             return_value=[{"ingredient": "beef", "graph_name": "beef", "weight_g": 300.0}],
         ),
         patch.object(service, "_serves_from_row", return_value=2.0),

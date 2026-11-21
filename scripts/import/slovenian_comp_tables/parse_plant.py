@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DIR = REPO_ROOT / "data" / "Slovenian-Comp-Tables"
+DIR = REPO_ROOT / "data" / "nutrition" / "composition_tables" / "slovenian"
 PDF = f"{DIR}/slovenian-plant-based-composition-tables.pdf"
 LAYOUT = f"{DIR}/full_text.txt"
 RAW = f"{DIR}/full_text_raw.txt"

@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DIR = REPO_ROOT / "data" / "Slovenian-Comp-Tables"
+DIR = REPO_ROOT / "data" / "nutrition" / "composition_tables" / "slovenian"
 
 # (slovenian_term, english_translation, eu_ingredient_nutrient_match_or_None, postgres_recipe_profile_field_or_None)
 # eu_ingredient_nutrient is matched against the DISTINCT keys actually present in the

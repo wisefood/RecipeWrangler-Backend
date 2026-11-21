@@ -320,7 +320,7 @@ LLM fallback hardening:
 
 Offline weight-reference dataset (now live):
 
-- Ran the full rebuild pipeline (`docs/weight_reference_rebuild.md`): 45,910 `(ingredient, unit)` signatures from Neo4j -> deterministic candidates -> 1,794 `needs_llm_rebuild` rows judged by the 8B + verifier (1,792 accepted, 2 rejected) -> materialized `data/processed/weight_reference/ingredient_unit_reference_dataset.csv`.
+- Ran the full rebuild pipeline (`docs/weight_reference_rebuild.md`): 45,910 `(ingredient, unit)` signatures from Neo4j -> deterministic candidates -> 1,794 `needs_llm_rebuild` rows judged by the 8B + verifier (1,792 accepted, 2 rejected) -> materialized `data/portions/weight_reference/ingredient_unit_reference_dataset.csv`.
 - Wired it into the runtime cascade: `_lookup_offline_reference` short-circuits before the live USDA/embedding lookup with `match_type="offline_reference_dataset"`; only `accepted_deterministic` and `llm_rebuilt`-with-confidence ≥ 0.7 rows are used. Confidence: 0.90 deterministic, 0.70–0.88 LLM-rebuilt.
 - Imported the dataset (and re-imported the other 8 static files) into the `pipeline_static_data` Postgres table — the runtime reads static data from Postgres, not disk, so a fresh CSV is inert until `scripts/postgres/import_pipeline_static_data.py` is re-run.
 - Added a verifier to the LLM judge (`preprocessing/one_off/judge_weight_reference_candidates_vllm.py`): `verifier_status` / `verifier_reason` columns; rejects suspicious-default weights, `> 5 kg`/unit, deterministic verdicts with no parseable candidate, etc.
@@ -355,7 +355,7 @@ Validation run:
 - Added hybrid USDA ingredient linking: Elasticsearch vector candidates plus BM25 lexical candidates are deduplicated, reranked, and exposed as `match_source="hybrid"`.
 - Added FoodOn compatibility checks for hybrid matches. When both the raw ingredient and candidate have FoodOn classes, incompatible taxonomy branches are rejected; missing FoodOn data falls back neutrally to lexical/vector scoring.
 - Added deterministic guards for known bad category matches, large bare-number quantities, ambiguous USDA portion descriptions, packaged/count units, and common unit references.
-- Added conservative LLM-derived unit-weight filtering and merged accepted rows into `data/processed/recipe1m/food_weights_updated.csv`.
+- Added conservative LLM-derived unit-weight filtering and merged accepted rows into `data/retired/recipe1m/processed/food_weights_updated.csv`.
 - Added `preprocessing/one_off/audit_weight_tool_outliers.py` to sample Recipe1M recipes and flag suspicious weights such as huge ingredients, heavy volume units, live LLM fallbacks, missing units, and low confidence rows.
 - Fixed Recipe1M slashless fraction artifacts in the ingredient splitter and weight parser, e.g. `34 cup` -> `3/4 cup`, `12 cup` -> `1/2 cup`, `1 12 teaspoons` -> `1 1/2 teaspoons`.
 

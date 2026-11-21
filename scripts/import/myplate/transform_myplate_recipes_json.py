@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-DEFAULT_INPUT = Path("data/MyPlate/myplate_recipes.json")
-DEFAULT_OUTPUT = Path("data/MyPlate/myplate_recipes_clean.json")
+DEFAULT_INPUT = Path("data/recipes/myplate/myplate_recipes.json")
+DEFAULT_OUTPUT = Path("data/recipes/myplate/myplate_recipes_clean.json")
 
 FEDERAL_SITE_BANNER = (
     "Federal government websites often end in .gov or .mil. "

@@ -40,7 +40,7 @@ from neo4j import GraphDatabase
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "generated_recipe_images" / "grokified"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "images" / "generated_recipe_images" / "grokified"
 DEFAULT_LOG_PATH = REPO_ROOT / "artifacts" / "grokified_image_generation.jsonl"
 DEFAULT_SOURCES = ("Curated Hungarian Recipes", "Curated Slovenian Recipes")
 DEFAULT_MODEL = "grok-imagine-image"

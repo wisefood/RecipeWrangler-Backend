@@ -1,6 +1,6 @@
 """Discover current HealthyFoods recipe URLs from sitemaps and listings."""
 
-# data/HealthyFoods/export_healthyfoods_recipe_urls.py
+# data/recipes/healthyfoods/export_healthyfoods_recipe_urls.py
 from __future__ import annotations
 
 import json
@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 SITE = "https://www.healthyfood.com"
 LISTING = "https://www.healthyfood.com/healthy-recipes/"
 RECIPE_PREFIX = "https://www.healthyfood.com/healthy-recipes/"
-OUT_JSON = "data/HealthyFoods/recipe_urls.json"
+OUT_JSON = "data/recipes/healthyfoods/recipe_urls.json"
 
 
 # ---------------------------

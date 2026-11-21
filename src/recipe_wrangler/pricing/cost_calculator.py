@@ -238,6 +238,12 @@ class CostCatalogue:
                 row.product_id
             )
 
+        # A fish with no fresh price has a base built from frozen/preserved forms; its price says
+        # nothing about the fresh fish it would replace (or be replaced by).
+        fish = self.frame[self.frame["food_category"].eq("fish and seafood")]
+        fresh_detail = fish["product_detail"].fillna("").astype(str).str.lower().str.startswith("fresh")
+        self.fish_with_fresh_price = set(fish.loc[fresh_detail, "canonical_name"])
+
         self.aliases = {
             normalize_cost_name(alias): product_id
             for alias, product_id in (aliases or {}).items()
@@ -269,6 +275,13 @@ class CostCatalogue:
                 "global_cost_tier": representative["global_cost_tier"],
                 "cost_reference_version": representative["cost_reference_version"],
             }
+
+    def same_price_form(self, first: Mapping[str, Any], second: Mapping[str, Any]) -> bool:
+        """False when a fish price on one side is a fresh price and on the other is not."""
+        if "fish and seafood" not in {first.get("food_category"), second.get("food_category")}:
+            return True
+        return all(m.get("matched_canonical_name") in self.fish_with_fresh_price for m in (first, second)) or not any(
+            m.get("matched_canonical_name") in self.fish_with_fresh_price for m in (first, second))
 
     def resolve_group(
         self, ingredient_name: str, country: str, cost_group: str

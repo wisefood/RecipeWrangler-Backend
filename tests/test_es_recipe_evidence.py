@@ -96,14 +96,15 @@ def test_current_claim_overrides_stale_suitable_status_without_changing_input():
     assert original == before
 
 
-def test_possible_conflict_downgrades_suitability_without_inventing_known_presence():
+def test_possible_allergen_does_not_downgrade_suitability():
+    # owner decision 2026-11-18: "may contain" never gates suitability
     evidence = [{'allergen':'fish', 'presence':'may_contain'}]
     assessments = normalize_consumer_suitability(
         [{'group':'vegan', 'status':'not_suitable'}, {'group':'vegetarian', 'status':'suitable', 'classification_version':'v'}],
         classification_version='v', evidence=evidence,
     )
-    assert [a['status'] for a in assessments] == ['not_suitable', 'unknown', 'unknown']
-    assert 'possible_allergen_presence' in assessments[1]['reason_codes']
+    assert [a['status'] for a in assessments] == ['not_suitable', 'suitable', 'unknown']
+    assert 'possible_allergen_presence' not in assessments[1]['reason_codes']
 
 
 def test_explicit_unknown_conflict_cannot_keep_stale_suitable_status():

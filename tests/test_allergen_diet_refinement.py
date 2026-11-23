@@ -74,14 +74,15 @@ def test_an_independent_positive_wins_over_possible_evidence():
     assert 'milk' not in fields['possible_allergens']
 
 
-def test_possible_evidence_suppresses_free_from_and_downgrades_positive_diet():
+def test_possible_evidence_suppresses_free_from_but_does_not_downgrade_positive_diet():
     rows = detect_allergen_evidence_from_names(['vegetable stock'])
     consumer = recipe_consumer_fields([
         {'group': 'vegan', 'status': 'suitable', 'classification_version': classification_version('vegan')},
     ], evidence=rows)
-    assert consumer['consumer_suitability'][0]['status'] == 'unknown'
-    assert 'vegan' not in consumer['suitable_for']
-    assert assessed_diet_tags(['dairy_free', 'gluten_free'], consumer['consumer_suitability'], evidence=rows) == []
+    # owner decision 2026-11-18: "may contain" never gates suitability
+    assert consumer['consumer_suitability'][0]['status'] == 'suitable'
+    assert 'vegan' in consumer['suitable_for']
+    assert assessed_diet_tags(['dairy_free', 'gluten_free'], consumer['consumer_suitability'], evidence=rows) == ['vegan']
 
 
 @pytest.mark.parametrize('name', ['hake', 'hoki', 'calamari', 'brownshrimp', 'gelatine', 'anchovies'])

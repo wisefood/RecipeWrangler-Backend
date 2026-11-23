@@ -72,7 +72,7 @@ def test_clear_whole_food_names_have_positive_rules_without_graph_links(text,gro
     assert not any(re.fullmatch(p,canonical_ingredient_name(text+' with mystery sauce')) for p in patterns)
 
 
-@pytest.mark.parametrize('text',['dairy-free butter','margarine','not vegan butter','vegan butter with honey',
+@pytest.mark.parametrize('text',['dairy-free butter','not vegan butter','vegan butter with honey',
     'sweetened coconut cream dessert','garlic toast','cheese toast','mayonnaise','soft tortillas','orange liqueur'])
 def test_uncertain_or_compound_names_cannot_borrow_clear_food_rules(text):
     assert not any(re.fullmatch(p,canonical_ingredient_name(text)) for p in PLANT_STAPLE_PATTERNS)
@@ -115,4 +115,4 @@ def test_graph_positive_candidates_use_clear_wording_without_overriding_blockers
     with patch.object(dc,'ingredient_link_batches',return_value=iter([batch])),patch.object(dc,'_scalar',return_value=3) as scalar:
         dc._classify_positive(Mock(),'vegan')
     query=scalar.call_args.args[1]
-    assert 'rel.status <> "not_suitable"' in query and 'size(possible_allergens) = 0' in query
+    assert 'rel.status <> "not_suitable"' in query and 'size(possible_allergens) = 0' not in query

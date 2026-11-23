@@ -71,6 +71,10 @@ _DATA = json.loads((Path(__file__).parent / 'reviewed_nutrition.json').read_text
 RECORD_FILLS = _DATA['fills']
 APPROXIMATE_NAMES = {row['alias']: row['approximate'] for row in _DATA['aliases'] if row.get('approximate')}
 REVIEWED_SELECTIONS = {row['alias']: row for row in _DATA['aliases']}
+# The gated engine rescues unresolved lines only through REVIEWED_SELECTIONS; the owner-reviewed names above
+# reached the legacy matcher alone and stayed unresolved, so they join the fallback (it never overrides a match).
+for _name,(_record,_label) in _NAMES.items():
+    REVIEWED_SELECTIONS.setdefault(_name,{'alias':_name,'eu_food_id':_record,'food_name':_label,'note':'reviewed 2026-11-05'})
 for _name in ('chilli flakes', 'chili flakes', 'dried chilli flakes', 'dried chili flakes',
               'red chilli flakes', 'red chili flakes', 'crushed red pepper flakes'):
     REVIEWED_SELECTIONS[_name] = {

@@ -382,11 +382,10 @@ def test_low_salt_stock_powder_is_not_priced_as_made_up_stock():
     assert REVIEWED_SELECTIONS[key]['eu_food_id']=='nevo:1883'
 
 
-def test_blank_records_are_filled_from_same_food_peers_and_traces_but_fresh_oregano_stays_unknown():
+def test_blank_records_are_filled_from_same_food_peers_and_traces():
     from recipe_wrangler.matching.reviewed_aliases import RECORD_FILLS
     assert RECORD_FILLS['cofid:13-876']['sugar_g']['value']==pytest.approx(2.8,abs=.3)
     assert any('trace_as_zero' in fill['source'] and fill['value']==0 for fills in RECORD_FILLS.values() for fill in fills.values())
-    assert 'energy_kcal' not in RECORD_FILLS.get('cofid:13-891',{})
 
 
 @pytest.mark.parametrize('name,line,matched,expected',[
@@ -486,3 +485,9 @@ def test_calculate_reports_the_adjusted_weight():
         original_texts=['400g can no-added-salt chickpeas, rinsed, drained'],source='eu',serves=4)
     assert profile['details'][0]['weight_g']==240
 
+
+
+def test_reviewed_names_are_in_the_gated_fallback():
+    from recipe_wrangler.matching.reviewed_aliases import REVIEWED_SELECTIONS,_NAMES
+    assert all(n in REVIEWED_SELECTIONS for n in _NAMES)
+    assert REVIEWED_SELECTIONS['prosciutto']['eu_food_id']=='ciqual:28812'

@@ -184,7 +184,6 @@ def normalize_consumer_suitability(
     ]
     allergen_assessment = recipe_allergen_fields(allergens, evidence)["allergen_assessment"]
     detected = allergen_filter_groups(allergen_assessment["detected_allergens"])
-    possible = allergen_filter_groups(allergen_assessment["possible_allergens"])
     unknown = allergen_filter_groups([
         _clean_lower(row.get("allergen"))
         for row in evidence if isinstance(row, dict) and _clean_lower(row.get("presence")) == "unknown"
@@ -195,9 +194,6 @@ def normalize_consumer_suitability(
             item["status"] = "not_suitable"
             item["reason_codes"] = sorted((set(item["reason_codes"]) - {"all_ingredients_suitable"}) | {"allergen_evidence"})
             item["sources"] = sorted(set(item["sources"]) | {"allergen_evidence"})
-        elif possible & blocking and item["status"] == "suitable":
-            item["status"] = "unknown"
-            item["reason_codes"] = sorted((set(item["reason_codes"]) - {"all_ingredients_suitable"}) | {"possible_allergen_presence"})
         elif unknown & blocking and item["status"] == "suitable":
             item["status"] = "unknown"
             item["reason_codes"] = sorted((set(item["reason_codes"]) - {"all_ingredients_suitable"}) | {"unresolved_allergen_evidence"})

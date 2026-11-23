@@ -26,7 +26,7 @@ from recipe_wrangler.matching.quantities import recipe_inputs,resolve_quantity,Q
 from recipe_wrangler.matching.reviewed_aliases import BLOCKED_RECORDS,REVIEWED_ALIASES,APPROXIMATE_NAMES,RECORD_FILLS,REVIEWED_SELECTIONS,low_salt_name,preferred_name,stated_state_name,reviewed_record_compatible
 from recipe_wrangler.matching.completeness_repair import eligible_record, choose_complete_record, label_key
 
-VERSION='occurrence_matching_v40_held_recipe_repairs'
+VERSION='occurrence_matching_v49_last_fills'
 CURRENT_NATIONAL_TABLE=nm.CURRENT_NATIONAL_TABLE
 ROOT=Path(__file__).resolve().parents[3]
 ASSETS={
@@ -228,7 +228,7 @@ class MatchingEngine:
             candidate=provider.by_id(COLLECTIONS['eu'],chosen)
             if candidate is None:return None
             source_facts=policy.source(COLLECTIONS['eu'],candidate)
-        if not reviewed_record_compatible(name,original,source_facts):return None
+        if not row.get('confirmed') and not reviewed_record_compatible(name,original,source_facts):return None
         # A dry-basis record must not price a tin or a cooked weight.
         if state in {'canned','cooked'} and not variant and (source_facts['values_per_100g'].get('energy_kcal') or 0)>=200:return None
         calculation={'kind':'automatic_estimate','policy_version':'reviewed_alias_v1','assumptions':[{'policy':'reviewed_alias','field':'identity',

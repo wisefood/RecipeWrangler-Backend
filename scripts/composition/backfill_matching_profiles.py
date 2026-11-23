@@ -55,13 +55,13 @@ def _stale(frozen,names,weights):
         or o['saved_weight_g']!=w for o,n,w in zip(occurrences,names,weights))
 
 
-def backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1):
+def backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None):
     with get_engine().connect() as lock:
         # One lock per shard: shards split recipes, so they never write the same profile.
         key='matching_backfill:'+release_id+('' if shards==1 else f':{shard}/{shards}')
         acquired=lock.execute(text('SELECT pg_try_advisory_lock(hashtextextended(:key,0))'),{'key':key}).scalar()
         if not acquired:raise RuntimeError('Another backfill for this release is running')
-        try:return _backfill(release_id,limit,activate,source_evidence,shard,shards)
+        try:return _backfill(release_id,limit,activate,source_evidence,shard,shards,recipe_ids,sources)
         finally:lock.execute(text('SELECT pg_advisory_unlock(hashtextextended(:key,0))'),{'key':key})
 
 
@@ -71,15 +71,17 @@ FULL_ROW='''SELECT recipe_id,title,source,nutrition_source,
             FROM "nutrients-recipe-profiles"'''
 
 
-def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1):
+def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None):
     matcher=engine(release_id)
     with get_engine().connect() as c:
         # Keys only up front; each full row (with large debug/trace fields) is read when processed.
         rows=[dict(r) for r in c.execute(text('''SELECT recipe_id,title,source,nutrition_source
             FROM "nutrients-recipe-profiles"
-            WHERE nutrition_source IN ('eu','irish','hungarian','slovenian')
+            WHERE nutrition_source = ANY(:sources)
+            AND (CAST(:ids AS text[]) IS NULL OR recipe_id = ANY(:ids))
             AND mod(abs(hashtextextended(recipe_id,0)),:shards)=:shard
-            ORDER BY recipe_id,nutrition_source'''),{'shards':shards,'shard':shard}).mappings()]
+            ORDER BY recipe_id,nutrition_source'''),{'shards':shards,'shard':shard,'ids':recipe_ids,
+            'sources':sources or ['eu','irish','hungarian','slovenian']}).mappings()]
         done={(r['recipe_id'],r['nutrition_source']):(r['quantity_input_hash'],r['originals']) for r in c.execute(text('''
             SELECT DISTINCT ON(recipe_id,nutrition_source) recipe_id,nutrition_source,
                 profile->>'quantity_input_hash' AS quantity_input_hash,
@@ -153,7 +155,10 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--release-id',required=True)
     p.add_argument('--limit',type=int);p.add_argument('--activate',action='store_true')
     p.add_argument('--source-evidence',type=Path)
+    p.add_argument('--recipe-ids',type=Path,help='File with one recipe_id per line; default all')
+    p.add_argument('--sources',help='Comma-separated nutrition sources; default eu,irish,hungarian,slovenian')
     p.add_argument('--shard',type=int,default=0);p.add_argument('--shards',type=int,default=1)
     a=p.parse_args()
     if not 0<=a.shard<a.shards:p.error('--shard must be in [0, --shards)')
-    backfill(a.release_id,a.limit,a.activate,a.source_evidence,a.shard,a.shards)
+    backfill(a.release_id,a.limit,a.activate,a.source_evidence,a.shard,a.shards,
+        a.recipe_ids.read_text().split() if a.recipe_ids else None,a.sources.split(',') if a.sources else None)

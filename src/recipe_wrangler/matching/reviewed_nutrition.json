@@ -649,10 +649,11 @@
   },
   {
    "alias": "bircher muesli granola",
-   "approximate": "Bircher muesli granola is similar to granola muesli, but may have different ingredients or proportions.",
-   "eu_food_id": "efsa_serbia:0004854",
-   "food_name": "Granola muesli",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:11-780",
+   "food_name": "Muesli, Swiss style, unfortified",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
+   "cooked": "cofid:11-780"
   },
   {
    "alias": "black beans",
@@ -1239,10 +1240,11 @@
   },
   {
    "alias": "caramel condensed milk",
-   "approximate": "Caramel condensed milk is a sweetened version of condensed milk; this record is for sweetened condensed milk.",
-   "eu_food_id": "matvaretabellen:1676",
-   "food_name": "Milk, condensed, sweetened",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-520",
+   "food_name": "Milk, condensed, whole, sweetened",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
+   "canned": "cofid:12-520"
   },
   {
    "alias": "caramel-filled easter eggs",
@@ -1416,9 +1418,10 @@
   },
   {
    "alias": "champagne leg ham",
-   "eu_food_id": "efsa_portugal:1169",
-   "food_name": "Ham, leg",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:19-496",
+   "food_name": "Ham",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "chargrilled vegetables",
@@ -1662,10 +1665,10 @@
   },
   {
    "alias": "chicken tenders",
-   "approximate": "Frozen chicken tenders are a close match to the ingredient, differing in preparation state.",
-   "eu_food_id": "usda_sr_legacy:22978",
-   "food_name": "Chicken tenders, breaded, frozen, prepared",
-   "note": "reviewed 2026-11-05",
+   "eu_food_id": "fineli:754",
+   "food_name": "CHICKEN STRIPS",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
    "public": {
     "usda_sr_legacy:22978": {
      "food_name": "Chicken tenders, breaded, frozen, prepared",
@@ -1734,10 +1737,10 @@
   },
   {
    "alias": "chickpeas",
-   "approximate": "Dry chickpeas are used; the record is for dry chickpeas, which is close enough for estimation.",
-   "eu_food_id": "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"DABCDZ001\"]",
-   "food_name": "Chickpeas (dry)",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "slv:3815",
+   "food_name": "Chickpeas canned w/o brine",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "chiles de \u00e1rbol",
@@ -2070,9 +2073,11 @@
   },
   {
    "alias": "chunky peanut butter",
-   "eu_food_id": "efsa_czech:464",
-   "food_name": "Peanut butter",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:14-892",
+   "food_name": "Peanut butter, smooth",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
+   "canned": "cofid:14-892"
   },
   {
    "alias": "chunky tomato pasta sauce",
@@ -2153,10 +2158,26 @@
   },
   {
    "alias": "coconut milk alternative",
-   "approximate": "Soya based beverage is a common dairy-free milk alternative, differing in base ingredient.",
-   "eu_food_id": "efsa_portugal:240005",
-   "food_name": "Soya based beverage (milk alternative)",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Coconut milk drink",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:coconut_milk_drink",
+   "public": {
+    "reviewed:coconut_milk_drink": {
+     "food_name": "Coconut milk drink",
+     "source": "openfoodfacts_mean(n=9)",
+     "values": {
+      "energy_kcal": 46.52,
+      "protein_g": 0.33,
+      "carbs_g": 4.0,
+      "fat_g": 2.81,
+      "sugar_g": 3.49,
+      "saturated_fat_g": 2.56,
+      "sodium_mg": 33.05,
+      "fibre_g": 1.65
+     }
+    }
+   }
   },
   {
    "alias": "coconut milk powder",
@@ -2708,10 +2729,10 @@
   },
   {
    "alias": "creamed rice",
-   "approximate": "Closest match is a dessert with rice and cream, differing in specific flavor and fat content.",
-   "eu_food_id": "fineli:1537",
-   "food_name": "RICE AND CREAM DESSERT",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-553",
+   "food_name": "Pudding, rice, canned, low fat",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "creamy chilli dressing",
@@ -2847,10 +2868,10 @@
   },
   {
    "alias": "dairy-free cheese",
-   "approximate": "Plant-based cheese is a close alternative to dairy-free cheese.",
-   "eu_food_id": "ciqual:1029",
-   "food_name": "Plant-based cheese, without soybean, prepacked",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "slv:7011",
+   "food_name": "Vegan cheese grated",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "dairy-free margarine",
@@ -2861,17 +2882,33 @@
   },
   {
    "alias": "dairy-free spread",
-   "approximate": "Vegetable margarine",
-   "eu_food_id": "efsa_italy:009100",
-   "food_name": "Margarine (100% vegetable)",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Dairy-free spread",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:dairy-free_spread",
+   "public": {
+    "reviewed:dairy-free_spread": {
+     "food_name": "Dairy-free spread",
+     "source": "openfoodfacts_mean(n=8)",
+     "values": {
+      "energy_kcal": 498.75,
+      "protein_g": 1.43,
+      "carbs_g": 6.24,
+      "fat_g": 52.75,
+      "sugar_g": 5.41,
+      "saturated_fat_g": 12.25,
+      "sodium_mg": 372.25,
+      "fibre_g": 1.26
+     }
+    }
+   }
   },
   {
    "alias": "dairy-free table spread",
-   "approximate": "Plant-based spread is a close alternative to dairy-free table spread.",
-   "eu_food_id": "ciqual:1027",
-   "food_name": "Plant-based spread-cheese type, with soybean, prepacked",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-500",
+   "food_name": "Baking fat and margarine (75-90% fat), hard block",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "dark cane sugar",
@@ -3221,10 +3258,11 @@
   },
   {
    "alias": "elbow macaroni",
-   "approximate": "Raw macaroni is close; cooked values differ significantly.",
-   "eu_food_id": "efsa_iceland:776",
-   "food_name": "Macaroni, raw",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "fineli:117",
+   "food_name": "MACARONI, PASTA",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
+   "cooked": "efsa_iceland:866"
   },
   {
    "alias": "enchilada sauce",
@@ -3353,17 +3391,33 @@
   },
   {
    "alias": "fat-free balsamic dressing",
-   "approximate": "Closest match is a salad dressing with 0% fat, similar to fat-free balsamic dressing.",
-   "eu_food_id": "slv:49",
-   "food_name": "Salad dressing 0% fat",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Fat-free balsamic dressing",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:fat-free_balsamic_dressing",
+   "public": {
+    "reviewed:fat-free_balsamic_dressing": {
+     "food_name": "Fat-free balsamic dressing",
+     "source": "openfoodfacts_mean(n=6)",
+     "values": {
+      "energy_kcal": 69.88,
+      "protein_g": 0.51,
+      "carbs_g": 14.42,
+      "fat_g": 0.43,
+      "sugar_g": 12.98,
+      "saturated_fat_g": 0.22,
+      "sodium_mg": 364.62,
+      "fibre_g": 0.3
+     }
+    }
+   }
   },
   {
    "alias": "fat-free juice",
-   "approximate": "Similar juice drink with no added sugar; fat-free juice likely has low calories and sugar.",
-   "eu_food_id": "cofid:17-742",
-   "food_name": "Fruit juice drink, no added sugar, ready to drink",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Apple juice, pure juice",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "ciqual:2074"
   },
   {
    "alias": "fat-free refried beans",
@@ -3413,11 +3467,25 @@
   },
   {
    "alias": "fat-free vanilla greek yogurt",
-   "approximate": "Closest match is non-fat vanilla yogurt; fat-free is similar but may differ slightly in nutrition.",
-   "eu_food_id": "usda_sr_legacy:01295",
-   "food_name": "Yogurt, vanilla, non-fat",
-   "note": "reviewed 2026-11-05",
+   "food_name": "Fat-free vanilla Greek yogurt",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:fat-free_vanilla_greek_yogurt",
    "public": {
+    "reviewed:fat-free_vanilla_greek_yogurt": {
+     "food_name": "Fat-free vanilla Greek yogurt",
+     "source": "openfoodfacts_mean(n=23)",
+     "values": {
+      "energy_kcal": 67.66,
+      "protein_g": 8.17,
+      "carbs_g": 8.68,
+      "fat_g": 0.04,
+      "sugar_g": 6.9,
+      "saturated_fat_g": 0.01,
+      "sodium_mg": 39.52,
+      "fibre_g": 0.32
+     }
+    },
     "usda_sr_legacy:01295": {
      "food_name": "Yogurt, vanilla, non-fat",
      "source": "usda_sr_legacy:01295",
@@ -3442,9 +3510,10 @@
   },
   {
    "alias": "feta cheese crumbles",
-   "eu_food_id": "catalogue:[\"Hungarian composition table\",\"retained_snapshot_sha256:c5ea7653b7604b5e536c2b6f7f129c80ca83508a476f25c4ee6dcaeaab7975fa\",\"HU00396\"]",
-   "food_name": "feta cheese",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-525",
+   "food_name": "Cheese, Feta",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "feta substitute",
@@ -3494,9 +3563,10 @@
   },
   {
    "alias": "fine salt",
-   "eu_food_id": "catalogue:[\"Icelandic Food Composition Database version 5.0 2025\",\"EFSA EU FCDB 2026\",\"360\"]",
-   "food_name": "Salt, table salt",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:17-367",
+   "food_name": "Salt",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "fine semolina cream of wheat",
@@ -3642,10 +3712,10 @@
   },
   {
    "alias": "freekeh",
-   "approximate": "Bulgur stands in for cracked green wheat",
-   "eu_food_id": "nevo:1015",
-   "food_name": "Bulgur wheat raw",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Bulgur cooked",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "slv:830"
   },
   {
    "alias": "fresh basil and rosemary leaves",
@@ -3893,10 +3963,10 @@
   },
   {
    "alias": "fruit-flavored yogurt",
-   "approximate": "Fruit-flavored yogurt is similar to fruit yogurt; the fat content may differ slightly.",
-   "eu_food_id": "catalogue:[\"Hungarian composition table\",\"retained_snapshot_sha256:c5ea7653b7604b5e536c2b6f7f129c80ca83508a476f25c4ee6dcaeaab7975fa\",\"HU00377\"]",
-   "food_name": "fruit yogurt",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "ciqual:19628",
+   "food_name": "Yoghurt or fermented milk, with fruits (average)",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "furikake seasoning",
@@ -4600,10 +4670,26 @@
   },
   {
    "alias": "grains",
-   "approximate": "Barley is a type of grain and is a close match for general grains. Nutritional values may vary slightly.",
-   "eu_food_id": "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4610007\"]",
-   "food_name": "Barley, grains",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Cooked grains",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:cooked_grains",
+   "public": {
+    "reviewed:cooked_grains": {
+     "food_name": "Cooked grains",
+     "source": "mean(efsa_iceland:911,slv:830,matvaretabellen:1863)",
+     "values": {
+      "energy_kcal": 120.17,
+      "protein_g": 4.03,
+      "carbs_g": 20.9,
+      "fat_g": 1.53,
+      "sugar_g": 0.63,
+      "saturated_fat_g": 0.19,
+      "sodium_mg": 86.67,
+      "fibre_g": 3.2
+     }
+    }
+   }
   },
   {
    "alias": "grainy bread",
@@ -4699,9 +4785,10 @@
   },
   {
    "alias": "green enchilada sauce",
-   "eu_food_id": "efsa_portugal:933",
-   "food_name": "Sauce, green",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "fineli:1448",
+   "food_name": "TOMATO SALSA",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "green goddess dressing",
@@ -5892,9 +5979,11 @@
   },
   {
    "alias": "lentils",
-   "eu_food_id": "efsa_iceland:189",
-   "food_name": "Lentils, dried",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:13-089",
+   "food_name": "Lentils, green and brown, whole, dried, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
+   "cooked": "efsa_iceland:936"
   },
   {
    "alias": "lettice",
@@ -6060,10 +6149,26 @@
   },
   {
    "alias": "lite olivani or dairy-free spread",
-   "approximate": "Light dairy spread is a close match to dairy-free spread, differing in fat content.",
-   "eu_food_id": "nevo:2679",
-   "food_name": "Dairy spread plain/herbs light",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Dairy-free spread",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:dairy-free_spread",
+   "public": {
+    "reviewed:dairy-free_spread": {
+     "food_name": "Dairy-free spread",
+     "source": "openfoodfacts_mean(n=8)",
+     "values": {
+      "energy_kcal": 498.75,
+      "protein_g": 1.43,
+      "carbs_g": 6.24,
+      "fat_g": 52.75,
+      "sugar_g": 5.41,
+      "saturated_fat_g": 12.25,
+      "sodium_mg": 372.25,
+      "fibre_g": 1.26
+     }
+    }
+   }
   },
   {
    "alias": "lite sour cream",
@@ -6090,10 +6195,11 @@
   },
   {
    "alias": "lite sweetened condensed milk",
-   "approximate": "Lite sweetened condensed milk is similar to regular sweetened condensed milk, but may have slightly lower fat and sugar content.",
-   "eu_food_id": "matvaretabellen:1676",
-   "food_name": "Milk, condensed, sweetened",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-520",
+   "food_name": "Milk, condensed, whole, sweetened",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
+   "canned": "cofid:12-520"
   },
   {
    "alias": "long-grain 90 second microwave rice",
@@ -6186,17 +6292,17 @@
   },
   {
    "alias": "low-fat ricotta cheese",
-   "approximate": "Approximate match as it is low-fat ricotta cheese with similar fat content.",
-   "eu_food_id": "slv:7022",
-   "food_name": "Ricotta cheese approx. 10% fat",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-176",
+   "food_name": "Cheese, Ricotta",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "low-fat sharp cheddar cheese",
-   "approximate": "Closest match is sharp cheddar cheese, but it's sliced; nutrition values are similar.",
-   "eu_food_id": "usda_sr_legacy:01270",
-   "food_name": "Cheese, cheddar, sharp, sliced",
-   "note": "reviewed 2026-11-05",
+   "eu_food_id": "cofid:12-348",
+   "food_name": "Cheese, Cheddar type, half fat",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
    "public": {
     "usda_sr_legacy:01270": {
      "food_name": "Cheese, cheddar, sharp, sliced",
@@ -6861,10 +6967,25 @@
   },
   {
    "alias": "mirin",
-   "eu_food_id": "https://tuktukmart.co.uk/products/hinode-hon-mirin-sweet-cooking-rice-wine-1l",
-   "food_name": "Mirin, hon mirin (label values)",
-   "note": "reviewed 2026-11-05",
+   "food_name": "Mirin",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:mirin",
    "public": {
+    "reviewed:mirin": {
+     "food_name": "Mirin",
+     "source": "openfoodfacts_mean(n=22)",
+     "values": {
+      "energy_kcal": 258.74,
+      "protein_g": 0.36,
+      "carbs_g": 57.61,
+      "fat_g": 0.24,
+      "sugar_g": 43.9,
+      "saturated_fat_g": 0.1,
+      "sodium_mg": 177.45,
+      "fibre_g": 0.0
+     }
+    },
     "https://tuktukmart.co.uk/products/hinode-hon-mirin-sweet-cooking-rice-wine-1l": {
      "food_name": "Mirin, hon mirin (label values)",
      "source": "https://tuktukmart.co.uk/products/hinode-hon-mirin-sweet-cooking-rice-wine-1l",
@@ -6879,7 +7000,8 @@
       "sugar_g": 34.6
      }
     }
-   }
+   },
+   "canned": "reviewed:mirin"
   },
   {
    "alias": "miso and sesame salad dressing",
@@ -7037,9 +7159,10 @@
   },
   {
    "alias": "monterey jack cheese",
-   "eu_food_id": "usda_sr_legacy:01025",
-   "food_name": "Cheese, monterey",
-   "note": "reviewed 2026-11-05",
+   "eu_food_id": "cofid:12-348",
+   "food_name": "Cheese, Cheddar type, half fat",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
    "public": {
     "usda_sr_legacy:01025": {
      "food_name": "Cheese, monterey",
@@ -7080,10 +7203,10 @@
   },
   {
    "alias": "mozzarella string cheese",
-   "approximate": "Soft fresh mozzarella is similar to string cheese in texture and composition.",
-   "eu_food_id": "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4290007\"]",
-   "food_name": "Cheese, soft, fresh, mozzarella",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-360",
+   "food_name": "Cheese, Mozzarella, fresh",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "muesli cereal base",
@@ -8907,25 +9030,10 @@
   },
   {
    "alias": "ramen noodles",
-   "eu_food_id": "usda_sr_legacy:06583",
-   "food_name": "Soup, ramen noodle, any flavor, dry",
-   "note": "reviewed 2026-11-05",
-   "public": {
-    "usda_sr_legacy:06583": {
-     "food_name": "Soup, ramen noodle, any flavor, dry",
-     "source": "usda_sr_legacy:06583",
-     "values": {
-      "carbs_g": 60.26,
-      "energy_kcal": 440.0,
-      "fat_g": 17.59,
-      "fibre_g": 2.9,
-      "protein_g": 10.17,
-      "saturated_fat_g": 8.117,
-      "sodium_mg": 1855.0,
-      "sugar_g": 1.98
-     }
-    }
-   }
+   "eu_food_id": "cofid:11-941",
+   "food_name": "Noodles, egg, fine, dried, boiled in unsalted water",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "ramen-style noodles",
@@ -8936,9 +9044,10 @@
   },
   {
    "alias": "ranch dressing",
-   "eu_food_id": "usda_sr_legacy:04639",
-   "food_name": "Salad dressing, ranch dressing, regular",
-   "note": "reviewed 2026-11-05",
+   "eu_food_id": "cofid:17-715",
+   "food_name": "Dressing, blue cheese",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
    "public": {
     "usda_sr_legacy:04639": {
      "food_name": "Salad dressing, ranch dressing, regular",
@@ -9092,10 +9201,10 @@
   },
   {
    "alias": "reduced fat evaporated milk",
-   "approximate": "This is evaporated milk with 2% fat, which is close to reduced fat evaporated milk.",
-   "eu_food_id": "usda_sr_legacy:01291",
-   "food_name": "Milk, evaporated, 2% fat, with added vitamin A and vitamin D",
-   "note": "reviewed 2026-11-05",
+   "eu_food_id": "cofid:12-324",
+   "food_name": "Milk, evaporated, light",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
    "public": {
     "usda_sr_legacy:01291": {
      "food_name": "Milk, evaporated, 2% fat, with added vitamin A and vitamin D",
@@ -9182,21 +9291,22 @@
    "approximate": "Close match to reduced-fat ricotta; fat content is slightly higher.",
    "eu_food_id": "slv:7022",
    "food_name": "Ricotta cheese approx. 10% fat",
-   "note": "reviewed 2026-11-05"
+   "note": "reviewed 2026-11-05",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "reduced-fat sharp cheddar cheese",
-   "approximate": "This is a reduced-fat cheddar cheese, but labeled as '30% less fat' which may differ slightly from 'reduced-fat sharp cheddar'.",
-   "eu_food_id": "cofid:12-548",
-   "food_name": "Cheese, Cheddar type, '30% less fat'",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-348",
+   "food_name": "Cheese, Cheddar type, half fat",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "reduced-fat smooth ricotta cheese",
-   "approximate": "Reduced-fat smooth ricotta cheese is closely matched by ricotta cheese approx. 10% fat.",
-   "eu_food_id": "slv:7022",
-   "food_name": "Ricotta cheese approx. 10% fat",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-176",
+   "food_name": "Cheese, Ricotta",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "reduced-fat soured cream",
@@ -9236,10 +9346,10 @@
   },
   {
    "alias": "reduced-fat table spread",
-   "approximate": "The fat content range (41-62%) matches the reduced-fat description, but the specific fat percentage may differ.",
    "eu_food_id": "cofid:12-503",
    "food_name": "Fat spread, reduced fat (41-62%), polyunsaturated",
-   "note": "reviewed 2026-11-05"
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "reduced-fat vanilla ice-cream",
@@ -9545,9 +9655,10 @@
   },
   {
    "alias": "salmon with bones",
-   "eu_food_id": "cofid:16-483",
-   "food_name": "Salmon, farmed, flesh only, steamed, fillets weighed with bones and skin",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Salmon, red, canned in brine, drained",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "cofid:16-418"
   },
   {
    "alias": "salsa chilli beans",
@@ -9634,16 +9745,17 @@
   },
   {
    "alias": "sardines in hot sauce",
-   "approximate": "Sardines in hot sauce is similar to sardines in tomato sauce; the main difference is the sauce type.",
-   "eu_food_id": "catalogue:[\"The National Food Agency food database, version 2025_10_29\",\"EFSA EU FCDB 2026\",\"1272\"]",
-   "food_name": "Sardines in tomato sauce canned",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:16-422",
+   "food_name": "Sardines, canned in tomato sauce, whole contents",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "sardines in tomato sauce",
-   "eu_food_id": "slv:1272",
-   "food_name": "Sardines in tomato sauce canned",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:16-422",
+   "food_name": "Sardines, canned in tomato sauce, whole contents",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "satay sauce",
@@ -9690,9 +9802,10 @@
   },
   {
    "alias": "sea salt flakes",
-   "eu_food_id": "catalogue:[\"Icelandic Food Composition Database version 5.0 2025\",\"EFSA EU FCDB 2026\",\"723\"]",
-   "food_name": "Salt, sea salt",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:17-367",
+   "food_name": "Salt",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "seafood dressing",
@@ -9838,26 +9951,10 @@
   },
   {
    "alias": "sharp cheddar cheese",
-   "approximate": "Closest match is sharp cheddar, but it's sliced; nutrition values are similar.",
-   "eu_food_id": "usda_sr_legacy:01270",
-   "food_name": "Cheese, cheddar, sharp, sliced",
-   "note": "reviewed 2026-11-05",
-   "public": {
-    "usda_sr_legacy:01270": {
-     "food_name": "Cheese, cheddar, sharp, sliced",
-     "source": "usda_sr_legacy:01270",
-     "values": {
-      "carbs_g": 2.13,
-      "energy_kcal": 410.0,
-      "fat_g": 33.82,
-      "fibre_g": 0.0,
-      "protein_g": 24.25,
-      "saturated_fat_g": 19.368,
-      "sodium_mg": 644.0,
-      "sugar_g": 0.27
-     }
-    }
-   }
+   "eu_food_id": "cofid:12-348",
+   "food_name": "Cheese, Cheddar type, half fat",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "short-grain brown rice",
@@ -10413,10 +10510,26 @@
   },
   {
    "alias": "steamed brown rice and quinoa",
-   "approximate": "This is a multigrain mix including quinoa, which is close to the ingredient specified.",
-   "eu_food_id": "fineli:35315",
-   "food_name": "RICE, QUINOA AND MULTIGRAIN MIX",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Brown rice and quinoa, cooked",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:brown_rice_and_quinoa,_cooked",
+   "public": {
+    "reviewed:brown_rice_and_quinoa,_cooked": {
+     "food_name": "Brown rice and quinoa, cooked",
+     "source": "mean(efsa_iceland:911,matvaretabellen:1863)",
+     "values": {
+      "energy_kcal": 115.75,
+      "protein_g": 3.9,
+      "carbs_g": 19.8,
+      "fat_g": 1.7,
+      "sugar_g": 0.8,
+      "saturated_fat_g": 0.18,
+      "sodium_mg": 75.0,
+      "fibre_g": 2.8
+     }
+    }
+   }
   },
   {
    "alias": "steamed carrots, sugar snap peas and green beans",
@@ -10484,10 +10597,10 @@
   },
   {
    "alias": "steamed wholemeal couscous",
-   "approximate": "Wholemeal couscous is similar to whole grain couscous; nutritional values are close enough for estimation.",
-   "eu_food_id": "efsa_czech:998",
-   "food_name": "Couscous, whole grain",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "nevo:5539",
+   "food_name": "Couscous wholemeal boiled",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "stir-fry vegetable medley",
@@ -11138,9 +11251,26 @@
   },
   {
    "alias": "tuna in chilli oil",
-   "eu_food_id": "nevo:1589",
-   "food_name": "Tuna in oil tinned",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Tuna in chilli oil",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:tuna_in_chilli_oil",
+   "public": {
+    "reviewed:tuna_in_chilli_oil": {
+     "food_name": "Tuna in chilli oil",
+     "source": "openfoodfacts_mean(n=6)",
+     "values": {
+      "energy_kcal": 170.6,
+      "protein_g": 22.55,
+      "carbs_g": 1.34,
+      "fat_g": 8.55,
+      "sugar_g": 1.11,
+      "saturated_fat_g": 1.22,
+      "sodium_mg": 437.07,
+      "fibre_g": 0.0
+     }
+    }
+   }
   },
   {
    "alias": "tuna loins",
@@ -11393,16 +11523,17 @@
   },
   {
    "alias": "vanilla fromage frais",
-   "eu_food_id": "cofid:12-534",
-   "food_name": "Fromage frais, fruit, children's, fortified",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-372",
+   "food_name": "Fromage frais, virtually fat free, fruit",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "vanilla fruche",
-   "approximate": "Same record as vanilla fromage frais",
-   "eu_food_id": "cofid:12-534",
-   "food_name": "Fromage frais, fruit, children's, fortified",
-   "note": "reviewed 2026-11-05"
+   "eu_food_id": "cofid:12-372",
+   "food_name": "Fromage frais, virtually fat free, fruit",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
   },
   {
    "alias": "vanilla fruche fromage frais",
@@ -11746,30 +11877,46 @@
   },
   {
    "alias": "whipped fat-free strawberry cream cheese",
-   "approximate": "Low-fat cream cheese is a close match; fat content differs (15% vs fat-free).",
-   "eu_food_id": "fineli:34762",
-   "food_name": "CREAM CHEESE, LOW-FAT, 15% FAT, PLAIN, LACTOSE-FREE",
-   "note": "reviewed 2026-11-05"
+   "food_name": "Fat-free strawberry cream cheese",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:fat-free_strawberry_cream_cheese",
+   "public": {
+    "reviewed:fat-free_strawberry_cream_cheese": {
+     "food_name": "Fat-free strawberry cream cheese",
+     "source": "openfoodfacts_mean(n=23)",
+     "values": {
+      "energy_kcal": 105.67,
+      "protein_g": 12.8,
+      "carbs_g": 12.44,
+      "fat_g": 0.0,
+      "sugar_g": 8.17,
+      "saturated_fat_g": 0.0,
+      "sodium_mg": 601.31,
+      "fibre_g": 0.0
+     }
+    }
+   }
   },
   {
    "alias": "whipped topping",
-   "approximate": "Low fat version of whipped topping is a close match.",
-   "eu_food_id": "usda_sr_legacy:42135",
-   "food_name": "Whipped topping, frozen, low fat",
-   "note": "reviewed 2026-11-05",
+   "food_name": "Fat-free whipped topping",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:fat-free_whipped_topping",
    "public": {
-    "usda_sr_legacy:42135": {
-     "food_name": "Whipped topping, frozen, low fat",
-     "source": "usda_sr_legacy:42135",
+    "reviewed:fat-free_whipped_topping": {
+     "food_name": "Fat-free whipped topping",
+     "source": "openfoodfacts_mean(n=14)",
      "values": {
-      "carbs_g": 23.6,
-      "energy_kcal": 224.0,
-      "fat_g": 13.1,
-      "fibre_g": 0.0,
-      "protein_g": 3.0,
-      "saturated_fat_g": 11.273,
-      "sodium_mg": 72.0,
-      "sugar_g": 23.6
+      "energy_kcal": 218.12,
+      "protein_g": 0.0,
+      "carbs_g": 33.73,
+      "fat_g": 0.0,
+      "sugar_g": 11.9,
+      "saturated_fat_g": 0.0,
+      "sodium_mg": 59.83,
+      "fibre_g": 0.0
      }
     }
    }
@@ -12635,6 +12782,3030 @@
    "eu_food_id": "nevo:1212",
    "food_name": "Salt low sodium LoSalt",
    "note": "reviewed 2026-11-19"
+  },
+  {
+   "alias": "salt-reduced chicken stock",
+   "eu_food_id": "slv:1224",
+   "food_name": "Chicken stock RTE",
+   "note": "reviewed 2026-11-21",
+   "approximate": "Salt-reduced stock estimated with ready-to-eat chicken stock; sodium may be lower than this record."
+  },
+  {
+   "alias": "salt-reduced liquid chicken stock",
+   "eu_food_id": "slv:1224",
+   "food_name": "Chicken stock RTE",
+   "note": "reviewed 2026-11-21",
+   "approximate": "Salt-reduced stock estimated with ready-to-eat chicken stock; sodium may be lower than this record."
+  },
+  {
+   "alias": "liquid salt-reduced chicken stock",
+   "eu_food_id": "slv:1224",
+   "food_name": "Chicken stock RTE",
+   "note": "reviewed 2026-11-21",
+   "approximate": "Salt-reduced stock estimated with ready-to-eat chicken stock; sodium may be lower than this record."
+  },
+  {
+   "alias": "low-fat vanilla yoghurt",
+   "eu_food_id": "catalogue:[\"Dutch national food composition database NEVO, 2025\",\"EFSA EU FCDB 2026\",\"2822\"]",
+   "food_name": "Yoghurt low fat w fruit/vanilla w sweetener",
+   "note": "reviewed 2026-11-21"
+  },
+  {
+   "alias": "low-fat vanilla yogurt",
+   "eu_food_id": "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"7aefa577-ce46-4116-88c4-7160225b23b7\"]",
+   "food_name": "Yogurt, skimmed, vanilla flavour",
+   "note": "reviewed 2026-11-21"
+  },
+  {
+   "alias": "farmer's cheese or ricotta",
+   "eu_food_id": "ciqual:19585",
+   "food_name": "Ricotta cheese, from cow's milk",
+   "note": "reviewed 2026-11-21"
+  },
+  {
+   "alias": "split peas",
+   "eu_food_id": "catalogue:[\"CoFID\",\"2021\",\"13-141\"]",
+   "food_name": "Peas, split, dried, raw",
+   "note": "reviewed 2026-11-21"
+  },
+  {
+   "alias": "lamb rump",
+   "eu_food_id": "catalogue:[\"Czech Food Composition Database 2025, Version 10.25\",\"EFSA EU FCDB 2026\",\"224\"]",
+   "food_name": "Lamb meat rump raw",
+   "note": "reviewed 2026-11-21"
+  },
+  {
+   "alias": "corn meal",
+   "eu_food_id": "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"29822\"]",
+   "food_name": "FLOUR, CORN MEAL, COARSELY MILLED CORN FLOUR, USED FOR POLENTA",
+   "note": "reviewed 2026-11-21"
+  },
+  {
+   "alias": "reduced-fat feta cheese",
+   "eu_food_id": "cofid:12-525",
+   "food_name": "Cheese, Feta",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "ground turkey",
+   "approximate": "Raw turkey mince is the closest match; the candidates are cooked or fried versions.",
+   "eu_food_id": "usda_sr_legacy:05305",
+   "food_name": "Turkey, Ground, raw",
+   "note": "reviewed 2026-11-22",
+   "public": {
+    "usda_sr_legacy:05305": {
+     "food_name": "Turkey, Ground, raw",
+     "source": "usda_sr_legacy:05305",
+     "values": {
+      "carbs_g": 0.0,
+      "energy_kcal": 148.0,
+      "fat_g": 7.66,
+      "fibre_g": 0.0,
+      "protein_g": 19.66,
+      "saturated_fat_g": 2.024,
+      "sodium_mg": 58.0,
+      "sugar_g": 0.0
+     }
+    }
+   }
+  },
+  {
+   "alias": "goats' feta cheese",
+   "eu_food_id": "matvaretabellen:25",
+   "food_name": "Cheese, goat milk, Feta",
+   "note": "reviewed 2026-11-22"
+  },
+  {
+   "alias": "reduced-fat ricotta cheese",
+   "eu_food_id": "slv:7022",
+   "food_name": "Ricotta cheese approx. 10% fat",
+   "note": "reviewed 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "iodised salt",
+   "eu_food_id": "nevo:841",
+   "food_name": "Salt fortified w iodine",
+   "note": "reviewed 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "no-added-salt chicken stock",
+   "eu_food_id": "slv:1224",
+   "food_name": "Chicken stock RTE",
+   "note": "reviewed 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "rice stick noodles",
+   "eu_food_id": "matvaretabellen:696",
+   "food_name": "Noodles, rice, uncooked",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "lemongrass paste",
+   "eu_food_id": "nevo:1236",
+   "food_name": "Lemon grass powder",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "chargrilled eggplant aubergine",
+   "eu_food_id": "cofid:13-162",
+   "food_name": "Aubergine, fried in corn oil",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "liquid",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "no-added-salt",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "buttermilk dressing",
+   "eu_food_id": "cofid:17-715",
+   "food_name": "Dressing, blue cheese",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "cookie crumbs",
+   "eu_food_id": "cofid:11-797",
+   "food_name": "Biscuits, semi-sweet",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "dried rice stick noodles",
+   "eu_food_id": "matvaretabellen:696",
+   "food_name": "Noodles, rice, uncooked",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "farro",
+   "eu_food_id": "ciqual:9001",
+   "food_name": "Spelt, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "garbanzo beans",
+   "eu_food_id": "slv:3815",
+   "food_name": "Chickpeas canned w/o brine",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "great northern beans",
+   "eu_food_id": "cofid:13-086",
+   "food_name": "Beans, haricot, whole, dried, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "hazelnut flour",
+   "eu_food_id": "cofid:14-874",
+   "food_name": "Hazelnuts, kernel only",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "lime jelly",
+   "eu_food_id": "cofid:12-516",
+   "food_name": "Jelly, sugar free, made with water",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "orange kumara sweet-potato",
+   "eu_food_id": "cofid:13-671",
+   "food_name": "Sweet potato, steamed",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "pappardelle",
+   "eu_food_id": "cofid:11-726",
+   "food_name": "Pasta, egg, fresh, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "pineapple flowers",
+   "eu_food_id": "cofid:14-376",
+   "food_name": "Pineapple, flesh only, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "reduced-salt gluten-free tamari",
+   "eu_food_id": "cofid:17-721",
+   "food_name": "Soy sauce, light and dark varieties",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "skewers",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "wholegrain pittas",
+   "eu_food_id": "cofid:11-974",
+   "food_name": "Bread, pitta, white",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "wooden skewers",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "gluten free oats",
+   "eu_food_id": "cofid:11-788",
+   "food_name": "Porridge oats, unfortified",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "mixed berry yoghurt",
+   "eu_food_id": "ciqual:19628",
+   "food_name": "Yoghurt or fermented milk, with fruits (average)",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "a2 milk light",
+   "eu_food_id": "cofid:12-313",
+   "food_name": "Milk, semi-skimmed, pasteurised, average",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "apricot chutney",
+   "eu_food_id": "cofid:17-343",
+   "food_name": "Chutney, mango, sweet",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "asian soy & sesame seed dressing",
+   "eu_food_id": "cofid:17-701",
+   "food_name": "Dressing, French",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "asian-style salad dressing",
+   "eu_food_id": "cofid:17-701",
+   "food_name": "Dressing, French",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "baby kale, rocket arugula or spinach",
+   "eu_food_id": "cofid:13-234",
+   "food_name": "Curly kale, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "baby roma or cherry tomatoes",
+   "eu_food_id": "cofid:13-519",
+   "food_name": "Tomatoes, cherry, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "baking paper",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "baking trays",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "bird's eye chillies",
+   "eu_food_id": "cofid:13-317",
+   "food_name": "Peppers, capsicum, chilli, red, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "black eyed peas",
+   "eu_food_id": "slv:890",
+   "food_name": "Cowpeas black-eyed beans dried boiled w/o salt",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "brown basmati rice",
+   "eu_food_id": "cofid:11-867",
+   "food_name": "Rice, brown, basmati, boiled in unsalted water",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "brown or chestnut mushrooms",
+   "eu_food_id": "cofid:13-505",
+   "food_name": "Mushrooms, white, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "brown rice vinegar",
+   "eu_food_id": "cofid:17-339",
+   "food_name": "Vinegar",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "buffalo wing sauce",
+   "eu_food_id": "nevo:2418",
+   "food_name": "Sauce hot liquid ready-to-eat <12% fat",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "camembert or brie",
+   "eu_food_id": "cofid:12-345",
+   "food_name": "Cheese, Camembert",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "caramelised red onion chutney",
+   "eu_food_id": "cofid:17-345",
+   "food_name": "Chutney, tomato",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "cashews, peanuts or almonds",
+   "eu_food_id": "cofid:14-811",
+   "food_name": "Cashew nuts, kernel only, plain",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "cauliflower pearls",
+   "eu_food_id": "cofid:13-512",
+   "food_name": "Cauliflower, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "cavolo nero",
+   "eu_food_id": "cofid:13-234",
+   "food_name": "Curly kale, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "chargrilled red capsicum",
+   "eu_food_id": "cofid:13-524",
+   "food_name": "Pepper, capsicum, red, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "chickpea garbanzos",
+   "eu_food_id": "slv:3815",
+   "food_name": "Chickpeas canned w/o brine",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "chilli haloumi",
+   "eu_food_id": "cofid:12-496",
+   "food_name": "Cheese, Halloumi",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "chilli lime butter",
+   "eu_food_id": "cofid:17-685",
+   "food_name": "Butter, salted",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "chilli vegannaise",
+   "eu_food_id": "cofid:17-654",
+   "food_name": "Mayonnaise, standard, retail",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "chilli-flavoured tuna",
+   "eu_food_id": "cofid:16-417",
+   "food_name": "Tuna, canned in sunflower oil, drained",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "coconut balsamic dressing",
+   "eu_food_id": "cofid:17-701",
+   "food_name": "Dressing, French",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "coconut evaporated milk",
+   "eu_food_id": "cofid:14-890",
+   "food_name": "Coconut milk, reduced fat, retail",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "concentrated tomato soup",
+   "eu_food_id": "cofid:17-652",
+   "food_name": "Soup, cream of tomato, canned",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "conchiglie pasta",
+   "eu_food_id": "cofid:11-716",
+   "food_name": "Pasta, white, dried, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "cookie cutter",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "cornichons",
+   "eu_food_id": "cofid:13-246",
+   "food_name": "Gherkins, pickled, drained",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "craisins or apricots",
+   "eu_food_id": "nevo:2890",
+   "food_name": "Cranberries dried sweetened",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "curly fettuccine",
+   "eu_food_id": "cofid:11-716",
+   "food_name": "Pasta, white, dried, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "dairy-free butter alternative",
+   "eu_food_id": "cofid:12-500",
+   "food_name": "Baking fat and margarine (75-90% fat), hard block",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "dried chillies",
+   "eu_food_id": "cofid:13-873",
+   "food_name": "Chilli powder",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "dried long red chillies",
+   "eu_food_id": "cofid:13-873",
+   "food_name": "Chilli powder",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "dry milk",
+   "eu_food_id": "cofid:12-521",
+   "food_name": "Milk, skimmed, dried, fortified",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "dry white flat beans (tetovac)",
+   "eu_food_id": "cofid:13-086",
+   "food_name": "Beans, haricot, whole, dried, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "dry-roasted hazelnuts",
+   "eu_food_id": "cofid:14-874",
+   "food_name": "Hazelnuts, kernel only",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "edam or reduced-fat tasty cheese",
+   "eu_food_id": "cofid:12-355",
+   "food_name": "Cheese, Edam",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "egg moulds",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "farmer\u2019s cheese",
+   "eu_food_id": "cofid:12-539",
+   "food_name": "Cheese, cottage, plain",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "flavoured tuna",
+   "eu_food_id": "cofid:16-417",
+   "food_name": "Tuna, canned in sunflower oil, drained",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "fortified soya yogurt or low-fat natural yogurt",
+   "eu_food_id": "nevo:2888",
+   "food_name": "Plant-based alternative to yoghurt based on soya sweetened fortified w calcium and vitamins",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "frisee",
+   "eu_food_id": "ciqual:20012",
+   "food_name": "Curly endive, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "frozen redcurrants, cherries or mixed berries",
+   "eu_food_id": "cofid:14-249",
+   "food_name": "Redcurrants, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "fruity dressing",
+   "eu_food_id": "cofid:17-701",
+   "food_name": "Dressing, French",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "gai lan, spinach or silver beet",
+   "eu_food_id": "cofid:13-521",
+   "food_name": "Spinach, baby, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "gala or fuji apple",
+   "eu_food_id": "cofid:14-319",
+   "food_name": "Apples, eating, raw, flesh and skin",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "gingerbread men",
+   "eu_food_id": "ciqual:23200",
+   "food_name": "Gingerbread, prepacked",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "gluten-free hoisin or barbecue sauce",
+   "eu_food_id": "matvaretabellen:10.197",
+   "food_name": "Hoisin sauce, home-made",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "gluten-free japanese sesame miso dressing",
+   "eu_food_id": "cofid:17-701",
+   "food_name": "Dressing, French",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "gluten-free yoghurt",
+   "eu_food_id": "ciqual:19600",
+   "food_name": "Yoghurt or fermented milk, plain (average)",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "gow gee wrappers",
+   "eu_food_id": "matvaretabellen:1266",
+   "food_name": "Wonton pastry",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "graham cracker rectangles",
+   "eu_food_id": "cofid:11-799",
+   "food_name": "Biscuits, digestive, plain",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "green or red salsa",
+   "eu_food_id": "fineli:1448",
+   "food_name": "TOMATO SALSA",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "ground halzenuts",
+   "eu_food_id": "cofid:14-874",
+   "food_name": "Hazelnuts, kernel only",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "hoi sin sauce",
+   "eu_food_id": "matvaretabellen:10.197",
+   "food_name": "Hoisin sauce, home-made",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "hot chicken or fish stock",
+   "eu_food_id": "cofid:17-681",
+   "food_name": "Stock, chicken, ready made, retail",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "instant lasagne sheets",
+   "eu_food_id": "cofid:11-716",
+   "food_name": "Pasta, white, dried, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "kalettes or brussels sprouts",
+   "eu_food_id": "cofid:13-177",
+   "food_name": "Brussels sprouts, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "lamb rump steak",
+   "eu_food_id": "efsa_czech:224",
+   "food_name": "Lamb meat rump raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "lebanese bread or large wrap",
+   "eu_food_id": "cofid:11-925",
+   "food_name": "Tortilla, wheat, soft",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "lemon curd or lemon juice",
+   "eu_food_id": "cofid:17-762",
+   "food_name": "Lemon curd",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "lemon curd yoghurt",
+   "eu_food_id": "ciqual:19628",
+   "food_name": "Yoghurt or fermented milk, with fruits (average)",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "lemon glaze",
+   "eu_food_id": "cofid:17-583",
+   "food_name": "Icing, glace, homemade",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "lima beans",
+   "eu_food_id": "cofid:13-663",
+   "food_name": "Beans, butter, dried, boiled in unsalted water",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "liquid no-added-salt chicken stock",
+   "eu_food_id": "cofid:17-681",
+   "food_name": "Stock, chicken, ready made, retail",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "low fat vanilla yogurt",
+   "eu_food_id": "ciqual:19628",
+   "food_name": "Yoghurt or fermented milk, with fruits (average)",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "low-sodium mozzarella or cheddar cheese",
+   "eu_food_id": "cofid:12-360",
+   "food_name": "Cheese, Mozzarella, fresh",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "manicotti shells",
+   "eu_food_id": "cofid:11-716",
+   "food_name": "Pasta, white, dried, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "marshmallow twists or mini marshmallows",
+   "eu_food_id": "cofid:17-114",
+   "food_name": "Marshmallows",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "microgreens",
+   "eu_food_id": "cofid:13-297",
+   "food_name": "Mustard and cress, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "mountain bread wraps",
+   "eu_food_id": "cofid:11-925",
+   "food_name": "Tortilla, wheat, soft",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "muesli granola or granola",
+   "eu_food_id": "cofid:11-939",
+   "food_name": "Breakfast cereal, crunchy/crispy muesli type cereal, with nuts, unfortified",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "naan or pita bread",
+   "eu_food_id": "cofid:11-973",
+   "food_name": "Bread, naan, retail",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "nasi goreng spice paste",
+   "eu_food_id": "cofid:17-720",
+   "food_name": "Curry paste",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "nut or vegetable oil",
+   "eu_food_id": "cofid:17-686",
+   "food_name": "Oil, vegetable, average",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "okonomiyaki sauce",
+   "eu_food_id": "cofid:17-705",
+   "food_name": "Barbecue sauce",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "onion chutney",
+   "eu_food_id": "cofid:17-345",
+   "food_name": "Chutney, tomato",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "orange kumara mash",
+   "eu_food_id": "cofid:13-671",
+   "food_name": "Sweet potato, steamed",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "papardelle pasta",
+   "eu_food_id": "cofid:11-726",
+   "food_name": "Pasta, egg, fresh, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "paper patty-pan cases",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "pasta shapes",
+   "eu_food_id": "cofid:11-716",
+   "food_name": "Pasta, white, dried, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22",
+   "cooked": "efsa_iceland:866"
+  },
+  {
+   "alias": "pear sauce or applesauce",
+   "eu_food_id": "nevo:179",
+   "food_name": "Apple sauce tinned",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "penne",
+   "eu_food_id": "cofid:11-716",
+   "food_name": "Pasta, white, dried, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "pepper jack cheese",
+   "eu_food_id": "cofid:12-346",
+   "food_name": "Cheese, Cheddar, English",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "peri-peri marinade",
+   "eu_food_id": "cofid:17-719",
+   "food_name": "Chilli sauce",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "pernod",
+   "eu_food_id": "cofid:17-247",
+   "food_name": "Spirits, 40% volume",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "picante sauce or salsa",
+   "eu_food_id": "fineli:1448",
+   "food_name": "TOMATO SALSA",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "pimiento",
+   "eu_food_id": "cofid:13-524",
+   "food_name": "Pepper, capsicum, red, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "pipi or clam meat",
+   "eu_food_id": "efsa_portugal:908",
+   "food_name": "Clams, cooked briefly, no salt added",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "pomegranate dressing",
+   "eu_food_id": "cofid:17-701",
+   "food_name": "Dressing, French",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "prince or honeydew melon",
+   "eu_food_id": "cofid:14-354",
+   "food_name": "Melon, flesh only, average",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "red or green capsicums",
+   "eu_food_id": "cofid:13-524",
+   "food_name": "Pepper, capsicum, red, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "red or green chilli",
+   "eu_food_id": "cofid:13-317",
+   "food_name": "Peppers, capsicum, chilli, red, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "red or white cabbage",
+   "eu_food_id": "cofid:13-190",
+   "food_name": "Cabbage, red, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "reduced-fat vanilla ice cream",
+   "eu_food_id": "cofid:12-508",
+   "food_name": "Ice cream, dairy, vanilla, soft scoop",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "reduced-fat vanilla ice cream or reduced-fat greek yoghurt",
+   "eu_food_id": "cofid:12-508",
+   "food_name": "Ice cream, dairy, vanilla, soft scoop",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "reduced-sugar cherry or strawberry jam jelly",
+   "eu_food_id": "cofid:17-075",
+   "food_name": "Jam, reduced sugar",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "roasted capsicum",
+   "eu_food_id": "cofid:13-524",
+   "food_name": "Pepper, capsicum, red, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "salt-reduced chicken or vegetable stock",
+   "eu_food_id": "cofid:17-681",
+   "food_name": "Stock, chicken, ready made, retail",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "salt-reduced chicken or vegetable stock powder",
+   "eu_food_id": "cofid:17-726",
+   "food_name": "Stock cubes, chicken",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "savoy or napa cabbage",
+   "eu_food_id": "efsa_czech:887",
+   "food_name": "Savoy cabbage, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "soda water club soda seltzer water",
+   "eu_food_id": "slv:1949",
+   "food_name": "Soda water",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "sourdough toast",
+   "eu_food_id": "cofid:11-1001",
+   "food_name": "Bread, white, toasted",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "soy, rice or almond milk",
+   "eu_food_id": "cofid:12-524",
+   "food_name": "Milk, soya, non-dairy alternative to milk, unsweetened, fortified",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "spicy hoisin dressing",
+   "eu_food_id": "matvaretabellen:10.197",
+   "food_name": "Hoisin sauce, home-made",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "spinach wraps",
+   "eu_food_id": "cofid:11-925",
+   "food_name": "Tortilla, wheat, soft",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "spirali or macaroni pasta",
+   "eu_food_id": "cofid:11-716",
+   "food_name": "Pasta, white, dried, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "steamed bok choy",
+   "eu_food_id": "cofid:13-516",
+   "food_name": "Pak choi, steamed",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "steamed snow peas or peas",
+   "eu_food_id": "cofid:13-527",
+   "food_name": "Peas, frozen, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "string or twine",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "sumac",
+   "eu_food_id": "efsa_czech:1063",
+   "food_name": "Spice, Sumac, dried",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "tablespoons",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "thai chilli jam jelly",
+   "eu_food_id": "cofid:17-719",
+   "food_name": "Chilli sauce",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "unknown",
+   "non_food": true,
+   "note": "owner decision 2026-11-22"
+  },
+  {
+   "alias": "walnuts, almonds, hazelnuts or pine nuts",
+   "eu_food_id": "cofid:14-879",
+   "food_name": "Walnuts, kernel only",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "white cup buttons",
+   "eu_food_id": "cofid:13-505",
+   "food_name": "Mushrooms, white, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "wombok/asian greens",
+   "eu_food_id": "cofid:13-187",
+   "food_name": "Cabbage, Chinese, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "xinomizithra or feta",
+   "eu_food_id": "cofid:12-525",
+   "food_name": "Cheese, Feta",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "yellow scallopini",
+   "eu_food_id": "cofid:13-627",
+   "food_name": "Courgette, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "yucca",
+   "eu_food_id": "cofid:13-208",
+   "food_name": "Cassava, raw",
+   "note": "owner decision 2026-11-22",
+   "confirmed": "2026-11-22"
+  },
+  {
+   "alias": "dark-blue-top milk",
+   "food_name": "Milk, whole, UHT",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "cofid:12-320"
+  },
+  {
+   "alias": "clemengold",
+   "food_name": "Clementine",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "efsa_portugal:642"
+  },
+  {
+   "alias": "dried sourdough starter",
+   "food_name": "Flour, wheat, white, plain, soft",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "cofid:11-886"
+  },
+  {
+   "alias": "verjus",
+   "food_name": "Grape juice",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "matvaretabellen:1041"
+  },
+  {
+   "alias": "baked cream",
+   "food_name": "Cream, whipping",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "efsa_iceland:160"
+  },
+  {
+   "alias": "tokaji asz\u00fa 6 puttonyos",
+   "food_name": "Wine, sweet",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "ciqual:1006"
+  },
+  {
+   "alias": "antica formula",
+   "food_name": "Fortified wines, sweet vermouth, 15 vol-% alcohol",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "matvaretabellen:1359"
+  },
+  {
+   "alias": "unicum riserva",
+   "food_name": "Liqueur",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "ciqual:1003"
+  },
+  {
+   "alias": "angostura bitter",
+   "food_name": "Liqueur",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "ciqual:1003"
+  },
+  {
+   "alias": "tarakihi",
+   "food_name": "Snapper, raw",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "ciqual:26146"
+  },
+  {
+   "alias": "terakihi fillets",
+   "food_name": "Snapper, raw",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "ciqual:26146"
+  },
+  {
+   "alias": "daikon",
+   "food_name": "RADISH, WHITE",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "fineli:34235"
+  },
+  {
+   "alias": "daikon or radish",
+   "food_name": "RADISH, WHITE",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "fineli:34235"
+  },
+  {
+   "alias": "watermelon radish",
+   "food_name": "RADISH, WHITE",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "fineli:34235"
+  },
+  {
+   "alias": "green or napa cabbage",
+   "food_name": "Cabbage, Chinese, raw",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "efsa_iceland:200"
+  },
+  {
+   "alias": "beef shin",
+   "food_name": "Beef, stewing meat, raw",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "ciqual:6231"
+  },
+  {
+   "alias": "wheat berries",
+   "food_name": "Wheat, grain",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "matvaretabellen:476"
+  },
+  {
+   "alias": "barlotto beans",
+   "food_name": "Cranberry beans, uncooked",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "matvaretabellen:901"
+  },
+  {
+   "alias": "chana dhal",
+   "food_name": "Chickpeas, dried, raw",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "efsa_italy:004000"
+  },
+  {
+   "alias": "csipetke",
+   "food_name": "Pasta, egg, fresh, raw",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "cofid:11-726"
+  },
+  {
+   "alias": "csipetke pasta noodle",
+   "food_name": "Pasta, egg, fresh, raw",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "cofid:11-726"
+  },
+  {
+   "alias": "strawberry and lime fruit tea",
+   "food_name": "Tea, herbal, infusion, without milk and sugar",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "efsa_iceland:1034"
+  },
+  {
+   "alias": "store-bought",
+   "food_name": "Sweet pepper, red, raw",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "ciqual:20087"
+  },
+  {
+   "alias": "low-salt butter chicken spice mix",
+   "food_name": "Curry powder",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "matvaretabellen:5"
+  },
+  {
+   "alias": "turkey stock",
+   "food_name": "Broth or stock, chicken or vegetable, prepared (average, generic)",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "eu:generic-broth-stock-avg"
+  },
+  {
+   "alias": "hot liquid",
+   "food_name": "Broth or stock, chicken or vegetable, prepared (average, generic)",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "eu:generic-broth-stock-avg"
+  },
+  {
+   "alias": "liquid salt-reduced vegetable or chicken stock",
+   "food_name": "Broth or stock, chicken or vegetable, prepared (average, generic)",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "eu:generic-broth-stock-avg"
+  },
+  {
+   "alias": "salt-reduced beef or vegetable stock",
+   "food_name": "Broth or stock, chicken or vegetable, prepared (average, generic)",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "eu:generic-broth-stock-avg"
+  },
+  {
+   "alias": "hot liquid salt-reduced lamb or vegetable stock made with 3 teaspoons salt-reduced stock powder and 5 cups water",
+   "food_name": "Broth or stock, chicken or vegetable, prepared (average, generic)",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "eu:generic-broth-stock-avg"
+  },
+  {
+   "alias": "almonds and walnuts",
+   "food_name": "Almonds and walnuts",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:almonds_and_walnuts",
+   "public": {
+    "reviewed:almonds_and_walnuts": {
+     "food_name": "Almonds and walnuts",
+     "source": "mean(matvaretabellen:852,matvaretabellen:958)",
+     "values": {
+      "energy_kcal": 640.5,
+      "protein_g": 17.65,
+      "carbs_g": 4.7,
+      "fat_g": 59.3,
+      "sugar_g": 4.6,
+      "saturated_fat_g": 4.4,
+      "sodium_mg": 0.5,
+      "fibre_g": 9.0
+     }
+    }
+   }
+  },
+  {
+   "alias": "black pepper and salt",
+   "food_name": "Black pepper and salt",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:black_pepper_and_salt",
+   "public": {
+    "reviewed:black_pepper_and_salt": {
+     "food_name": "Black pepper and salt",
+     "source": "mean(matvaretabellen:1291,matvaretabellen:1311)",
+     "values": {
+      "energy_kcal": 138.5,
+      "protein_g": 5.2,
+      "carbs_g": 19.35,
+      "fat_g": 1.65,
+      "sugar_g": 0.3,
+      "saturated_fat_g": 0.7,
+      "sodium_mg": 19670.0,
+      "fibre_g": 12.5
+     }
+    }
+   }
+  },
+  {
+   "alias": "carrot and cucumber ribbons",
+   "food_name": "Carrot and cucumber",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:carrot_and_cucumber",
+   "public": {
+    "reviewed:carrot_and_cucumber": {
+     "food_name": "Carrot and cucumber",
+     "source": "mean(ciqual:20009,efsa_iceland:196)",
+     "values": {
+      "energy_kcal": 21.85,
+      "protein_g": 0.79,
+      "carbs_g": 3.53,
+      "fat_g": 0.3,
+      "sugar_g": 3.38,
+      "saturated_fat_g": 0.09,
+      "sodium_mg": 30.0,
+      "fibre_g": 1.9
+     }
+    }
+   }
+  },
+  {
+   "alias": "carrots, parsnips and turnips",
+   "food_name": "Carrots, parsnips and turnips",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:carrots,_parsnips_and_turnips",
+   "public": {
+    "reviewed:carrots,_parsnips_and_turnips": {
+     "food_name": "Carrots, parsnips and turnips",
+     "source": "mean(ciqual:20009,cofid:13-312,fineli:304)",
+     "values": {
+      "energy_kcal": 38.4,
+      "protein_g": 1.26,
+      "carbs_g": 6.72,
+      "fat_g": 0.57,
+      "sugar_g": 4.32,
+      "saturated_fat_g": 0.12,
+      "sodium_mg": 25.67,
+      "fibre_g": 3.4
+     }
+    }
+   }
+  },
+  {
+   "alias": "cauliflower and pumpkin",
+   "food_name": "Cauliflower and pumpkin",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:cauliflower_and_pumpkin",
+   "public": {
+    "reviewed:cauliflower_and_pumpkin": {
+     "food_name": "Cauliflower and pumpkin",
+     "source": "mean(ciqual:20016,ciqual:20044)",
+     "values": {
+      "energy_kcal": 22.5,
+      "protein_g": 1.43,
+      "carbs_g": 2.81,
+      "fat_g": 0.4,
+      "sugar_g": 1.81,
+      "saturated_fat_g": 0.15,
+      "sodium_mg": 3.5,
+      "fibre_g": 1.35
+     }
+    }
+   }
+  },
+  {
+   "alias": "celery and carrot sticks",
+   "food_name": "Celery and carrot",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:celery_and_carrot",
+   "public": {
+    "reviewed:celery_and_carrot": {
+     "food_name": "Celery and carrot",
+     "source": "mean(fineli:339,ciqual:20009)",
+     "values": {
+      "energy_kcal": 21.6,
+      "protein_g": 0.94,
+      "carbs_g": 3.13,
+      "fat_g": 0.35,
+      "sugar_g": 2.97,
+      "saturated_fat_g": 0.12,
+      "sodium_mg": 79.5,
+      "fibre_g": 2.5
+     }
+    }
+   }
+  },
+  {
+   "alias": "green beans and broccoli",
+   "food_name": "Green beans and broccoli",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:green_beans_and_broccoli",
+   "public": {
+    "reviewed:green_beans_and_broccoli": {
+     "food_name": "Green beans and broccoli",
+     "source": "mean(efsa_portugal:578,ciqual:20057)",
+     "values": {
+      "energy_kcal": 29.45,
+      "protein_g": 2.1,
+      "carbs_g": 2.83,
+      "fat_g": 0.33,
+      "sugar_g": 2.1,
+      "saturated_fat_g": 0.07,
+      "sodium_mg": 64.0,
+      "fibre_g": 2.45
+     }
+    }
+   }
+  },
+  {
+   "alias": "rainbow slaw",
+   "food_name": "Slaw mix (cabbage and carrot)",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:slaw_mix_(cabbage_and_carrot)",
+   "public": {
+    "reviewed:slaw_mix_(cabbage_and_carrot)": {
+     "food_name": "Slaw mix (cabbage and carrot)",
+     "source": "mean(efsa_iceland:201,ciqual:20009,ciqual:20014)",
+     "values": {
+      "energy_kcal": 28.2,
+      "protein_g": 1.07,
+      "carbs_g": 4.53,
+      "fat_g": 0.4,
+      "sugar_g": 4.28,
+      "saturated_fat_g": 0.07,
+      "sodium_mg": 26.0,
+      "fibre_g": 2.67
+     }
+    }
+   }
+  },
+  {
+   "alias": "ready-made slaw mix",
+   "food_name": "Slaw mix (cabbage and carrot)",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:slaw_mix_(cabbage_and_carrot)",
+   "public": {
+    "reviewed:slaw_mix_(cabbage_and_carrot)": {
+     "food_name": "Slaw mix (cabbage and carrot)",
+     "source": "mean(efsa_iceland:201,ciqual:20009,ciqual:20014)",
+     "values": {
+      "energy_kcal": 28.2,
+      "protein_g": 1.07,
+      "carbs_g": 4.53,
+      "fat_g": 0.4,
+      "sugar_g": 4.28,
+      "saturated_fat_g": 0.07,
+      "sodium_mg": 26.0,
+      "fibre_g": 2.67
+     }
+    }
+   }
+  },
+  {
+   "alias": "mixed slaw",
+   "food_name": "Slaw mix (cabbage and carrot)",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:slaw_mix_(cabbage_and_carrot)",
+   "public": {
+    "reviewed:slaw_mix_(cabbage_and_carrot)": {
+     "food_name": "Slaw mix (cabbage and carrot)",
+     "source": "mean(efsa_iceland:201,ciqual:20009,ciqual:20014)",
+     "values": {
+      "energy_kcal": 28.2,
+      "protein_g": 1.07,
+      "carbs_g": 4.53,
+      "fat_g": 0.4,
+      "sugar_g": 4.28,
+      "saturated_fat_g": 0.07,
+      "sodium_mg": 26.0,
+      "fibre_g": 2.67
+     }
+    }
+   }
+  },
+  {
+   "alias": "herbslaw mix",
+   "food_name": "Slaw mix (cabbage and carrot)",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:slaw_mix_(cabbage_and_carrot)",
+   "public": {
+    "reviewed:slaw_mix_(cabbage_and_carrot)": {
+     "food_name": "Slaw mix (cabbage and carrot)",
+     "source": "mean(efsa_iceland:201,ciqual:20009,ciqual:20014)",
+     "values": {
+      "energy_kcal": 28.2,
+      "protein_g": 1.07,
+      "carbs_g": 4.53,
+      "fat_g": 0.4,
+      "sugar_g": 4.28,
+      "saturated_fat_g": 0.07,
+      "sodium_mg": 26.0,
+      "fibre_g": 2.67
+     }
+    }
+   }
+  },
+  {
+   "alias": "fresh or frozen stir-fry vegetable mix",
+   "food_name": "Stir-fry vegetable mix",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:stir-fry_vegetable_mix",
+   "public": {
+    "reviewed:stir-fry_vegetable_mix": {
+     "food_name": "Stir-fry vegetable mix",
+     "source": "mean(ciqual:20057,ciqual:20009,ciqual:20087,efsa_iceland:201,ciqual:20034)",
+     "values": {
+      "energy_kcal": 32.54,
+      "protein_g": 1.43,
+      "carbs_g": 4.73,
+      "fat_g": 0.44,
+      "sugar_g": 4.05,
+      "saturated_fat_g": 0.09,
+      "sodium_mg": 27.6,
+      "fibre_g": 2.54
+     }
+    }
+   }
+  },
+  {
+   "alias": "vegetable sticks",
+   "food_name": "Vegetable sticks",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:vegetable_sticks",
+   "public": {
+    "reviewed:vegetable_sticks": {
+     "food_name": "Vegetable sticks",
+     "source": "mean(ciqual:20087,efsa_iceland:196,cofid:13-517,efsa_portugal:577,fineli:339)",
+     "values": {
+      "energy_kcal": 21.22,
+      "protein_g": 1.07,
+      "carbs_g": 3.16,
+      "fat_g": 0.24,
+      "sugar_g": 2.72,
+      "saturated_fat_g": 0.05,
+      "sodium_mg": 26.0,
+      "fibre_g": 2.04
+     }
+    }
+   }
+  },
+  {
+   "alias": "steamed vegetables or salad leaves",
+   "food_name": "Steamed vegetables or salad leaves",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:steamed_vegetables_or_salad_leaves",
+   "public": {
+    "reviewed:steamed_vegetables_or_salad_leaves": {
+     "food_name": "Steamed vegetables or salad leaves",
+     "source": "mean(ciqual:20057,efsa_portugal:578,ciqual:20031)",
+     "values": {
+      "energy_kcal": 24.53,
+      "protein_g": 1.85,
+      "carbs_g": 2.29,
+      "fat_g": 0.29,
+      "sugar_g": 1.64,
+      "saturated_fat_g": 0.06,
+      "sodium_mg": 45.49,
+      "fibre_g": 2.0
+     }
+    }
+   }
+  },
+  {
+   "alias": "fruits and vegetables",
+   "food_name": "Fruit and vegetable mix",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:fruit_and_vegetable_mix",
+   "public": {
+    "reviewed:fruit_and_vegetable_mix": {
+     "food_name": "Fruit and vegetable mix",
+     "source": "mean(efsa_iceland:364,ciqual:20009,ciqual:20057,cofid:13-517)",
+     "values": {
+      "energy_kcal": 31.85,
+      "protein_g": 1.12,
+      "carbs_g": 5.3,
+      "fat_g": 0.32,
+      "sugar_g": 4.41,
+      "saturated_fat_g": 0.07,
+      "sodium_mg": 21.0,
+      "fibre_g": 2.1
+     }
+    }
+   }
+  },
+  {
+   "alias": "chopped vegetables, fruit or cooked meat",
+   "food_name": "Chopped vegetable mix",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:chopped_vegetable_mix",
+   "public": {
+    "reviewed:chopped_vegetable_mix": {
+     "food_name": "Chopped vegetable mix",
+     "source": "mean(ciqual:20009,ciqual:20087,cofid:13-505,cofid:13-517)",
+     "values": {
+      "energy_kcal": 21.2,
+      "protein_g": 0.83,
+      "carbs_g": 3.61,
+      "fat_g": 0.33,
+      "sugar_g": 3.24,
+      "saturated_fat_g": 0.06,
+      "sodium_mg": 15.0,
+      "fibre_g": 1.95
+     }
+    }
+   }
+  },
+  {
+   "alias": "tomato, capsicum and kidney bean braise",
+   "food_name": "Tomato, capsicum and kidney bean braise",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:tomato,_capsicum_and_kidney_bean_braise",
+   "public": {
+    "reviewed:tomato,_capsicum_and_kidney_bean_braise": {
+     "food_name": "Tomato, capsicum and kidney bean braise",
+     "source": "mean(cofid:13-517,ciqual:20087,matvaretabellen:874)",
+     "values": {
+      "energy_kcal": 40.2,
+      "protein_g": 2.55,
+      "carbs_g": 5.23,
+      "fat_g": 0.43,
+      "sugar_g": 2.93,
+      "saturated_fat_g": 0.05,
+      "sodium_mg": 59.0,
+      "fibre_g": 4.07
+     }
+    }
+   }
+  },
+  {
+   "alias": "herby onion and butter bean mix",
+   "food_name": "Onion and butter bean mix",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:onion_and_butter_bean_mix",
+   "public": {
+    "reviewed:onion_and_butter_bean_mix": {
+     "food_name": "Onion and butter bean mix",
+     "source": "mean(ciqual:20034,efsa_portugal:534)",
+     "values": {
+      "energy_kcal": 69.0,
+      "protein_g": 3.75,
+      "carbs_g": 10.12,
+      "fat_g": 0.61,
+      "sugar_g": 2.8,
+      "saturated_fat_g": 0.15,
+      "sodium_mg": 144.5,
+      "fibre_g": 3.95
+     }
+    }
+   }
+  },
+  {
+   "alias": "tomato medley mix",
+   "food_name": "Tomatoes",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:tomatoes",
+   "public": {
+    "reviewed:tomatoes": {
+     "food_name": "Tomatoes",
+     "source": "mean(cofid:13-519)",
+     "values": {
+      "energy_kcal": 22.0,
+      "protein_g": 1.1,
+      "carbs_g": 3.6,
+      "fat_g": 0.5,
+      "sugar_g": 3.6,
+      "saturated_fat_g": 0.1,
+      "sodium_mg": 4.0,
+      "fibre_g": 1.3
+     }
+    }
+   }
+  },
+  {
+   "alias": "nutrient boosters",
+   "food_name": "Seeds and nuts",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:seeds_and_nuts",
+   "public": {
+    "reviewed:seeds_and_nuts": {
+     "food_name": "Seeds and nuts",
+     "source": "mean(matvaretabellen:568,matvaretabellen:852)",
+     "values": {
+      "energy_kcal": 611.0,
+      "protein_g": 22.7,
+      "carbs_g": 5.1,
+      "fat_g": 53.25,
+      "sugar_g": 5.0,
+      "saturated_fat_g": 4.75,
+      "sodium_mg": 0.5,
+      "fibre_g": 10.5
+     }
+    }
+   }
+  },
+  {
+   "alias": "rice and chia",
+   "food_name": "Brown rice and quinoa, cooked",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:brown_rice_and_quinoa,_cooked",
+   "public": {
+    "reviewed:brown_rice_and_quinoa,_cooked": {
+     "food_name": "Brown rice and quinoa, cooked",
+     "source": "mean(efsa_iceland:911,matvaretabellen:1863)",
+     "values": {
+      "energy_kcal": 115.75,
+      "protein_g": 3.9,
+      "carbs_g": 19.8,
+      "fat_g": 1.7,
+      "sugar_g": 0.8,
+      "saturated_fat_g": 0.18,
+      "sodium_mg": 75.0,
+      "fibre_g": 2.8
+     }
+    }
+   }
+  },
+  {
+   "alias": "quick-cook rice and chia seed blend",
+   "food_name": "Brown rice and quinoa, cooked",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:brown_rice_and_quinoa,_cooked",
+   "public": {
+    "reviewed:brown_rice_and_quinoa,_cooked": {
+     "food_name": "Brown rice and quinoa, cooked",
+     "source": "mean(efsa_iceland:911,matvaretabellen:1863)",
+     "values": {
+      "energy_kcal": 115.75,
+      "protein_g": 3.9,
+      "carbs_g": 19.8,
+      "fat_g": 1.7,
+      "sugar_g": 0.8,
+      "saturated_fat_g": 0.18,
+      "sodium_mg": 75.0,
+      "fibre_g": 2.8
+     }
+    }
+   }
+  },
+  {
+   "alias": "olivani",
+   "food_name": "Dairy-free spread",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:dairy-free_spread",
+   "public": {
+    "reviewed:dairy-free_spread": {
+     "food_name": "Dairy-free spread",
+     "source": "openfoodfacts_mean(n=8)",
+     "values": {
+      "energy_kcal": 498.75,
+      "protein_g": 1.43,
+      "carbs_g": 6.24,
+      "fat_g": 52.75,
+      "sugar_g": 5.41,
+      "saturated_fat_g": 12.25,
+      "sodium_mg": 372.25,
+      "fibre_g": 1.26
+     }
+    }
+   }
+  },
+  {
+   "alias": "egg substitute",
+   "food_name": "Egg substitute",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:egg_substitute",
+   "public": {
+    "reviewed:egg_substitute": {
+     "food_name": "Egg substitute",
+     "source": "openfoodfacts_mean(n=46)",
+     "values": {
+      "energy_kcal": 53.18,
+      "protein_g": 10.8,
+      "carbs_g": 1.11,
+      "fat_g": 0.03,
+      "sugar_g": 0.07,
+      "saturated_fat_g": 0.0,
+      "sodium_mg": 178.3,
+      "fibre_g": 0.02
+     }
+    }
+   }
+  },
+  {
+   "alias": "pikelets",
+   "food_name": "Pikelets",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:pikelets",
+   "public": {
+    "reviewed:pikelets": {
+     "food_name": "Pikelets",
+     "source": "openfoodfacts_mean(n=8)",
+     "values": {
+      "energy_kcal": 231.56,
+      "protein_g": 6.3,
+      "carbs_g": 41.08,
+      "fat_g": 3.98,
+      "sugar_g": 10.15,
+      "saturated_fat_g": 1.04,
+      "sodium_mg": 349.25,
+      "fibre_g": 2.8
+     }
+    }
+   }
+  },
+  {
+   "alias": "mirin or rice vinegar",
+   "food_name": "Mirin",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:mirin",
+   "public": {
+    "reviewed:mirin": {
+     "food_name": "Mirin",
+     "source": "openfoodfacts_mean(n=22)",
+     "values": {
+      "energy_kcal": 258.74,
+      "protein_g": 0.36,
+      "carbs_g": 57.61,
+      "fat_g": 0.24,
+      "sugar_g": 43.9,
+      "saturated_fat_g": 0.1,
+      "sodium_mg": 177.45,
+      "fibre_g": 0.0
+     }
+    }
+   }
+  },
+  {
+   "alias": "mirin or white wine",
+   "food_name": "Mirin",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:mirin",
+   "public": {
+    "reviewed:mirin": {
+     "food_name": "Mirin",
+     "source": "openfoodfacts_mean(n=22)",
+     "values": {
+      "energy_kcal": 258.74,
+      "protein_g": 0.36,
+      "carbs_g": 57.61,
+      "fat_g": 0.24,
+      "sugar_g": 43.9,
+      "saturated_fat_g": 0.1,
+      "sodium_mg": 177.45,
+      "fibre_g": 0.0
+     }
+    }
+   }
+  },
+  {
+   "alias": "mirin rice wine sauce",
+   "food_name": "Mirin",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:mirin",
+   "public": {
+    "reviewed:mirin": {
+     "food_name": "Mirin",
+     "source": "openfoodfacts_mean(n=22)",
+     "values": {
+      "energy_kcal": 258.74,
+      "protein_g": 0.36,
+      "carbs_g": 57.61,
+      "fat_g": 0.24,
+      "sugar_g": 43.9,
+      "saturated_fat_g": 0.1,
+      "sodium_mg": 177.45,
+      "fibre_g": 0.0
+     }
+    }
+   }
+  },
+  {
+   "alias": "baba ganoush",
+   "food_name": "Baba ganoush",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:baba_ganoush",
+   "public": {
+    "reviewed:baba_ganoush": {
+     "food_name": "Baba ganoush",
+     "source": "openfoodfacts_mean(n=10)",
+     "values": {
+      "energy_kcal": 170.94,
+      "protein_g": 4.13,
+      "carbs_g": 5.24,
+      "fat_g": 13.91,
+      "sugar_g": 2.74,
+      "saturated_fat_g": 2.15,
+      "sodium_mg": 594.0,
+      "fibre_g": 3.74
+     }
+    }
+   }
+  },
+  {
+   "alias": "baba ganoush dip",
+   "food_name": "Baba ganoush",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:baba_ganoush",
+   "public": {
+    "reviewed:baba_ganoush": {
+     "food_name": "Baba ganoush",
+     "source": "openfoodfacts_mean(n=10)",
+     "values": {
+      "energy_kcal": 170.94,
+      "protein_g": 4.13,
+      "carbs_g": 5.24,
+      "fat_g": 13.91,
+      "sugar_g": 2.74,
+      "saturated_fat_g": 2.15,
+      "sodium_mg": 594.0,
+      "fibre_g": 3.74
+     }
+    }
+   }
+  },
+  {
+   "alias": "rose water",
+   "food_name": "Rose water",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:rose_water",
+   "public": {
+    "reviewed:rose_water": {
+     "food_name": "Rose water",
+     "source": "openfoodfacts_mean(n=17)",
+     "values": {
+      "energy_kcal": 0.29,
+      "protein_g": 0.0,
+      "carbs_g": 0.02,
+      "fat_g": 0.0,
+      "sugar_g": 0.01,
+      "saturated_fat_g": 0.0,
+      "sodium_mg": 0.18,
+      "fibre_g": 0.0
+     }
+    }
+   }
+  },
+  {
+   "alias": "acai puree",
+   "food_name": "Acai puree, unsweetened",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:acai_puree,_unsweetened",
+   "public": {
+    "reviewed:acai_puree,_unsweetened": {
+     "food_name": "Acai puree, unsweetened",
+     "source": "openfoodfacts_mean(n=8)",
+     "values": {
+      "energy_kcal": 43.79,
+      "protein_g": 0.31,
+      "carbs_g": 9.13,
+      "fat_g": 0.55,
+      "sugar_g": 4.97,
+      "saturated_fat_g": 0.12,
+      "sodium_mg": 6.58,
+      "fibre_g": 0.44
+     }
+    }
+   }
+  },
+  {
+   "alias": "kumara noodles",
+   "food_name": "Sweet potato noodles",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:sweet_potato_noodles",
+   "public": {
+    "reviewed:sweet_potato_noodles": {
+     "food_name": "Sweet potato noodles",
+     "source": "openfoodfacts_mean(n=15)",
+     "values": {
+      "energy_kcal": 84.21,
+      "protein_g": 1.47,
+      "carbs_g": 20.01,
+      "fat_g": 0.09,
+      "sugar_g": 4.58,
+      "saturated_fat_g": 0.0,
+      "sodium_mg": 61.39,
+      "fibre_g": 3.08
+     }
+    }
+   }
+  },
+  {
+   "alias": "beef mini dim sims",
+   "food_name": "Beef dim sims",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:beef_dim_sims",
+   "public": {
+    "reviewed:beef_dim_sims": {
+     "food_name": "Beef dim sims",
+     "source": "openfoodfacts_mean(n=19)",
+     "values": {
+      "energy_kcal": 177.7,
+      "protein_g": 6.71,
+      "carbs_g": 23.06,
+      "fat_g": 6.09,
+      "sugar_g": 2.84,
+      "saturated_fat_g": 2.22,
+      "sodium_mg": 431.61,
+      "fibre_g": 1.78
+     }
+    }
+   }
+  },
+  {
+   "alias": "prawn dumplings",
+   "food_name": "Prawn dumplings",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:prawn_dumplings",
+   "public": {
+    "reviewed:prawn_dumplings": {
+     "food_name": "Prawn dumplings",
+     "source": "openfoodfacts_mean(n=10)",
+     "values": {
+      "energy_kcal": 184.91,
+      "protein_g": 9.37,
+      "carbs_g": 22.24,
+      "fat_g": 6.29,
+      "sugar_g": 2.38,
+      "saturated_fat_g": 1.48,
+      "sodium_mg": 435.13,
+      "fibre_g": 1.5
+     }
+    }
+   }
+  },
+  {
+   "alias": "burger patty",
+   "food_name": "Vegetarian burger patty",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:vegetarian_burger_patty",
+   "public": {
+    "reviewed:vegetarian_burger_patty": {
+     "food_name": "Vegetarian burger patty",
+     "source": "openfoodfacts_mean(n=20)",
+     "values": {
+      "energy_kcal": 171.56,
+      "protein_g": 10.54,
+      "carbs_g": 13.46,
+      "fat_g": 8.32,
+      "sugar_g": 3.07,
+      "saturated_fat_g": 1.56,
+      "sodium_mg": 474.8,
+      "fibre_g": 4.62
+     }
+    }
+   }
+  },
+  {
+   "alias": "vegetarian chicken alternative strips",
+   "food_name": "Vegetarian chicken alternative strips",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:vegetarian_chicken_alternative_strips",
+   "public": {
+    "reviewed:vegetarian_chicken_alternative_strips": {
+     "food_name": "Vegetarian chicken alternative strips",
+     "source": "openfoodfacts_mean(n=22)",
+     "values": {
+      "energy_kcal": 203.45,
+      "protein_g": 16.73,
+      "carbs_g": 13.06,
+      "fat_g": 9.55,
+      "sugar_g": 0.85,
+      "saturated_fat_g": 1.87,
+      "sodium_mg": 455.47,
+      "fibre_g": 1.05
+     }
+    }
+   }
+  },
+  {
+   "alias": "moroccan lemon chicken simmer sauce",
+   "food_name": "Moroccan lemon chicken simmer sauce",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:moroccan_lemon_chicken_simmer_sauce",
+   "public": {
+    "reviewed:moroccan_lemon_chicken_simmer_sauce": {
+     "food_name": "Moroccan lemon chicken simmer sauce",
+     "source": "openfoodfacts_mean(n=8)",
+     "values": {
+      "energy_kcal": 110.61,
+      "protein_g": 8.92,
+      "carbs_g": 11.89,
+      "fat_g": 2.77,
+      "sugar_g": 5.18,
+      "saturated_fat_g": 0.5,
+      "sodium_mg": 268.63,
+      "fibre_g": 1.27
+     }
+    }
+   }
+  },
+  {
+   "alias": "indian tonight reduced fat butter chicken simmer sauce",
+   "food_name": "Butter chicken simmer sauce",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:butter_chicken_simmer_sauce",
+   "public": {
+    "reviewed:butter_chicken_simmer_sauce": {
+     "food_name": "Butter chicken simmer sauce",
+     "source": "openfoodfacts_mean(n=22)",
+     "values": {
+      "energy_kcal": 117.03,
+      "protein_g": 1.89,
+      "carbs_g": 12.34,
+      "fat_g": 7.06,
+      "sugar_g": 7.31,
+      "saturated_fat_g": 3.0,
+      "sodium_mg": 458.85,
+      "fibre_g": 1.62
+     }
+    }
+   }
+  },
+  {
+   "alias": "pataks original stir fry punjabi 5 spice medium",
+   "food_name": "Indian stir fry sauce",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:indian_stir_fry_sauce",
+   "public": {
+    "reviewed:indian_stir_fry_sauce": {
+     "food_name": "Indian stir fry sauce",
+     "source": "openfoodfacts_mean(n=21)",
+     "values": {
+      "energy_kcal": 107.11,
+      "protein_g": 1.96,
+      "carbs_g": 15.95,
+      "fat_g": 4.34,
+      "sugar_g": 10.66,
+      "saturated_fat_g": 1.53,
+      "sodium_mg": 905.4,
+      "fibre_g": 0.97
+     }
+    }
+   }
+  },
+  {
+   "alias": "pad thai stir-fry paste",
+   "food_name": "Pad Thai paste",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:pad_thai_paste",
+   "public": {
+    "reviewed:pad_thai_paste": {
+     "food_name": "Pad Thai paste",
+     "source": "openfoodfacts_mean(n=23)",
+     "values": {
+      "energy_kcal": 154.61,
+      "protein_g": 4.8,
+      "carbs_g": 24.33,
+      "fat_g": 4.14,
+      "sugar_g": 9.98,
+      "saturated_fat_g": 0.81,
+      "sodium_mg": 549.18,
+      "fibre_g": 1.62
+     }
+    }
+   }
+  },
+  {
+   "alias": "singapore laksa paste",
+   "food_name": "Laksa paste",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:laksa_paste",
+   "public": {
+    "reviewed:laksa_paste": {
+     "food_name": "Laksa paste",
+     "source": "openfoodfacts_mean(n=12)",
+     "values": {
+      "energy_kcal": 101.36,
+      "protein_g": 3.33,
+      "carbs_g": 11.54,
+      "fat_g": 4.58,
+      "sugar_g": 3.14,
+      "saturated_fat_g": 2.31,
+      "sodium_mg": 392.74,
+      "fibre_g": 1.73
+     }
+    }
+   }
+  },
+  {
+   "alias": "gochujang paste",
+   "food_name": "Gochujang",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:gochujang",
+   "public": {
+    "reviewed:gochujang": {
+     "food_name": "Gochujang",
+     "source": "openfoodfacts_mean(n=33)",
+     "values": {
+      "energy_kcal": 204.14,
+      "protein_g": 2.81,
+      "carbs_g": 43.62,
+      "fat_g": 1.46,
+      "sugar_g": 27.92,
+      "saturated_fat_g": 0.13,
+      "sodium_mg": 2345.58,
+      "fibre_g": 0.97
+     }
+    }
+   }
+  },
+  {
+   "alias": "vietnamese dipping sauce",
+   "food_name": "Sweet chilli dipping sauce",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:sweet_chilli_dipping_sauce",
+   "public": {
+    "reviewed:sweet_chilli_dipping_sauce": {
+     "food_name": "Sweet chilli dipping sauce",
+     "source": "openfoodfacts_mean(n=24)",
+     "values": {
+      "energy_kcal": 190.16,
+      "protein_g": 0.42,
+      "carbs_g": 45.77,
+      "fat_g": 0.48,
+      "sugar_g": 38.26,
+      "saturated_fat_g": 0.22,
+      "sodium_mg": 978.72,
+      "fibre_g": 0.0
+     }
+    }
+   }
+  },
+  {
+   "alias": "tartufata sauce",
+   "food_name": "Truffle sauce",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:truffle_sauce",
+   "public": {
+    "reviewed:truffle_sauce": {
+     "food_name": "Truffle sauce",
+     "source": "openfoodfacts_mean(n=4)",
+     "values": {
+      "energy_kcal": 170.5,
+      "protein_g": 4.73,
+      "carbs_g": 6.08,
+      "fat_g": 13.9,
+      "sugar_g": 2.42,
+      "saturated_fat_g": 4.07,
+      "sodium_mg": 369.0,
+      "fibre_g": 1.95
+     }
+    }
+   }
+  },
+  {
+   "alias": "tamari dressing",
+   "food_name": "Sesame soy dressing",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:sesame_soy_dressing",
+   "public": {
+    "reviewed:sesame_soy_dressing": {
+     "food_name": "Sesame soy dressing",
+     "source": "openfoodfacts_mean(n=14)",
+     "values": {
+      "energy_kcal": 297.56,
+      "protein_g": 1.79,
+      "carbs_g": 20.61,
+      "fat_g": 22.81,
+      "sugar_g": 17.78,
+      "saturated_fat_g": 4.21,
+      "sodium_mg": 956.49,
+      "fibre_g": 0.17
+     }
+    }
+   }
+  },
+  {
+   "alias": "romesco dressing",
+   "food_name": "Romesco sauce",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:romesco_sauce",
+   "public": {
+    "reviewed:romesco_sauce": {
+     "food_name": "Romesco sauce",
+     "source": "openfoodfacts_mean(n=4)",
+     "values": {
+      "energy_kcal": 279.5,
+      "protein_g": 3.29,
+      "carbs_g": 8.69,
+      "fat_g": 27.17,
+      "sugar_g": 4.02,
+      "saturated_fat_g": 2.73,
+      "sodium_mg": 521.25,
+      "fibre_g": 2.3
+     }
+    }
+   }
+  },
+  {
+   "alias": "lime-chilli marinade",
+   "food_name": "Chilli lime marinade",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:chilli_lime_marinade",
+   "public": {
+    "reviewed:chilli_lime_marinade": {
+     "food_name": "Chilli lime marinade",
+     "source": "openfoodfacts_mean(n=6)",
+     "values": {
+      "energy_kcal": 164.61,
+      "protein_g": 0.66,
+      "carbs_g": 14.41,
+      "fat_g": 11.14,
+      "sugar_g": 8.77,
+      "saturated_fat_g": 3.89,
+      "sodium_mg": 522.83,
+      "fibre_g": 0.42
+     }
+    }
+   }
+  },
+  {
+   "alias": "chilli, ginger and garlic sauce",
+   "food_name": "Chilli garlic sauce",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:chilli_garlic_sauce",
+   "public": {
+    "reviewed:chilli_garlic_sauce": {
+     "food_name": "Chilli garlic sauce",
+     "source": "openfoodfacts_mean(n=5)",
+     "values": {
+      "energy_kcal": 118.2,
+      "protein_g": 1.34,
+      "carbs_g": 27.12,
+      "fat_g": 0.7,
+      "sugar_g": 17.16,
+      "saturated_fat_g": 0.2,
+      "sodium_mg": 2650.2,
+      "fibre_g": 0.57
+     }
+    }
+   }
+  },
+  {
+   "alias": "deli antipasto mix",
+   "food_name": "Antipasto mix",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:antipasto_mix",
+   "public": {
+    "reviewed:antipasto_mix": {
+     "food_name": "Antipasto mix",
+     "source": "openfoodfacts_mean(n=14)",
+     "values": {
+      "energy_kcal": 237.94,
+      "protein_g": 11.03,
+      "carbs_g": 5.49,
+      "fat_g": 19.91,
+      "sugar_g": 1.33,
+      "saturated_fat_g": 5.39,
+      "sodium_mg": 1351.31,
+      "fibre_g": 2.18
+     }
+    }
+   }
+  },
+  {
+   "alias": "pickled mushrooms",
+   "food_name": "Pickled mushrooms",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:pickled_mushrooms",
+   "public": {
+    "reviewed:pickled_mushrooms": {
+     "food_name": "Pickled mushrooms",
+     "source": "openfoodfacts_mean(n=10)",
+     "values": {
+      "energy_kcal": 38.2,
+      "protein_g": 2.16,
+      "carbs_g": 5.84,
+      "fat_g": 0.08,
+      "sugar_g": 2.12,
+      "saturated_fat_g": 0.0,
+      "sodium_mg": 434.08,
+      "fibre_g": 1.66
+     }
+    }
+   }
+  },
+  {
+   "alias": "peppadews",
+   "food_name": "Peppadew peppers",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:peppadew_peppers",
+   "public": {
+    "reviewed:peppadew_peppers": {
+     "food_name": "Peppadew peppers",
+     "source": "openfoodfacts_mean(n=9)",
+     "values": {
+      "energy_kcal": 79.59,
+      "protein_g": 2.1,
+      "carbs_g": 16.96,
+      "fat_g": 0.16,
+      "sugar_g": 16.96,
+      "saturated_fat_g": 0.04,
+      "sodium_mg": 246.96,
+      "fibre_g": 1.92
+     }
+    }
+   }
+  },
+  {
+   "alias": "peppadew pieces",
+   "food_name": "Peppadew peppers",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:peppadew_peppers",
+   "public": {
+    "reviewed:peppadew_peppers": {
+     "food_name": "Peppadew peppers",
+     "source": "openfoodfacts_mean(n=9)",
+     "values": {
+      "energy_kcal": 79.59,
+      "protein_g": 2.1,
+      "carbs_g": 16.96,
+      "fat_g": 0.16,
+      "sugar_g": 16.96,
+      "saturated_fat_g": 0.04,
+      "sodium_mg": 246.96,
+      "fibre_g": 1.92
+     }
+    }
+   }
+  },
+  {
+   "alias": "asian-style salad kit",
+   "food_name": "Asian salad kit with dressing",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:asian_salad_kit_with_dressing",
+   "public": {
+    "reviewed:asian_salad_kit_with_dressing": {
+     "food_name": "Asian salad kit with dressing",
+     "source": "openfoodfacts_mean(n=4)",
+     "values": {
+      "energy_kcal": 146.0,
+      "protein_g": 1.9,
+      "carbs_g": 12.8,
+      "fat_g": 8.12,
+      "sugar_g": 4.4,
+      "saturated_fat_g": 0.88,
+      "sodium_mg": 275.5,
+      "fibre_g": 1.83
+     }
+    }
+   }
+  },
+  {
+   "alias": "light 'n' tasty cereal",
+   "food_name": "Toasted oat cereal",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:toasted_oat_cereal",
+   "public": {
+    "reviewed:toasted_oat_cereal": {
+     "food_name": "Toasted oat cereal",
+     "source": "openfoodfacts_mean(n=58)",
+     "values": {
+      "energy_kcal": 388.29,
+      "protein_g": 10.07,
+      "carbs_g": 77.15,
+      "fat_g": 4.92,
+      "sugar_g": 15.49,
+      "saturated_fat_g": 0.19,
+      "sodium_mg": 552.74,
+      "fibre_g": 7.99
+     }
+    }
+   }
+  },
+  {
+   "alias": "macadamia cereal",
+   "food_name": "Toasted oat cereal",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:toasted_oat_cereal",
+   "public": {
+    "reviewed:toasted_oat_cereal": {
+     "food_name": "Toasted oat cereal",
+     "source": "openfoodfacts_mean(n=58)",
+     "values": {
+      "energy_kcal": 388.29,
+      "protein_g": 10.07,
+      "carbs_g": 77.15,
+      "fat_g": 4.92,
+      "sugar_g": 15.49,
+      "saturated_fat_g": 0.19,
+      "sodium_mg": 552.74,
+      "fibre_g": 7.99
+     }
+    }
+   }
+  },
+  {
+   "alias": "toasted oat cereal",
+   "food_name": "Toasted oat cereal",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:toasted_oat_cereal",
+   "public": {
+    "reviewed:toasted_oat_cereal": {
+     "food_name": "Toasted oat cereal",
+     "source": "openfoodfacts_mean(n=58)",
+     "values": {
+      "energy_kcal": 388.29,
+      "protein_g": 10.07,
+      "carbs_g": 77.15,
+      "fat_g": 4.92,
+      "sugar_g": 15.49,
+      "saturated_fat_g": 0.19,
+      "sodium_mg": 552.74,
+      "fibre_g": 7.99
+     }
+    }
+   }
+  },
+  {
+   "alias": "master mix",
+   "food_name": "All-purpose baking mix",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:all-purpose_baking_mix",
+   "public": {
+    "reviewed:all-purpose_baking_mix": {
+     "food_name": "All-purpose baking mix",
+     "source": "openfoodfacts_mean(n=49)",
+     "values": {
+      "energy_kcal": 352.83,
+      "protein_g": 9.43,
+      "carbs_g": 70.73,
+      "fat_g": 3.59,
+      "sugar_g": 12.74,
+      "saturated_fat_g": 0.52,
+      "sodium_mg": 996.74,
+      "fibre_g": 4.03
+     }
+    }
+   }
+  },
+  {
+   "alias": "ground lsa",
+   "food_name": "Ground LSA",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:ground_lsa",
+   "public": {
+    "reviewed:ground_lsa": {
+     "food_name": "Ground LSA",
+     "source": "openfoodfacts_mean(n=3)",
+     "values": {
+      "energy_kcal": 528.0,
+      "protein_g": 21.38,
+      "carbs_g": 8.6,
+      "fat_g": 44.0,
+      "sugar_g": 1.6,
+      "saturated_fat_g": 12.52,
+      "sodium_mg": 121.67,
+      "fibre_g": 22.1
+     }
+    }
+   }
+  },
+  {
+   "alias": "grape seed powder",
+   "food_name": "Grape seed powder",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:grape_seed_powder",
+   "public": {
+    "reviewed:grape_seed_powder": {
+     "food_name": "Grape seed powder",
+     "source": "openfoodfacts_mean(n=3)",
+     "values": {
+      "energy_kcal": 387.67,
+      "protein_g": 10.24,
+      "carbs_g": 71.51,
+      "fat_g": 4.17,
+      "sugar_g": 10.63,
+      "saturated_fat_g": 2.38,
+      "sodium_mg": 285.67,
+      "fibre_g": 5.7
+     }
+    }
+   }
+  },
+  {
+   "alias": "beetroot powder",
+   "food_name": "Beetroot powder",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:beetroot_powder",
+   "public": {
+    "reviewed:beetroot_powder": {
+     "food_name": "Beetroot powder",
+     "source": "openfoodfacts_mean(n=7)",
+     "values": {
+      "energy_kcal": 364.89,
+      "protein_g": 5.27,
+      "carbs_g": 72.53,
+      "fat_g": 6.68,
+      "sugar_g": 46.35,
+      "saturated_fat_g": 0.29,
+      "sodium_mg": 411.29,
+      "fibre_g": 20.89
+     }
+    }
+   }
+  },
+  {
+   "alias": "japanese green tea powder (matcha)",
+   "food_name": "Matcha powder",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:matcha_powder",
+   "public": {
+    "reviewed:matcha_powder": {
+     "food_name": "Matcha powder",
+     "source": "openfoodfacts_mean(n=12)",
+     "values": {
+      "energy_kcal": 350.24,
+      "protein_g": 18.0,
+      "carbs_g": 59.12,
+      "fat_g": 6.29,
+      "sugar_g": 15.62,
+      "saturated_fat_g": 0.36,
+      "sodium_mg": 6.5,
+      "fibre_g": 20.77
+     }
+    }
+   }
+  },
+  {
+   "alias": "freeze-dried strawberries",
+   "food_name": "Freeze-dried strawberries",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:freeze-dried_strawberries",
+   "public": {
+    "reviewed:freeze-dried_strawberries": {
+     "food_name": "Freeze-dried strawberries",
+     "source": "openfoodfacts_mean(n=40)",
+     "values": {
+      "energy_kcal": 356.93,
+      "protein_g": 6.74,
+      "carbs_g": 81.34,
+      "fat_g": 0.92,
+      "sugar_g": 51.9,
+      "saturated_fat_g": 0.01,
+      "sodium_mg": 2.69,
+      "fibre_g": 16.57
+     }
+    }
+   }
+  },
+  {
+   "alias": "freeze-dried raspberries",
+   "food_name": "Freeze-dried raspberries",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:freeze-dried_raspberries",
+   "public": {
+    "reviewed:freeze-dried_raspberries": {
+     "food_name": "Freeze-dried raspberries",
+     "source": "openfoodfacts_mean(n=10)",
+     "values": {
+      "energy_kcal": 381.05,
+      "protein_g": 8.39,
+      "carbs_g": 73.57,
+      "fat_g": 4.04,
+      "sugar_g": 34.26,
+      "saturated_fat_g": 1.68,
+      "sodium_mg": 0.0,
+      "fibre_g": 30.04
+     }
+    }
+   }
+  },
+  {
+   "alias": "gluten-free mini pappadums",
+   "food_name": "Pappadums",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:pappadums",
+   "public": {
+    "reviewed:pappadums": {
+     "food_name": "Pappadums",
+     "source": "openfoodfacts_mean(n=10)",
+     "values": {
+      "energy_kcal": 345.15,
+      "protein_g": 19.58,
+      "carbs_g": 51.45,
+      "fat_g": 5.0,
+      "sugar_g": 0.86,
+      "saturated_fat_g": 0.68,
+      "sodium_mg": 2003.75,
+      "fibre_g": 18.17
+     }
+    }
+   }
+  },
+  {
+   "alias": "legume-based pasta",
+   "food_name": "Legume pasta",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:legume_pasta",
+   "public": {
+    "reviewed:legume_pasta": {
+     "food_name": "Legume pasta",
+     "source": "openfoodfacts_mean(n=17)",
+     "values": {
+      "energy_kcal": 349.37,
+      "protein_g": 22.49,
+      "carbs_g": 58.56,
+      "fat_g": 5.65,
+      "sugar_g": 3.42,
+      "saturated_fat_g": 0.67,
+      "sodium_mg": 115.16,
+      "fibre_g": 11.51
+     }
+    }
+   }
+  },
+  {
+   "alias": "edamame & mung bean fettuccine",
+   "food_name": "Edamame and mung bean fettuccine",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:edamame_and_mung_bean_fettuccine",
+   "public": {
+    "reviewed:edamame_and_mung_bean_fettuccine": {
+     "food_name": "Edamame and mung bean fettuccine",
+     "source": "openfoodfacts_mean(n=3)",
+     "values": {
+      "energy_kcal": 342.67,
+      "protein_g": 42.67,
+      "carbs_g": 27.58,
+      "fat_g": 5.28,
+      "sugar_g": 6.27,
+      "saturated_fat_g": 0.73,
+      "sodium_mg": 5.71,
+      "fibre_g": 21.23
+     }
+    }
+   }
+  },
+  {
+   "alias": "feta and olive ravioli",
+   "food_name": "Feta and olive ravioli",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:feta_and_olive_ravioli",
+   "public": {
+    "reviewed:feta_and_olive_ravioli": {
+     "food_name": "Feta and olive ravioli",
+     "source": "openfoodfacts_mean(n=17)",
+     "values": {
+      "energy_kcal": 257.06,
+      "protein_g": 10.76,
+      "carbs_g": 38.12,
+      "fat_g": 6.5,
+      "sugar_g": 2.58,
+      "saturated_fat_g": 2.73,
+      "sodium_mg": 356.12,
+      "fibre_g": 2.0
+     }
+    }
+   }
+  },
+  {
+   "alias": "pearl couscous with chickpea",
+   "food_name": "Pearl couscous with chickpea, cooked",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:pearl_couscous_with_chickpea,_cooked",
+   "public": {
+    "reviewed:pearl_couscous_with_chickpea,_cooked": {
+     "food_name": "Pearl couscous with chickpea, cooked",
+     "source": "openfoodfacts_mean(n=17)",
+     "values": {
+      "energy_kcal": 147.06,
+      "protein_g": 7.01,
+      "carbs_g": 21.01,
+      "fat_g": 3.48,
+      "sugar_g": 2.97,
+      "saturated_fat_g": 0.91,
+      "sodium_mg": 265.65,
+      "fibre_g": 2.7
+     }
+    }
+   }
+  },
+  {
+   "alias": "three bean mix",
+   "food_name": "Three bean mix, canned",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:three_bean_mix,_canned",
+   "public": {
+    "reviewed:three_bean_mix,_canned": {
+     "food_name": "Three bean mix, canned",
+     "source": "openfoodfacts_mean(n=4)",
+     "values": {
+      "energy_kcal": 94.38,
+      "protein_g": 5.16,
+      "carbs_g": 15.74,
+      "fat_g": 1.48,
+      "sugar_g": 2.27,
+      "saturated_fat_g": 0.55,
+      "sodium_mg": 182.63,
+      "fibre_g": 4.48
+     }
+    }
+   }
+  },
+  {
+   "alias": "smoked chicken",
+   "food_name": "Smoked chicken",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:smoked_chicken",
+   "public": {
+    "reviewed:smoked_chicken": {
+     "food_name": "Smoked chicken",
+     "source": "openfoodfacts_mean(n=18)",
+     "values": {
+      "energy_kcal": 106.03,
+      "protein_g": 19.47,
+      "carbs_g": 2.81,
+      "fat_g": 2.01,
+      "sugar_g": 2.26,
+      "saturated_fat_g": 0.42,
+      "sodium_mg": 1289.33,
+      "fibre_g": 0.07
+     }
+    }
+   }
+  },
+  {
+   "alias": "delmaine tomatoes with fresh garlic and olive oil",
+   "food_name": "Tomatoes with garlic and olive oil",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:tomatoes_with_garlic_and_olive_oil",
+   "public": {
+    "reviewed:tomatoes_with_garlic_and_olive_oil": {
+     "food_name": "Tomatoes with garlic and olive oil",
+     "source": "openfoodfacts_mean(n=3)",
+     "values": {
+      "energy_kcal": 26.94,
+      "protein_g": 0.85,
+      "carbs_g": 4.82,
+      "fat_g": 0.56,
+      "sugar_g": 2.84,
+      "saturated_fat_g": 0.28,
+      "sodium_mg": 321.01,
+      "fibre_g": 0.86
+     }
+    }
+   }
+  },
+  {
+   "alias": "natvia",
+   "food_name": "Natvia sweetener",
+   "note": "reviewed 2026-11-23",
+   "confirmed": "2026-11-23",
+   "eu_food_id": "reviewed:natvia_sweetener",
+   "public": {
+    "reviewed:natvia_sweetener": {
+     "food_name": "Natvia sweetener",
+     "source": "openfoodfacts_mean(n=1)",
+     "values": {
+      "energy_kcal": 0.0,
+      "protein_g": 0.0,
+      "carbs_g": 99.0,
+      "fat_g": 0.0,
+      "sugar_g": 0.0,
+      "saturated_fat_g": 0.0,
+      "sodium_mg": 0.0,
+      "fibre_g": 0.0
+     }
+    }
+   }
+  },
+  {
+   "alias": "lamb bones",
+   "non_food": true,
+   "note": "Removed after making stock 2026-11-23",
+   "confirmed": "2026-11-23"
+  },
+  {
+   "alias": "vegetable scraps",
+   "non_food": true,
+   "note": "Strained out of the stock 2026-11-23",
+   "confirmed": "2026-11-23"
+  },
+  {
+   "alias": "mint and berry-filled ice cubes",
+   "non_food": true,
+   "note": "Ice garnish 2026-11-23",
+   "confirmed": "2026-11-23"
+  },
+  {
+   "alias": "herbs and spices",
+   "non_food": true,
+   "note": "Optional flavouring, unspecified 2026-11-23",
+   "confirmed": "2026-11-23"
+  },
+  {
+   "alias": "flavor enhancers",
+   "non_food": true,
+   "note": "Optional flavouring, unspecified 2026-11-23",
+   "confirmed": "2026-11-23"
+  },
+  {
+   "alias": "topping",
+   "non_food": true,
+   "note": "Unspecified topping or section header 2026-11-23",
+   "confirmed": "2026-11-23"
   }
  ],
  "fills": {
@@ -12796,6 +15967,10 @@
    "saturated_fat_g": {
     "source": "cofid:13-801",
     "value": 2.5
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
    }
   },
   "catalogue:[\"Czech Food Composition Database 2025, Version 10.25\",\"EFSA EU FCDB 2026\",\"64\"]": {
@@ -12926,6 +16101,10 @@
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "sodium_mg": {
+    "source": "label_mean(n=2)",
+    "value": 17
    }
   },
   "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"139.1.1\"]": {
@@ -13468,6 +16647,10 @@
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "sodium_mg": {
+    "source": "usda_sr_legacy:11416",
+    "value": 5.0
    }
   },
   "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"005460\"]": {
@@ -13590,6 +16773,10 @@
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "sodium_mg": {
+    "source": "catalogue:[\"Norwegian Food Composition Database 2026\",\"EFSA EU FCDB 2026\",\"1008\"]",
+    "value": 0
    }
   },
   "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"007330\"]": {
@@ -13778,6 +16965,14 @@
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.3
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 10.0
    }
   },
   "catalogue:[\"Serbian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"0002817\"]": {
@@ -13942,6 +17137,10 @@
    "sugar_g": {
     "source": "rule:sugar_at_most_carbs_0.5g",
     "value": 0.0
+   },
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 10.0
    }
   },
   "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4166001\"]": {
@@ -13998,8 +17197,8 @@
   },
   "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4290025\"]": {
    "saturated_fat_g": {
-    "source": "fineli:11571",
-    "value": 7.6
+    "source": "online_mean_2026-11-22",
+    "value": 0.7
    },
    "sugar_g": {
     "source": "fineli:11571",
@@ -14138,6 +17337,10 @@
    "saturated_fat_g": {
     "source": "cofid:14-272",
     "value": 0.1
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 58.0
    }
   },
   "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4823003\"]": {
@@ -14154,12 +17357,24 @@
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 9.7
    }
   },
   "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4831008\"]": {
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 2.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 7.0
    }
   },
   "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4911001\"]": {
@@ -14638,6 +17853,10 @@
    "saturated_fat_g": {
     "source": "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"5ec11740-4a26-4f1b-86ae-edcbaf736484\"]",
     "value": 0.01
+   },
+   "sugar_g": {
+    "source": "label_mean(n=5)",
+    "value": 12.89
    }
   },
   "ciqual:11063": {
@@ -15632,12 +18851,20 @@
    "sugar_g": {
     "source": "cofid:13-254",
     "value": 2.7
+   },
+   "fibre_g": {
+    "source": "usda_sr_legacy:11218",
+    "value": 0.5
    }
   },
   "cofid:13-261": {
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "fibre_g": {
+    "source": "usda_sr_legacy:11241",
+    "value": 3.6
    }
   },
   "cofid:13-273": {
@@ -15650,6 +18877,10 @@
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.5
    }
   },
   "cofid:13-298": {
@@ -15748,6 +18979,10 @@
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "fibre_g": {
+    "source": "usda_sr_legacy:11482",
+    "value": 1.5
    }
   },
   "cofid:13-355": {
@@ -15872,6 +19107,10 @@
    "saturated_fat_g": {
     "source": "catalogue:[\"CoFID\",\"2021\",\"15-345\"]",
     "value": 0.4
+   },
+   "fibre_g": {
+    "source": "usda_fndds:75340020",
+    "value": 2.8
    }
   },
   "cofid:13-607": {
@@ -15890,6 +19129,10 @@
    "sodium_mg": {
     "source": "cofid:13-623:trace_as_zero",
     "value": 0.0
+   },
+   "fibre_g": {
+    "source": "usda_sr_legacy:11167+usda_sr_legacy:11900",
+    "value": 2.35
    }
   },
   "cofid:13-624": {
@@ -15962,6 +19205,10 @@
    "fibre_g": {
     "source": "usda_sr_legacy:02001",
     "value": 21.6
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
    }
   },
   "cofid:13-806": {
@@ -16040,6 +19287,10 @@
    "energy_kcal": {
     "source": "https://www.tesco.com/groceries/en-GB/products/251620642",
     "value": 329.0
+   },
+   "saturated_fat_g": {
+    "source": "label_mean(n=3)",
+    "value": 1.9
    }
   },
   "cofid:13-816": {
@@ -16392,6 +19643,10 @@
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "fibre_g": {
+    "source": "usda_sr_legacy:9085",
+    "value": 4.4
    }
   },
   "cofid:14-087": {
@@ -16506,6 +19761,10 @@
    "saturated_fat_g": {
     "source": "efsa_portugal:641",
     "value": 0.0
+   },
+   "sugar_g": {
+    "source": "label_mean(n=3)",
+    "value": 59.53
    }
   },
   "cofid:14-339": {
@@ -16536,6 +19795,10 @@
    "sugar_g": {
     "source": "cofid:14-359:trace_as_zero",
     "value": 0.0
+   },
+   "fibre_g": {
+    "source": "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"34972\"]",
+    "value": 2.2
    }
   },
   "cofid:14-376": {
@@ -16836,6 +20099,10 @@
    "protein_g": {
     "source": "cofid:17-201:trace_as_zero",
     "value": 0.0
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
    }
   },
   "cofid:17-343": {
@@ -16858,6 +20125,10 @@
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "fibre_g": {
+    "source": "label_mean(n=3)",
+    "value": 1.83
    }
   },
   "cofid:17-356": {
@@ -17456,6 +20727,14 @@
    "saturated_fat_g": {
     "source": "rule:saturated_fat_at_most_fat_0.5g",
     "value": 0.0
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "protein_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
    }
   },
   "usda_sr_legacy:01314": {
@@ -17588,6 +20867,1326 @@
    "sugar_g": {
     "source": "ciqual:20203",
     "value": 2.5
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4121004\"]": {
+   "sugar_g": {
+    "source": "catalogue:[\"Icelandic Food Composition Database version 5.0 2025\",\"EFSA EU FCDB 2026\",\"223\"]",
+    "value": 0.3
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"683cd0e8-71ac-4968-b755-9afe29cd3d6d\"]": {
+   "sugar_g": {
+    "source": "catalogue:[\"Portuguese Food Composition Table, 2025\",\"EFSA EU FCDB 2026\",\"969\"]",
+    "value": 0
+   }
+  },
+  "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"ABADZZ003\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Anses. 2025.\u00a0CIQUAL\u00a0French food composition table\",\"EFSA EU FCDB 2026\",\"7262\"]",
+    "value": 0.94
+   },
+   "sodium_mg": {
+    "source": "catalogue:[\"Anses. 2025.\u00a0CIQUAL\u00a0French food composition table\",\"EFSA EU FCDB 2026\",\"7262\"]",
+    "value": 413
+   }
+  },
+  "cofid:13-108": {
+   "sugar_g": {
+    "source": "catalogue:[\"CoFID\",\"2021\",\"15-854\"]",
+    "value": 1.4
+   },
+   "saturated_fat_g": {
+    "source": "online_mean_2026-11-22",
+    "value": 0.2
+   },
+   "fibre_g": {
+    "source": "usda_sr_legacy:16103",
+    "value": 3.7
+   }
+  },
+  "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"61.6.1\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Norwegian Food Composition Database 2026\",\"EFSA EU FCDB 2026\",\"2460\"]",
+    "value": 0.1
+   },
+   "sodium_mg": {
+    "source": "catalogue:[\"Norwegian Food Composition Database 2026\",\"EFSA EU FCDB 2026\",\"2460\"]",
+    "value": 280
+   }
+  },
+  "ciqual:9330": {
+   "sugar_g": {
+    "source": "slv:827",
+    "value": 0.6
+   }
+  },
+  "cofid:17-762": {
+   "fibre_g": {
+    "source": "catalogue:[\"Irish composition table\",\"retained_snapshot_sha256:282f69999a05a25e343ef14b713a40d411f336d398f15af55f75f8164a1b57b0\",\"IE00739\"]",
+    "value": 0
+   }
+  },
+  "catalogue:[\"Serbian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"0001660\"]": {
+   "saturated_fat_g": {
+    "source": "slovenian_plant:36",
+    "value": 0.31
+   }
+  },
+  "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"109.5.2\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"CoFID\",\"2021\",\"12-549\"]",
+    "value": 5.85
+   },
+   "sodium_mg": {
+    "source": "catalogue:[\"CoFID\",\"2021\",\"12-549\"]",
+    "value": 810
+   }
+  },
+  "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"33024\"]": {
+   "sodium_mg": {
+    "source": "matvaretabellen:06.140",
+    "value": 701
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"509030\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Norwegian Food Composition Database 2026\",\"EFSA EU FCDB 2026\",\"2676\"]",
+    "value": 0.3
+   },
+   "sodium_mg": {
+    "source": "catalogue:[\"Norwegian Food Composition Database 2026\",\"EFSA EU FCDB 2026\",\"2676\"]",
+    "value": 58
+   },
+   "fibre_g": {
+    "source": "catalogue:[\"Norwegian Food Composition Database 2026\",\"EFSA EU FCDB 2026\",\"2676\"]",
+    "value": 2
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"cdd6e501-f34d-4268-bc42-59f3796d64b4\"]": {
+   "sugar_g": {
+    "source": "catalogue:[\"Portuguese Food Composition Table, 2025\",\"EFSA EU FCDB 2026\",\"282\"]",
+    "value": 0
+   }
+  },
+  "ciqual:9110": {
+   "sugar_g": {
+    "source": "catalogue:[\"CoFID\",\"2021\",\"11-877\"]",
+    "value": 0.2
+   },
+   "saturated_fat_g": {
+    "source": "catalogue:[\"CoFID\",\"2021\",\"11-877\"]",
+    "value": 0.18
+   }
+  },
+  "cofid:17-785": {
+   "fibre_g": {
+    "source": "catalogue:[\"CoFID\",\"2021\",\"17-345\"]",
+    "value": 1.4
+   }
+  },
+  "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"ABAAAZ002\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"29790\"]",
+    "value": 0.7
+   },
+   "sodium_mg": {
+    "source": "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"29790\"]",
+    "value": 470
+   },
+   "fibre_g": {
+    "source": "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"29790\"]",
+    "value": 3
+   }
+  },
+  "catalogue:[\"Serbian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"0003505\"]": {
+   "sugar_g": {
+    "source": "catalogue:[\"Anses. 2025.\u00a0CIQUAL\u00a0French food composition table\",\"EFSA EU FCDB 2026\",\"39530\"]",
+    "value": 24.4
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.1
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4960007\"]": {
+   "sugar_g": {
+    "source": "slv:489",
+    "value": 0.3
+   },
+   "sodium_mg": {
+    "source": "slv:489",
+    "value": 853
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"128100\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Anses. 2025.\u00a0CIQUAL\u00a0French food composition table\",\"EFSA EU FCDB 2026\",\"10021\"]",
+    "value": 0.22
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"b5ebb2ef-0939-434d-9770-a6ab261ed582\"]": {
+   "sugar_g": {
+    "source": "catalogue:[\"Portuguese Food Composition Table, 2025\",\"EFSA EU FCDB 2026\",\"919\"]",
+    "value": 0
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"000885\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Dutch national food composition database NEVO, 2025\",\"EFSA EU FCDB 2026\",\"2347\"]",
+    "value": 1.3
+   },
+   "sodium_mg": {
+    "source": "catalogue:[\"Dutch national food composition database NEVO, 2025\",\"EFSA EU FCDB 2026\",\"2347\"]",
+    "value": 204
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"008060\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Portuguese Food Composition Table, 2025\",\"EFSA EU FCDB 2026\",\"691\"]",
+    "value": 0
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4460006\"]": {
+   "sugar_g": {
+    "source": "catalogue:[\"CoFID\",\"2021\",\"14-873\"]",
+    "value": 6.4
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"001030\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Anses. 2025.\u00a0CIQUAL\u00a0French food composition table\",\"EFSA EU FCDB 2026\",\"7349\"]",
+    "value": 3.88
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"ca1fd7a4-cb66-4c78-9de9-d41959a0cf4c\"]": {
+   "sugar_g": {
+    "source": "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"34159\"]",
+    "value": 0.4
+   }
+  },
+  "ciqual:23415": {
+   "sodium_mg": {
+    "source": "catalogue:[\"Anses. 2025.\u00a0CIQUAL\u00a0French food composition table\",\"EFSA EU FCDB 2026\",\"23414\"]",
+    "value": 675
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4111031\"]": {
+   "sugar_g": {
+    "source": "catalogue:[\"CoFID\",\"2021\",\"18-603\"]",
+    "value": 0
+   },
+   "saturated_fat_g": {
+    "source": "catalogue:[\"CoFID\",\"2021\",\"18-603\"]",
+    "value": 3.02
+   }
+  },
+  "catalogue:[\"Czech Food Composition Database 2025, Version 10.25\",\"EFSA EU FCDB 2026\",\"199\"]": {
+   "sugar_g": {
+    "source": "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"ABAACZ001\"]",
+    "value": 3.14
+   },
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Dutch national food composition database NEVO, 2025\",\"EFSA EU FCDB 2026\",\"2782\"]",
+    "value": 0.5
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"PE0017\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"35507\"]",
+    "value": 0.3
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"000076\"]": {
+   "saturated_fat_g": {
+    "source": "catalogue:[\"Anses. 2025.\u00a0CIQUAL\u00a0French food composition table\",\"EFSA EU FCDB 2026\",\"9615\"]",
+    "value": 0.01
+   }
+  },
+  "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"46.1.2\"]": {
+   "saturated_fat_g": {
+    "source": "usda_sr_legacy:18042",
+    "value": 0.208
+   },
+   "sodium_mg": {
+    "source": "usda_sr_legacy:18042",
+    "value": 421.0
+   }
+  },
+  "cofid:13-571": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 2.5
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 3.9
+   }
+  },
+  "catalogue:[\"CoFID\",\"2021\",\"16-199\"]": {
+   "fibre_g": {
+    "source": "usda_sr_legacy:15073",
+    "value": 0.0
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"005150\"]": {
+   "saturated_fat_g": {
+    "source": "usda_sr_legacy:11124",
+    "value": 0.032
+   }
+  },
+  "catalogue:[\"Serbian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"0004847\"]": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:16357",
+    "value": 4.8
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4421009\"]": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:12016",
+    "value": 1.29
+   }
+  },
+  "usda_sr_legacy:20114": {
+   "sugar_g": {
+    "source": "label_mean(n=4)",
+    "value": 1.45
+   },
+   "fibre_g": {
+    "source": "label_mean(n=4)",
+    "value": 3.62
+   }
+  },
+  "https://graina.com.au/products/lsa-meal": {
+   "sodium_mg": {
+    "source": "label_mean(n=6)",
+    "value": 18.67
+   },
+   "fibre_g": {
+    "source": "label_mean(n=6)",
+    "value": 21.08
+   }
+  },
+  "usda_sr_legacy:06631": {
+   "saturated_fat_g": {
+    "source": "label_mean(n=3)",
+    "value": 0.07
+   }
+  },
+  "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"34978\"]": {
+   "sodium_mg": {
+    "source": "label_mean(n=3)",
+    "value": 1673.33
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"a74f5c0c-31b6-4169-a443-f63da7ea9b4b\"]": {
+   "sugar_g": {
+    "source": "label_mean(n=4)",
+    "value": 3.3
+   }
+  },
+  "cofid:13-829": {
+   "sugar_g": {
+    "source": "label_mean(n=5)",
+    "value": 7.64
+   },
+   "saturated_fat_g": {
+    "source": "label_mean(n=5)",
+    "value": 2.59
+   },
+   "fibre_g": {
+    "source": "label_mean(n=4)",
+    "value": 33.1
+   }
+  },
+  "cofid:13-821": {
+   "sugar_g": {
+    "source": "label_mean(n=2)",
+    "value": 0.3
+   },
+   "saturated_fat_g": {
+    "source": "label_mean(n=2)",
+    "value": 0.5
+   },
+   "sodium_mg": {
+    "source": "label_mean(n=2)",
+    "value": 19
+   },
+   "fibre_g": {
+    "source": "label_mean(n=3)",
+    "value": 8.07
+   }
+  },
+  "https://shopmundaring.wastelesspantry.com.au/products/saltbushdukkah125ml": {
+   "sugar_g": {
+    "source": "label_mean(n=1)",
+    "value": 5.4
+   },
+   "saturated_fat_g": {
+    "source": "label_mean(n=1)",
+    "value": 4.4
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 10.0
+   }
+  },
+  "usda_sr_legacy:06151": {
+   "sugar_g": {
+    "source": "label_mean(n=3)",
+    "value": 46.33
+   }
+  },
+  "usda_sr_legacy:20330": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:20030+usda_fndds:75217520",
+    "value": 1.49
+   }
+  },
+  "cofid:13-087": {
+   "fibre_g": {
+    "source": "usda_sr_legacy:16038",
+    "value": 10.5
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4940002\"]": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:11178",
+    "value": 2.5
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"7aefa577-ce46-4116-88c4-7160225b23b7\"]": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:1295",
+    "value": 5.88
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"a7a8a774-1963-406d-a5cf-e06d15ee3fe9\"]": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:6169",
+    "value": 0.13
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"f37bbd26-ae1a-4a28-8fc0-72ac92edbd67\"]": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:2044",
+    "value": 0.3
+   }
+  },
+  "https://tuktukmart.co.uk/products/hinode-hon-mirin-sweet-cooking-rice-wine-1l": {
+   "protein_g": {
+    "source": "label_mean(n=2)",
+    "value": 0.2
+   }
+  },
+  "catalogue:[\"CoFID\",\"2021\",\"13-141\"]": {
+   "fibre_g": {
+    "source": "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4500003\"]",
+    "value": 14.0
+   }
+  },
+  "cofid:13-891": {
+   "energy_kcal": {
+    "source": "label_mean(n=1)",
+    "value": 66
+   },
+   "carbs_g": {
+    "source": "label_mean(n=1)",
+    "value": 9.7
+   }
+  },
+  "catalogue:[\"Serbian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"0005361\"]": {
+   "fibre_g": {
+    "source": "usda_sr_legacy:1285+usda_sr_legacy:1276+usda_sr_legacy:1284",
+    "value": 0.87
+   }
+  },
+  "usda_sr_legacy:01093": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:1091+usda_sr_legacy:1092",
+    "value": 52.08
+   }
+  },
+  "catalogue:[\"Slovenian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"27849e25-d5e8-4d0e-bcf5-6c0ae68dd399\"]": {
+   "fibre_g": {
+    "source": "usda_sr_legacy:4060+usda_sr_legacy:4044+usda_sr_legacy:4053",
+    "value": 0.0
+   },
+   "sodium_mg": {
+    "source": "usda_sr_legacy:4060+usda_sr_legacy:4044+usda_sr_legacy:4053",
+    "value": 0.67
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4630004\"]": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:20120",
+    "value": 2.67
+   },
+   "saturated_fat_g": {
+    "source": "usda_sr_legacy:20120",
+    "value": 0.28
+   }
+  },
+  "usda_sr_legacy:09056": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:9046",
+    "value": 19.7
+   }
+  },
+  "cofid:11-1000": {
+   "fibre_g": {
+    "source": "usda_fndds:51182010",
+    "value": 0.9
+   }
+  },
+  "cofid:15-345": {
+   "fibre_g": {
+    "source": "usda_fndds:75340020",
+    "value": 2.8
+   }
+  },
+  "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"121.1.2\"]": {
+   "saturated_fat_g": {
+    "source": "usda_fndds:11440060",
+    "value": 1.89
+   },
+   "sodium_mg": {
+    "source": "usda_fndds:11440060",
+    "value": 307.0
+   },
+   "fibre_g": {
+    "source": "usda_fndds:11440060",
+    "value": 0.2
+   }
+  },
+  "catalogue:[\"Norwegian Food Composition Database 2026\",\"EFSA EU FCDB 2026\",\"2503\"]": {
+   "sodium_mg": {
+    "source": "usda_sr_legacy:2075",
+    "value": 7203.0
+   }
+  },
+  "cofid:14-338": {
+   "saturated_fat_g": {
+    "source": "usda_sr_legacy:9426",
+    "value": 0.01
+   }
+  },
+  "cofid:17-701": {
+   "saturated_fat_g": {
+    "source": "usda_sr_legacy:4120",
+    "value": 6.09
+   }
+  },
+  "catalogue:[\"CoFID\",\"2021\",\"17-701\"]": {
+   "saturated_fat_g": {
+    "source": "usda_sr_legacy:4120",
+    "value": 6.09
+   }
+  },
+  "catalogue:[\"Slovenian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"a20eef40-de6e-4a8a-b3bb-f3ed90f57ec9\"]": {
+   "saturated_fat_g": {
+    "source": "usda_fndds:22601040",
+    "value": 11.96
+   },
+   "sodium_mg": {
+    "source": "usda_fndds:22601040",
+    "value": 1684.0
+   }
+  },
+  "cofid:16-062": {
+   "sugar_g": {
+    "source": "usda_fndds:26117130",
+    "value": 0.14
+   },
+   "saturated_fat_g": {
+    "source": "usda_fndds:26117130",
+    "value": 1.35
+   },
+   "fibre_g": {
+    "source": "usda_fndds:26117130",
+    "value": 0.3
+   }
+  },
+  "catalogue:[\"Serbian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"0004745\"]": {
+   "sugar_g": {
+    "source": "usda_sr_legacy:15175",
+    "value": 0.0
+   },
+   "fibre_g": {
+    "source": "usda_sr_legacy:15176",
+    "value": 0.0
+   }
+  },
+  "cofid:14-849": {
+   "saturated_fat_g": {
+    "source": "usda_sr_legacy:19059",
+    "value": 5.55
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4930012\"]": {
+   "sugar_g": {
+    "source": "usda_fndds:75502510",
+    "value": 8.05
+   },
+   "sodium_mg": {
+    "source": "usda_fndds:75502510",
+    "value": 954.0
+   }
+  },
+  "ciqual:6214": {
+   "sodium_mg": {
+    "source": "usda_sr_legacy:23446+usda_sr_legacy:23397+usda_sr_legacy:23447+usda_sr_legacy:23398",
+    "value": 43.75
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"12df6f8b-f375-4252-812e-f88d8ca146ad\"]": {
+   "sugar_g": {
+    "source": "label_mean(n=6)",
+    "value": 1.13
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"5500008\"]": {
+   "sugar_g": {
+    "source": "label_mean(n=3)",
+    "value": 8.2
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"5500007\"]": {
+   "sugar_g": {
+    "source": "label_mean(n=2)",
+    "value": 11.85
+   }
+  },
+  "usda_sr_legacy:20115": {
+   "sugar_g": {
+    "source": "label_mean(n=2)",
+    "value": 0.45
+   },
+   "fibre_g": {
+    "source": "label_mean(n=2)",
+    "value": 0.88
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"5ec11740-4a26-4f1b-86ae-edcbaf736484\"]": {
+   "sugar_g": {
+    "source": "label_mean(n=5)",
+    "value": 12.89
+   }
+  },
+  "ciqual:19585": {
+   "energy_kcal": {
+    "source": "usda_sr_legacy:1036",
+    "value": 150.0
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"004110\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.12
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"3430021\"]": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.0
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"bcc4eb6c-3b45-495e-aca4-0021c97e91f2\"]": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 280.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 4.5
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"5500010\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 2.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 6.8
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"3410007\"]": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.3
+   }
+  },
+  "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"33021\"]": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1500.0
+   }
+  },
+  "https://www.fatsecret.com.au/calories-nutrition/ottogi/gochujang/100g": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 3.0
+   },
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.5
+   }
+  },
+  "ciqual:18003": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 3.2
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "catalogue:[\"Serbian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"0004358\"]": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 5.0
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"121730\"]": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 90.0
+   }
+  },
+  "cofid:15-262": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 3.0
+   }
+  },
+  "catalogue:[\"Serbian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"0003502\"]": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 4.0
+   }
+  },
+  "catalogue:[\"CoFID\",\"2021\",\"17-849\"]": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 2.5
+   },
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 5.0
+   }
+  },
+  "cofid:17-733": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.9
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4630021\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.4
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.5
+   }
+  },
+  "usda_sr_legacy:11555": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 3.5
+   }
+  },
+  "ciqual:20810": {
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.3
+   },
+   "energy_kcal": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 11.0
+   },
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.03
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 41.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.2
+   }
+  },
+  "cofid:17-362": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 11.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 7.0
+   }
+  },
+  "catalogue:[\"Serbian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"0003048\"]": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 10.0
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"faf0f93b-d761-47df-8c10-771a35b4c8ac\"]": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "ciqual:32043": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 400.0
+   }
+  },
+  "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"FCAEZZ002\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 5.0
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 650.0
+   }
+  },
+  "catalogue:[\"Serbian Food Composition Database 2025\",\"EFSA EU FCDB 2026\",\"0002513\"]": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.5
+   }
+  },
+  "cofid:17-498": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 9.3
+   }
+  },
+  "cofid:17-765": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.9
+   },
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.6
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"PE0009\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 3.0
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 900.0
+   }
+  },
+  "ciqual:26106": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.2
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 80.0
+   }
+  },
+  "ciqual:11056": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 2.0
+   }
+  },
+  "catalogue:[\"CoFID\",\"2021\",\"13-884\"]": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 42.0
+   },
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.6
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 4.1
+   }
+  },
+  "catalogue:[\"Anses. 2025.\u00a0CIQUAL\u00a0French food composition table\",\"EFSA EU FCDB 2026\",\"4052\"]": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 160.0
+   }
+  },
+  "catalogue:[\"Greek  Food Composition Database, 2026\",\"EFSA EU FCDB 2026\",\"EBCEAA003\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 2.4
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1400.0
+   }
+  },
+  "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"11144\"]": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 150.0
+   }
+  },
+  "catalogue:[\"Norwegian Food Composition Database 2026\",\"EFSA EU FCDB 2026\",\"2307\"]": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 2300.0
+   }
+  },
+  "cofid:19-598": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.0
+   }
+  },
+  "usda_sr_legacy:11984": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.1
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.8
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"527290af-2ea0-4100-9432-2708b33f0cbe\"]": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.7
+   }
+  },
+  "catalogue:[\"Icelandic Food Composition Database version 5.0 2025\",\"EFSA EU FCDB 2026\",\"595\"]": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 3.0
+   }
+  },
+  "usda_sr_legacy:01153": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 10.0
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"166800\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 10.0
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 100.0
+   }
+  },
+  "catalogue:[\"Icelandic Food Composition Database version 5.0 2025\",\"EFSA EU FCDB 2026\",\"620\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 12.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 18.0
+   }
+  },
+  "cofid:15-888": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.4
+   }
+  },
+  "cofid:15-719": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 3.5
+   }
+  },
+  "cofid:15-001": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 3.0
+   }
+  },
+  "usda_sr_legacy:12041": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 5.0
+   }
+  },
+  "HU00225": {
+   "fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "protein_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.1
+   }
+  },
+  "slovenian_meat:10": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "slovenian_plant:126": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 5.0
+   }
+  },
+  "HU00013": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.0
+   }
+  },
+  "slovenian_meat:1": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "slovenian_meat:3": {
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "slovenian_plant:140": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.9
+   }
+  },
+  "HU00425": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.0
+   }
+  },
+  "slovenian_meat:72": {
+   "carbs_g": {
+    "source": "label_mean(n=18)",
+    "value": 2.81
+   },
+   "sugar_g": {
+    "source": "label_mean(n=18)",
+    "value": 2.26
+   },
+   "fibre_g": {
+    "source": "label_mean(n=18)",
+    "value": 0.07
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"000045\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.1
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4422008\"]": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "slovenian_meat:14": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "HU00420": {
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 28.9
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 30.0
+   }
+  },
+  "HU00477": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "protein_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "HU00190": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 10.0
+   },
+   "fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.1
+   }
+  },
+  "ciqual:20345": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 5.0
+   },
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.03
+   },
+   "protein_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.9
+   },
+   "fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.2
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4622002\"]": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.1
+   }
+  },
+  "slovenian_meat:2": {
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "slovenian_plant:15": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.6
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.0
+   }
+  },
+  "slovenian_plant:16": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.6
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.6
+   }
+  },
+  "slovenian_meat:39": {
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.0
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.5
+   }
+  },
+  "slovenian_meat:65": {
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   },
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "catalogue:[\"Slovak Food Composition Dataset, 2025\",\"EFSA EU FCDB 2026\",\"4240011\"]": {
+   "sugar_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 4.0
+   },
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 40.0
+   },
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.6
+   }
+  },
+  "HU00331": {
+   "carbs_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.0
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"PC0012\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1.6
+   }
+  },
+  "cofid:15-640": {
+   "fibre_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 2.5
+   }
+  },
+  "catalogue:[\"Italian Food Composition Database CREA AN updated 2024\",\"EFSA EU FCDB 2026\",\"005470\"]": {
+   "saturated_fat_g": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 0.17
+   }
+  },
+  "slovenian_plant:24": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 5.0
+   }
+  },
+  "catalogue:[\"Finnish Food Composition database Fineli 2025\",\"EFSA EU FCDB 2026\",\"33420\"]": {
+   "sodium_mg": {
+    "source": "answers_sheet_2026-11-22",
+    "value": 1100.0
+   }
+  },
+  "cofid:13-086": {
+   "fibre_g": {
+    "source": "mean(ciqual:20501,efsa_iceland:483,slv:879,efsa_serbia:0001888,fineli:34380)",
+    "value": 17.84
+   }
+  },
+  "cofid:14-354": {
+   "saturated_fat_g": {
+    "source": "rule:saturated_fat_at_most_fat_0.5g",
+    "value": 0.0
+   }
+  },
+  "catalogue:[\"Spanish Food Composition Database. BEDCA v.2.1/2025\",\"EFSA EU FCDB 2026\",\"f5a280d6-e4c2-43a5-99f2-81227d00612a\"]": {
+   "sugar_g": {
+    "source": "rule:sugar_at_most_carbs",
+    "value": 0.0
+   }
+  },
+  "slovenian_meat:40": {
+   "carbs_g": {
+    "source": "label_mean(n=22)",
+    "value": 2.18
+   },
+   "sugar_g": {
+    "source": "label_mean(n=22)",
+    "value": 0.81
+   },
+   "fibre_g": {
+    "source": "label_mean(n=22)",
+    "value": 0.56
+   }
+  },
+  "slovenian_meat:38": {
+   "carbs_g": {
+    "source": "label_mean(n=3)",
+    "value": 1.16
+   },
+   "sugar_g": {
+    "source": "label_mean(n=3)",
+    "value": 0.26
+   },
+   "fibre_g": {
+    "source": "label_mean(n=3)",
+    "value": 0.13
+   }
+  },
+  "slovenian_meat:106": {
+   "carbs_g": {
+    "source": "rule:fish_no_carbohydrate",
+    "value": 0.0
+   },
+   "sugar_g": {
+    "source": "rule:fish_no_carbohydrate",
+    "value": 0.0
+   },
+   "fibre_g": {
+    "source": "rule:fish_no_carbohydrate",
+    "value": 0.0
    }
   }
  }

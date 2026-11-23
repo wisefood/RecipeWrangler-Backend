@@ -23,14 +23,7 @@ Configure `.env` from `.env.example` and start the backing services with `docker
 
 | Need | Go to |
 |---|---|
-| Current objective, decisions, next steps | [docs/PLAN.md](docs/PLAN.md) |
-| How analysis works (parsing, weights, nutrition, allergens, time) | [docs/ANALYSIS.md](docs/ANALYSIS.md) |
-| Ingredient-to-composition matching | [docs/MATCHING.md](docs/MATCHING.md) |
-| Recipe adaptation | [docs/ADAPTATION.md](docs/ADAPTATION.md) |
-| Cost | [docs/COST.md](docs/COST.md) |
-| Data sources and provenance | [docs/DATA.md](docs/DATA.md) |
-| Setup, architecture, activation, rollback | [docs/OPERATIONS.md](docs/OPERATIONS.md) |
-| Partner and Living Lab feedback | [docs/feedback/](docs/feedback/) |
+| Project documentation (status, tasks, analysis, matching, adaptation, cost, data, operations) | Kept locally in `docs/`, not tracked |
 | Evaluation data, results and methods | [evaluation/](evaluation/README.md) |
 | Scripts and import order | [scripts/README.md](scripts/README.md), [scripts/import/README.md](scripts/import/README.md) |
 | API and service modules | [api/README.md](src/recipe_wrangler/api/README.md), [services/README.md](src/recipe_wrangler/services/README.md) |

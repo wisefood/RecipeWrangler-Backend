@@ -160,21 +160,6 @@ CLAUDE.md
 # Personal terminal cheatsheet, not project docs
 /INSPECT_DATABASES.md
 
-# Repository documentation kept in Git despite the local docs workspace ignore.
-!/docs/
-/docs/*
-!/docs/PLAN.md
-!/docs/ANALYSIS.md
-!/docs/MATCHING.md
-!/docs/ADAPTATION.md
-!/docs/COST.md
-!/docs/DATA.md
-!/docs/figures/
-!/docs/figures/*.png
-/docs/figures/recipe_profile_distributions.png
-!/docs/OPERATIONS.md
-!/docs/feedback/
-
 # Alembic is the reproducible PostgreSQL schema history.
 !/alembic/
 !/alembic/*.py

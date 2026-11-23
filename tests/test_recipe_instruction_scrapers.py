@@ -2,7 +2,6 @@ from importlib import import_module
 
 from bs4 import BeautifulSoup
 
-from scripts.maintenance.backfill_safefood_instructions import recovered_method
 
 foodhero = import_module("scripts.import.foodhero.export_foodhero_recipes_to_json")
 bestofhungary = import_module("scripts.import.web.scrape_bestofhungary_recipes")
@@ -76,28 +75,6 @@ def test_supervalu_method_accepts_non_list_blocks(monkeypatch):
     assert detail["method_steps"] == [
         "Chop the vegetables.",
         "Simmer until tender.",
-    ]
-
-
-def test_safefood_backfill_recovers_method_but_not_equipment():
-    recipe = {
-        "method": ["Cook the pasta."],
-        "equipment": [
-            "Ingredients",
-            "Method",
-            "100g pasta",
-            "Cook the pasta.",
-            "Add the sauce and stir well.",
-            "Bake until golden.",
-            "Saucepan",
-            "Wooden spoon",
-        ],
-    }
-
-    assert recovered_method(recipe) == [
-        "Cook the pasta.",
-        "Add the sauce and stir well.",
-        "Bake until golden.",
     ]
 
 

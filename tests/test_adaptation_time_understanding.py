@@ -108,38 +108,6 @@ def test_schema_echo_is_rejected_instead_of_used_as_recipe_data(context):
         service.extract_time_understanding(recipe, request=echo_schema)
 
 
-def test_paid_runner_preserves_interrupted_reservation_and_does_not_retry(context, monkeypatch, tmp_path):
-    import hashlib
-    import sys
-    from scripts.instructions import test_openrouter_time as runner
-
-    _, recipe, _, _ = context
-    monkeypatch.setattr(runner, "OUT", tmp_path)
-    monkeypatch.setattr(runner, "load_runtime_env", lambda: None)
-    monkeypatch.setattr(sys, "argv", ["pilot", "smoke"])
-    for name in ("OPENROUTER_API_KEY", "ADAPT_LLM_API_KEY", "ADAPT_LLM_SOURCE",
-                 "ADAPT_LLM_MODEL", "ADAPT_LLM_BASE_URL", "ADAPT_LLM_TIMEOUT"):
-        monkeypatch.setenv(name, "test-only")
-    monkeypatch.setattr(service, "_config", lambda: {"base_url": "https://openrouter.ai/api/v1"})
-    runner.save(tmp_path / "cases.json", [{"recipe": recipe, "expected": {"id": "case"}}])
-    runner.save(tmp_path / "freeze.json", {
-        "cases_sha256": hashlib.sha256((tmp_path / "cases.json").read_bytes()).hexdigest(),
-        "prompt_sha256": hashlib.sha256(service.PROMPT.encode()).hexdigest(),
-    })
-    calls = []
-    def interrupted_client(**kwargs):
-        calls.append(1)
-        raise SystemExit(75)
-    monkeypatch.setattr(runner.openai, "OpenAI", interrupted_client)
-    with pytest.raises(SystemExit):
-        runner.main()
-    ledger = json.loads((tmp_path / "ledger.json").read_text())
-    assert len(ledger) == 1 and ledger[0]["status"] == "reserved"
-    runner.main()
-    assert calls == [1]
-    assert json.loads((tmp_path / "ledger.json").read_text()) == ledger
-
-
 @pytest.fixture
 def phased_recipe(context):
     _, recipe, understanding, _ = context

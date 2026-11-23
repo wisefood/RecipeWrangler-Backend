@@ -213,32 +213,3 @@ def test_state_cues_do_not_treat_outcome_adverbs_as_food_objects():
     _, _, facts, _ = context(["Check chicken is cooked through.", "When cool enough to handle, shred chicken."],
         ["active", "active"])
     assert all(not action.states for action in facts.actions)
-
-
-def test_new_paid_runner_does_not_repeat_an_interrupted_request(monkeypatch, tmp_path):
-    import hashlib
-    import json
-    from pathlib import Path
-    from scripts.instructions import evaluate_time_workflow as runner
-    recipe, _, _, _ = context()
-    monkeypatch.setattr(runner, "OUT", tmp_path)
-    monkeypatch.setattr(runner, "load_runtime_env", lambda: None)
-    for name in ("OPENROUTER_API_KEY", "ADAPT_LLM_API_KEY", "ADAPT_LLM_SOURCE",
-                 "ADAPT_LLM_MODEL", "ADAPT_LLM_BASE_URL", "ADAPT_LLM_TIMEOUT"):
-        monkeypatch.setenv(name, "test-only")
-    monkeypatch.setattr(temporal, "_config", lambda: {"base_url": "https://openrouter.ai/api/v1"})
-    runner.save("cases.json", [dict(group="test", recipe=recipe)])
-    runner.save("freeze.json", dict(cases_sha256=runner.sha(tmp_path / "cases.json"),
-        prompt_sha256=hashlib.sha256(temporal.PROMPT.encode()).hexdigest(),
-        service_sha256=runner.sha(Path(temporal.__file__))))
-    calls = []
-    def interrupted(**kwargs):
-        calls.append(1)
-        raise SystemExit(75)
-    monkeypatch.setattr(runner.openai, "OpenAI", interrupted)
-    with pytest.raises(SystemExit):
-        runner.run(smoke=True)
-    ledger = json.loads((tmp_path / "ledger.json").read_text())
-    assert len(ledger) == 1 and ledger[0]["status"] == "reserved"
-    runner.run(smoke=True)
-    assert calls == [1] and json.loads((tmp_path / "ledger.json").read_text()) == ledger

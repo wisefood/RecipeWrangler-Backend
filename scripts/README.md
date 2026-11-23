@@ -65,13 +65,11 @@ not write until `--apply` or `--write` is supplied.
 |---|---|---|
 | `maintenance/dump_all_lite.py` | Canonical native three-store backup with manifest and counts. | `dumps/local/` |
 | `maintenance/restore_all_lite.py` | Restore a canonical bundle into local stores. | All three stores; destructive |
-| `maintenance/dump_all.py` | Logical API-based fallback dump when native Docker tooling is unsuitable. | `dumps/local/` |
 | `export_sync_bundle.py` | Package selected stores and image assets for transfer. | `dumps/sent/` |
 | `maintenance/reconcile.py` | Detect owner/index drift and optionally repair Elasticsearch projections. | Dry-run default; Elasticsearch with `--apply` |
 | `maintenance/reproject_all_recipes.py` | Rebuild every active Elasticsearch recipe document from Neo4j and PostgreSQL owners. | Elasticsearch |
 | `catalog/build_recipes.py` | Build and atomically activate a versioned recipe index. | Elasticsearch with `--apply` |
 | `catalog/annotate_recipes.py` | Add controlled cuisine, flavour, mood, and related annotations. | Elasticsearch with apply flags |
-| `catalog/dump_mappings.py` | Regenerate checked mapping artefacts from `catalog/es_schema.py`. | Mapping JSON files |
 | `elasticsearch/import_vector_embeddings.py` | Load a validated NDJSON vector collection and move its stable alias. | Elasticsearch |
 | `elasticsearch/restore_recipes_dump.py` | Restore a standalone logical recipe-index dump. | Elasticsearch |
 | `disable_recipes.py` | Soft-disable or re-enable selected recipes in the graph and index. | Dry-run default; Neo4j and Elasticsearch |
@@ -99,15 +97,10 @@ not write until `--apply` or `--write` is supplied.
 | `postgres/import_healthyfoods_to_neo4j.py` | Project imported HealthyFoods profiles into the recipe graph. | Dry-run default; Neo4j with `--write` |
 | `scrape_myplate_nutrition.py` | Fetch MyPlate-published reference nutrition from recipe JSON-LD. | `data/recipes/myplate/` JSON |
 | `import_myplate_nutrition.py` | Load MyPlate-published reference nutrition rows. | PostgreSQL |
-| `compute_myplate_reference_nutriscore.py` | Derive MyPlate reference Nutri-Scores from reference nutrients and weights. | PostgreSQL |
-| `myplate/backfill_myplate_duration.py` | Deterministically extract duration, using an LLM only as fallback. | Dry-run default; source JSON and Neo4j with `--write` |
 | `scrape_safefood_recipes.py` | Fetch the current safefood.net recipe corpus. | `data/recipes/safefood_web/` |
 | `safefood_rcsi.py` | Shared pure helpers for matching RCSI lab records to SafeFood web recipes. | None; library module |
 | `import_safefood_web.py` | Profile and import SafeFood web recipes, including matched RCSI reference rows. | Dry-run default; all three stores with `--write` |
 | `prepare_essrg.py` | Convert the PLANEAT workbook into canonical recipe JSON with CoFID provenance. | `data/recipes/essrg/` JSON |
-| `infer_essrg_serves_time_vllm.py` | Add explicitly marked serving/time estimates to PLANEAT recipe JSON. | `data/recipes/essrg/` JSON/JSONL |
-| `validate_essrg_completeness.py` | Validate required PLANEAT recipe fields before import. | Audit files only |
-| `validate_essrg_ingredients.py` | Validate PLANEAT ingredient IDs, weights, and composition resolution. | Audit files only |
 | `import_planeat.py` | Import prepared PLANEAT recipes and direct CoFID nutrition. | Dry-run default; all three stores with `--write` |
 | `profile_planeat_regions.py` | Build the four regional calculated profiles for PLANEAT recipes. | Dry-run default; PostgreSQL with `--write` |
 | `import_slovenian.py` | Import curated Slovenian recipes and OPKP reference nutrition. | Dry-run default; all three stores with `--write` |
@@ -121,9 +114,6 @@ the order for each current raw-source pipeline.
 
 | Script | Purpose | Writes |
 |---|---|---|
-| `cleanup_non_food_ingredients.py` | Remove equipment and packaging misparsed as food. | Dry-run default; Neo4j with `--apply` |
-| `neo4j/clean_branded_ingredients.py` | Audit and normalize branded ingredients without losing food identity. | Dry-run default; Neo4j with apply flags |
-| `neo4j/llm_split_foodhero_compounds.py` | Repair FoodHero nodes containing multiple concatenated ingredients. | Dry-run default; Neo4j with `--write` |
 | `neo4j/enrich_fato_foodon.py` | Materialize current FATO/FoodOn allergen and consumer-group semantics. | Dry-run default; Neo4j with `--apply` |
 | `neo4j/tag_allergens.py` | Materialize ingredient allergen evidence from ontology and keyword rules. | Neo4j; always writes |
 | `neo4j/classify_vegan_vegetarian.py` | Materialize ingredient and recipe vegan/vegetarian suitability. | Dry-run default; Neo4j with `--apply` |
@@ -131,25 +121,11 @@ the order for each current raw-source pipeline.
 | `tag_gluten_free_options.py` | Derive HealthyFoods gluten-free-option tags from recipe text. | Neo4j by default; `--dry-run` writes only its audit CSV |
 | `facets/tag_diet.py` | Materialize deterministic catalog diet facets. | Dry-run default; Neo4j/Elasticsearch with `--apply` |
 | `facets/tag_nutrition_claims.py` | Materialize EU-threshold nutrition claims. | Dry-run default; Neo4j/Elasticsearch with `--apply` |
-| `backfill_missing_sustainability.py` | Fill null sustainability values from stored current-schema ingredient weights. | PostgreSQL |
-| `postgres/backfill_nutri_score_breakdown.py` | Fill point-level Nutri-Score breakdowns. | Dry-run default; PostgreSQL with `--write` |
-| `postgres/backfill_nutrition_match_confidence.py` | Fill stored composition-match confidence and reasons. | Dry-run default; PostgreSQL with `--write` |
-| `postgres/backfill_profile_derived_fields.py` | Fill missing per-serving totals and derived Nutri-Score fields without LLM calls. | Dry-run default; PostgreSQL with `--write` |
-| `postgres/backfill_weight_trace.py` | Re-derive and store current-source weight provenance with live LLM disabled. | Dry-run default; PostgreSQL with `--write` |
 
 ### Audits, diagnostics, exports, and assets
 
 | Script | Purpose | Writes |
 |---|---|---|
-| `audit_nutrition_matches.py` | Sample and flag suspicious composition-table matches. | Audit CSV only |
-| `validate_profiling.py` | Check profile ranges, provenance, coverage, and reference divergence. | Report only |
-| `test_es_search.py` | Manual deterministic/LLM Elasticsearch search harness. | None |
-| `generate_normalized_parse_analysis.py` | Compare current parser sensitivity outputs. | Analysis artefacts |
-| `export_co2e_per_serving.py` | Export per-recipe and per-source sustainability summaries. | `artifacts/viz/` |
-| `neo4j/export_graph_overview_csvs.py` | Export current-source ingredient, allergen, and tag summaries. | `artifacts/viz/` |
-| `postgres/export_fallback_stats.py` | Export regional composition-table coverage for current sources. | `artifacts/viz/` |
-| `postgres/export_safefood_viz_csvs.py` | Export SafeFood profile/reference comparison data. | `artifacts/viz/` |
-| `postgres/export_source_viz_csvs.py` | Export current source-specific nutrition comparison data. | `artifacts/viz/` |
 | `pricing/generate_base_price_distribution_plot.py` | Generate current cost-catalogue and recipe-category distributions. | Figure artefacts |
 | `generate_recipe_images_grokified.py` | Generate and publish missing recipe images via the configured provider. | Image assets and Neo4j |
 | `generate_safefood_images.py` | Generate local fallback images for SafeFood recipes lacking images. | `data/recipes/irish_safefood/images/` and Neo4j |

@@ -30,6 +30,45 @@ What every mode shares:
 
 Model provider for cost and time: `ADAPT_LLM_SOURCE` (`openrouter` in production, `vllm` locally; model and address `ADAPT_LLM_MODEL`, `ADAPT_LLM_BASE_URL`). With the switch off the row is complete without a model.
 
+## What changed (for someone who saw the first PR description)
+
+| Before | Now |
+|---|---|
+| Separate routes per use: `POST /adapt/small-gain` (nutrition), `/adapt/suggestions`, `/adapt/simulate`, `/adapt/enhance` | One public adaptation route, `GET /{id}/adaptations?mode=&region=`. `/adapt/suggestions`, `/adapt/simulate` and `/adapt/small-gain` are no longer routes; `/adapt/enhance` stays. The old engines stay as internal code. |
+| Sustainability served stored rows only; cost came only through `/adapt/enhance` (0 results); time not exposed | Sustainability, cost and time each have a live engine (`sustainability_live.py`, `cost_live.py`, `time_live.py`) in the same row shape |
+| No user restrictions | Optional `allergens` and `diet` on every mode: the recipe's own lines are checked first, then the swap, with the graph's stored allergen and diet tags as a safety net |
+| Live nutrition took 190 to 235 s | 18 to 60 s: a loop evaluated an expensive call once per metric (fixed), and `matching_compositions_identity` is a new index (alembic `20261120_0012`) |
+| Sustainability live check failed on 6 of 537 recipes (rule labels, parser version) | Fixed in `comparison_store._without_rules`; 537 of 537 load |
+| Graph allergen and diet tags were mixed old versions | Re-run on the live graph on 20 Nov (backup in `backups/graph_tags_20261120/`) |
+
+## Connecting the stored-rows table (read this before deploying)
+
+**Which modes have stored rows.** Nutrition and sustainability. Cost and time have no stored rows and always run live. For nutrition the stored rows are what keeps the answer fast: without one the live engine takes 18 to 60 s per recipe, so a user without allergens or diet gets the stored row in about 0.1 s. Sustainability also has stored rows (2,148), but its live engine answers in a few seconds, so a missing sustainability row is only slower.
+
+**Where.** Table `recipe_adaptations` in the PostgreSQL database `nutrients`, the same database as `nutrients-recipe-profiles` and `matching_compositions`. The API connects with `NUTRITION_HOST`, `NUTRITION_PORT`, `NUTRITION_DB`, `NUTRITION_USER`, `NUTRITION_PASSWORD` (and optionally `NUTRITION_SCHEMA`, default `public`), through `utils/nutrition_postgres.get_engine`. No new environment variable is needed. Locally: container `wisefood-postgres`, host port 5435.
+
+**How to get the table onto the platform database (either way).**
+1. `alembic upgrade head`: creates `recipe_adaptations` (0010), the generated column `is_adapted` (0011) and the `matching_compositions_identity` index (0012). Then load the rows with `scripts/nutrition/load_adaptations.py --apply` and `scripts/sustainability/load_adaptations.py` (dry run by default; they upsert in one transaction and can be repeated).
+2. Or restore `dumps/sent/2026-11-20/nutrients.dump` (27 tables, alembic head `20261120_0012`): it already contains the table, the rows and the index.
+
+**Table.** Primary key `(recipe_id, mode, region)`. Columns: `recipe_id`, `mode` (`nutrition`, `sustainability`, `cost`), `region` (`IE`, `HU`, `SI`, `EU`), `version`, `status` (`adapted`, `no_suggestion`, `not_scored`), `is_adapted` (generated from `status`), `reason_code`, and jsonb `original`, `adapted`, `swap`, `benefit`, `provenance`. `mode` is limited to those three values by a check constraint, which is fine because time is never stored; if time rows are ever stored, the constraint needs a migration.
+
+**What is in it.**
+
+| Mode | Rows | Regions |
+|---|---|---|
+| nutrition | 537 (488 adapted, 49 `no_suggestion`) | the recipe's native region only: IE 308, HU 138, SI 91. `region=EU` has no nutrition row |
+| sustainability | 2,148 | all 537 recipes in IE, HU, SI and EU |
+| cost, time | none | live engine on every call |
+
+**How the API uses it** (`adaptation_row.py`). Look up `(recipe_id, mode, region)`.
+- No `allergens` and no `diet`: return the stored row as it is (`source` is the stored version). When there is none, run the mode's live engine (nutrition 18 to 60 s; sustainability, cost and time a few seconds or less). A `no_suggestion` row returns its sentence as `reason`.
+- With `allergens` or `diet`: nutrition checks the stored swap against the restriction (about 0.2 s, no live search); sustainability, cost and time recompute live. A stored row is never returned unchecked to a restricted user.
+
+**Check after loading.** `select mode, region, status, count(*) from recipe_adaptations group by 1,2,3 order by 1,2,3;` should show nutrition IE 308, HU 138, SI 91 in total and sustainability 537 per region.
+
+**Known staleness.** The stored rows were built before the 23 Nov Nutri-Score update. 6 Living Lab nutrition rows (Irish) changed letter and need regenerating (`analysis/nutri_fill_2026-11-21/living_lab_letter_changes.json`, local). The platform's database needs the rows reloaded after that regeneration.
+
 ## Modes
 
 | Facet | Engine | Public route | State |

@@ -1,5 +1,4 @@
 /data
-/docs
 /FATO_FOODON_NEO4J.md
 /VEGAN_VEGETARIAN_RULES.md
 /RECIPE_COLLECTIONS.md
@@ -89,7 +88,13 @@ CLAUDE.md
 **/SKILL.md
 
 # Hide local docs, notebooks, and one-off reports from repo
-/docs/
+/docs/*
+!/docs/ADAPTATION.md
+!/docs/MATCHING.md
+!/docs/COST.md
+!/docs/DATA.md
+!/docs/OPERATIONS.md
+!/docs/ANALYSIS.md
 /notebooks/
 /RECIPE_DATASETS.md
 /test_foodchat.py
@@ -195,3 +200,11 @@ SECURITY_INCIDENT_*.md
 
 # Temporary Neo4j data written by scripts/maintenance/dump_all_lite.py
 /.neo4j-dump-staging/
+
+# Local-only docs: status log, todo, feedback, figures
+/docs/STATUS.md
+/docs/TODO.md
+/docs/feedback/
+/docs/figures/
+/feedback/
+/figures/

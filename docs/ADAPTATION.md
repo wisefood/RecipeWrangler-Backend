@@ -2,18 +2,44 @@
 
 **Purpose:** what adaptation does today, how each mode works, the API, the rules, the limits and where the code is. Dated progress is in [STATUS.md](STATUS.md), open tasks in [TODO.md](TODO.md), numbers and example recipes in [evaluation/adaptation](../evaluation/adaptation/README.md), scoring methods in [METHODS.md](../evaluation/METHODS.md). Matching, cost prices and analysis are in their own guides ([MATCHING.md](MATCHING.md), [COST.md](COST.md), [ANALYSIS.md](ANALYSIS.md)).
 
-State: 19 November 2026. All results are unsaved drafts; nothing adapted is deployed. Development set: the 537 Living Lab recipes (Curated Irish, Hungarian, Slovenian), each in its native regional profile (IE, HU, SI) plus EU.
+State: 23 November 2026. All four modes answer through one route, `GET /api/v1/recipes/{id}/adaptations?mode=&region=`, with optional `allergens` and `diet`. Development set: the 537 Living Lab recipes (Curated Irish, Hungarian, Slovenian), each in its native regional profile (IE, HU, SI) plus EU. Draft PR #13 (`adaptation-and-matching-fixes`) is open, not merged or deployed.
+
+## The story in one page
+
+Adaptation means: take a recipe, find the one change that helps most on one facet, check that the change is safe for this user, and answer with the changed recipe and a measured benefit. The four facets differ only in what they measure and what they change.
+
+| Facet | What it asks | What changes in the recipe | How the benefit is measured |
+|---|---|---|---|
+| Nutrition | Which ingredient carries the Nutri-Score penalty? | Cut an amount, swap a food, add a vegetable | Nutri-Score letter and points per serving |
+| Sustainability | Which ingredient carries most CO2e? | Swap a food | kg CO2e per serving (AGRIBALYSE) |
+| Cost | Which ingredient carries most of the price? | Swap a food for a cheaper one of the same kind | EUR per serving (reference prices) |
+| Time | Which step waits on a passive step (simmer, boil, bake)? | Start an independent prep step during the wait | Minutes saved, a model estimate |
+
+What every mode shares:
+1. **One answer shape.** `adaptation_row.py` returns a `recipe_adaptations` row (`AdaptationResponse`): `status` (`adapted`, `no_suggestion`, `not_scored`, `not_suitable_for_user`), `reason_code` plus a sentence, `original`, `adapted`, `swap`, `benefit`, `provenance`. Only the engine behind it differs (`MODES` in `adaptation_row.py`).
+2. **Stored row first, live engine second.** Nutrition and sustainability have stored rows (Postgres `recipe_adaptations`); cost and time have none and always run live. A restricted request recomputes live for sustainability, cost and time; for nutrition it checks the stored swap, because the live nutrition engine takes 18 to 60 s.
+3. **Restrictions.** A recipe that already breaks the user's allergens or diet gives `not_suitable_for_user`. A swap that adds an allergen or breaks the diet is refused (`alternatives_add_allergen`).
+4. **Code decides, a model only words.** Every candidate, gate and number is code. A model, when switched on, only chooses between candidates the code already approved (nutrition, cost) or estimates a duration that code then clips (time), and code validates what it writes.
+
+| Facet | Stored rows | Live engine (current time) | Model step | Switch |
+|---|---|---|---|---|
+| Nutrition | 537 (IE 308, HU 138, SI 91) | 18 to 60 s | choice and rewrite (stored rows) | none in the live route |
+| Sustainability | 2,148 (537 by 4 regions) | a few seconds, code-written text | none | none |
+| Cost | none | 0.3 to 2 s | choice and rewrite | `COST_ADAPT_LLM=true` |
+| Time | none | under 1 s, code only | minutes-saved estimate | `TIME_ADAPT_LLM=true` |
+
+Model provider for cost and time: `ADAPT_LLM_SOURCE` (`openrouter` in production, `vllm` locally; model and address `ADAPT_LLM_MODEL`, `ADAPT_LLM_BASE_URL`). With the switch off the row is complete without a model.
 
 ## Modes
 
 | Facet | Engine | Public route | State |
 |---|---|---|---|
-| Nutrition | Rule-based: amount cuts, curated food swaps, extra vegetables or served-with additions (`nutrition_adaptation.py`, `nutrition_swap_rules.py`), then an LLM stage (`nutrition_adaptation_llm.py`) | `POST /api/v1/recipes/{id}/adapt/small-gain` (deterministic part, no LLM) | Frozen 19 Nov: 293 of 537 adapted, 198 enriched, 46 with nothing |
-| Sustainability (CO2e) | Same mechanisms on CO2e (`sustainability_adaptation.py`, `sustainability_swap_rules.py`) | Stored results via `GET /api/v1/recipes/{id}/adaptations` | About 105 adapted; reviewed AGRIBALYSE mapping, section B (fish) not approved |
-| Cost | Controlled pipeline with the cost objective (`service.py`, `impact_objectives.py`) | `POST /api/v1/recipes/{id}/adapt/enhance` with `mode: cost` | 48 recipes with a suggestion |
-| Time | Discovery of passive-step overlaps (`time_understanding.py`, `time_planning.py`, `time_schedule.py`) | None | 49 recipes with a candidate; review required |
+| Nutrition | Rule-based: amount cuts, curated food swaps, extra vegetables or served-with additions (`nutrition_adaptation.py`, `nutrition_swap_rules.py`), then an LLM stage (`nutrition_adaptation_llm.py`) | `GET /adaptations?mode=nutrition` (stored row, restrictions, live engine) | Frozen 19 Nov: 293 of 537 adapted, 198 enriched, 46 with nothing; 488 stored rows 20 Nov |
+| Sustainability (CO2e) | Same mechanisms on CO2e (`sustainability_adaptation.py`, `sustainability_swap_rules.py`, live: `sustainability_live.py`) | `GET /adaptations?mode=sustainability` | 105 adapted of 537; reviewed AGRIBALYSE mapping, section B (fish) not approved |
+| Cost | Top cost contributor, same-category cheaper substitute from the graph, no nutrition re-match (`cost_live.py`, `cost_llm.py`, `service.py`) | `GET /adaptations?mode=cost` | 13 of 100 Irish recipes adapted; swap quality unreviewed |
+| Time | Passive-step overlap found by code, start-only rewrite (`time_live.py`, `time_llm.py`, on `time_understanding.py` and `time_planning.py`) | `GET /adaptations?mode=time` | 7 of 537 adapted; first working version, rows unreviewed |
 
-`EnhancementRequest.mode` accepts `nutrition`, `sustainability` and `cost`. Time is not exposed.
+`EnhancementRequest.mode` (the older `/adapt/enhance` pipeline) accepts `nutrition`, `sustainability` and `cost`; time is not part of it.
 
 ## API
 
@@ -25,7 +51,7 @@ All routes are in `services/adaptation/router.py`, mounted in `api/main.py`.
 | `POST /{id}/adapt/enhance` | Controlled pipeline (below): unsaved draft or explicit evidence gaps. Body: `region`, `mode`, `goal_nutrients`, `constraints`. |
 | (removed 20 Nov) | `POST /{id}/adapt/suggestions` and `POST /{id}/adapt/simulate` are no longer routes; the legacy engine in `service.py` stays internal for the cost pipeline and its tests. |
 
-**One call, one shape.** `GET /{id}/adaptations?mode=&region=` is the only public adaptation route besides `/adapt/enhance`. `adaptation_row.py` returns a `recipe_adaptations`-shaped row (`AdaptationResponse`) for every mode: the stored row, or the mode's engine when nothing is stored (nutrition: the live engine, about 3 minutes, code-written card, `source: live`; sustainability: the live engine, a few seconds; cost: none yet, 404). Only the engines differ per mode.
+**One call, one shape.** `GET /{id}/adaptations?mode=&region=` is the only public adaptation route besides `/adapt/enhance`. `adaptation_row.py` returns a `recipe_adaptations`-shaped row (`AdaptationResponse`) for every mode: the stored row, or the mode's engine when nothing is stored (nutrition: the live engine, about 3 minutes, code-written card, `source: live`; sustainability: the live engine, a few seconds; cost and time: the live engine only, no stored rows). Only the engines differ per mode.
 
 **User restrictions (allergens and diet).** One call for every mode: `GET /{id}/adaptations?mode=&region=` with optional `allergens` (repeated) and `diet` (`vegan`, `vegetarian`, `pescatarian`). Nutrition: the stored row is checked, no live search (about 0.2 s). The recipe's own lines are checked first (`not_suitable_for_user`, `reason_code` `recipe_breaks_user_restriction`, `offending`), then the swapped-in foods with the same gate as the live engine (`restriction_problems`: lexical allergen and diet detection plus the graph's stored ingredient tags); a swap that fails gives `no_suggestion` with `alternatives_add_allergen` and the offending foods, no alternative is searched (the live search takes minutes). A stored `no_suggestion` row has no saved lines, so it is returned as it is with `applied_restrictions`. Sustainability with restrictions is computed live (`sustainability_live.py`, `source: "live"`, title and steps not rewritten). Cost returns 422. The former `POST /adapt/small-gain` is no longer a route: `router.nutrition_adaptation` and `nutrition_adaptation.adapt_active_recipe` remain as the internal live engine (2 to 4 minutes per recipe, 1,500 composition queries) used by the tests and for any future live fallback.
 
@@ -50,11 +76,26 @@ Baseline and candidates use CO2e: AGRIBALYSE factors first, CONCITO only as a fa
 
 ## Cost
 
+**Live route (20 Nov, `cost_live.py`).** `GET /adaptations?mode=cost` runs the older service engine (`service._generate_cost_suggestions`: top cost contributor, same-category cheaper substitute from the graph) on the stored (name, weight) pairs, with no nutrition re-match and no nutri-guard. The changed line reads `original line  ->  use X`; the tip is one code-written sentence with the saving per serving (reference prices, `provenance.flags.indicative`). With `COST_ADAPT_LLM=true` (`cost_llm.py`) a model first chooses the best of up to 3 candidates (a processed product or a dish-changing swap is rejected) and then rewrites the line, title and steps under the nutrition validators; any failure keeps the code card and records `provenance.llm.status`. Reason codes: `no_prices`, `no_substitute_found`, `no_cheaper_option`, `alternatives_add_allergen`, `recipe_breaks_user_restriction`, `no_active_profile`. The thresholds below apply to both routes. The old `/adapt/enhance` cost mode (every ingredient priced, exact matches) still yields 0 results.
+
 Cost uses the controlled pipeline with price evidence from [COST.md](COST.md). A suggestion needs a relative price improvement of at least 10% on the swapped ingredient (`COST_MIN_REDUCTION_PCT`), an ingredient that carries at least 10% of the recipe cost (`COST_MIN_OFFENDER_SHARE`), a saving of at least 5% of the recipe cost (`COST_MIN_RECIPE_SAVING_SHARE`) and at least EUR 0.05 per serving (`COST_MIN_SAVING_PER_SERVING_EUR`), with the shared role filter (all in `service.py`). Price evidence is detailed or base-product; alias and base matches are accepted as labelled estimates, FoodOn group medians are excluded, and both sides must resolve to different products. Two cuts that map to the same base-price proxy cannot show a cut-specific saving. Since 19 November the nutrition guards (grade regression, per-nutrient regression) are switched off for cost (`COST_NUTRITION_GUARDS = False` in `objective_approval.py`) so the facets can be measured separately; nutrient deltas are still reported. Set the flag back to `True` when nutrition and cost are combined.
 
 ## Time
 
-`time_understanding.py` extracts hosted temporal inferences from the steps; `time_planning.py` discovers passive-step overlaps in code only (any passive anchor: simmer, boil, rise, bake) and checks one reviewed window; `time_schedule.py` is a bounded, non-preemptive scheduler under reviewed facts. No minutes are claimed without review; a start-only draft is opt-in. Prep time must not become total time, and summing step durations is not elapsed time. Instruction extraction research (RecipeBERT probe) is in [evaluation/instructions](../evaluation/instructions/README.md).
+**Idea.** Many recipes wait on a passive step (simmer, boil, bake, rise, rest) and then do prep work that could have started during the wait. The adaptation tells the cook to start one such independent step during the wait. It changes the order of work, not the ingredients, so allergens and diet cannot change the result (a recipe that already breaks them is still `not_suitable_for_user`).
+
+**Steps** (`time_live.py`, code only unless the model switch is on):
+1. **Understand the steps** (`time_understanding.py:deterministic_understanding`): split the instructions into fragments, label each passive or active from verbs and "N minutes" text, and link each fragment to the earlier ones it depends on (shared food words, reference words, same step). Over-linking only removes candidates.
+2. **Find overlaps** (`time_planning.py:discover_overlaps`): an anchor is a passive fragment with a stated duration (simmer, boil, bake, roast, rise, soak, rest). A later step is a candidate if nothing in it depends on the anchor. Recipes that already say "while" or "meanwhile" are skipped (`existing_parallelism_requires_baseline_analysis`), as are recipes over 30 steps.
+3. **Tighten candidates** (`time_live.py`): the moved step must start with a prep verb (cut, peel, slice, mix, combine, whisk, sieve and similar), must not refer to cooked output, the oven or the pan (`DEPENDS`), must not be a serving, storing, cooling or note step (`NOT_WORK`), must not itself be passive, must not be the last step, and the wait must be at least 5 minutes. The two word lists came from reading the 48 first-pass candidates of 23 Nov; they will miss other recipes.
+4. **Write the row:** the moved step gets the prefix "Once the preceding roasting stage has started, begin this step: ". Nothing else in the recipe changes. The earlier food-naming clause ("While the potatoes roast") was dropped because it guessed the food wrongly.
+5. **Minutes saved** (`time_llm.py`, only with `TIME_ADAPT_LLM=true`): the recipe text rarely states how long the moved step takes (0 of 48 candidates had it), so code cannot measure the saving. One model call returns a range for the moved step; code accepts it only if 0 < low <= high <= 120 and clips both ends to the wait window's lower bound (the work cannot save more than the wait it runs inside). Without the model, or when it fails, the row stays start-only with no minutes.
+
+**What the row says.** `provenance.flags`: `unreviewed` and `start_only` always, `indicative` when minutes are shown; `provenance.timing` holds the wait window and the work estimate; `provenance.llm.status` is `ok` or `estimate_failed`. The tip says no saving is verified, or "it saves about N to M min (model estimate, indicative)".
+
+**Result (23 Nov).** 537 Living Lab recipes: 7 adapted, 447 no overlap, 69 skipped for existing parallelism, 14 over the size bound. Examples: steaming sprouts for 20 min, so cut the bacon; roasting for 20 min, so slice the chicken. A local-model run on the 48 first-pass candidates gave 48 valid ranges in 41 s (Qwen3-32B-AWQ, one-off exception in AGENTS.md); the filters were tightened afterwards and the estimates were not re-run on the final 7.
+
+**Not built.** `time_schedule.py` (a bounded scheduler for several dishes in one meal) and the reviewed-overlap rewrite (`rewrite_reviewed_overlap`, needs a person's resource and independence review) exist and are tested but are not behind the route. A person's review of the 7 rows is the next step, and the filters are the first thing to loosen after it.
 
 ## Controlled enhancement pipeline (`/adapt/enhance`)
 

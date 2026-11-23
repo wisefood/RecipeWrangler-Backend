@@ -6,6 +6,7 @@ from __future__ import annotations
 from .nutrition_reasons import WHY as NUTRITION_WHY
 from .sustainability_reasons import WHY as SUSTAINABILITY_WHY
 from .cost_reasons import WHY as COST_WHY
+from .time_reasons import WHY as TIME_WHY
 
 
 def _nutrition_live(recipe_id, region, allergens, diet):
@@ -20,6 +21,12 @@ def _cost_live(recipe_id, region, allergens, diet):
     return adapt_active_recipe(recipe_id, region, allergens=allergens, diet=diet, llm=client())
 
 
+def _time_live(recipe_id, region, allergens, diet):
+    from .cost_llm import client
+    from .time_live import adapt_active_recipe
+    return adapt_active_recipe(recipe_id, region, allergens=allergens, diet=diet, llm=client('TIME_ADAPT_LLM'))
+
+
 def _sustainability_live(recipe_id, region, allergens, diet):
     from .sustainability_live import adapt_active_recipe
     return adapt_active_recipe(recipe_id, region, allergens=allergens, diet=diet)
@@ -31,6 +38,7 @@ MODES = {
     'nutrition': (_nutrition_live, False, NUTRITION_WHY),
     'sustainability': (_sustainability_live, True, SUSTAINABILITY_WHY),
     'cost': (_cost_live, True, COST_WHY),
+    'time': (_time_live, True, TIME_WHY),
 }
 
 

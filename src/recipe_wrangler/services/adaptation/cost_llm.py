@@ -19,10 +19,10 @@ CHOICE_SYSTEM = (
 TIP_PROBLEM = re.compile(r'^tip must|^\{benefit\} is a whole clause')  # the tip is written by code, whatever the model writes is dropped
 
 
-def client():
-    """The injected model, or None (code-only text). On when COST_ADAPT_LLM is true; the provider is the adaptation LLM setting shared with the other
+def client(flag='COST_ADAPT_LLM'):
+    """The injected model, or None (code-only text). On when `flag` (COST_ADAPT_LLM; TIME_ADAPT_LLM for time) is true; the provider is the adaptation LLM setting shared with the other
     modes: ADAPT_LLM_SOURCE=openrouter in production (OPENROUTER_API_KEY, ADAPT_LLM_MODEL), vllm for local development (ADAPT_LLM_BASE_URL on 127.0.0.1)."""
-    if os.getenv('COST_ADAPT_LLM', '').strip().lower() not in ('1', 'true', 'yes', 'on'):
+    if os.getenv(flag, '').strip().lower() not in ('1', 'true', 'yes', 'on'):
         return None
     import openai
     from .llm_judge import _llm_config, _request_extra_body

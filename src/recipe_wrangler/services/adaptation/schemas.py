@@ -287,7 +287,7 @@ class AdaptationResponse(BaseModel):
 
     model_config = ConfigDict(extra="allow")
     recipe_id: str
-    mode: Literal["nutrition", "sustainability", "cost"]
+    mode: Literal["nutrition", "sustainability", "cost", "time"]
     region: Region
     version: str
     status: Literal["adapted", "no_suggestion", "not_scored", "not_suitable_for_user"]

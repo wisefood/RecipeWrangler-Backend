@@ -140,12 +140,12 @@ def test_solid_volume_and_powder_basis_are_not_assigned_liquid_density():
     assert stated_weight('mixed vegetables','8 cups mixed vegetables') is None
 
 
-def test_size_qualified_item_mass_is_not_assumed_to_be_group_mass():
-    assert stated_weight('tortillas','8 mini (25g) wholegrain tortillas') is None
-    assert stated_weight('potatoes','4 x large (300g) Sebago potatoes, scrubbed and dried') is None
-    assert stated_weight('pita breads','4 x large (75g) wholemeal pita breads') is None
-    assert stated_weight('potatoes','4 × large (300g) potatoes') is None
-    assert stated_weight('potatoes','4x large (300g) potatoes') is None
+def test_size_qualified_bracket_is_the_line_mass_unless_a_total_would_be_far_too_light():
+    assert stated_weight('chicken thighs','8 small (600g) chicken thighs')['weight_g']==600
+    assert stated_weight('potatoes','4 × large (300g) potatoes')['weight_g']==300  # owner: bracket = same amount in grams
+    assert stated_weight('tortillas','8 mini (25g) wholegrain tortillas')['weight_g']==200
+    assert stated_weight('sebago potatoes','4 x large (300g) Sebago potatoes, scrubbed and dried')['weight_g']==1200
+    assert stated_weight('pita breads','4 x large (75g) wholemeal pita breads')['weight_g']==300
 
 
 def test_structured_dish_mass_is_not_assigned_to_a_component():

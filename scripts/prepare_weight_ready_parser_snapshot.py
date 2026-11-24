@@ -18,6 +18,8 @@ from recipe_wrangler.tools.parse_recipe_tool import (
     restore_explicit_source_measurement,
     restore_greasing_measurement,
     restore_leading_quantity_from_source,
+    restore_sibling_quantity,
+    restore_superscript_fraction_quantity,
     restore_stock_cube_measurement,
     restore_whole_bird_name,
 )
@@ -95,6 +97,13 @@ VERIFIED_REPAIRS = {
     ("foodhero_final_parsed.json", "Cucumber, Pineapple and Serrano Chile Salad", "hot peppers", "3.0"): "1.5",
     ("healthyfoods_final_parsed_fixed.json", "Super-quick strawberry brûlées", "strawberries", "3.0 cups"): "1.5 cups",
     ("healthyfoods_final_parsed_fixed.json", "Sweet and spicy fish stir-fry", "basmati rice", "1.0 pouch"): "450.0 g",
+    # Raw scrape glued two lines ("150g crushed arrowroot biscuits 1 cup rolled oats ..."; "1 teaspoon dried mixed or" /
+    # "fresh herbs"): the model took the first number for the second ingredient.
+    ("healthyfoods_remaining_a-n_parsed.json", "Lemon and coconut slice", "rolled oats", "150.0 cup"): "1.0 cup",
+    ("healthyfoods_remaining_a-n_parsed.json", "Mixed vegetable frittata", "mixed herbs", "250.0 teaspoon"): "1.0 teaspoon",
+    # "¹⁄³ cup ... (or other ...)" and "¹⁄³ cup mixed fresh herbs ( ... X , ...)": superscript fraction read as 1.
+    ("healthyfoods_final_parsed_fixed.json", "Salmon quinoa with yoghurt dressing", "Greek yoghurt, feta & dill salad dressing", "1.0 cup"): "0.33 cup",
+    ("healthyfoods_final_parsed_fixed.json", "Sweet potato and beetroot rosti with jalapeno dressing", "mixed fresh herbs", "1.0 cup"): "0.33 cup",
     # Whole bird weight read from the raw source line, not the count or a range end.
     ("safefood_v1_parsed.json", "Roast chicken with lemon, herbs and pepper (dinner)", "chicken", "1.0 kg"): "1.5 kg",
     ("safefood_v1_parsed.json", "Roast chicken with roasted vegetables and potatoes (dinner)", "chicken", "1.0 lb"): "1.5 kg",
@@ -635,6 +644,22 @@ def main() -> int:
                             "reason": "source_leading_quantity",
                         })
                         current["measurement"] = corrected
+                    sibling = restore_sibling_quantity(
+                        str(current.get("measurement") or ""), raw_source_line, source_lines
+                    ) or restore_superscript_fraction_quantity(
+                        str(current.get("measurement") or ""), raw_source_line, str(current.get("name") or "")
+                    )
+                    if sibling is not None:
+                        raw_source_repairs.append({
+                            "source_file": input_path.name,
+                            "recipe_title": recipe.get("title"),
+                            "ingredient": current.get("name"),
+                            "old_measurement": current.get("measurement"),
+                            "new_measurement": sibling,
+                            "source_line": raw_source_line,
+                            "reason": "sibling_line_quantity",
+                        })
+                        current["measurement"] = sibling
                 # A to-season/optional row must not borrow a quantity from a
                 # same-name line ("1 teaspoon of salt") in the raw source.
                 if raw_source_line is not None and not _DISCRETIONARY_NOTE_RE.search(

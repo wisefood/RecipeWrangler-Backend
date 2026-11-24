@@ -55,13 +55,13 @@ def _stale(frozen,names,weights):
         or o['saved_weight_g']!=w for o,n,w in zip(occurrences,names,weights))
 
 
-def backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None):
+def backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None,serves=None):
     with get_engine().connect() as lock:
         # One lock per shard: shards split recipes, so they never write the same profile.
         key='matching_backfill:'+release_id+('' if shards==1 else f':{shard}/{shards}')
         acquired=lock.execute(text('SELECT pg_try_advisory_lock(hashtextextended(:key,0))'),{'key':key}).scalar()
         if not acquired:raise RuntimeError('Another backfill for this release is running')
-        try:return _backfill(release_id,limit,activate,source_evidence,shard,shards,recipe_ids,sources)
+        try:return _backfill(release_id,limit,activate,source_evidence,shard,shards,recipe_ids,sources,serves)
         finally:lock.execute(text('SELECT pg_advisory_unlock(hashtextextended(:key,0))'),{'key':key})
 
 
@@ -71,7 +71,7 @@ FULL_ROW='''SELECT recipe_id,title,source,nutrition_source,
             FROM "nutrients-recipe-profiles"'''
 
 
-def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None):
+def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None,serves_override=None):
     matcher=engine(release_id)
     with get_engine().connect() as c:
         # Keys only up front; each full row (with large debug/trace fields) is read when processed.
@@ -123,11 +123,11 @@ def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,
             originals,frozen=bind_source_lines(names,originals,evidence.get(row['recipe_id']),
                 source_lines.get(row['recipe_id'],[]),weights=weights)
             inputs=recipe_inputs(names,weights,originals,frozen)
-            if done.get(key)==(inputs['quantity_input_hash'],inputs['originals']):continue
+            if done.get(key)==(inputs['quantity_input_hash'],inputs['originals']) and key[0] not in (serves_override or {}):continue
             names=inputs['names'];originals=inputs['originals']
             quantities=[q['quantity_evidence'] for q in inputs['quantities']]
             quality=row['profiling_quality'] or {};trace=row['trace'] or {}
-            serves=quality.get('serves') or trace.get('serves')
+            serves=(serves_override or {}).get(row['recipe_id']) or quality.get('serves') or trace.get('serves')
             # Snapshot old data before any active-run change; reference rows are excluded.
             store.save_run(row['recipe_id'],row['nutrition_source'],None,'legacy_snapshot_complete_v2',
                 {'profile':row},row)
@@ -157,8 +157,9 @@ if __name__=='__main__':
     p.add_argument('--source-evidence',type=Path)
     p.add_argument('--recipe-ids',type=Path,help='File with one recipe_id per line; default all')
     p.add_argument('--sources',help='Comma-separated nutrition sources; default eu,irish,hungarian,slovenian')
+    p.add_argument('--serves',action='append',default=[],help='RECIPE_ID=SERVINGS override (repeatable)')
     p.add_argument('--shard',type=int,default=0);p.add_argument('--shards',type=int,default=1)
     a=p.parse_args()
     if not 0<=a.shard<a.shards:p.error('--shard must be in [0, --shards)')
     backfill(a.release_id,a.limit,a.activate,a.source_evidence,a.shard,a.shards,
-        a.recipe_ids.read_text().split() if a.recipe_ids else None,a.sources.split(',') if a.sources else None)
+        a.recipe_ids.read_text().split() if a.recipe_ids else None,a.sources.split(',') if a.sources else None,{k:float(v) for k,v in (x.split('=') for x in a.serves)})

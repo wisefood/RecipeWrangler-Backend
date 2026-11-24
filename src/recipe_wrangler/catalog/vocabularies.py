@@ -456,7 +456,6 @@ MOODS: tuple[str, ...] = (
 # every slot and the member is told no meals exist. Publishing the list is what
 # lets a caller avoid that.
 PLANNING_TAGS: tuple[str, ...] = (
-    "30_minutes_or_less",     # 2809
     "healthy_and_nutritious", # 2535
     "high_protein",           # 1676
     "low_fat",                # 1081

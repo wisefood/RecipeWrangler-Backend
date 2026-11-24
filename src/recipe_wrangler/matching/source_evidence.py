@@ -91,9 +91,16 @@ def stated_weight(name: str, line: str, *, source_name: str | None = None) -> di
     spaced=re.sub(r'(?<=\d)(?=[¼½¾⅓⅔⅛⅜⅝⅞])',' ',line)
     text=_normalize_fraction_text(spaced).strip().casefold()
     if text.count('(')!=text.count(')'):return None
+    text=re.sub(r'\(\s*or\b[^)]*\)','',text).strip()  # "(or 3x 400g tins)" offers an alternative, not a second amount
     pack=_stated_pack_or_total_mass(name,text)
     if pack and 0<pack<=10000:
         return {'weight_g':pack,'kind':'explicit_source_mass','source_line':line}
+    # "8 small (600g) chicken thighs": the bracket is the line's mass in grams; the shared
+    # parser rule only reads it per piece when a total would be far too light ("4 small (50g) eggs").
+    if re.match(r'^\d+\s*(?:[x×]\s*)?(?:mini|small|medium|large|individual)\s*\(',text) and any(word[:4] in text for word in re.findall(r'[a-z]+',name.casefold())):
+        from recipe_wrangler.tools.parse_recipe_tool import _bracket_total_mass
+        mass=_bracket_total_mass(text,'1',name)
+        return {'weight_g':mass,'kind':'explicit_source_mass','source_line':line} if mass and 0<mass<=10000 else None
     # Structured source identities must denote the same complete food. A dish
     # mass cannot be borrowed for one component merely sharing a name token.
     if source_name is not None:
@@ -103,9 +110,6 @@ def stated_weight(name: str, line: str, *, source_name: str | None = None) -> di
         identity_name = _quantity_identity_name(_normalize_fraction_text(name))
         source_identity = _quantity_identity_name(_normalize_fraction_text(source_name))
         if compare_identities(identity_name,source_identity).relation not in {'exact','synonym','likely_equivalent'}:return None
-    # Size-qualified item parentheses usually describe one item, not the group.
-    # Without "total" evidence, retain the saved amount rather than guessing.
-    if re.match(r'^\d+\s*(?:[x×]\s*)?(?:mini|small|medium|large|individual)\s*\(',text):return None
     # This compound catalogue label denotes one reconstituted liquid, not a
     # choice between separately quantified ingredients. Preserve all other ORs.
     reconstituted=bool(re.fullmatch(r'broth or stock,\s*(?:beef|chicken|vegetable),\s*dehydrated and reconstituted',name.strip(),re.I))
@@ -131,7 +135,7 @@ def stated_weight(name: str, line: str, *, source_name: str | None = None) -> di
     match=re.match(r'^('+_NUMBER+r')\s*(ml|millilitres?|milliliters?|litres?|liters?|l|cups?|tablespoons?|tbsp|teaspoons?|tsp)\b',text)
     if not match:return None
     density=_liquid_density_for_name(name)
-    if re.search(r'\b(?:powder|granules?|cubes?)\b',text) and not re.search(r'\b(?:powder|granules?|cubes?)\b',name,re.I):
+    if re.search(r'\b(?:powder(?:ed)?|granules?|cubes?)\b',text) and not re.search(r'\b(?:powder(?:ed)?|granules?|cubes?)\b',name,re.I):
         return None
     # shortcut: solid-volume recovery covers dry rolled oats; expand only with
     # explicit food/state contracts rather than a generic vegetable cup density.

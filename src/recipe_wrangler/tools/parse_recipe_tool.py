@@ -2,6 +2,7 @@
 
 from typing import Any, List, Optional
 import logging
+import math
 import os
 import re
 import unicodedata
@@ -893,6 +894,75 @@ def restore_leading_quantity_from_source(measurement: str, source_line: str, dis
     return f"{_format_quantity(quantity)} {source_unit}"
 
 
+_SUPERSCRIPT_LEAD_RE = re.compile(r"\s*\d*[⁰¹²³⁴⁵⁶⁷⁸⁹₀-₉]+[⁄/][⁰¹²³⁴⁵⁶⁷⁸⁹₀-₉]+")
+
+
+def restore_superscript_fraction_quantity(measurement: str, source_line: str, name: str) -> str | None:
+    """Read a line that leads with a superscript fraction ("¹⁄³ cup jalapeños").
+
+    The model reads these as a whole number ("1 cup", "2 cup"), and its own
+    ``display`` repeats the mistake, so the display-agreement check in
+    ``restore_leading_quantity_from_source`` cannot confirm the line. The
+    evidence used instead: the line is one of the few spellings the model gets
+    wrong, it uses the parsed unit, and the ingredient name is in the line.
+    """
+    parsed = _MEASUREMENT_QTY_UNIT_RE.match(str(measurement or ""))
+    text = str(source_line or "").casefold()
+    if not parsed or not _SUPERSCRIPT_LEAD_RE.match(text) or _RANGE_OR_COMPOUND_RE.search(text):
+        return None
+    quantity, end = _leading_quantity_value_and_end(text)
+    unit = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_RE.match(text[end:])
+    source_unit = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_ALIASES.get(re.sub(r"\s+", " ", unit.group(1)).strip()) if unit else None
+    parsed_unit = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_ALIASES.get(parsed.group(2).lower())
+    folded = _fold_accents(text)
+    name_tokens = re.findall(r"[a-z]{3,}", _fold_accents(str(name or "").casefold()))
+    if (
+        not quantity or source_unit is None or source_unit != parsed_unit
+        or abs(float(parsed.group(1)) - quantity) <= max(0.01, quantity * 0.03)
+        or not name_tokens or not all(t.removesuffix("s") in folded for t in name_tokens)
+    ):
+        return None
+    return f"{_format_quantity(quantity)} {source_unit}"
+
+
+def restore_sibling_quantity(measurement: str, source_line: str, source_lines: List[str]) -> str | None:
+    """Undo a quantity the parser copied from a sibling line.
+
+    A recipe that lists the same ingredient twice ("125g spread" and "1 tablespoon
+    spread") sometimes comes back as "125 tablespoon": the number of one line with
+    the unit of the other. The line-leading quantity guard cannot see it, because
+    the parser's ``display`` repeats the same wrong value. Here the evidence is
+    narrower and does not rely on ``display``: the assigned line leads with
+    "<qty> <unit>" in the parsed unit, the parsed quantity is at least ten times
+    larger, and it equals the leading quantity of another line that carries a
+    different unit. Small differences stay out: they are sums, conversions or a
+    neighbouring line, which a number match cannot tell apart.
+    """
+    parsed = _MEASUREMENT_QTY_UNIT_RE.match(str(measurement or ""))
+    if not parsed or _RANGE_OR_COMPOUND_RE.search(source_line or ""):
+        return None
+
+    def leading(line: str) -> tuple[float | None, str | None]:
+        text = str(line or "").casefold().replace("⁄", "/")
+        quantity, end = _leading_quantity_value_and_end(text)
+        unit = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_RE.match(text[end:]) if quantity is not None else None
+        alias = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_ALIASES.get(re.sub(r"\s+", " ", unit.group(1)).strip()) if unit else None
+        return quantity, alias
+
+    quantity, unit = leading(source_line)
+    parsed_unit = _SOURCE_EXPLICIT_MEASUREMENT_UNIT_ALIASES.get(parsed.group(2).lower())
+    parsed_quantity = float(parsed.group(1))
+    if not quantity or unit is None or unit != parsed_unit or parsed_quantity < 10 * quantity:
+        return None
+    for other in source_lines:
+        if other == source_line:
+            continue
+        other_quantity, other_unit = leading(other)
+        if other_quantity is not None and other_unit != unit and abs(other_quantity - parsed_quantity) <= max(0.01, parsed_quantity * 0.03):
+            return f"{_format_quantity(quantity)} {unit}"
+    return None
+
+
 _BOUILLON_NAME_RE = re.compile(r"^(?:low[- ]sodium\s+)?(?:(?:chicken|beef|vegetable|fish)\s+)?bouillon$", re.IGNORECASE)
 _LOW_SODIUM_NOTE_RE = re.compile(r"low[- ]sodium|low[- ]salt|reduced[- ]salt", re.IGNORECASE)
 
@@ -934,6 +1004,60 @@ def restore_greasing_measurement(entry: dict) -> str | None:
     return "1 greasing" if _GREASING_RE.search(text) else None
 
 
+_COUNT_BRACKET_RE = re.compile(
+    r"^\s*(?P<n>(?:\d+\s+)?(?:\d+/\d+|[½⅓⅔¼¾⅛⅜⅝⅞]|\d+(?:\.\d+)?))\s*(?:[x×]\s*)?(?P<unit>(?:(?:extra|very)[ -]+)?(?:mini|small|medium|large|individual|big)"
+    r"|cups?|tablespoons?|tbsp|teaspoons?|tsp)?(?:\s+[a-z-]+){0,4}?\s*\(\s*(?:about|around|approx\.?)?\s*(?P<g>\d+(?:\.\d+)?)\s*(?P<u>kg|g)\b",
+    re.IGNORECASE,
+)
+_VOLUME_UNIT_WORD_RE = re.compile(r"^(?:cups?|tablespoons?|tbsp|teaspoons?|tsp)$", re.IGNORECASE)
+
+
+def _table_weight(name: str, measurement: str) -> float | None:
+    """Reference weight of the count without the bracket; None when the tool cannot say."""
+    from recipe_wrangler.tools.ingredient_weight_tool import ingredient_weight_tool_usda
+
+    try:
+        details = ingredient_weight_tool_usda.invoke(
+            {"ingredient_names": [name], "measurements": [measurement], "return_details": True, "debug": False}
+        )["details"]
+        return float(details[0].get("weight_grams") or 0) or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _bracket_total_mass(display: str, measurement: str, name: str) -> float | None:
+    """"8 small (600g) chicken thighs", "2 cups (400g) beans": a bracket after a count is the same
+    amount in grams, so it is the line's total. Only when one piece of that size is far too light
+    for a count above 1 ("4 small (50g) eggs", pita) and "each" is not stated is it per piece.
+    Also repairs a parser that multiplied count by bracket.
+    """
+    match = _COUNT_BRACKET_RE.match(display)
+    if not match:
+        return None
+    count = _deterministic_quantity(match["n"])
+    if count is None:
+        return None
+    grams = float(match["g"]) * (1000 if match["u"].lower() == "kg" else 1)
+    unit = (match["unit"] or "").lower()
+    volume = bool(_VOLUME_UNIT_WORD_RE.match(unit))
+    parsed = re.match(r"^\s*(\d+(?:\.\d+)?)\s*g\s*$", measurement, re.IGNORECASE)
+    if parsed:
+        if abs(float(parsed[1]) - count * grams) > 0.01 * count * grams or count == 1:
+            return None
+    elif not (_BARE_MEASUREMENT_NUMBER_RE.match(measurement) or _SIZE_MEASUREMENT_RE.match(measurement)
+              or (volume and re.match(r"^\s*\d+(?:\.\d+)?\s*[a-z]+\s*$", measurement, re.IGNORECASE))):
+        return None
+    tail = display[match.end():match.end() + 30]
+    if re.search(r"\b(?:each|apiece|per)\b", tail):
+        return grams * count
+    if count > 1 and not volume and not re.search(r"\btotal\b", tail):
+        table = _table_weight(name, f"{count:g} {unit}".strip())
+        # Flip to per piece only when the total is at least twice too light and one piece fits the reference.
+        if table and grams / table < 0.5 and 0.6 <= grams * count / table <= 1.7:
+            return grams * count
+    return grams
+
+
 def restore_explicit_source_measurement(
     entry: dict, allow_quantity_override: bool = True
 ) -> tuple[str | None, str | None]:
@@ -965,6 +1089,10 @@ def restore_explicit_source_measurement(
     if total and _COUNT_MEASUREMENT_RE.match(measurement):
         grams = float(total.group(1)) * _SOURCE_EACH_MASS_FACTORS[total.group(2).lower()]
         return f"{_format_quantity(grams)} g", "source_total_mass"
+
+    bracket = _bracket_total_mass(display, measurement, str(entry.get("name") or ""))
+    if bracket is not None:
+        return f"{_format_quantity(bracket)} g", "source_bracket_mass"
 
     bare = _BARE_MEASUREMENT_NUMBER_RE.match(measurement)
     sized = _SIZE_MEASUREMENT_RE.match(measurement)
@@ -1479,8 +1607,10 @@ def _parse_simple_quantity(line: str) -> Optional[float]:
         if val2 is not None:
             return (val1 + val2) / 2.0
     return val1
+_SUPERSCRIPT_DIGITS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉", "01234567890123456789")
 _LEADING_QTY_RE = re.compile(
-    r"\s*(?P<whole>\d+)?\s*(?P<uni>[½⅓⅔¼¾⅛⅜⅝⅞])"
+    r"\s*(?P<sup_whole>\d+)?(?P<sup_num>[⁰¹²³⁴⁵⁶⁷⁸⁹₀-₉]+)[⁄/](?P<sup_den>[⁰¹²³⁴⁵⁶⁷⁸⁹₀-₉]+)"
+    r"|\s*(?P<whole>\d+)?\s*(?P<uni>[½⅓⅔¼¾⅛⅜⅝⅞])"
     r"|\s*(?P<int>\d+)\s+(?P<num>\d)/(?P<den>\d)"
     r"|\s*(?P<num2>\d+)/(?P<den2>\d+)"
     r"|\s*(?P<dec>\d+\.\d+)"
@@ -1492,10 +1622,17 @@ def _leading_quantity_value_and_end(text: str) -> tuple:
     """Return (float value, end index of the matched span) for the leading
     quantity of ``text`` — unlike a plain ASCII \\d+ regex, this also
     recognizes unicode fractions ('½ cup', '1 ½ cup') so `display` strings
-    (which often use them) can be corrected, not just `measurement`."""
+    (which often use them) can be corrected, not just `measurement`.
+
+    Superscript fractions ("¹⁄³ cup", "1¹/³ cups", "²/³ cup") are read too."""
     m = _LEADING_QTY_RE.match(text)
     if not m:
         return None, 0
+    if m.group("sup_num"):
+        whole = float(m.group("sup_whole")) if m.group("sup_whole") else 0.0
+        num = float(m.group("sup_num").translate(_SUPERSCRIPT_DIGITS))
+        den = float(m.group("sup_den").translate(_SUPERSCRIPT_DIGITS))
+        return whole + num / den, m.end()
     if m.group("uni"):
         whole = float(m.group("whole")) if m.group("whole") else 0.0
         return whole + float(_UNICODE_FRACTION_VALUES[m.group("uni")]), m.end()
@@ -1721,6 +1858,11 @@ def prepare_entries_for_weights(
             )
             if corrected is not None:
                 current["measurement"] = corrected
+            sibling = restore_sibling_quantity(current["measurement"], line, lines) or restore_superscript_fraction_quantity(
+                current["measurement"], line, current["name"]
+            )
+            if sibling is not None:
+                current["measurement"] = sibling
             if not _DISCRETIONARY_NOTE_RE.search(current.get("note") or ""):
                 recovered, _ = restore_explicit_source_measurement(
                     {**current, "display": line}, allow_quantity_override=False

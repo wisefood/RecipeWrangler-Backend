@@ -6,7 +6,9 @@ Recipes are joined to the graph by URL (never by title). For every matched recip
 ``HAS_INGREDIENT`` (one relationship per parsed row, ``CREATE`` so repeated ingredients are kept) and the
 ``MAPS_TO`` edges of the recipe's ``Ingredients_original`` nodes, carrying the audited deterministic weight and its
 provenance. Shared ``Ingredient`` nodes are reused by name (case-insensitive) so their allergen / FoodOn / cost links
-survive; only genuinely new names create a node. ``Ingredients_original`` nodes are never modified.
+survive; only genuinely new names create a node. ``Ingredients_original`` nodes are never modified here: they are
+joined to the rows by position, so when they differ from the raw scrape the recipe page shows another ingredient's text.
+Such recipes are reported as ``originals_misaligned``; fix them with ``refresh_ingredient_originals.py`` first.
 
 ``--delete-excluded`` removes the excluded recipes (graph node, Elasticsearch document, profile rows).
 
@@ -60,6 +62,21 @@ DATASETS = {
     "supervalu_v3_parsed.json": ("SuperValu", "url", "title"),
     "irishheart_v3_parsed.json": ("Irish Heart Foundation", "url", "title"),
 }
+
+
+_WORDS = re.compile(r"[a-z]{3,}")
+
+
+def same_line(a: str, b: str) -> bool:
+    """Same ingredient line up to scrape noise (an " X" marker, "/ oz" conversions): shared words, not equal text."""
+    wa, wb = set(_WORDS.findall(a.lower())), set(_WORDS.findall(b.lower()))
+    return (not wa and not wb) or bool(wa & wb and len(wa & wb) / min(len(wa), len(wb)) >= 0.6)
+
+
+def misaligned(originals: list[str | None], raw_lines: list[str]) -> bool:
+    return len(originals) != len(raw_lines) or any(
+        not same_line(str(a or ""), b) for a, b in zip(originals, raw_lines)
+    )
 
 
 def _norm_url(url: object) -> str:
@@ -171,6 +188,12 @@ def _first_number(value: object) -> float | None:
     return float(match.group()) if match else None
 
 
+def _servings(value: object) -> float | None:
+    """"1 loaf (16 slices)" is 16 servings, not 1; otherwise the first number."""
+    counted = re.search(r"\(\s*(\d+(?:\.\d+)?)\s*(?:slices?|pieces?|servings?|portions?)\b", str(value or ""), re.IGNORECASE)
+    return float(counted.group(1)) if counted else _first_number(value)
+
+
 def _minutes(value: object) -> float | None:
     """"1 hour 15 minutes" -> 75, "30" -> 30; None when there is no number."""
     text = str(value or "").lower()
@@ -196,7 +219,7 @@ def node_props(source: str, record: dict, recipe_id: str) -> dict:
     instructions = record.get("instructions") or record.get("directions") or []
     if isinstance(instructions, str):
         instructions = [instructions]
-    serves = _first_number(record.get("serves") or record.get("servings") or record.get("recipe_yield") or record.get("makes"))
+    serves = _servings(record.get("serves") or record.get("servings") or record.get("recipe_yield") or record.get("makes"))
     duration = _minutes(record.get("time_minutes") or record.get("duration"))
     if duration is None:
         prep, cook = _minutes(record.get("prep_time")), _minutes(record.get("cook_time"))
@@ -361,6 +384,14 @@ def main() -> None:
                     )
                     continue
                 raw_lines = [str(line) for line in (record or {}).get("ingredients") or []]
+                originals = [
+                    x["t"] for x in session.run(
+                        "MATCH (r:Recipe {recipe_id:$id})-[h:HAS_INGREDIENT_ORIGINAL]->(o) "
+                        "RETURN o.original_text AS t ORDER BY h.position", id=ids[0],
+                    )
+                ]
+                if misaligned(originals, raw_lines):
+                    report.setdefault("originals_misaligned", []).append({"source": source, "recipe_id": ids[0], "title": recipe["title"]})
                 rows = build_rows(recipe, raw_lines)
                 for row in rows:
                     row["name"] = resolve_name(row["name"], index)

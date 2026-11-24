@@ -287,7 +287,8 @@ def export_neo4j(bundle_dir: Path) -> dict[str, Any]:
 
     was_running = _docker_ps(container)
     if was_running:
-        _run(["docker", "stop", container], capture=True)
+        # Default 10 s can kill a large Neo4j mid-shutdown; neo4j-admin then refuses the unclean store.
+        _run(["docker", "stop", "--time", "120", container], capture=True)
 
     try:
         _run(
@@ -422,8 +423,8 @@ def write_metadata(bundle_dir: Path, exported: dict[str, dict[str, Any]]) -> Non
             [
                 "Postgres:",
                 "```bash",
-                f"createdb rag",
-                f"pg_restore -d rag --no-owner --no-privileges postgres/postgres_rag_{bundle_dir.name}.dump",
+                f"createdb {os.getenv('NUTRITION_DB', 'rag')}",
+                f"pg_restore -d {os.getenv('NUTRITION_DB', 'rag')} --no-owner --no-privileges postgres/{Path(exported['postgres']['path']).name}",
                 "```",
                 "",
             ]

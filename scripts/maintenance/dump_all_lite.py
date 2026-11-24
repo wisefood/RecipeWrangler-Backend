@@ -82,9 +82,13 @@ PG = dict(
 
 
 def _docker(*args: str, env: dict | None = None, **kwargs) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["docker", *args], env=env, capture_output=True, check=True, **kwargs
-    )
+    result = subprocess.run(["docker", *args], env=env, capture_output=True, **kwargs)
+    if result.returncode:
+        # Surface the tool's own message; a bare exit status hid every failed neo4j dump.
+        tail = (result.stderr or result.stdout or b"")[-2000:]
+        raise RuntimeError(f"docker {args[0]} failed ({result.returncode}): "
+                           f"{tail.decode(errors='replace') if isinstance(tail, bytes) else tail}")
+    return result
 
 
 # ── Elasticsearch ────────────────────────────────────────────────────────────
@@ -239,6 +243,7 @@ def _staging_start():
     STAGING_DATA_DIR.chmod(0o777)  # the image runs as the neo4j user
     _docker(
         "run", "-d", "--name", STAGING_NAME,
+        "--memory", "16g",  # shared host: the throwaway graph must not take more
         "-e", "NEO4J_AUTH=none",
         "-e", "NEO4J_ACCEPT_LICENSE_AGREEMENT=yes",
         "-e", 'NEO4J_PLUGINS=["apoc"]',
@@ -361,7 +366,8 @@ def dump_neo4j(out: Path) -> dict[str, int]:
         source.close()
 
         logger.info("neo4j: stopping staging and running neo4j-admin database dump")
-        _docker("stop", STAGING_NAME)
+        # Default 10 s can kill Neo4j mid-shutdown; neo4j-admin then refuses the unclean store.
+        _docker("stop", "--time", "120", STAGING_NAME)
         out.chmod(0o777)  # the image runs neo4j-admin as the neo4j user
         _docker(
             "run", "--rm",
@@ -369,7 +375,7 @@ def dump_neo4j(out: Path) -> dict[str, int]:
             "-v", f"{STAGING_DATA_DIR.resolve()}:/data",
             "-v", f"{out.resolve()}:/dumps",
             STAGING_IMAGE,
-            "neo4j-admin", "database", "dump", "neo4j",
+            "neo4j-admin", "database", "dump", "neo4j", "--verbose",
             "--to-path=/dumps", "--overwrite-destination=true",
         )
         dump_path = out / "neo4j.dump"

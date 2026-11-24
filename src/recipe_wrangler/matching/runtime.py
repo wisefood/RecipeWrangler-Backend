@@ -26,7 +26,7 @@ from recipe_wrangler.matching.quantities import recipe_inputs,resolve_quantity,Q
 from recipe_wrangler.matching.reviewed_aliases import BLOCKED_RECORDS,REVIEWED_ALIASES,APPROXIMATE_NAMES,RECORD_FILLS,REVIEWED_SELECTIONS,low_salt_name,preferred_name,stated_state_name,reviewed_record_compatible
 from recipe_wrangler.matching.completeness_repair import eligible_record, choose_complete_record, label_key
 
-VERSION='occurrence_matching_v49_last_fills'
+VERSION='occurrence_matching_v51_sibling_superscript_quantity_repairs'
 CURRENT_NATIONAL_TABLE=nm.CURRENT_NATIONAL_TABLE
 ROOT=Path(__file__).resolve().parents[3]
 ASSETS={

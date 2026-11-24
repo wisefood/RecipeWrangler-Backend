@@ -432,6 +432,8 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
             # Satay/saté sauce is peanut-based; recipes often name the dish
             # without ever listing "peanut" as an ingredient.
             "satay", "sate", "saté", "mole sauce", "mole paste",
+            # A generic "nuts" or "nut butter" may be peanut: treat it as present.
+            "nut", "mixed nuts",
         ],
     },
     "tree_nut": {
@@ -598,8 +600,8 @@ ALLERGEN_DETECTION_RULES: dict[str, dict[str, list[str]]] = {
 ALLERGEN_POSSIBLE_KEYWORDS: dict[str, list[str]] = {
     "milk": ["pesto", "dark chocolate", "spread", "stock", "broth"],
     "egg": ["aioli", "stock", "broth"],
-    "peanut": ["mole sauce", "mole paste", "nut", "mixed nuts"],
-    "tree_nut": ["nut", "mixed nuts", "romesco", "praline", "pesto"],
+    "peanut": ["mole sauce", "mole paste"],
+    "tree_nut": ["romesco", "praline", "pesto"],
     "wheat": ["soy sauce", "stock", "broth", "tortilla"],
     "gluten": ["soy sauce", "stock", "broth", "tortilla", "modified food starch"],
     "fish": ["caesar dressing"],

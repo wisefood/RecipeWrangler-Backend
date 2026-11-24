@@ -4,7 +4,7 @@ HOST ?= 127.0.0.1
 PORT ?= 8001
 MATCHING_RELEASE ?= 2026-10-27-v11
 
-.PHONY: all build push help api dump-all dump-neo4j dump-postgres dump-elasticsearch dump-assets tag-dish-types
+.PHONY: all build push help api dumps dump-all dump-neo4j dump-postgres dump-elasticsearch dump-assets tag-dish-types
 
 TIMESTAMP ?= $(shell date -u +%Y%m%d_%H%M%S)
 
@@ -27,6 +27,7 @@ help:
 	  '  make api PORT=8002' \
 	  '' \
 	  'Timestamped sync dumps under data_to_send/dumps/<timestamp>/:' \
+	  '  make dumps   (stop API, dump all stores to dumps/sent/<YYYY-MM-DD>, restart)' \
 	  '  make dump-all' \
 	  '  make dump-neo4j' \
 	  '  make dump-postgres' \
@@ -42,6 +43,14 @@ help:
 
 api:
 	PYTHONPATH=src uv run uvicorn recipe_wrangler.api.main:app --reload --host "$(HOST)" --port "$(PORT)"
+
+API_CONTAINER ?= recipe-wrangler-api
+DUMP_DATE ?= $(shell date +%F)
+
+# Neo4j is stopped and restarted by export_sync_bundle.py itself (a native dump needs it stopped).
+# The API is stopped so nothing writes during the dump, and restarted even if the dump fails.
+dumps:
+	./scripts/maintenance/make_dumps.sh "$(API_CONTAINER)" "$(DUMP_DATE)"
 
 dump-all:
 	uv run python scripts/export_sync_bundle.py --timestamp "$(TIMESTAMP)"

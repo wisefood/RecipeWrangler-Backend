@@ -182,3 +182,14 @@ def test_broad_economic_alias_is_not_composition_evidence(name, foodon_id, label
 ])
 def test_parenthetical_preparation_does_not_separate_optional_from_food(name, allergen):
     assert _allergen_keyword_evidence(name, allergen)[1] == 'possible'
+
+
+@pytest.mark.parametrize('name', ['nuts', 'mixed nuts', 'chopped nuts', 'nut butter', 'nut roast'])
+@pytest.mark.parametrize('allergen', ['peanut', 'tree_nut'])
+def test_generic_nut_words_contain_both_nut_allergens(name, allergen):
+    assert _allergen_keyword_evidence(name, allergen)[1] == 'contains'
+
+
+@pytest.mark.parametrize('name', ['nutmeg', 'butternut squash', 'coconut', 'pine nuts'])
+def test_nut_lookalikes_are_not_nut_hits(name):
+    assert _allergen_keyword_evidence(name, 'tree_nut')[0] == []

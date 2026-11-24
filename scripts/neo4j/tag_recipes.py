@@ -282,26 +282,6 @@ def _tag_pescatarian(
         return int(result.single()["tagged"])
 
 
-def _tag_30_minutes_or_less(driver) -> int:
-    with driver.session() as session:
-        session.run(
-            'MATCH (:Recipe)-[rel:HAS_TAG]->(:Tag {name: "30_minutes_or_less"}) '
-            "DELETE rel"
-        ).consume()
-    query = """
-    MATCH (r:Recipe)
-    WITH r, coalesce(r.duration, r.total_time, r.duration_min) AS minutes
-    WHERE minutes IS NOT NULL AND minutes <= 30
-    MERGE (t:Tag {name: "30_minutes_or_less"})
-    SET t.category = "time"
-    MERGE (r)-[:HAS_TAG]->(t)
-    RETURN count(distinct r) AS tagged
-    """
-    with driver.session() as session:
-        result = session.run(query)
-        return int(result.single()["tagged"])
-
-
 def _tag_five_ingredients_or_less(driver) -> int:
     query = """
     MATCH (r:Recipe)
@@ -338,7 +318,6 @@ def main() -> None:
             "vegan",
             "vegetarian_or_vegan",
             "pescatarian",
-            "30_minutes_or_less",
             "5_ingredients_or_less",
         ],
         help="Only rebuild the selected recipe tags (default: all).",
@@ -563,7 +542,6 @@ def main() -> None:
                     pescatarian_exclude_ingredient_keywords,
                 ),
             ),
-            ("30_minutes_or_less", lambda: _tag_30_minutes_or_less(driver)),
             ("5_ingredients_or_less", lambda: _tag_five_ingredients_or_less(driver)),
         ]
         if args.tags:

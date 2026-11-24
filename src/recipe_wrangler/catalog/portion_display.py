@@ -106,16 +106,49 @@ def generated_display_text(
     return f"{count} {unit}", "reviewed_portion_reference_v1"
 
 
+def _forms(token: str) -> set[str]:
+    return {token, token.removesuffix("s"), token.removesuffix("es")}
+
+
+def _covers(name: str, text: object) -> bool:
+    text_forms = set().union(*(_forms(t) for t in _TOKEN_RE.findall(str(text or "").casefold())))
+    tokens = _TOKEN_RE.findall(str(name or "").casefold())
+    return all(_forms(t) & text_forms for t in tokens)
+
+
+def usable_source_texts(names: list[str], texts: list[object]) -> list[object]:
+    """Drop an original line that is another ingredient's.
+
+    The original line is joined to a parsed row by position. If the stored originals
+    do not match the scrape the parser read, every row after the first difference
+    shows its neighbour's text ("onion" under "4 ounces or"). A line is dropped
+    only when it does not name the ingredient and a line within two places does,
+    so lines that legitimately omit the name ("2 eggs" for "chicken egg") stay.
+    """
+    usable: list[object] = []
+    for k, text in enumerate(texts):
+        shifted = (
+            text and not _covers(names[k], text)
+            and any(
+                texts[j] and _covers(names[k], texts[j])
+                for j in (k - 2, k - 1, k + 1, k + 2) if 0 <= j < len(texts)
+            )
+        )
+        usable.append(None if shifted else text)
+    return usable
+
+
 def authored_display_text(display: object, ingredient_name: str) -> str | None:
     """Turn the parser's display fragment into one non-duplicated full line."""
-    text = " ".join(str(display or "").split())
+    text = re.sub(r"(?<![\d.])(\d+)\.0(?!\d)", r"\1", " ".join(str(display or "").split()))
     name = " ".join(str(ingredient_name or "").split())
     if not text:
         return None
-    name_tokens = set(_TOKEN_RE.findall(name.casefold()))
-    text_tokens = set(_TOKEN_RE.findall(text.casefold()))
-    if name_tokens and name_tokens <= text_tokens:
-        return text
+    name_tokens = _TOKEN_RE.findall(name.casefold())
+    text_forms = set().union(*(_forms(t) for t in _TOKEN_RE.findall(text.casefold())))
+    if name_tokens and all(_forms(t) & text_forms for t in name_tokens):
+        single = re.fullmatch(r"1 (\w+?)s", text)
+        return f"1 {single[1]}" if single and single[1] in name_tokens else text
     return f"{text} {name}".strip()
 
 

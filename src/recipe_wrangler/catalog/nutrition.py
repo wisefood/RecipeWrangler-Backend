@@ -262,6 +262,9 @@ def per_serving(
     """
     if not raw:
         return None
+    # An explicitly unavailable per-serving result must never display batch totals.
+    if 'total_nutrients_per_serving' in raw and raw['total_nutrients_per_serving'] is None:
+        return None
 
     nutrients = raw.get("total_nutrients_per_serving")
     divisor = 1.0

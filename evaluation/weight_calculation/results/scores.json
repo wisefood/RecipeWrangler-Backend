@@ -1,0 +1,936 @@
+{
+ "fineli_348_deterministic_6nov": {
+  "errors": [],
+  "seconds": 44.2,
+  "current": {
+   "legacy": {
+    "cases": 348,
+    "answered": 262,
+    "within20": 150,
+    "outside20": 112,
+    "unresolved": 86
+   },
+   "structured": {
+    "cases": 348,
+    "answered": 60,
+    "within20": 31,
+    "outside20": 29,
+    "unresolved": 288
+   }
+  },
+  "baseline": {
+   "legacy_previous": {
+    "cases": 348,
+    "answered": 264,
+    "within20": 150,
+    "outside20": 114,
+    "unresolved": 84
+   },
+   "legacy_updated": {
+    "cases": 348,
+    "answered": 263,
+    "within20": 150,
+    "outside20": 113,
+    "unresolved": 85
+   },
+   "structured": {
+    "cases": 348,
+    "answered": 60,
+    "within20": 31,
+    "outside20": 29,
+    "unresolved": 288
+   }
+  },
+  "changed_cases": {
+   "legacy_previous": 17,
+   "legacy_updated": 5,
+   "structured": 0
+  },
+  "legacy_by_match_type": {
+   "unresolved": {
+    "cases": 86,
+    "within20": 0
+   },
+   "common_unit_reference_fallback": {
+    "cases": 64,
+    "within20": 28
+   },
+   "usda_cup_density_fallback": {
+    "cases": 52,
+    "within20": 27
+   },
+   "liquid_density_volume_fallback": {
+    "cases": 34,
+    "within20": 34
+   },
+   "reviewed_cup_density_fallback": {
+    "cases": 32,
+    "within20": 20
+   },
+   "usda_explicit_size_reference": {
+    "cases": 28,
+    "within20": 8
+   },
+   "density_fallback": {
+    "cases": 20,
+    "within20": 14
+   },
+   "generic_spoon_convention": {
+    "cases": 15,
+    "within20": 11
+   },
+   "reviewed_item_weight_fallback": {
+    "cases": 10,
+    "within20": 3
+   },
+   "reviewed_european_size_reference": {
+    "cases": 5,
+    "within20": 4
+   },
+   "water_like_volume_fallback": {
+    "cases": 1,
+    "within20": 1
+   },
+   "weight_name_portion_fallback": {
+    "cases": 1,
+    "within20": 0
+   }
+  }
+ },
+ "fineli_348_with_llm_fallback_5nov": {
+  "status": "complete",
+  "model": "openai/gpt-4o-mini",
+  "unique_requests": 365,
+  "http_attempts": 365,
+  "successful_numeric_responses": 365,
+  "cost_usd": 0.02104290000000003,
+  "cost_basis_counts": {
+   "provider": 365
+  },
+  "prompt_tokens": 138774,
+  "completion_tokens": 378,
+  "request_seconds_total": 249.93399999999983,
+  "metrics": {
+   "legacy": {
+    "cases": 348,
+    "answered": 347,
+    "unresolved": 1,
+    "within20": 160,
+    "outside20": 187,
+    "origin_counts": {
+     "deterministic": 264,
+     "llm": 83,
+     "unresolved": 1
+    },
+    "median_absolute_percentage_error_answered": 0.23,
+    "mean_absolute_error_grams_answered": 187.5271009790398,
+    "llm_only": {
+     "answered": 83,
+     "within20": 10
+    }
+   },
+   "structured": {
+    "cases": 348,
+    "answered": 347,
+    "unresolved": 1,
+    "within20": 144,
+    "outside20": 203,
+    "origin_counts": {
+     "deterministic": 60,
+     "llm": 287,
+     "unresolved": 1
+    },
+    "median_absolute_percentage_error_answered": 0.33125,
+    "mean_absolute_error_grams_answered": 168.34481693600358,
+    "llm_only": {
+     "answered": 287,
+     "within20": 113
+    }
+   }
+  },
+  "production_default_changed": false,
+  "caveat": "Development reference agreement, not independently weighed or held-out accuracy. Frozen deterministic replay, unresolved-only fallback, no low-confidence replacement."
+ },
+ "corpus_energy_by_weight_source_6nov": {
+  "recipes": 7743,
+  "lines": 77384,
+  "joined_lines": 77379,
+  "corpus": {
+   "stated mass": {
+    "lines": 13485,
+    "lines_pct": 17.4,
+    "energy_pct": 42.7
+   },
+   "volume density": {
+    "lines": 25632,
+    "lines_pct": 33.1,
+    "energy_pct": 28.9
+   },
+   "count/item reference": {
+    "lines": 32833,
+    "lines_pct": 42.4,
+    "energy_pct": 25.3
+   },
+   "no stored label": {
+    "lines": 2717,
+    "lines_pct": 3.5,
+    "energy_pct": 3.0
+   },
+   "minimal/default": {
+    "lines": 2699,
+    "lines_pct": 3.5,
+    "energy_pct": 0.0
+   },
+   "offline reference": {
+    "lines": 13,
+    "lines_pct": 0.0,
+    "energy_pct": 0.0
+   },
+   "not joined": {
+    "lines": 5,
+    "lines_pct": 0.0,
+    "energy_pct": 0.0
+   }
+  },
+  "corpus_match_type_energy_pct": {
+   "direct_mass": 39.8,
+   "common_unit_reference_fallback": 23.8,
+   "liquid_density_volume_fallback": 13.8,
+   "usda_cup_density_fallback": 9.0,
+   "reviewed_cup_density_fallback": 5.6,
+   "null": 3.0,
+   "direct": 2.8,
+   "reviewed_item_weight_fallback": 1.4,
+   "water_like_volume_fallback": 0.5,
+   "direct_mass_edible_yield": 0.2,
+   "generic_spoon_convention": 0.1,
+   "fda_reference_portion_fallback": 0.0,
+   "blank_quantity_default": 0.0,
+   "to_taste_min": 0.0,
+   "offline_reference_dataset": 0.0,
+   "not joined": 0.0,
+   "herb_pinch_fallback": 0.0,
+   "non_food_ingredient_minimal": 0.0
+  },
+  "recipes_with_energy": 7737,
+  "median_recipe_energy_share_pct": {
+   "count/item reference": 18.4,
+   "stated mass": 36.2,
+   "volume density": 22.2,
+   "minimal/default": 0,
+   "no stored label": 0,
+   "offline reference": 0,
+   "not joined": 0
+  },
+  "recipes_over_half_energy_from": {
+   "count/item reference": 1613,
+   "stated mass": 2862,
+   "volume density": 1811,
+   "minimal/default": 2,
+   "no stored label": 300,
+   "offline reference": 0,
+   "not joined": 0
+  },
+  "by_source_energy_pct": {
+   "The Hungary Soul": {
+    "volume density": 48.3,
+    "stated mass": 29.3,
+    "count/item reference": 22.3,
+    "minimal/default": 0.0
+   },
+   "HealthyFoods": {
+    "stated mass": 44.4,
+    "volume density": 28.4,
+    "count/item reference": 26.4,
+    "no stored label": 0.8,
+    "minimal/default": 0.0,
+    "offline reference": 0.0,
+    "not joined": 0.0
+   },
+   "Curated Slovenian Recipes": {
+    "no stored label": 100.0
+   },
+   "FoodHero": {
+    "volume density": 50.7,
+    "count/item reference": 24.9,
+    "stated mass": 24.4,
+    "minimal/default": 0.0
+   },
+   "Irish Heart Foundation": {
+    "stated mass": 61.3,
+    "count/item reference": 21.7,
+    "volume density": 16.9,
+    "minimal/default": 0.1,
+    "offline reference": 0.0
+   },
+   "MyPlate": {
+    "volume density": 42.4,
+    "count/item reference": 31.4,
+    "stated mass": 24.9,
+    "no stored label": 1.2,
+    "minimal/default": 0.0
+   },
+   "Curated Irish Recipes": {
+    "stated mass": 62.3,
+    "count/item reference": 25.2,
+    "volume density": 12.5,
+    "minimal/default": 0.0,
+    "offline reference": 0.0
+   },
+   "SuperValu": {
+    "stated mass": 53.3,
+    "volume density": 26.7,
+    "count/item reference": 19.9,
+    "minimal/default": 0.0
+   },
+   "Slovenian Kitchen": {
+    "stated mass": 79.5,
+    "volume density": 12.5,
+    "count/item reference": 7.9,
+    "minimal/default": 0.1
+   },
+   "Best of Hungary": {
+    "stated mass": 65.3,
+    "volume density": 17.3,
+    "count/item reference": 17.1,
+    "minimal/default": 0.3
+   },
+   "Curated Hungarian Recipes": {
+    "no stored label": 99.9,
+    "not joined": 0.1
+   }
+  },
+  "living_labs_current_legacy": {
+   "stated mass": {
+    "lines": 1973,
+    "lines_pct": 71.6,
+    "energy_pct": 88.4
+   },
+   "count/item reference": {
+    "lines": 451,
+    "lines_pct": 16.4,
+    "energy_pct": 6.2
+   },
+   "volume density": {
+    "lines": 266,
+    "lines_pct": 9.6,
+    "energy_pct": 4.9
+   },
+   "LLM": {
+    "lines": 6,
+    "lines_pct": 0.2,
+    "energy_pct": 0.5
+   },
+   "minimal/default": {
+    "lines": 60,
+    "lines_pct": 2.2,
+    "energy_pct": 0.0
+   },
+   "offline reference": {
+    "lines": 1,
+    "lines_pct": 0.0,
+    "energy_pct": 0.0
+   }
+  },
+  "living_labs_llm_lines": [
+   [
+    "4aba46d2-99a2-5958-b4c6-fd30deec123e",
+    "chicken fillets",
+    "2.0",
+    "fillet",
+    300.0,
+    330.0
+   ],
+   [
+    "6fecad6e-2838-5e96-8d3f-1b07e9b2413c",
+    "buttermilk",
+    "275.0",
+    "ml",
+    270.0,
+    81.0
+   ],
+   [
+    "60dad7f2-7d2a-59a2-a9e4-a3e1d1e69af6",
+    "chicken breast fillets",
+    "2.0",
+    "fillet",
+    300.0,
+    330.0
+   ],
+   [
+    "641ac291-de14-520c-b590-d5ad637945be",
+    "chicken fillets",
+    "2.0",
+    "fillet",
+    300.0,
+    330.0
+   ],
+   [
+    "f8a45196-45cb-561a-b1bf-100ba19d45a4",
+    "chicken fillets",
+    "2.0",
+    "fillet",
+    300.0,
+    330.0
+   ],
+   [
+    "5138e7c3-e4fb-542d-bfdf-45e0826e4a46",
+    "chicken fillets",
+    "2.0",
+    "fillet",
+    300.0,
+    286.0
+   ]
+  ]
+ },
+ "fineli_200_historical_structured_3nov": {
+  "metrics": {
+   "development": {
+    "all": {
+     "cases": 80,
+     "resolved": 66,
+     "unresolved": 14,
+     "coverage_percent": 82.5,
+     "within10": 36,
+     "within20": 47,
+     "within20_percent_all": 58.75,
+     "within20_percent_resolved": 71.21212121212122,
+     "median_absolute_percentage_error_resolved": 7.846153846153847,
+     "mean_absolute_percentage_error_resolved": 21.257837816282187,
+     "mean_absolute_error_grams_resolved": 16.568339806121806,
+     "approximate": 28
+    },
+    "non_spoon": {
+     "cases": 62,
+     "resolved": 49,
+     "unresolved": 13,
+     "coverage_percent": 79.03225806451613,
+     "within10": 23,
+     "within20": 33,
+     "within20_percent_all": 53.225806451612904,
+     "within20_percent_resolved": 67.34693877551021,
+     "median_absolute_percentage_error_resolved": 12.517580872011251,
+     "mean_absolute_percentage_error_resolved": 26.15801495683411,
+     "mean_absolute_error_grams_resolved": 22.051336540717926,
+     "approximate": 23
+    }
+   },
+   "heldout": {
+    "all": {
+     "cases": 120,
+     "resolved": 69,
+     "unresolved": 51,
+     "coverage_percent": 57.5,
+     "within10": 26,
+     "within20": 35,
+     "within20_percent_all": 29.166666666666668,
+     "within20_percent_resolved": 50.72463768115942,
+     "median_absolute_percentage_error_resolved": 16.03375527426162,
+     "mean_absolute_percentage_error_resolved": 410.6328186733393,
+     "mean_absolute_error_grams_resolved": 24.148254142970707,
+     "approximate": 13
+    },
+    "non_spoon": {
+     "cases": 90,
+     "resolved": 47,
+     "unresolved": 43,
+     "coverage_percent": 52.22222222222222,
+     "within10": 17,
+     "within20": 24,
+     "within20_percent_all": 26.666666666666668,
+     "within20_percent_resolved": 51.06382978723404,
+     "median_absolute_percentage_error_resolved": 16.03375527426162,
+     "mean_absolute_percentage_error_resolved": 586.3255045895676,
+     "mean_absolute_error_grams_resolved": 34.270060149025944,
+     "approximate": 13
+    }
+   },
+   "full": {
+    "all": {
+     "cases": 200,
+     "resolved": 135,
+     "unresolved": 65,
+     "coverage_percent": 67.5,
+     "within10": 62,
+     "within20": 82,
+     "within20_percent_all": 41.0,
+     "within20_percent_resolved": 60.74074074074074,
+     "median_absolute_percentage_error_resolved": 13.33333333333333,
+     "mean_absolute_percentage_error_resolved": 220.27171692100023,
+     "mean_absolute_error_grams_resolved": 20.44251824495569,
+     "approximate": 41
+    },
+    "non_spoon": {
+     "cases": 152,
+     "resolved": 96,
+     "unresolved": 56,
+     "coverage_percent": 63.1578947368421,
+     "within10": 40,
+     "within20": 57,
+     "within20_percent_all": 37.5,
+     "within20_percent_resolved": 59.375,
+     "median_absolute_percentage_error_resolved": 14.004420333534261,
+     "mean_absolute_percentage_error_resolved": 300.4066817561932,
+     "mean_absolute_error_grams_resolved": 28.03341997395206,
+     "approximate": 36
+    }
+   }
+  },
+  "by_stratum": {
+   "development": {
+    "cereals_starches": {
+     "cases": 3,
+     "resolved": 3,
+     "unresolved": 0,
+     "coverage_percent": 100.0,
+     "within10": 0,
+     "within20": 2,
+     "within20_percent_all": 66.66666666666667,
+     "within20_percent_resolved": 66.66666666666667,
+     "median_absolute_percentage_error_resolved": 14.556962025316462,
+     "mean_absolute_percentage_error_resolved": 20.323488045007032,
+     "mean_absolute_error_grams_resolved": 11.223628691983123,
+     "approximate": 0
+    },
+    "dairy": {
+     "cases": 18,
+     "resolved": 16,
+     "unresolved": 2,
+     "coverage_percent": 88.88888888888889,
+     "within10": 15,
+     "within20": 16,
+     "within20_percent_all": 88.88888888888889,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 3.062416927592082,
+     "mean_absolute_percentage_error_resolved": 3.1115957930794567,
+     "mean_absolute_error_grams_resolved": 2.5852772276786125,
+     "approximate": 12
+    },
+    "eggs": {
+     "cases": 6,
+     "resolved": 5,
+     "unresolved": 1,
+     "coverage_percent": 83.33333333333333,
+     "within10": 2,
+     "within20": 4,
+     "within20_percent_all": 66.66666666666667,
+     "within20_percent_resolved": 80.0,
+     "median_absolute_percentage_error_resolved": 15.0,
+     "mean_absolute_percentage_error_resolved": 16.542857142857144,
+     "mean_absolute_error_grams_resolved": 5.0,
+     "approximate": 3
+    },
+    "fats": {
+     "cases": 4,
+     "resolved": 4,
+     "unresolved": 0,
+     "coverage_percent": 100.0,
+     "within10": 4,
+     "within20": 4,
+     "within20_percent_all": 100.0,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 1.595397652731973,
+     "mean_absolute_percentage_error_resolved": 1.553984759200885,
+     "mean_absolute_error_grams_resolved": 1.1154008438818535,
+     "approximate": 3
+    },
+    "fish": {
+     "cases": 4,
+     "resolved": 0,
+     "unresolved": 4,
+     "coverage_percent": 0.0,
+     "within10": 0,
+     "within20": 0,
+     "within20_percent_all": 0.0,
+     "within20_percent_resolved": null,
+     "median_absolute_percentage_error_resolved": null,
+     "mean_absolute_percentage_error_resolved": null,
+     "mean_absolute_error_grams_resolved": null,
+     "approximate": 0
+    },
+    "fruit": {
+     "cases": 12,
+     "resolved": 10,
+     "unresolved": 2,
+     "coverage_percent": 83.33333333333333,
+     "within10": 5,
+     "within20": 5,
+     "within20_percent_all": 41.666666666666664,
+     "within20_percent_resolved": 50.0,
+     "median_absolute_percentage_error_resolved": 13.185654008438819,
+     "mean_absolute_percentage_error_resolved": 20.91768906199286,
+     "mean_absolute_error_grams_resolved": 6.98270042194093,
+     "approximate": 1
+    },
+    "legumes_nuts_seeds": {
+     "cases": 9,
+     "resolved": 8,
+     "unresolved": 1,
+     "coverage_percent": 88.88888888888889,
+     "within10": 3,
+     "within20": 6,
+     "within20_percent_all": 66.66666666666667,
+     "within20_percent_resolved": 75.0,
+     "median_absolute_percentage_error_resolved": 13.084805489868781,
+     "mean_absolute_percentage_error_resolved": 15.857171836602216,
+     "mean_absolute_error_grams_resolved": 4.971571729957805,
+     "approximate": 1
+    },
+    "meat": {
+     "cases": 1,
+     "resolved": 0,
+     "unresolved": 1,
+     "coverage_percent": 0.0,
+     "within10": 0,
+     "within20": 0,
+     "within20_percent_all": 0.0,
+     "within20_percent_resolved": null,
+     "median_absolute_percentage_error_resolved": null,
+     "mean_absolute_percentage_error_resolved": null,
+     "mean_absolute_error_grams_resolved": null,
+     "approximate": 0
+    },
+    "sweeteners": {
+     "cases": 5,
+     "resolved": 5,
+     "unresolved": 0,
+     "coverage_percent": 100.0,
+     "within10": 4,
+     "within20": 4,
+     "within20_percent_all": 80.0,
+     "within20_percent_resolved": 80.0,
+     "median_absolute_percentage_error_resolved": 3.5563592525617844,
+     "mean_absolute_percentage_error_resolved": 6.0218948338829215,
+     "mean_absolute_error_grams_resolved": 1.658143459915612,
+     "approximate": 1
+    },
+    "vegetables": {
+     "cases": 18,
+     "resolved": 15,
+     "unresolved": 3,
+     "coverage_percent": 83.33333333333333,
+     "within10": 3,
+     "within20": 6,
+     "within20_percent_all": 33.333333333333336,
+     "within20_percent_resolved": 40.0,
+     "median_absolute_percentage_error_resolved": 23.75,
+     "mean_absolute_percentage_error_resolved": 55.812488987805445,
+     "mean_absolute_error_grams_resolved": 58.074880450070324,
+     "approximate": 7
+    }
+   },
+   "heldout": {
+    "cereals_starches": {
+     "cases": 27,
+     "resolved": 22,
+     "unresolved": 5,
+     "coverage_percent": 81.48148148148148,
+     "within10": 4,
+     "within20": 7,
+     "within20_percent_all": 25.925925925925927,
+     "within20_percent_resolved": 31.818181818181817,
+     "median_absolute_percentage_error_resolved": 25.431530494821626,
+     "mean_absolute_percentage_error_resolved": 35.4858079421049,
+     "mean_absolute_error_grams_resolved": 10.54361334867664,
+     "approximate": 0
+    },
+    "condiments_baking": {
+     "cases": 8,
+     "resolved": 5,
+     "unresolved": 3,
+     "coverage_percent": 62.5,
+     "within10": 4,
+     "within20": 5,
+     "within20_percent_all": 62.5,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 9.090909090909092,
+     "mean_absolute_percentage_error_resolved": 7.29040404040404,
+     "mean_absolute_error_grams_resolved": 5.266666666666666,
+     "approximate": 0
+    },
+    "drinks": {
+     "cases": 4,
+     "resolved": 2,
+     "unresolved": 2,
+     "coverage_percent": 50.0,
+     "within10": 2,
+     "within20": 2,
+     "within20_percent_all": 50.0,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 0.6329113924050631,
+     "mean_absolute_percentage_error_resolved": 0.6329113924050631,
+     "mean_absolute_error_grams_resolved": 0.6329113924050631,
+     "approximate": 1
+    },
+    "fats": {
+     "cases": 10,
+     "resolved": 10,
+     "unresolved": 0,
+     "coverage_percent": 100.0,
+     "within10": 9,
+     "within20": 10,
+     "within20_percent_all": 100.0,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 1.7346460384435067,
+     "mean_absolute_percentage_error_resolved": 2.8409702173859395,
+     "mean_absolute_error_grams_resolved": 2.3512658227848093,
+     "approximate": 6
+    },
+    "fish": {
+     "cases": 8,
+     "resolved": 0,
+     "unresolved": 8,
+     "coverage_percent": 0.0,
+     "within10": 0,
+     "within20": 0,
+     "within20_percent_all": 0.0,
+     "within20_percent_resolved": null,
+     "median_absolute_percentage_error_resolved": null,
+     "mean_absolute_percentage_error_resolved": null,
+     "mean_absolute_error_grams_resolved": null,
+     "approximate": 0
+    },
+    "fruit": {
+     "cases": 16,
+     "resolved": 8,
+     "unresolved": 8,
+     "coverage_percent": 50.0,
+     "within10": 2,
+     "within20": 3,
+     "within20_percent_all": 18.75,
+     "within20_percent_resolved": 37.5,
+     "median_absolute_percentage_error_resolved": 32.34880450070324,
+     "mean_absolute_percentage_error_resolved": 3291.6377838055055,
+     "mean_absolute_error_grams_resolved": 22.53491561181435,
+     "approximate": 0
+    },
+    "legumes_nuts_seeds": {
+     "cases": 15,
+     "resolved": 11,
+     "unresolved": 4,
+     "coverage_percent": 73.33333333333333,
+     "within10": 3,
+     "within20": 5,
+     "within20_percent_all": 33.333333333333336,
+     "within20_percent_resolved": 45.45454545454545,
+     "median_absolute_percentage_error_resolved": 23.283467587265054,
+     "mean_absolute_percentage_error_resolved": 57.47684365094505,
+     "mean_absolute_error_grams_resolved": 11.43548139624089,
+     "approximate": 2
+    },
+    "meat": {
+     "cases": 11,
+     "resolved": 1,
+     "unresolved": 10,
+     "coverage_percent": 9.090909090909092,
+     "within10": 0,
+     "within20": 1,
+     "within20_percent_all": 9.090909090909092,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 13.502109704641358,
+     "mean_absolute_percentage_error_resolved": 13.502109704641358,
+     "mean_absolute_error_grams_resolved": 13.502109704641356,
+     "approximate": 1
+    },
+    "sweeteners": {
+     "cases": 3,
+     "resolved": 0,
+     "unresolved": 3,
+     "coverage_percent": 0.0,
+     "within10": 0,
+     "within20": 0,
+     "within20_percent_all": 0.0,
+     "within20_percent_resolved": null,
+     "median_absolute_percentage_error_resolved": null,
+     "mean_absolute_percentage_error_resolved": null,
+     "mean_absolute_error_grams_resolved": null,
+     "approximate": 0
+    },
+    "vegetables": {
+     "cases": 18,
+     "resolved": 10,
+     "unresolved": 8,
+     "coverage_percent": 55.55555555555556,
+     "within10": 2,
+     "within20": 2,
+     "within20_percent_all": 11.11111111111111,
+     "within20_percent_resolved": 20.0,
+     "median_absolute_percentage_error_resolved": 46.04166666666667,
+     "mean_absolute_percentage_error_resolved": 50.79995082643317,
+     "mean_absolute_error_grams_resolved": 106.35864978902953,
+     "approximate": 3
+    }
+   },
+   "full": {
+    "cereals_starches": {
+     "cases": 30,
+     "resolved": 25,
+     "unresolved": 5,
+     "coverage_percent": 83.33333333333333,
+     "within10": 4,
+     "within20": 9,
+     "within20_percent_all": 30.0,
+     "within20_percent_resolved": 36.0,
+     "median_absolute_percentage_error_resolved": 24.2807825086306,
+     "mean_absolute_percentage_error_resolved": 33.66632955445316,
+     "mean_absolute_error_grams_resolved": 10.625215189873417,
+     "approximate": 0
+    },
+    "condiments_baking": {
+     "cases": 8,
+     "resolved": 5,
+     "unresolved": 3,
+     "coverage_percent": 62.5,
+     "within10": 4,
+     "within20": 5,
+     "within20_percent_all": 62.5,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 9.090909090909092,
+     "mean_absolute_percentage_error_resolved": 7.29040404040404,
+     "mean_absolute_error_grams_resolved": 5.266666666666666,
+     "approximate": 0
+    },
+    "dairy": {
+     "cases": 18,
+     "resolved": 16,
+     "unresolved": 2,
+     "coverage_percent": 88.88888888888889,
+     "within10": 15,
+     "within20": 16,
+     "within20_percent_all": 88.88888888888889,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 3.062416927592082,
+     "mean_absolute_percentage_error_resolved": 3.1115957930794567,
+     "mean_absolute_error_grams_resolved": 2.5852772276786125,
+     "approximate": 12
+    },
+    "drinks": {
+     "cases": 4,
+     "resolved": 2,
+     "unresolved": 2,
+     "coverage_percent": 50.0,
+     "within10": 2,
+     "within20": 2,
+     "within20_percent_all": 50.0,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 0.6329113924050631,
+     "mean_absolute_percentage_error_resolved": 0.6329113924050631,
+     "mean_absolute_error_grams_resolved": 0.6329113924050631,
+     "approximate": 1
+    },
+    "eggs": {
+     "cases": 6,
+     "resolved": 5,
+     "unresolved": 1,
+     "coverage_percent": 83.33333333333333,
+     "within10": 2,
+     "within20": 4,
+     "within20_percent_all": 66.66666666666667,
+     "within20_percent_resolved": 80.0,
+     "median_absolute_percentage_error_resolved": 15.0,
+     "mean_absolute_percentage_error_resolved": 16.542857142857144,
+     "mean_absolute_error_grams_resolved": 5.0,
+     "approximate": 3
+    },
+    "fats": {
+     "cases": 14,
+     "resolved": 14,
+     "unresolved": 0,
+     "coverage_percent": 100.0,
+     "within10": 13,
+     "within20": 14,
+     "within20_percent_all": 100.0,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 1.595397652731973,
+     "mean_absolute_percentage_error_resolved": 2.473260086475924,
+     "mean_absolute_error_grams_resolved": 1.9981615430982504,
+     "approximate": 9
+    },
+    "fish": {
+     "cases": 12,
+     "resolved": 0,
+     "unresolved": 12,
+     "coverage_percent": 0.0,
+     "within10": 0,
+     "within20": 0,
+     "within20_percent_all": 0.0,
+     "within20_percent_resolved": null,
+     "median_absolute_percentage_error_resolved": null,
+     "mean_absolute_percentage_error_resolved": null,
+     "mean_absolute_error_grams_resolved": null,
+     "approximate": 0
+    },
+    "fruit": {
+     "cases": 28,
+     "resolved": 18,
+     "unresolved": 10,
+     "coverage_percent": 64.28571428571429,
+     "within10": 7,
+     "within20": 8,
+     "within20_percent_all": 28.571428571428573,
+     "within20_percent_resolved": 44.44444444444444,
+     "median_absolute_percentage_error_resolved": 23.734177215189874,
+     "mean_absolute_percentage_error_resolved": 1474.571064503554,
+     "mean_absolute_error_grams_resolved": 13.894796061884671,
+     "approximate": 1
+    },
+    "legumes_nuts_seeds": {
+     "cases": 24,
+     "resolved": 19,
+     "unresolved": 5,
+     "coverage_percent": 79.16666666666667,
+     "within10": 6,
+     "within20": 11,
+     "within20_percent_all": 45.833333333333336,
+     "within20_percent_resolved": 57.89473684210526,
+     "median_absolute_percentage_error_resolved": 13.803496081977105,
+     "mean_absolute_percentage_error_resolved": 39.95277130806386,
+     "mean_absolute_error_grams_resolved": 8.713835220963801,
+     "approximate": 3
+    },
+    "meat": {
+     "cases": 12,
+     "resolved": 1,
+     "unresolved": 11,
+     "coverage_percent": 8.333333333333334,
+     "within10": 0,
+     "within20": 1,
+     "within20_percent_all": 8.333333333333334,
+     "within20_percent_resolved": 100.0,
+     "median_absolute_percentage_error_resolved": 13.502109704641358,
+     "mean_absolute_percentage_error_resolved": 13.502109704641358,
+     "mean_absolute_error_grams_resolved": 13.502109704641356,
+     "approximate": 1
+    },
+    "sweeteners": {
+     "cases": 8,
+     "resolved": 5,
+     "unresolved": 3,
+     "coverage_percent": 62.5,
+     "within10": 4,
+     "within20": 4,
+     "within20_percent_all": 50.0,
+     "within20_percent_resolved": 80.0,
+     "median_absolute_percentage_error_resolved": 3.5563592525617844,
+     "mean_absolute_percentage_error_resolved": 6.0218948338829215,
+     "mean_absolute_error_grams_resolved": 1.658143459915612,
+     "approximate": 1
+    },
+    "vegetables": {
+     "cases": 36,
+     "resolved": 25,
+     "unresolved": 11,
+     "coverage_percent": 69.44444444444444,
+     "within10": 5,
+     "within20": 8,
+     "within20_percent_all": 22.22222222222222,
+     "within20_percent_resolved": 32.0,
+     "median_absolute_percentage_error_resolved": 32.22222222222222,
+     "mean_absolute_percentage_error_resolved": 53.807473723256535,
+     "mean_absolute_error_grams_resolved": 77.38838818565401,
+     "approximate": 10
+    }
+   }
+  }
+ }
+}

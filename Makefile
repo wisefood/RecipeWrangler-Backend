@@ -1,7 +1,8 @@
 DOCKER=docker
 IMGTAG=wisefood/recipe-wrangler:latest
-HOST ?= 0.0.0.0
+HOST ?= 127.0.0.1
 PORT ?= 8001
+MATCHING_RELEASE ?= 2026-10-27-v11
 
 .PHONY: all build push help api dump-all dump-neo4j dump-postgres dump-elasticsearch dump-assets tag-dish-types
 
@@ -10,7 +11,7 @@ TIMESTAMP ?= $(shell date -u +%Y%m%d_%H%M%S)
 all: build push
 
 build:
-	$(DOCKER) build . -t $(IMGTAG)
+	PYTHONPATH=src uv run python -m scripts.deployment.build_matching_image --release-id $(MATCHING_RELEASE) --tag $(IMGTAG)
 
 push:
 	$(DOCKER) push $(IMGTAG)

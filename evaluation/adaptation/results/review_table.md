@@ -1,0 +1,753 @@
+# Suggestion review table
+
+537 Living Lab recipes; per-serving changes; last column = qualifying options the LLM step can choose from.
+
+## addition: add_fibre (26)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A | Beef curry | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+| irish | A | Beef goulash | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+| slovenian | A | Cabbage salad | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 0 |
+| irish | A | Chicken soup | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+| slovenian | A | Dandelion salad with potato and egg | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 1 |
+| slovenian | A | Fish stew | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 1 |
+| irish | A | Green chicken salad | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 0 |
+| hungarian | A | Layered broccoli casserole "rakott brokkoli" | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 0 |
+| slovenian | A | Pepper-tomato-onion stew | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 0 |
+| irish | A | Pork casserole | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+| slovenian | A | Potato soup | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 1 |
+| irish | A | Pumpkin soup | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+| slovenian | A | Rabbit stew | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 1 |
+| irish | A | Side salad | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+| irish | A | Spicy fisherman's stew | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+| irish | A | Sweet chilli chicken with mixed pepper stir-fry | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+| irish | A | Veggie burrito bowl | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 0 |
+| irish | A | Zesty mixed salad | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 0 |
+| slovenian | B | Cauliflower soup | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 1 |
+| irish | B | Cream of mushroom soup | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+| irish | B | Homemade vegetable soup | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+| slovenian | B | Leek soup with potato | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 1 |
+| slovenian | B | Mixed salad with sauerkraut | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 1 |
+| slovenian | B | Mushroom soup | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 1 |
+| slovenian | B | Pumpkin soup | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentil, blond, boiled/cooked in water] | energy +48.8kcal, fibre +2.4g, protein +3.9g | 1 |
+| irish | B | Spiced pumpkin soup | add 40 g cooked lentils per serving (the recipe lacks fibre) [Lentils, green and brown, whole, dried, boiled in unsalted water] | energy +36.8kcal, fibre +3.0g, protein +3.1g | 1 |
+
+## addition: add_fruit_veg (174)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | A | Apples with almonds | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | A | Baked chicken with cheese and mustard | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Baked garlic lime chicken breasts | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Baked stuffed fish | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Bang bang chicken salad | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Barbecue chicken with corn on the cob and green beans | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| slovenian | A | Bean-and-pasta soup | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Beef casserole | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Beef stroganoff | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Beef tacos with chilli sauce | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| hungarian | A | Beef tartare on toast with fresh vegetables | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| irish | A | Beef with balsamic dressing | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | A | Blueberry smoothie | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | A | Brown rice and peas | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Bruschetta | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Brussels sprouts with bacon | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Cajun chicken wrap | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Chargrilled chicken kebabs | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Cheese and ham bagel | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Cheese and vegetable omelette | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Chewy apricot porridge | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 0 |
+| irish | A | Chicken and avocado salad | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Chicken and broccoli bake | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Chicken and vegetable coconut curry | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Chicken fingers | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | A | Chicken ham and eggs with ciabatta | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| hungarian | A | Chicken ham with cucumber and crackers | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| irish | A | Chicken jalfrezi | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Chicken risotto | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Chicken skewers | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Christmas nut roast | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 0 |
+| irish | A | Citrus summer chicken | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Cod and couscous | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Cod tray bake | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Coronation chicken | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | A | Cream quark with roasted pumpkin and nuts | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | A | Creamy mushrooms on toast | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Creamy prawn and courgette pasta | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Crunchy blueberry yoghurt | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| irish | A | Curried chicken pilaf | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| slovenian | A | Cuttlefish with mangold | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Egg fried rice | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Fab fajitas | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Falafel burgers with a couscous salad | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Family fish pie | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Family shepherd's pie | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Fish and home-made chips | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Fish fingers | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Fish goujons with potato wedges | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | French toast with ricotta and berries | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Garlic chicken with parmesan | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Grilled Cajun salmon | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Grilled chicken with creamy leeks, mushrooms and peas | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Grilled pork chops with apple sauce | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Grilled salmon and potato salad | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Grilled salmon cutlets | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Herb couscous | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Honey banana cups | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| irish | A | Hot pot | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Hummus and salad wrap | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Lamb cutlet casserole | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Leek and potato soup | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Leftover lamb gyros | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Lemon rosemary roast chicken | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Lemony roast chicken couscous | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Lentil and vegetable stew | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Lentil soup | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| slovenian | A | Marinated anchovies | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Meatballs | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Mediterranean potatoes | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Mexican bean burrito | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Mexican beef and sweet potato stew | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Mexican eggs in the pan | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Mushroom bake | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Omelette | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Overnight oats | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| irish | A | Pan-fried salmon with smashed potatoes | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Pancakes with fruit, nuts and natural yoghurt | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| irish | A | Pasta Siciliana | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Pasta with tomato and mascarpone sauce | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | A | Pear and pecans | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | A | Pear, kiwi and banana smoothie | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| hungarian | A | Pink smoothie | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| slovenian | A | Piran fried fish | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Poached eggs | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | A | Poppy seed oatmeal | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| slovenian | A | Pork loin, cured | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Pork, chickpea and sweet potato stew | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Porridge pot | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| irish | A | Potatoes and scallion burgers with fresh salsa | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Ratatouille | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Rice and vegetable bake | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Rice noodles with vegetable chilli sauce | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Roast chicken with roasted vegetables and potatoes | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Roast pork with ratatouille | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Salmon with Parma ham | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Savoury minced beef and tomato baked potato | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Scrambled egg on toast | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Scrambled egg on toast with grilled tomato and mushrooms | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | A | Scrambled eggs and toast | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| irish | A | Seared cod with fennel fondue (starter) | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| slovenian | A | Shrimps buzara | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | A | Soy yogurt with granola and plums | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 1 |
+| hungarian | A | Soy yogurt with rolled oats and grapes | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 1 |
+| hungarian | A | Spaghetti bolognese | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| irish | A | Spaghetti portofino | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Spanish omelette | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Spanish tortilla | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Spice bag | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Spicy chicken kebabs | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Spicy lentil and tomato soup | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Stir-fry vegetables | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Stuffed tomatoes with green peas | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Sundried tomato cod | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Sweet chilli chicken stuffed peppers | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| hungarian | A | Tofu and vegetables stirfry | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| irish | A | Tomato and spinach frittata | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Tuna pasta salad | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Tuna salad wrap | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Turkey and ham baked potato | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Turkey and leek pie | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Vegetable hotpot | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Vegetable jambalaya | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 0 |
+| irish | A | Vegetarian casserole | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | A | Vegetarian goulash | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | A | Veggie stir-fry with eggs | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| slovenian | A | Vipava stew | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | A | Warm chickpea salad | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| hungarian | A | Yogurt with granola, pear | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 1 |
+| hungarian | A | Yogurt with rolled oats and sour cherries | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | A | Zesty chicken thighs with pasta | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | B | Apple, almond butter | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | B | Bacon and sweetcorn baked potato | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | B | Banana, peanut butter | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| slovenian | B | Barley-and-bean stew (Ričet) | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | B | Bear fool | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| hungarian | B | Buckwheat chocolate porridge | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | B | Chickpea soup with red peppers | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| hungarian | B | Cornflakes, soy yogurt | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 1 |
+| irish | B | Creamy mushroom pasta | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | B | Eggs Benedict | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | B | Freaky fruit salad | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| hungarian | B | Kefir and salt sticks "sós ropi" | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| hungarian | B | Kefir with bran cracker | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| irish | B | Kiwi, grape and apple smoothie | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 0 |
+| irish | B | Lasagne | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| slovenian | B | Meatballs | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | B | Muesli with banana, yoghurt and nuts | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 0 |
+| hungarian | B | Nice cream with chocolate granola | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | B | Orange and carrot soup | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 1 |
+| irish | B | Parsnip and apple soup | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| irish | B | Pitta quesadilla | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| slovenian | B | Pork neck, boiled | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | B | Raspberry and banana smoothie | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| slovenian | B | Sauerkraut, boiled | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | B | Smoked salmon on rye bread with dill | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| irish | B | Spiced peaches with almonds & honeyed yoghurt | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| irish | B | Turkey and bacon hash brown bake | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | B | Turkey pie | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | B | Yoghurt sorbet | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| hungarian | C | Dried apple slices with roasted walnuts | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | C | Fruity rice pudding | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 1 |
+| irish | C | Ham patties | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | C | Homemade muesli with fruit and nuts | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 0 |
+| hungarian | C | Peach and oat biscuits | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | C | Smoked ham with cranberry chutney | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | C | Toasted cheese | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | C | Toasted cheese and tomato | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| hungarian | D | Cashew nut, raisin | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [raspberry] | sugar +4.3g, energy +28.0kcal, fibre +3.4g, protein +1.0g | 0 |
+| irish | D | Chocolate mousse | add 80 g fresh berries per serving (the recipe lacks fruit/veg) [Strawberries, raw] | sugar +4.9g, energy +24.0kcal, fibre +3.0g, protein +0.5g | 0 |
+| hungarian | D | Popcorn | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Frozen mixed vegetables (delicious)] | sat fat +0.7g, sodium +35.2mg, sugar +1.7g, energy +47.2kcal, fibre +3.8g, protein +3.0g | 0 |
+| irish | D | Sausage and sage stuffing | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| slovenian | D | Soča trout with prosciutto | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+| irish | D | Welsh rarebit | add 80 g a side portion of mixed vegetables per serving (the recipe lacks fruit/veg) [Vegetables mixed carrot-onion raw] | sodium +18.4mg, sugar +3.0g, energy +28.0kcal, fibre +2.5g, protein +0.7g | 0 |
+
+## addition: add_protein (4)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A | Nectarine, strawberry and banana smoothie | add 200 g low-fat plain yogurt (a pot) per serving (the recipe lacks protein) [Yogurt, low fat, plain] | sat fat +1.3g, sodium +126.0mg, sugar +15.0g, energy +114.0kcal, protein +9.6g | 0 |
+| irish | A | Red rooster smoothie | add 200 g low-fat plain yogurt (a pot) per serving (the recipe lacks protein) [Yogurt, low fat, plain] | sat fat +1.3g, sodium +126.0mg, sugar +15.0g, energy +114.0kcal, protein +9.6g | 0 |
+| irish | B | Pineapple smoothie | add 200 g low-fat plain yogurt (a pot) per serving (the recipe lacks protein) [Yogurt, low fat, plain] | sat fat +1.3g, sodium +126.0mg, sugar +15.0g, energy +114.0kcal, protein +9.6g | 1 |
+| irish | B | Strawberry smoothie | add 200 g low-fat plain yogurt (a pot) per serving (the recipe lacks protein) [Yogurt, low fat, plain] | sat fat +1.3g, sodium +126.0mg, sugar +15.0g, energy +114.0kcal, protein +9.6g | 1 |
+
+## cut: butter (20)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Aoife's shepherd's pie | 4 teaspoons of butter -> 13.8 g | sat fat -1.2g, energy -17.3kcal | 1 |
+| slovenian | A->A | Applesauce | 40g Butter, 80% fat minimum, unsalted -> 30.0 g | sat fat -0.6g, sugar -3.0g, energy -19.5kcal | 3 |
+| irish | A->A | Mixed bean salad | 1 x 400g / 14 oz. can of butter beans -> 300.0 g | sodium -67.0mg, energy -5.8kcal, fibre -0.4g, protein -0.3g | 2 |
+| irish | A->A | Pork chops with mashed potatoes and veg | 1 tablespoon of butter -> 10.6 g | sat fat -0.9g, energy -13.4kcal | 2 |
+| irish | A->A | Super easy Sunday roast chicken | 1 tablespoon of butter -> 10.6 g | sat fat -1.2g, sodium -140.0mg, energy -24.1kcal | 5 |
+| slovenian | B->A | Buckwheat žganci with melted butter | 60g Butter, 80% fat minimum, unsalted -> 45.0 g | sat fat -2.3g, energy -28.2kcal | 2 |
+| hungarian | B->A | Roasted catfish with rosemary, mashed potatoes and cucumber salad | 15 g Butter, unsalted -> 11.2 g | sat fat -2.0g, sodium -295.0mg, energy -27.9kcal | 5 |
+| hungarian | B->B | French toast with banana | 5 g Butter, unsalted -> 3.8 g | sat fat -1.3g, sugar -2.5g, energy -27.6kcal | 6 |
+| slovenian | B->B | Mashed potatoes | 80g Butter, 80% fat minimum, unsalted -> 60.0 g | sat fat -3.0g, energy -37.6kcal | 2 |
+| slovenian | B->B | Rice pudding | 40g Butter, 80% fat minimum, unsalted -> 30.0 g | sat fat -1.5g, energy -18.8kcal | 4 |
+| slovenian | B->B | Roux soup | 30g margarine -> 22.5 g | sat fat -0.4g, energy -13.5kcal | 1 |
+| hungarian | C->B | Beetroot risotto, goat cheese | 10 g Butter, unsalted -> 7.5 g | sat fat -1.3g, sodium -294.9mg, energy -18.6kcal | 8 |
+| slovenian | C->B | Clear soup with tiny semolina dumplings, carrots, and eggs | 20g Butter, 80% fat minimum, unsalted -> 15.0 g | sat fat -0.8g, energy -9.4kcal | 1 |
+| slovenian | C->B | Herb soup | 100g Butter, 80% fat minimum, unsalted -> 75.0 g | sat fat -1.2g, sodium -442.4mg, energy -15.7kcal | 6 |
+| hungarian | C->B | Liver pâté with ciabatta and grapes | 20 g Butter, unsalted -> 15.0 g | sat fat -2.6g, sodium -295.2mg, energy -37.2kcal | 3 |
+| slovenian | C->B | Veal steak with prosciutto | 40g Butter, 80% fat minimum, unsalted -> 30.0 g | sat fat -1.9g, sodium -65.4mg, energy -7.9kcal, protein +4.4g | 5 |
+| slovenian | D->C | Fried bread slices | 20g Butter, 80% fat minimum, unsalted -> 15.0 g | sat fat -1.5g, sugar -2.5g, energy -28.8kcal | 3 |
+| slovenian | D->C | Wheat žganci | 100g Butter, 80% fat minimum, unsalted -> 75.0 g | sat fat -3.8g, energy -47.1kcal | 2 |
+| slovenian | D->D | Spoon dumplings | 40g Butter, 80% fat minimum, unsalted -> 30.0 g | sat fat -1.5g, energy -18.8kcal | 1 |
+| slovenian | D->D | Sweet cheese štruklji | 60g Butter, 80% fat minimum, unsalted -> 45.0 g | sat fat -1.7g, energy -23.4kcal | 3 |
+
+## cut: nut_butter (3)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | A->A | Peanut butter on toast with raspberries | 30 g Peanut butter, smooth -> 24.0 g | sat fat -0.8g, sodium -21.0mg, sugar -0.4g, energy -36.4kcal, fibre -0.4g, protein -1.4g | 1 |
+| hungarian | A->A | Peanut butter on toast with yogurt and peach | 30 g Peanut butter, smooth -> 24.0 g | sat fat -0.8g, sodium -21.0mg, sugar -0.4g, energy -36.4kcal, fibre -0.4g, protein -1.4g | 1 |
+| irish | A->A | Sweet potato satay stew | 4 tablespoons of peanut butter -> 43.0 g | sat fat -0.3g, sodium -8.9mg, energy -23.4kcal, protein -0.8g | 2 |
+
+## cut: oil (28)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Baked cod with lemon and olive oil | 1 tbsp (about 15 ml) olive oil -> 10.3 g | sat fat -0.5g, energy -30.5kcal | 1 |
+| slovenian | A->A | Fish goulash | 50g Extra virgin olive oil -> 37.5 g | sat fat -0.4g, energy -28.1kcal | 1 |
+| slovenian | A->A | Flat potatoballs | 60g Extra virgin olive oil -> 45.0 g | sat fat -0.5g, energy -33.8kcal | 1 |
+| slovenian | A->A | Fuži | 40g Extra virgin olive oil -> 30.0 g | sat fat -0.3g, energy -22.5kcal | 1 |
+| irish | A->A | Homemade oven chips | 1 tablespoon of vegetable oil -> 10.3 g | sat fat -0.4g, energy -31.0kcal | 1 |
+| slovenian | A->A | Lamb on skewers | 40.8g Extra virgin olive oil -> 30.6 g | energy -18.4kcal | 1 |
+| hungarian | A->A | Layered cauliflower casserole, vegan | 10 g Oil, sunflower -> 7.5 g | sat fat -0.3g, energy -22.5kcal | 3 |
+| irish | A->A | One pot roast chicken and vegetables | 1½ tablespoons of olive oil -> 15.5 g | sat fat -0.8g, sodium -135.3mg, energy -47.7kcal | 4 |
+| slovenian | A->A | Potato salad with onion | 50g Oil, sunflower, refined -> 37.5 g | sat fat -0.3g, energy -28.1kcal | 2 |
+| hungarian | A->A | Red lentil pottage with potatoes, topped with pumpkin seeds | 10 g Oil, olive -> 7.5 g | sat fat -0.3g, sodium -589.6mg, energy -22.5kcal | 2 |
+| irish | A->A | Roast potatoes | 2 tablespoons of vegetable oil -> 20.7 g | energy -15.5kcal | 1 |
+| irish | A->A | Roasted chickpea and vegetable bake | 2 tablespoons of olive oil -> 20.7 g | energy -15.3kcal | 1 |
+| irish | A->A | Spinach and mandarin salad | 3 tablespoons of olive oil -> 31.1 g | energy -15.3kcal | 3 |
+| irish | A->A | Sweet Potato Fries | 1 tsp rapeseed oil -> 3.5 g | energy -10.4kcal | 1 |
+| irish | A->A | Sweet potato crisps | 2 tablespoons of vegetable oil -> 20.7 g | energy -7.8kcal | 1 |
+| hungarian | A->A | Vegan bolognese spaghetti | 5 g Oil, sunflower -> 3.8 g | energy -11.2kcal | 1 |
+| irish | A->A | Warm chicken noodle salad | 30ml of olive oil -> 20.7 g | sat fat -0.5g, energy -30.5kcal | 1 |
+| slovenian | B->A | Asparagus frittata | 100g Extra virgin olive oil -> 75.0 g | sat fat -0.9g, energy -56.2kcal | 1 |
+| hungarian | B->A | Green pea soup; Poppy seed pasta | 10 g Oil, sunflower -> 7.5 g | sodium -436.0mg, energy -22.5kcal, protein -0.9g | 6 |
+| irish | B->A | Green risotto | 4 teaspoons olive oil -> 13.8 g | sat fat -0.5g, sodium -277.2mg, energy -25.9kcal | 6 |
+| hungarian | B->A | Vegetables in breadcrumbs with corn rice | 30 ml Oil, sunflower -> 20.7 g | sat fat -0.7g, sodium -599.5mg, sugar -0.5g, energy -68.0kcal, fibre +2.6g, protein +0.8g | 6 |
+| irish | B->B | Brussels Sprouts with Garlic and Ham | 1 tablespoon olive oil -> 10.3 g | energy -7.6kcal | 1 |
+| irish | B->B | Chargrilled veggie kebabs | 2 tablespoons olive oil -> 20.7 g | energy -15.3kcal | 1 |
+| irish | B->B | Spicy scrambled eggs | 1 teaspoon of olive oil -> 3.5 g | energy -10.2kcal | 1 |
+| irish | B->B | Tomato and onion relish | 2 tablespoons of olive oil -> 20.7 g |  | 1 |
+| irish | C->A | Sage and breadcrumb stuffing | 1 tablespoon of vegetable oil -> 10.3 g | sat fat -1.9g | 4 |
+| hungarian | C->B | Zacusca on bread stick with roasted chickpeas on top | 5 ml Oil, olive + 5 g Oil, olive -> [3.45, 3.75] g | sat fat -0.4g, sodium -294.8mg, energy -21.6kcal | 4 |
+| hungarian | D->B | Caprese salad | 5 g Oil, olive -> 3.8 g | sat fat -2.0g, sodium -292.3mg, sugar +0.3g, energy -6.8kcal, protein +5.7g | 6 |
+
+## cut: salty_condiment (14)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Brussels sprouts with apple and red onion | ½ vegetable stock cube -> 3.4 g | sodium -46.2mg | 4 |
+| irish | A->A | Chicken biryani | ½ vegetable stock cube -> 3.4 g | sodium -138.6mg | 4 |
+| irish | A->A | Chicken curry | 1 chicken stock cube dissolved in 275ml / ½ pint of hot water -> 6.7 g | sodium -135.3mg | 4 |
+| irish | A->A | Minestrone soup with bacon | 1 vegetable stock cube -> 6.7 g | sodium -138.6mg | 5 |
+| irish | A->A | One pot roast chicken and vegetables | ¼ chicken stock cube, dissolved in 50ml / 1½fl oz. of boiling water -> 1.7 g | sat fat -0.8g, sodium -135.3mg, energy -47.7kcal | 4 |
+| irish | A->A | Pea risotto | 1 vegetable stock cube -> 6.7 g | sodium -138.6mg | 4 |
+| irish | A->A | Pea soup with bacon | 1 vegetable stock cube -> 6.7 g | sodium -138.6mg | 4 |
+| irish | A->A | Pork stir-fry | 1 chicken stock cube dissolved in 150ml / ½ pint of boiling water or homemade chicken stock -> 6.7 g | sodium -135.3mg | 4 |
+| irish | A->A | Super easy Sunday roast chicken | 2 tablespoons of chicken gravy granules -> 10.7 g | sat fat -1.2g, sodium -140.0mg, energy -24.1kcal | 5 |
+| irish | A->A | Vegetable biryani | 0.25 vegetable stock cube -> 1.7 g | sodium -138.6mg | 4 |
+| irish | A->A | Vegetable paella | ¼ vegetable stock cube, dissolved in 300ml / 10½fl oz. of boiling water -> 1.7 g | sodium -138.6mg | 4 |
+| irish | A->A | Vegetable stir-fry | 1 tablespoon of soy sauce -> 12.0 g | sodium -70.4mg, energy -8.1kcal, fibre +1.2g | 5 |
+| irish | B->A | Beef stew | 1 beef stock cube dissolved in 800 ml water or use homemade stock -> 6.7 g | sodium -125.4mg | 2 |
+| irish | B->A | Green risotto | 1 vegetable stock cube, dissolved in 700ml water -> 6.7 g | sat fat -0.5g, sodium -277.2mg, energy -25.9kcal | 6 |
+
+## cut: sauce (6)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Chicken Caesar salad | 6 tablespoons of reduced-fat Caesar salad dressing (about 90 ml) -> 60.0 g | sodium -75.8mg, sugar -0.3g, energy -12.0kcal | 3 |
+| hungarian | A->A | Fussili with green pesto, courgettes and chickpeas | 20 g Pesto, green -> 16.0 g | sat fat -0.3g, sodium -35.2mg, energy -17.8kcal, protein -0.4g | 1 |
+| irish | A->A | Hot pasta salad | 4 tablespoons of light mayonnaise -> 44.0 g | sodium -51.5mg, sugar -0.8g, energy -24.1kcal, fibre +2.4g | 3 |
+| irish | A->A | Tuna rice salad | 2 tablespoons of light mayonnaise -> 22.0 g | sodium -25.7mg, energy -7.9kcal | 2 |
+| irish | A->A | Veggie-topped bagels with poached egg | 2 tablespoons of basil pesto -> 20.0 g | sat fat -0.3g, sodium -42.0mg, energy -21.0kcal | 1 |
+| irish | B->B | Teriyaki salmon | 4 tablespoons of teriyaki sauce -> 57.1 g | sodium -59.0mg, sugar -0.5g | 1 |
+
+## cut: sugar (28)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| slovenian | A->A | Ajdnek | 20g Sugar, vanilla flavoured + 250g FLOWER HONEY -> [15.0, 187.5] g | sugar -3.5g, energy -13.9kcal | 3 |
+| slovenian | A->A | Applesauce | 120g Sugar, white -> 90.0 g | sat fat -0.6g, sugar -3.0g, energy -19.5kcal | 3 |
+| irish | A->A | Baked oat bars | 1 tbsp (about 15 ml) golden syrup -> 15.4 g | sugar -0.3g | 1 |
+| irish | A->A | Fruit Crumble | 5 tablespoons agave syrup or honey -> 77.1 g | sugar -2.3g, energy -9.2kcal | 1 |
+| irish | A->A | Honey glazed carrots | 1 tablespoon of honey -> 16.0 g | sugar -0.7g | 1 |
+| irish | A->A | Wholemeal scones | 25 g caster sugar -> 18.8 g | sugar -1.0g | 1 |
+| irish | B->B | Apple and berry crumble | 3 tbsp (around 45 g) maple syrup + 3 tbsp (around 30 g) maple syrup -> [33.75, 22.5] g | sugar -1.9g, energy -8.4kcal | 3 |
+| hungarian | B->B | Apple muffins | 10 g Sugar, brown -> 7.5 g | sugar -2.4g, energy -9.8kcal | 2 |
+| irish | B->B | Baked raisin apples | 85g / 3 oz. of maple syrup -> 63.8 g | sugar -3.2g, energy -14.3kcal | 2 |
+| irish | B->B | Bread and Butter Pudding | 50g / 2 oz. of sugar plus 1 dessertspoon for topping -> 37.5 g | sugar -1.6g, energy -6.2kcal | 1 |
+| hungarian | B->B | French toast with banana | 10 g Sugar, brown -> 7.5 g | sat fat -1.3g, sugar -2.5g, energy -27.6kcal | 6 |
+| slovenian | B->B | Honey apples | 105g FLOWER HONEY -> 78.8 g | sugar -3.9g, energy -15.9kcal | 2 |
+| irish | B->B | Mint sauce | 1 level tablespoon of caster sugar -> 9.4 g | sugar -0.8g | 1 |
+| irish | B->B | Traditional cranberry sauce | 100g / 3½ fl oz. of dark brown sugar -> 75.0 g | sugar -2.4g, energy -9.8kcal | 1 |
+| irish | C->B | Banana and walnut loaf | 75g / 2½ oz. of caster sugar + 2 tablespoons of honey -> [56.25, 31.95] g | sugar -2.2g, energy -11.5kcal, fibre +0.6g | 6 |
+| irish | C->B | Hot cross buns | 130g icing sugar -> 97.5 g | sugar -1.2g, energy -9.4kcal, fibre +1.1g, protein +0.4g | 7 |
+| slovenian | C->B | Slovenian rolled cake (potica) with walnuts | 150g Sugar, white -> 112.5 g | sugar -1.9g, energy -9.3kcal | 2 |
+| irish | C->C | Banana bread | 50g / 2 oz. of brown sugar -> 37.5 g | sodium -90.3mg, sugar -1.1g, energy -7.2kcal, fibre +0.6g | 6 |
+| irish | C->C | Quick and easy blueberry muffins | 75g / 3oz. brown sugar -> 56.2 g | sugar -1.5g, energy -6.1kcal | 1 |
+| slovenian | C->C | Strawberry roulade | 80g Sugar, white -> 60.0 g | sugar -2.0g, energy -8.0kcal | 3 |
+| slovenian | D->C | Fried bread slices | 20g Sugar, white -> 15.0 g | sat fat -1.5g, sugar -2.5g, energy -28.8kcal | 3 |
+| irish | D->C | Honey roast ham | 5 tablespoons of honey -> 79.9 g | sugar -1.0g | 1 |
+| irish | D->D | Apple sponge squares | 113g / 4 oz. of granulated sugar -> 84.8 g | sugar -3.5g, energy -14.1kcal | 1 |
+| slovenian | D->D | Banana bread | 125g Sugar, brown + 10g Sugar, vanilla flavoured -> [93.75, 7.5] g | sugar -3.2g, energy -13.1kcal | 5 |
+| irish | D->D | Barmbrack | 50g light brown sugar -> 37.5 g | sugar -1.2g | 1 |
+| slovenian | D->D | Crêpes with curd cheese, gratinated | 40g Sugar, white -> 30.0 g | sugar -2.0g, energy -8.0kcal | 1 |
+| irish | D->D | Queen cakes | 115 g caster sugar -> 86.2 g | sugar -1.2g | 1 |
+| irish | D->D | Ultimate basic muffins | 250g of golden castor sugar -> 187.5 g | sodium -75.4mg, sugar -2.6g, energy -10.3kcal | 3 |
+
+## search: healthier version of the same food (52)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Baked potato with beans and cheese | Salt and pepper to taste -> Salt low sodium LoSalt | sodium -131.0mg | 1 |
+| slovenian | A->A | Bean soup | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -260.0mg | 1 |
+| irish | A->A | Beef chilli con carne soup | 450g / 1lb of minced beef -> Beef, mince, raw, extra lean | sat fat -4.6g, sodium +25.9mg, energy -70.0kcal, protein +3.5g | 2 |
+| slovenian | A->A | Beef goulash | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -156.0mg | 2 |
+| hungarian | A->A | Braised liver with cooked potatoes, parsley and pickled pearl onions | 1 g Salt -> Salt low sodium LoSalt | sodium -262.0mg | 1 |
+| slovenian | A->A | Buckwheat pocket | 500g Cheese, cottage, 40% fat in dry matter -> low-fat cottage cheese | sat fat -2.6g, sodium -7.0mg, sugar +0.3g, energy -41.8kcal, protein +1.5g | 4 |
+| hungarian | A->A | Celery sticks and carrot with hummus | Salt -> Salt low sodium LoSalt | sodium -262.0mg | 1 |
+| slovenian | A->A | Chicken paprikash | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -390.0mg | 4 |
+| slovenian | A->A | Chicken stew | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -156.0mg | 1 |
+| slovenian | A->A | Chicory with bean | 2g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -104.0mg | 1 |
+| irish | A->A | Courgette bites | 35g grated cheese -> Cheese, cottage, plain, reduced fat | sat fat -1.2g, sodium -25.6mg, energy -17.9kcal, protein -0.7g | 1 |
+| hungarian | A->A | Creamy broccoli pasta with white bean | 1 g Salt -> Salt low sodium LoSalt | sodium -262.0mg | 2 |
+| slovenian | A->A | Flike | 3g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -195.0mg | 1 |
+| hungarian | A->A | Hummus on toast | Salt -> Salt low sodium LoSalt | sodium -262.0mg | 1 |
+| hungarian | A->A | Hummus on toast with poached egg and smoked paprika | Salt -> Salt low sodium LoSalt | sodium -262.0mg | 1 |
+| slovenian | A->A | Leavened dough for dumplings | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -1560.0mg | 4 |
+| irish | A->A | Mushroom and courgette tagliatelle | 100g tagliatelle -> Pasta, dry, wholewheat, raw | sugar -0.8g, energy -9.0kcal, fibre +3.2g | 2 |
+| irish | A->A | Pasta with courgette, olive oil, garlic and chilli | 200 g dried pasta -> Pasta, wholewheat, spaghetti, dried, raw | sugar +1.8g, energy -14.0kcal, fibre +8.5g, protein +1.3g | 3 |
+| irish | A->A | Pasta with salmon and peas |  -> Creme fraiche half fat | sat fat -2.5g, energy -32.0kcal | 3 |
+| irish | A->A | Pork and vegetable noodle stir fry | 40g / 1 ½ oz. dried noodles -> Pasta, wholewheat, spaghetti, dried, raw | sugar +0.7g, energy -5.6kcal, fibre +3.4g, protein +0.5g | 2 |
+| slovenian | A->A | Potato goulash | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -390.0mg | 2 |
+| slovenian | A->A | Potato with mangold | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -390.0mg | 2 |
+| irish | A->A | Scotch broth | 450g / 1lb stewing beef -> Beef, braising steak, raw, lean | sat fat -1.4g, energy -19.9kcal, protein +1.1g | 1 |
+| irish | A->A | Spaghetti Bolognese | 225 g spaghetti -> Pasta, wholewheat, spaghetti, dried, raw | sugar +2.0g, energy -15.8kcal, fibre +9.6g, protein +1.5g | 1 |
+| irish | A->A | Spaghetti with spinach and lemon crème fraiche sauce |  -> Creme fraiche half fat | sat fat -2.9g, sugar +0.4g, energy -38.4kcal | 3 |
+| irish | A->A | Tuna pasta with sweetcorn and peppers | 2 tablespoons of dijon mustard or tomato puree -> Mustard low sodium | sodium -313.9mg, sugar -0.5g, energy +5.5kcal, protein +0.4g | 2 |
+| hungarian | B->A | Beef and veggie soup; Bacon wrapped asparagus | 50 g Bacon rashers, streaky, grilled -> Pork bacon fried lean | sat fat -4.4g, sodium +60.0mg, sugar +0.5g, energy -97.5kcal, protein +1.4g | 4 |
+| irish | B->A | Brussels Sprouts with Honey and Mustard | 2 tablespoons grainy mustard -> Mustard low sodium | sodium -104.6mg | 3 |
+| hungarian | B->A | Chicken paprikash with dumplings and saurkraut | 2 g Salt -> Salt low sodium LoSalt | sodium -524.0mg | 10 |
+| hungarian | B->A | Cottage cheese with dill on toast | 100 g Cheese, cottage, plain -> low-fat cottage cheese | sat fat -2.3g, sodium -230.0mg, energy -27.0kcal, protein +4.7g | 3 |
+| hungarian | B->A | Cottage cheese with spelt cracker | 50 g Cheese, cottage, plain -> low-fat cottage cheese | sat fat -1.1g, sodium -115.0mg, energy -13.5kcal, protein +2.4g | 2 |
+| slovenian | B->A | Deaf štruklji | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -390.0mg | 2 |
+| irish | B->A | Homemade burgers | 400g 5% fat minced beef -> Beef, mince, raw, extra lean | sat fat -4.1g, sodium +23.0mg, energy -62.2kcal, protein +3.1g | 2 |
+| hungarian | B->A | Hungarian white mold salami with baguette and hot peppers | 30 g Salami -> Salami low fat | sat fat -3.4g, sodium -147.0mg, energy -79.2kcal, protein +1.1g | 3 |
+| slovenian | B->A | Risotto with peas | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -390.0mg | 1 |
+| slovenian | B->A | Roast pork from Gorenjska | 1000g Wheat white bread -> Wheat mixed bread, reduced salt | sodium -168.0mg, sugar -0.3g, energy -19.8kcal, fibre +2.1g, protein +0.6g | 2 |
+| hungarian | B->A | Roasted veggie soup with toasted chickpeas and croutons | 2 g Salt -> Salt low sodium LoSalt | sodium -524.0mg | 1 |
+| hungarian | B->A | Venison/deer stew with dumplings and pickled beetroot | 2 g Salt -> Salt low sodium LoSalt | sodium -524.0mg | 3 |
+| irish | B->A | Walnut and sultana bread with almonds | 15g / ½ oz. of salt -> Salt low sodium LoSalt | sodium -327.5mg | 1 |
+| slovenian | B->B | Chicken, fried | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -390.0mg | 2 |
+| irish | B->B | Fruit flan | 1 x 170g / 6 oz. carton of single cream -> Cream cultured reduced fat 10 -12% milkfat | sat fat -1.1g, sugar +0.3g, energy -13.8kcal | 4 |
+| irish | B->B | Neven Maguire's turkey, ham and potato pie |  -> Creme fraiche half fat | sat fat -1.6g, energy -21.3kcal | 1 |
+| slovenian | B->B | Viennese schnitzel | 2g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -130.0mg | 2 |
+| hungarian | C->A | Frankfurter/boiled sausage with mustard, sauerkraut and rye bread | 100 g Frankfurter -> FRANKFURTER, LIGHT, AVERAGE OF INDUSTRIAL PRODUCTS | sat fat -6.2g, sodium -10.0mg, energy -130.0kcal, protein -2.1g | 2 |
+| slovenian | C->B | Curd spoon dumplings | 600g Cheese, cottage, 40% fat in dry matter -> low-fat cottage cheese | sat fat -3.9g, sodium -10.5mg, sugar +0.5g, energy -62.6kcal, protein +2.2g | 4 |
+| hungarian | C->B | Green pea soup; Sweet cottage cheese dumplings in breadcrumbs | 125 g Cheese, cottage, plain -> low-fat cottage cheese | sat fat -2.9g, sodium -287.5mg, energy -33.8kcal, protein +5.9g | 8 |
+| hungarian | C->B | Hungarian cottage cheese spread on brown bread with hot green peppers | 80 g Cheese, cottage, plain -> low-fat cottage cheese | sat fat -1.8g, sodium -184.0mg, energy -21.6kcal, protein +3.8g | 3 |
+| slovenian | C->B | Idrija dumplings (žlikrofi), boiled | 12g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -780.0mg | 1 |
+| slovenian | C->B | Stuffed calamari | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -312.0mg | 2 |
+| hungarian | C->C | Beetroot hummus on breadstick with broccoli sprouts | Salt -> Salt low sodium LoSalt | sodium -262.0mg | 1 |
+| slovenian | D->B | Prekmurje gibanica layered pastry | 1000g Cheese, cottage, at least 60% and max. 85% fat in dry matter -> low-fat cottage cheese | sat fat -6.0g, sodium -118.3mg, energy -88.1kcal, protein +0.9g | 4 |
+| irish | D->C | Brown bread ice cream | 290ml / ½ pint of double cream -> Cream reduced fat (for cooking) 12% milkfat | sat fat -4.8g, energy -60.0kcal | 2 |
+
+## search: product variant (5)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Banana and oat smoothie | 150ml / 5fl. oz. semi-skimmed milk -> Milk skimmed | sat fat -1.2g, sugar +0.3g, energy -15.4kcal, protein +0.5g | 1 |
+| irish | A->A | Cereal with fresh fruit and nuts | 200ml / 7fl oz. of semi-skimmed milk -> Milk skimmed | sat fat -1.6g, sugar +0.4g, energy -20.6kcal, protein +0.6g | 1 |
+| irish | A->A | Chicken casserole | 8 chicken thighs, skin and bone removed (or 4 chicken legs, skin removed) -> Chicken inner breast fillet skinless boneless raw | sat fat -5.4g, sodium -77.5mg, energy -105.0kcal, protein +11.8g | 3 |
+| irish | A->A | Macaroni and cheese | 425ml semi-skimmed milk -> Milk skimmed | sat fat -1.0g, energy -13.1kcal | 2 |
+| irish | A->A | Porridge | 240ml / 8½ fl oz. of semi-skimmed milk -> Milk skimmed | sat fat -2.0g, sugar +0.5g, energy -24.7kcal, protein +0.7g | 1 |
+
+## search: related food (33)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Barbecue chicken drumsticks | 16 Chicken drumsticks -> Turkey, light meat, raw | sat fat -9.5g, sodium -64.6mg, energy -186.2kcal, protein +25.8g | 7 |
+| hungarian | A->A | Carrot, cucumber and celery sticks with blocks of hard cheese | 40 g Cheese, Emmental -> Mozzarella cheese 18% fat | sat fat -3.2g, sodium -76.8mg, energy -68.0kcal, protein -5.3g | 2 |
+| slovenian | A->A | Chanterelles with eggs | 180g Cream sour -> Greek yoghurt, skimmed milk, plain | sat fat -4.0g, sodium -23.8mg, sugar +0.4g, energy -60.0kcal, protein +1.1g | 4 |
+| irish | A->A | Chicken and ginger curry with fragrant rice | 80g of wholegrain rice -> Barley, wholegrain, raw | sugar +0.3g, energy -6.4kcal, fibre +4.9g, protein +2.2g | 1 |
+| irish | A->A | Chicken goujons with potato wedges | 2 boneless and skinless chicken fillets -> Turkey breast skinless boneless raw | sat fat -1.9g, sodium -31.4mg, energy -35.7kcal, protein +4.3g | 4 |
+| irish | A->A | Chicken in barbecue sauce | 8 chicken thighs -> Turkey, light meat, raw | sat fat -2.0g, sodium -112.5mg, energy -27.5kcal, protein +11.8g | 2 |
+| hungarian | A->A | Chicken skewers with peppers, onion, zucchini served with couscous and tzatziki | 150 g Couscous, plain, cooked -> Quinoa, black, cooked | sodium -6.0mg, sugar +0.4g, energy -67.5kcal, fibre +5.7g, protein -2.5g | 5 |
+| irish | A->A | Granny Bríd's chicken | 30g of uncooked chorizo -> Chicken, meat, raw | sat fat -2.2g, sodium -360.6mg, energy -55.1kcal | 10 |
+| slovenian | A->A | Martin's goose | 940g Goose, domesticated, meat only, raw -> Turkey, light meat, raw | sat fat -4.7g, sodium -69.6mg, energy -94.3kcal, protein +3.1g | 4 |
+| irish | A->A | Nutty fried rice with satay sauce | 80g wholegrain rice -> Barley, wholegrain, raw | sugar +0.3g, energy -6.4kcal, fibre +4.9g, protein +2.2g | 1 |
+| irish | A->A | Spicy chicken and rice bowl | 100g of whole grain rice -> Quinoa raw | sodium -7.5mg, sugar +1.9g, fibre +2.2g, protein +2.5g | 1 |
+| irish | A->A | Spinach and feta frittata | 50g of feta cheese -> Cottage cheese | sat fat -3.3g, sodium -195.0mg, sugar +0.6g, energy -40.9kcal, protein -0.4g | 5 |
+| hungarian | A->A | Tofu slices, couscous, tomato salad | 150 g Couscous, plain, cooked -> Quinoa, black, cooked | sodium -6.0mg, sugar +0.5g, energy -67.5kcal, fibre +5.7g, protein -2.5g | 5 |
+| irish | A->A | Turkey and butternut squash curry | 80g wholegrain rice -> Barley, wholegrain, raw | sugar +0.3g, energy -6.4kcal, fibre +4.9g, protein +2.2g | 1 |
+| slovenian | A->A | Zucchini stuffed with beef | 100g CHEESE "EDAMER" -> Cottage cheese | sat fat -3.7g, sodium -44.0mg, sugar +0.7g, energy -63.3kcal, protein -2.9g | 5 |
+| hungarian | B->A | Guacamole on toast with feta cheese | 50 g Cheese, Feta -> Cottage cheese | sat fat -5.5g, sodium -332.0mg, sugar +0.8g, energy -73.8kcal, protein -1.6g | 2 |
+| hungarian | B->A | Hungarian smoked sausage sandwich | 30 g Sausages, premium, raw -> Chicken, light meat, raw | sat fat -2.4g, sodium -132.0mg, sugar -0.5g, energy -44.4kcal, protein +3.1g | 8 |
+| slovenian | B->A | Mushrooms in sour cream | 90g Cream sour -> Greek yoghurt, skimmed milk, plain | sat fat -2.0g, sodium -11.9mg, energy -30.0kcal, protein +0.6g | 4 |
+| hungarian | B->A | Tortilla wrap filled with egg, goat cheese, rocket salad and tomato | 30 g Cheese, goats milk, full fat, soft, white rind -> Cottage cheese | sat fat -4.6g, sodium -79.5mg, sugar +0.6g, energy -65.2kcal, protein -2.6g | 2 |
+| slovenian | B->B | Apple strudel | 140g Sugar, white -> Syrup maple | sugar -5.5g, energy -18.2kcal | 2 |
+| slovenian | C->A | Lasagna | 300g CHEESE "EDAMER" -> Yoghurt low fat | sat fat -8.6g, sodium -234.5mg, sugar +1.9g, energy -159.4kcal, protein -10.1g | 4 |
+| hungarian | C->B | Cheese sandwich | 40 g Cheese, Gouda -> Cottage cheese | sat fat -7.1g, sodium -235.6mg, sugar +1.2g, energy -109.8kcal, protein -5.1g | 9 |
+| slovenian | C->B | Cheese-gratinated mushrooms | 250g CHEESE "GOUDA" -> Ricotta cheese approx. 10% fat | sat fat -8.0g, sodium -271.2mg, sugar +2.1g, energy -121.6kcal, protein -9.2g | 7 |
+| hungarian | C->B | Greek salad, croutons | 50 g Cheese, Feta -> Cottage cheese | sat fat -5.6g, sodium -332.0mg, sugar +0.8g, energy -73.8kcal, protein -1.6g | 2 |
+| hungarian | C->B | Layered potato casserole "rakott krumpli" | 30 g Sausages, pork, raw -> Chicken, light meat, raw | sat fat -2.7g, sodium -123.0mg, sugar -0.8g, energy -60.9kcal, fibre -0.8g, protein +3.6g | 4 |
+| slovenian | C->B | Moussaka | 300g Cream sour -> Greek yoghurt, skimmed milk, plain | sat fat -4.5g, sodium -26.5mg, sugar +0.4g, energy -66.6kcal, protein +1.2g | 3 |
+| irish | D->B | Grilled pork chops - student style | 4 pork chops -> Chicken, light meat, raw | sat fat -5.7g, energy -113.0kcal, protein +6.4g | 5 |
+| hungarian | D->B | Grilled pork sausage with mustard, white bread and pickles | 100 g Sausages, pork, raw -> Chicken, light meat, raw | sat fat -8.8g, sodium -410.0mg, sugar -2.8g, energy -203.0kcal, fibre -2.8g, protein +12.1g | 6 |
+| slovenian | D->C | Beef in horseradish sauce | 100g Cheese, hard, Parmesan, 32 % fidm. -> Cottage cheese | sat fat -3.4g, sodium -92.0mg, sugar +0.7g, energy -68.8kcal, protein -5.6g | 2 |
+| hungarian | D->C | Deep-fried cheese in breadcrumbs with sweet corn rice and salad | 100 g Cheese, Edam -> Mozzarella cheese 18% fat | sat fat -5.2g, sodium -798.0mg, sugar +0.4g, energy -127.0kcal, protein -11.1g | 7 |
+| slovenian | D->C | Flat meatballs | 700g Veal, mince, raw -> Beef, chuck, raw | sat fat -4.4g, sodium -94.5mg, energy -83.8kcal, protein +4.6g | 7 |
+| irish | D->C | Simple sponge cake | 125g of caster sugar -> Syrup maple | sugar -5.0g, energy -19.1kcal | 3 |
+| slovenian | D->D | Slovenian rolled dumplings (štruklji) with tarragon | 140g Sugar, white -> Syrup maple | sugar -5.5g, energy -18.2kcal | 8 |
+
+## table: brown_rice (8)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Beef chilli con carne | 60 g basmati rice per person -> Rice, brown, basmati, raw | energy -7.2kcal, fibre +1.2g | 1 |
+| irish | A->A | Caribbean pork chops with mango salsa | 75g / 2½oz. of basmati rice -> Rice, brown, basmati, raw | energy -9.0kcal, fibre +1.5g | 2 |
+| hungarian | A->A | Chicken breast in breadcrumb with steamed vegetables and white rice | 80 g Rice, white, basmati, raw -> Rice, brown, basmati, raw | sat fat +0.4g, sodium -589.5mg, sugar +0.6g, fibre +1.8g, protein +0.6g | 6 |
+| irish | A->A | Chicken in tomato sauce with rice | 200g / 7oz. long grain white rice -> Rice, brown, wholegrain, raw | energy -11.0kcal, fibre +1.0g, protein +0.5g | 2 |
+| irish | A->A | Stephen McAllister's thai chilli chicken | 240g / 8oz. of basmati rice -> Rice, brown, basmati, raw | sat fat +0.5g, sodium -224.1mg, sugar -0.4g, energy -14.4kcal, fibre +2.4g | 4 |
+| irish | A->A | Thai green chicken curry | 60 g basmati rice per person -> Rice, brown, basmati, raw | energy -7.2kcal, fibre +1.2g | 4 |
+| irish | A->A | Vegetable stir-fry | 250g of basmati rice -> Rice, brown, basmati, raw | sodium -70.4mg, energy -8.1kcal, fibre +1.2g | 5 |
+| irish | B->A | Thai butternut squash curry | 60 g basmati rice per person -> Rice, brown, basmati, raw | sat fat +0.3g, sodium -123.1mg, sugar -0.3g, energy +8.4kcal, fibre +2.9g, protein +0.9g | 4 |
+
+## table: butter_to_oil_for_frying (4)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| slovenian | A->A | Loška smojka stew | 25.6g Lard -> Oil, canola | sat fat -0.8g | 1 |
+| slovenian | A->A | Potatoes, sautéed | 51.2g Lard -> Oil, canola | sat fat -4.2g, energy -23.0kcal | 1 |
+| slovenian | B->A | Potato žganci | 200g Lard -> Oil, canola | sat fat -6.6g, energy -36.0kcal | 1 |
+| irish | C->A | Sage and breadcrumb stuffing | 50g / 2 oz. of butter -> Oil, rapeseed | sat fat -1.9g | 4 |
+
+## table: canned_beans_to_cooked (1)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Lamb chilli con carne | 1 x 240g / 8½ tin of kidney beans, drained weight -> Red kidney bean, boiled/cooked in water | sodium -156.4mg, fibre +2.8g, protein +0.8g | 3 |
+
+## table: canned_chickpeas_to_cooked (6)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Chickpea and lentil curry | 1 tin of drained chickpeas (400g / 14oz.) -> Chick pea, boiled/cooked in water | sodium -205.1mg, energy +26.0kcal, fibre +2.7g, protein +1.6g | 4 |
+| irish | A->A | Moroccan vegetable tagine | 400g tin of chickpeas rinsed and drained -> Chick pea, boiled/cooked in water | sodium -123.1mg, energy +15.6kcal, fibre +1.7g, protein +0.9g | 2 |
+| irish | A->A | Nutty Veggie Couscous | 400g / 14 oz. can chick peas, drained -> Chick pea, boiled/cooked in water | sodium -82.0mg, energy +10.4kcal, fibre +1.1g, protein +0.6g | 2 |
+| irish | A->A | Pesto pasta | 1 x 200g tin chickpeas -> Chick pea, boiled/cooked in water | sodium -100.2mg, energy +18.6kcal, fibre +3.0g, protein +1.1g | 4 |
+| irish | A->A | Vegetables provencal | 1 x 400g / 14 oz. tin of chickpeas -> Chick pea, boiled/cooked in water | sodium -136.7mg, energy +17.3kcal, fibre +1.8g, protein +1.0g | 3 |
+| irish | B->A | Thai butternut squash curry | 400 g tin chickpeas, drained -> Chick pea, boiled/cooked in water | sat fat +0.3g, sodium -123.1mg, sugar -0.3g, energy +8.4kcal, fibre +2.9g, protein +0.9g | 4 |
+
+## table: half_wholemeal_flour (8)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Pancakes | 100g or 4 oz of plain flour -> Flour, wheat, wholemeal | fibre +0.5g | 2 |
+| irish | A->A | Sprout and onion tart | 500g flour -> Flour, wheat, wholemeal | energy -7.8kcal, fibre +2.0g, protein +0.8g | 1 |
+| irish | C->B | Banana and walnut loaf | 225g / 8 oz. of plain flour -> Flour, wheat, wholemeal | sugar -2.2g, energy -11.5kcal, fibre +0.6g | 6 |
+| irish | C->B | Hot cross buns | 850g plain flour -> Flour, wheat, wholemeal | sugar -1.2g, energy -9.4kcal, fibre +1.1g, protein +0.4g | 7 |
+| hungarian | C->B | Vegan pancake topped with peanut butter and jam | 40 g Flour, wheat, white, plain, soft -> Flour, wheat, wholemeal | sodium -296.6mg, sugar -7.3g, energy -32.6kcal, fibre +1.6g, protein +0.5g | 8 |
+| irish | C->C | Apricot loaf | 250g / 9 oz. plain flour -> Flour, wheat, wholemeal | fibre +0.8g, protein +0.3g | 2 |
+| irish | C->C | Banana bread | 188g / 6 ½ oz. of plain flour -> Flour, wheat, wholemeal | sodium -90.3mg, sugar -1.1g, energy -7.2kcal, fibre +0.6g | 6 |
+| irish | C->C | Spicy Christmas biscuits | 225g /8 oz. of plain flour -> Flour, wheat, wholemeal | fibre +0.5g | 3 |
+
+## table: jam_reduced_sugar (1)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | C->B | Vegan pancake topped with peanut butter and jam | 20 g Jam, fruit with edible seeds -> Jam, reduced sugar | sodium -296.6mg, sugar -7.3g, energy -32.6kcal, fibre +1.6g, protein +0.5g | 8 |
+
+## table: lean_bacon (1)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | C->A | Hungarian baked pasta with dairy and bacon "túrós csusza" | 20 g Bacon rashers, streaky, raw -> Bacon rashers, back, fat trimmed, raw | sat fat -1.1g, sodium -346.7mg, energy -28.0kcal, protein +0.6g | 5 |
+
+## table: light_coconut_milk (1)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | B->A | Adrian Martin's leftover turkey curry with rice and naan bread | 1 x 400ml / 13 ½ fl oz. tin of coconut milk -> Coconut milk, light, canned | sat fat -8.7g, sodium +14.4mg, sugar -0.5g, energy -94.1kcal, fibre -0.7g, protein -1.0g | 6 |
+
+## table: light_mozzarella (2)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Pizza | 50g Mozzarella -> Cheese, semi-hard, low-fat, Mozzarella, Norwegian | sat fat -1.0g, sodium +6.8mg, protein +2.6g | 1 |
+| hungarian | D->B | Caprese salad | 50 g Cheese, Mozzarella, fresh -> Cheese, semi-hard, low-fat, Mozzarella, Norwegian | sat fat -2.0g, sodium -292.3mg, sugar +0.3g, energy -6.8kcal, protein +5.7g | 6 |
+
+## table: low_fat_yogurt (3)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | A->A | Tuna and corn salad with tortilla | 30 g Yogurt, Greek style, plain -> Yogurt Greek skimmed | sat fat -3.3g, sodium -235.7mg, sugar +0.9g, energy -29.5kcal, fibre +3.4g, protein +1.5g | 4 |
+| hungarian | B->A | Turkish eggs with toasted whole wheat bread | 150 g Yogurt, Greek style, plain -> Yogurt Greek skimmed | sat fat -10.1g, sodium -305.2mg, sugar +0.8g, energy -115.5kcal, protein +3.8g | 4 |
+| hungarian | B->A | Zucchini and carrot fritters with garlic yogurt | 100 g Yogurt, Greek style, plain -> Yogurt Greek skimmed | sat fat -6.7g, sodium -596.5mg, sugar +0.5g, energy -77.0kcal, protein +2.5g | 7 |
+
+## table: low_sodium_salt (66)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | A->A | Applepie porridge | 0,5 g Salt -> Salt low sodium LoSalt | sodium -147.4mg | 1 |
+| slovenian | A->A | Beef soup | 15g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -219.6mg | 1 |
+| slovenian | A->A | Beef, boiled | 1g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -294.8mg | 1 |
+| hungarian | A->A | Brussels sprouts and lentil salad | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 3 |
+| hungarian | A->A | Cabbage pasta | 1 g Salt -> Salt low sodium LoSalt | sodium -293.8mg, sugar +1.8g, energy -14.0kcal, fibre +8.5g, protein +1.3g | 5 |
+| hungarian | A->A | Carrotcake porridge | 0,5 g Salt -> Salt low sodium LoSalt | sodium -147.4mg | 1 |
+| hungarian | A->A | Chicken breast in breadcrumb with steamed vegetables and white rice | 1g Salt -> Salt low sodium LoSalt | sat fat +0.4g, sodium -589.5mg, sugar +0.6g, fibre +1.8g, protein +0.6g | 6 |
+| hungarian | A->A | Chicken breast in breadcrumb with steamed vegetables and white rice | 1 g Salt -> Salt low sodium LoSalt | sat fat +0.4g, sodium -589.5mg, sugar +0.6g, fibre +1.8g, protein +0.6g | 6 |
+| hungarian | A->A | Chickpea curry with brown rice | 1 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 3 |
+| hungarian | A->A | Chickpea curry with brown rice | 1 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 3 |
+| hungarian | A->A | Egg spread with multigrain bread | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 2 |
+| hungarian | A->A | Eggnoodle dish with lettuce and vinegar "tojásos nokedli" | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 5 |
+| hungarian | A->A | Eggplant spread with soft boiled eggs on toast | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 1 |
+| hungarian | A->A | Green pea pottage with garlic bread | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 5 |
+| hungarian | A->A | Hummus with falafel and vegetables | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 3 |
+| hungarian | A->A | Hungarian ratatuille with bread | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 3 |
+| hungarian | A->A | Hungarian ratatuille with eggs and bread | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 2 |
+| hungarian | A->A | Lentil pottage with falafel | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 3 |
+| hungarian | A->A | Lentilspread on multigrain buns | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 1 |
+| hungarian | A->A | Oven baked vegetables and tofu with tahini dressing | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 2 |
+| hungarian | A->A | Pasta salad with chickpeas and fresh vegetables | 1 g Salt -> Salt low sodium LoSalt | sodium -294.1mg, sugar +1.1g, energy -8.4kcal, fibre +5.1g, protein +0.8g | 6 |
+| slovenian | A->A | Pasta with cabbage | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -442.1mg | 2 |
+| hungarian | A->A | Pasta with zakuska and beans | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 5 |
+| hungarian | A->A | Pumpkin-spiced porridge | 0,5 g Salt -> Salt low sodium LoSalt | sodium -147.4mg | 1 |
+| hungarian | A->A | Red lentil pottage with potatoes, topped with pumpkin seeds | 2 g Salt -> Salt low sodium LoSalt | sat fat -0.3g, sodium -589.6mg, energy -22.5kcal | 2 |
+| hungarian | A->A | Roasted chicken wings with bulgur salad | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 1 |
+| hungarian | A->A | Roasted duck breast with braised red cabbage and apple | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 2 |
+| hungarian | A->A | Salad with boiled eggs | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 1 |
+| hungarian | A->A | Salmon filet with sautéed vegetables | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 2 |
+| hungarian | A->A | Shaksuka with pita bread | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 1 |
+| hungarian | A->A | Split pea pottage with roasted mushrooms | 1 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 5 |
+| hungarian | A->A | Split pea pottage with roasted mushrooms | 1 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 5 |
+| irish | A->A | Stephen McAllister's thai chilli chicken | ¼ teaspoon of salt -> Salt low sodium LoSalt | sat fat +0.5g, sodium -224.1mg, sugar -0.4g, energy -14.4kcal, fibre +2.4g | 4 |
+| hungarian | A->A | Stuffed peppers, vegan | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 1 |
+| hungarian | A->A | Tomatoes and beans with toast | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 3 |
+| hungarian | A->A | Veggie burger | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 3 |
+| hungarian | A->A | Warm quinoa salad | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 1 |
+| hungarian | A->A | White bean spread with sun-dried tomatoes and crispy tortilla | 1 g Salt -> Salt low sodium LoSalt | sat fat -1.3g, sodium -528.3mg, sugar +0.8g, energy -6.4kcal, fibre +3.4g, protein +0.8g | 5 |
+| irish | B->A | Caramelised onion, mushroom and cheese quiche | 0.5 teaspoon salt -> Salt low sodium LoSalt | sodium -112.1mg | 2 |
+| hungarian | B->A | Catfish paprikash with baked pasta, quark, sour cream and bacon | 2 g Salt -> Salt low sodium LoSalt | sodium -884.3mg | 9 |
+| hungarian | B->A | Catfish paprikash with baked pasta, quark, sour cream and bacon | 1 g Salt -> Salt low sodium LoSalt | sodium -884.3mg | 9 |
+| hungarian | B->A | Creamy mushroom risotto | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 2 |
+| hungarian | B->A | Egg muffins | 1 g Salt -> Salt low sodium LoSalt | sodium -294.7mg | 1 |
+| hungarian | B->A | Eggplant spread with crackers and crispy chickpeas | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 1 |
+| hungarian | B->A | Firtatta | 1 g Salt -> Salt low sodium LoSalt | sodium -294.8mg | 2 |
+| hungarian | B->A | Roasted catfish with rosemary, mashed potatoes and cucumber salad | 1 g Salt -> Salt low sodium LoSalt | sat fat -2.0g, sodium -295.0mg, energy -27.9kcal | 5 |
+| hungarian | B->A | Roasted chicken thighs with cold potatosalad | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 4 |
+| hungarian | B->A | Scrambled oats | 0,5 g Salt -> Salt low sodium LoSalt | sodium -147.4mg | 1 |
+| hungarian | B->A | Spinach pottage with potatoes | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 5 |
+| hungarian | B->A | Turkish eggs with toasted whole wheat bread | 1 g Salt -> Salt low sodium LoSalt | sat fat -10.1g, sodium -305.2mg, sugar +0.8g, energy -115.5kcal, protein +3.8g | 4 |
+| hungarian | B->A | Vegetables in breadcrumbs with corn rice | 2 g salt -> Salt low sodium LoSalt | sat fat -0.7g, sodium -599.5mg, sugar -0.5g, energy -68.0kcal, fibre +2.6g, protein +0.8g | 6 |
+| hungarian | B->A | Zucchini and carrot fritters with garlic yogurt | 2 g Salt -> Salt low sodium LoSalt | sat fat -6.7g, sodium -596.5mg, sugar +0.5g, energy -77.0kcal, protein +2.5g | 7 |
+| slovenian | B->B | Kale soup | 6g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sodium -219.6mg | 2 |
+| hungarian | B->B | Mushroom stew with cooked potatoes and parsley | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 5 |
+| hungarian | C->A | Hungarian baked pasta with dairy and bacon "túrós csusza" | 1 g Salt -> Salt low sodium LoSalt | sat fat -1.1g, sodium -346.7mg, energy -28.0kcal, protein +0.6g | 5 |
+| hungarian | C->B | Beetroot risotto, goat cheese | 1 g Salt -> Salt low sodium LoSalt | sat fat -1.3g, sodium -294.9mg, energy -18.6kcal | 8 |
+| slovenian | C->B | Herb soup | 18g Salt, white (sea, igneous or rock), iodine added, no fluride added -> Salt low sodium LoSalt | sat fat -1.2g, sodium -442.4mg, energy -15.7kcal | 6 |
+| hungarian | C->B | Liver pâté with ciabatta and grapes | 1 g Salt -> Salt low sodium LoSalt | sat fat -2.6g, sodium -295.2mg, energy -37.2kcal | 3 |
+| hungarian | C->B | Vegan pancake topped with peanut butter and jam | 1 g Salt -> Salt low sodium LoSalt | sodium -296.6mg, sugar -7.3g, energy -32.6kcal, fibre +1.6g, protein +0.5g | 8 |
+| hungarian | C->B | Zacusca on bread stick with roasted chickpeas on top | 1 g Salt -> Salt low sodium LoSalt | sat fat -0.4g, sodium -294.8mg, energy -21.6kcal | 4 |
+| hungarian | C->C | American pancakes with apple sauce | 0.5 g Salt -> Salt low sodium LoSalt | sodium -147.4mg | 6 |
+| irish | C->C | Banana bread | ½ teaspoon of salt -> Salt low sodium LoSalt | sodium -90.3mg, sugar -1.1g, energy -7.2kcal, fibre +0.6g | 6 |
+| hungarian | C->C | Hungarin goulash suop with white bread | 2 g Salt -> Salt low sodium LoSalt | sodium -589.5mg | 6 |
+| hungarian | D->B | Caprese salad | 1 g Salt -> Salt low sodium LoSalt | sat fat -2.0g, sodium -292.3mg, sugar +0.3g, energy -6.8kcal, protein +5.7g | 6 |
+| hungarian | D->D | Duck rilette on toast with radish | 2 g Salt -> Salt low sodium LoSalt | sodium -605.5mg, sugar -0.3g, energy +6.4kcal, fibre +2.1g, protein +1.4g | 4 |
+| irish | D->D | Ultimate basic muffins | 1 teaspoon of salt -> Salt low sodium LoSalt | sodium -75.4mg, sugar -2.6g, energy -10.3kcal | 3 |
+
+## table: pepperoni_to_lean_ham (1)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | C->B | Pepperoni pizza | 36g pepperoni (12 slices) -> Ham, turkey, with spices | sat fat -2.2g, sodium -140.4mg, energy -53.4kcal | 1 |
+
+## table: protein_swap (7)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Lamb rogan josh | 450g / 16 oz. loin of lamb, trimmed and diced -> Turkey breast skinless boneless raw | sat fat -1.9g, sodium +7.1mg, energy -29.2kcal, protein +3.7g | 6 |
+| irish | A->A | Roast lamb with garlic and herbs | 1 boneless half leg of lamb, trimmed - around 1½ kg / 3½lb -> Chicken breast meat only raw | sat fat -4.0g, sodium -6.0mg, energy -72.0kcal, protein +3.6g | 6 |
+| irish | B->A | Leftover lamb curry | 450g / 1lb of stewing lamb -> Turkey breast skinless boneless raw | sat fat -4.6g, energy -81.0kcal, protein +4.6g | 5 |
+| hungarian | C->A | Székely-style cabbage stew | 80 g Pork, hand, shoulder joint, raw, lean and fat -> Turkey breast skinless boneless raw | sat fat -3.8g, sodium -25.6mg, sugar -0.3g, energy -86.4kcal, fibre +2.1g, protein +5.5g | 9 |
+| slovenian | C->B | Balkan-style grilled patty (Pleskavica) | 350g Mutton, raw -> Chicken breast meat only raw | sat fat -5.2g, sodium -15.8mg, energy -59.5kcal, protein +2.9g | 7 |
+| slovenian | C->B | Veal steak with prosciutto | 650g Veal, fillet, tenderloin, raw -> Turkey breast skinless boneless raw | sat fat -1.9g, sodium -65.4mg, energy -7.9kcal, protein +4.4g | 5 |
+| slovenian | D->D | Ćevapčići, grilled | 350g Mutton, raw -> Turkey breast skinless boneless raw | sat fat -5.2g, sodium -14.7mg, energy -59.5kcal, protein +3.1g | 8 |
+
+## table: reduced_salt_stock (2)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | B->A | Green pea soup; Poppy seed pasta | 10 g Stock cubes, vegetable -> Stock cube, vegetable, reduced salt | sodium -436.0mg, energy -22.5kcal, protein -0.9g | 6 |
+| hungarian | C->B | Green pea soup; Peanut butter on toast with sour cherries | 10 g Stock cubes, vegetable -> Stock cube, vegetable, reduced salt | sodium -436.0mg, protein -0.9g | 6 |
+
+## table: semi_skimmed_milk (2)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | B->B | French toast with banana | 50 g Milk, whole, pasteurised, average -> Milk, semi-skimmed, pasteurised, summer and autumn | sat fat -1.3g, sugar -2.5g, energy -27.6kcal | 6 |
+| slovenian | C->B | Slovenian rolled cake (potica) with walnuts | 200ml Milk, pasteurised, whole (3.5% m.f.) -> Milk, semi-skimmed, pasteurised | sugar -1.9g, energy -9.3kcal | 2 |
+
+## table: similar_part (5)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A->A | Lemon and rosemary turkey crown | 2kg turkey crown -> Turkey, light meat, raw | sat fat -3.5g, sodium -40.0mg, energy -90.0kcal, protein +6.5g | 2 |
+| irish | A->A | Pork and pepper kebabs | 480g / 1 lb of diced lean pork -> Pork, fillet medallions, raw, lean | sat fat -1.1g, sodium -16.8mg, energy -31.2kcal, protein -0.4g | 7 |
+| hungarian | B->A | Brassói-style fried pork with potatoes | 100 g Pork, shoulder joint (collar), raw, lean and fat -> Pork, loin medallions, raw, lean | sat fat -5.3g, sodium -20.0mg, energy -102.0kcal, protein +7.2g | 8 |
+| irish | B->A | Pork and apricot kebabs | 450g / 1lb of boneless pork -> Pork, loin medallions, raw, lean | sat fat -5.3g, sodium -36.3mg, energy -137.2kcal, protein +8.7g | 7 |
+| irish | B->A | Roast chicken with lemon, herbs and pepper | 1 whole chicken with giblets removed, around 1½ kg / 3½ lb -> Chicken, whole, meat only, raw | sat fat -3.2g, sodium +8.0mg, energy -117.4kcal, protein +0.6g | 2 |
+
+## table: sour_cream_to_yogurt (1)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| slovenian | D->D | Sweet cheese štruklji | 180g sour cream with at least 10% m.m. -> Yoghurt plain 3% fat fortified | sat fat -1.7g, energy -23.4kcal | 3 |
+
+## table: wholemeal_bread (3)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | B->A | Vegetables in breadcrumbs with corn rice | 50 g Bread, white, toasted -> Bread, wholemeal, toasted | sat fat -0.7g, sodium -599.5mg, sugar -0.5g, energy -68.0kcal, fibre +2.6g, protein +0.8g | 6 |
+| hungarian | C->A | Székely-style cabbage stew | 80 g Bread, white, average -> Bread rolls, wholemeal | sat fat -3.8g, sodium -25.6mg, sugar -0.3g, energy -86.4kcal, fibre +2.1g, protein +5.5g | 9 |
+| hungarian | D->D | Duck rilette on toast with radish | 80 g Bread, white, average -> Bread rolls, wholemeal | sodium -605.5mg, sugar -0.3g, energy +6.4kcal, fibre +2.1g, protein +1.4g | 4 |
+
+## table: wholemeal_pasta (13)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | A->A | Cabbage pasta | 100 g Pasta, white, dried, raw -> Pasta, wholewheat, spaghetti, dried, raw | sodium -293.8mg, sugar +1.8g, energy -14.0kcal, fibre +8.5g, protein +1.3g | 5 |
+| irish | A->A | Chicken and pasta salad | 300g of pasta -> Pasta, dry, wholewheat, raw | sugar -0.6g, energy -8.2kcal, fibre +2.4g | 2 |
+| irish | A->A | Hot pasta salad | 300g of pasta -> Pasta, dry, wholewheat, raw | sodium -51.5mg, sugar -0.8g, energy -24.1kcal, fibre +2.4g | 3 |
+| irish | A->A | Neven Maguire's turkey, rocket and pine nut pasta | 200g penne pasta -> Pasta, dry, wholewheat, raw | energy +5.0kcal, fibre +1.5g | 2 |
+| hungarian | A->A | Pasta salad with chickpeas and fresh vegetables | 60 g Pasta, white, dried, raw -> Pasta, wholewheat, spaghetti, dried, raw | sodium -294.1mg, sugar +1.1g, energy -8.4kcal, fibre +5.1g, protein +0.8g | 6 |
+| irish | A->A | Penne with tomato and ricotta | 160g penne pasta -> Pasta, dry, wholewheat, raw | sodium +6.7mg, sugar -0.5g, energy +16.0kcal, fibre +4.6g, protein +0.8g | 2 |
+| irish | A->A | Penne with tuna, tomato and sweetcorn | 300g penne pasta -> Pasta, dry, wholewheat, raw | energy +7.5kcal, fibre +2.2g, protein +0.4g | 2 |
+| irish | A->A | Pesto pasta | 225g spaghetti -> Pasta, dry, wholewheat, raw | sodium -100.2mg, energy +18.6kcal, fibre +3.0g, protein +1.1g | 4 |
+| hungarian | A->A | Potato pasta with pickled beetroot | 100 g Pasta, white, dried, raw -> Pasta, wholewheat, spaghetti, dried, raw | sugar +1.8g, energy -14.0kcal, fibre +8.5g, protein +1.3g | 3 |
+| irish | A->A | Roasted vegetable pasta | 200g pasta -> Pasta, dry, wholewheat, raw | sugar -0.4g, energy -5.5kcal, fibre +1.6g | 5 |
+| irish | A->A | Tuna pasta bake | 375g / 13 oz. of pasta -> Pasta, dry, wholewheat, raw | sugar -0.7g, energy -10.3kcal, fibre +3.0g | 1 |
+| irish | B->B | BLT pasta salad | 75 g pasta -> Pasta, dry, wholewheat, raw | sugar -0.6g, energy -8.2kcal, fibre +2.4g | 1 |
+| irish | B->B | Greek pasta salad | 250g of pasta -> Pasta, dry, wholewheat, raw | sugar -0.5g, energy -6.9kcal, fibre +2.0g | 2 |
+
+## table: wholemeal_wrap (8)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| hungarian | A->A | Black bean burritos | 80 g Tortilla, wheat, soft -> Wrap/tortilla wheat wholemeal | sat fat -1.3g, sodium -233.6mg, sugar +0.8g, energy -6.4kcal, fibre +3.4g, protein +0.8g | 1 |
+| irish | A->A | Chicken burrito | 4 large wraps -> Wrap/tortilla wheat wholemeal | sodium -87.8mg, energy -14.2kcal, fibre +2.6g | 4 |
+| hungarian | A->A | Chickpea wrap | 100 g Tortilla, wheat, soft -> Wrap/tortilla wheat wholemeal | sat fat -1.6g, sodium -292.0mg, sugar +1.0g, energy -8.0kcal, fibre +4.3g, protein +1.0g | 1 |
+| hungarian | A->A | Chili con carne | 80 g Tortilla, wheat, soft -> Wrap/tortilla wheat wholemeal | sat fat -1.3g, sodium -233.6mg, sugar +0.8g, energy -6.4kcal, fibre +3.4g, protein +0.8g | 1 |
+| irish | A->A | Sweet chilli chicken wrap | 1 whole meal wrap -> Wrap/tortilla wheat wholemeal | sodium -65.0mg, energy -10.5kcal, fibre +1.9g | 1 |
+| hungarian | A->A | Tuna and corn salad with tortilla | 80 g Tortilla, wheat, soft -> Wrap/tortilla wheat wholemeal | sat fat -3.3g, sodium -235.7mg, sugar +0.9g, energy -29.5kcal, fibre +3.4g, protein +1.5g | 4 |
+| hungarian | A->A | White bean spread with sun-dried tomatoes and crispy tortilla | 80 g Tortilla, wheat, soft -> Wrap/tortilla wheat wholemeal | sat fat -1.3g, sodium -528.3mg, sugar +0.8g, energy -6.4kcal, fibre +3.4g, protein +0.8g | 5 |
+| hungarian | C->A | Tortilla pizza | 100 g Tortilla, wheat, soft -> Wrap/tortilla wheat wholemeal | sat fat -1.6g, sodium -292.0mg, sugar +1.0g, energy -8.0kcal, fibre +4.3g, protein +1.0g | 1 |
+
+## nothing (49)
+
+| region | grade | recipe | change | per serving | options |
+|---|---|---|---|---|---|
+| irish | A | Apple and pear slices with peanut butter | enrich; gaps fibre,protein |  | 0 |
+| hungarian | A | Avocado on toast with black sesame seed and crispy chickpeas | none; gaps - |  | 0 |
+| irish | A | Avocado salad sandwich | enrich; gaps protein |  | 0 |
+| hungarian | A | Baked sweet potatoes, broccoli and tofu | enrich; gaps protein |  | 0 |
+| irish | A | Barbecued fruit kebabs | enrich; gaps fibre,protein |  | 0 |
+| irish | A | Beans on toast | none; gaps - |  | 0 |
+| slovenian | A | Bolognese sauce | enrich; gaps fibre |  | 0 |
+| irish | A | Boonanas | both; gaps protein |  | 0 |
+| hungarian | A | Butternut squash, baked | enrich; gaps fibre,protein |  | 0 |
+| irish | A | Caprese pitta pocket | enrich; gaps fibre |  | 0 |
+| irish | A | Chicken fajitas | none; gaps - |  | 0 |
+| irish | A | Crackers and cheese | enrich; gaps protein |  | 0 |
+| hungarian | A | Cucumber, bran crackers | enrich; gaps fibre,protein |  | 0 |
+| slovenian | A | Cucumbers with sour cream | enrich; gaps fibre,protein |  | 0 |
+| irish | A | Egg muffins | enrich; gaps fibre,fruit_veg |  | 0 |
+| irish | A | Fish cakes | enrich; gaps fibre,fruit_veg |  | 0 |
+| irish | A | Guacamole | enrich; gaps fibre,protein |  | 0 |
+| irish | A | Homemade tomato salsa and rye crispbread | enrich; gaps fibre,fruit_veg,protein |  | 0 |
+| irish | A | Hummus | none; gaps - |  | 0 |
+| irish | A | Kids' pizza soldiers | none; gaps - |  | 0 |
+| irish | A | Mexican bean salad | none; gaps - |  | 0 |
+| irish | A | Mixed bean and rice salad | none; gaps - |  | 0 |
+| slovenian | A | Mixed-grain bread (wheat, rye, maize), homemade | enrich; gaps fruit_veg |  | 0 |
+| slovenian | A | Mlinci flatbread | both; gaps fibre,fruit_veg |  | 0 |
+| irish | A | Pan fried pesto cod | enrich; gaps fibre,fruit_veg,protein |  | 0 |
+| irish | A | Pea salad with olives and red pepper | none; gaps - |  | 0 |
+| irish | A | Pear and date chutney | enrich; gaps fibre,fruit_veg,protein |  | 0 |
+| hungarian | A | Plum jam on milk bread with yogurt | enrich; gaps fibre,fruit_veg |  | 0 |
+| hungarian | A | Prosciutto wrapped melons | enrich; gaps fibre |  | 0 |
+| irish | A | Roasted butternut squash with tomato, red pepper, olives and potato | enrich; gaps fibre,protein |  | 0 |
+| hungarian | A | Soft boiled eggs with celery sticks and cucumber | enrich; gaps fibre,protein |  | 0 |
+| irish | A | Spooky skeleton | enrich; gaps fibre,protein |  | 0 |
+| slovenian | A | Stuffed peppers in tomato sauce | enrich; gaps fibre,protein |  | 0 |
+| irish | A | Stuffed tomato with herb couscous | enrich; gaps fibre,protein |  | 0 |
+| irish | A | Sweet and sour vegetable cashew nut stir-fry | enrich; gaps fibre,protein |  | 0 |
+| irish | A | Three bean and tomato soup | enrich; gaps protein |  | 0 |
+| irish | A | Tomato, cottage cheese and olives on oatcakes | enrich; gaps fibre,protein |  | 0 |
+| irish | A | Vegetarian stir-fry with cashew nuts | enrich; gaps fibre,protein |  | 0 |
+| hungarian | A | Watermelon | enrich; gaps fibre,protein |  | 0 |
+| irish | A | Wholemeal bread | enrich; gaps fruit_veg |  | 0 |
+| hungarian | B | Broccoli dip with breadstick | both; gaps fruit_veg |  | 0 |
+| hungarian | B | Cheesy scones with vegetables | both; gaps fibre,fruit_veg,protein |  | 0 |
+| irish | B | Meat loaf | both; gaps fruit_veg |  | 0 |
+| irish | B | Quick pizza | enrich; gaps fibre,fruit_veg,protein |  | 0 |
+| irish | B | Simple oat bread | both; gaps fruit_veg |  | 0 |
+| irish | B | Veggie tart | both; gaps fibre,protein |  | 0 |
+| irish | B | Witch's nails | reduce; gaps - |  | 0 |
+| hungarian | C | Bananabread | both; gaps fibre,protein |  | 0 |
+| irish | C | Cheese scones | both; gaps fibre,fruit_veg |  | 0 |

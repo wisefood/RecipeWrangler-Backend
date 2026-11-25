@@ -47,7 +47,7 @@ SOURCE = "Curated Slovenian Recipes"
 PIPELINE_VERSION = "opkp_direct_weight_known"
 REGIONS = ["irish", "hungarian", "eu", "slovenian"]
 
-XLSX_FILE = REPO_ROOT / "data" / "Slovenia" / "Slovenian_Recipes.xlsx"
+XLSX_FILE = REPO_ROOT / "data" / "recipes" / "slovenia" / "Slovenian_Recipes.xlsx"
 CHECKPOINT_PATH = REPO_ROOT / "scripts" / "profile_slovenian_regions.checkpoint.json"
 
 

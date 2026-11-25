@@ -170,10 +170,12 @@ def query_elasticsearch_hybrid_collection(
     query: str,
     *,
     pool_size: int | None = None,
+    index: str | None = None,
+    embedding: Iterable[float] | None = None,
 ) -> list[dict]:
     """Union independent vector and BM25 pools and order them with RRF."""
     result_count = max(1, int(pool_size or elastic_hybrid_pool_size()))
-    vector = _validate_embedding(get_embeddings(query))
+    vector = _validate_embedding(embedding if embedding is not None else get_embeddings(query))
     vector_payload = _set_collection_filter(
         _vector_search_payload(vector, result_count),
         collection_name,
@@ -222,7 +224,7 @@ def query_elasticsearch_hybrid_collection(
         )
     )
     response = requests.post(
-        f"{elastic_vector_url()}/{elastic_vector_index()}/_msearch",
+        f"{elastic_vector_url()}/{index or elastic_vector_index()}/_msearch",
         data=body,
         headers={"Content-Type": "application/x-ndjson"},
         timeout=max(10.0, elastic_vector_timeout()),
@@ -306,6 +308,7 @@ def query_elasticsearch_vector_collection(
 def get_elasticsearch_vector_record_by_source_id(
     collection_name: str,
     source_id: str,
+    *, index: str | None = None,
 ) -> dict | None:
     """Exact-fetch one record by id within a collection.
 
@@ -330,7 +333,7 @@ def get_elasticsearch_vector_record_by_source_id(
         },
     }
     response = requests.post(
-        f"{elastic_vector_url()}/{elastic_vector_index()}/_search",
+        f"{elastic_vector_url()}/{index or elastic_vector_index()}/_search",
         json=payload,
         timeout=max(10.0, elastic_vector_timeout()),
     )

@@ -1,6 +1,6 @@
 """Scrape discovered MyPlate pages into resumable raw recipe JSON."""
 
-# data/MyPlate/scrape_myplate_recipes_batch.py
+# data/recipes/myplate/scrape_myplate_recipes_batch.py
 # Reads myplate_recipe_links.txt, scrapes each recipe via r.jina.ai, and writes myplate_recipes.json
 # Output schema per recipe:
 # { url, source="MyPlate", title, servings(int|None), description, ingredients[], directions[], notes[], image_url }

@@ -147,6 +147,8 @@ def _extract_recipe_fields(
         "image_url": image_url,
         "url": url,
         "allergens": allergens,
+        # Preserve legacy profile positives without treating them as ingredient facts.
+        "declared_allergens": [str(a) for a in raw_allergens if a] or None,
         "user_tags": tags,
         "source": "HealthyFoods",
     }

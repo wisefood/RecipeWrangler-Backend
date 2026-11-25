@@ -28,7 +28,6 @@ Environment:
 - `POST /api/v1/recipes/url/preview` — safely extract schema.org Recipe JSON-LD
   from a public URL; missing values stay missing
 - `POST /api/v1/recipes/url/import` — import only a complete URL preview
-- `POST /api/v1/recipes/{recipe_id}/substitute` — swap one ingredient using Neo4j substitution graph; returns either recalculated profile or fallback modified ingredient payload
 - `POST /api/v2/tools/food_safety` — retrieve topic-ranked, cited SafeFood
   Ireland guidance
 - `POST /api/v2/recipes/search` — direct catalog search with `q` and ANDed
@@ -51,18 +50,8 @@ PYTHONPATH=src uvicorn recipe_wrangler.services.adaptation.app:app --reload --po
 ```
 
 Endpoints:
-- `POST /api/v1/recipes/{recipe_id}/adapt/suggestions` — recommend nutrition,
-  sustainability, portion-scaling, quantity-reduction, vegan-composition, or
-  vegetarian-composition changes. Consumer-group suggestions are restricted
-  to recipe-used Neo4j ingredients with explicit suitability and valid
-  regional nutrition, and include a fully recalculated adapted recipe preview.
-  The currently supported consumer groups are `vegan` and `vegetarian`.
-  Elasticsearch proposes alternatives; FATO-aligned Neo4j
-  `SUITABILITY_FOR` evidence is the mandatory eligibility check before the
-  service recalculates nutrition and returns an adapted recipe.
-  `portion` requires `target_serves` and scales profiled weights by the serving
-  ratio.
-- `POST /api/v1/recipes/{recipe_id}/adapt/simulate` — simulate one exact swap and return before/after deltas
+- `GET /api/v1/recipes/{recipe_id}/adaptations?mode=&region=` with optional `allergens` and `diet` — the stored adaptation (see docs/ADAPTATION.md).
+- `POST /api/v1/recipes/{recipe_id}/adapt/enhance` — controlled pipeline (cost).
 
 ## Curl examples
 ```bash
@@ -80,16 +69,6 @@ curl -sS -X POST "$BASE/api/v1/recipes/search" \
 curl -sS -X POST "$BASE/api/v1/recipes/profile" \
   -H "Content-Type: application/json" \
   -d '{"raw_recipe":"Garlic Butter Shrimp...","region":"IE"}'; echo
-
-curl -sS -X POST \
-  "$BASE/api/v1/recipes/020b17b247/adapt/suggestions" \
-  -H "Content-Type: application/json" \
-  -d '{"region":"IE","mode":"vegan","max_swaps":3,"use_llm":false}'; echo
-
-curl -sS -X POST \
-  "$BASE/api/v1/recipes/017f92f1c3/adapt/suggestions" \
-  -H "Content-Type: application/json" \
-  -d '{"region":"IE","mode":"vegetarian","max_swaps":1,"use_llm":false}'; echo
 
 curl -sS -X POST "$BASE/api/v1/recipes/url/preview" \
   -H "Content-Type: application/json" \

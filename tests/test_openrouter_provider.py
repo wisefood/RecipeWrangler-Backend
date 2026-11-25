@@ -142,8 +142,8 @@ class TestCompletionBudget:
         return llms
 
     def test_a_long_recipe_retries_wider_instead_of_failing(self):
-        parsed = Mock()
-        parsed.model_dump.return_value = {"title": "Stew"}
+        # The parser returns recipe sections; ingredient lines are parsed by a separate call, stubbed here.
+        parsed = parser.ParsedRecipeText(title="Stew", ingredient_lines=["1 onion"], directions=[], total_time=0, serves=0)
 
         def over_budget(_):
             raise Exception(
@@ -157,15 +157,17 @@ class TestCompletionBudget:
             parser, "_parser_llm",
             side_effect=[(narrow, "json_schema"), (wide, "json_schema")],
         ) as build:
-            result = parser.parse_recipe_tool.invoke({"recipe": "a long recipe"})
+            with patch.object(parser, "parse_ingredient_lines", return_value=[]), \
+                    patch.object(parser, "prepare_entries_for_weights", return_value=([], [], [])):
+                result = parser.parse_recipe_tool.invoke({"recipe": "a long recipe"})
 
-        assert result == {"title": "Stew"}
+        assert result["title"] == "Stew"
         # The retry must actually widen the budget, not just try again.
         assert build.call_args_list[1].kwargs["max_tokens"] == parser._MAX_TOKENS * 2
 
     def test_a_second_overflow_falls_back_to_function_calling(self):
-        parsed = Mock()
-        parsed.model_dump.return_value = {"title": "Stew"}
+        # The parser returns recipe sections; ingredient lines are parsed by a separate call, stubbed here.
+        parsed = parser.ParsedRecipeText(title="Stew", ingredient_lines=["1 onion"], directions=[], total_time=0, serves=0)
 
         def over_budget(_):
             raise Exception("json_validate_failed")
@@ -181,9 +183,11 @@ class TestCompletionBudget:
             parser, "_parser_llm",
             side_effect=[(narrow, "json_schema"), (wide, "json_schema")],
         ):
-            result = parser.parse_recipe_tool.invoke({"recipe": "a very long recipe"})
+            with patch.object(parser, "parse_ingredient_lines", return_value=[]), \
+                    patch.object(parser, "prepare_entries_for_weights", return_value=([], [], [])):
+                result = parser.parse_recipe_tool.invoke({"recipe": "a very long recipe"})
 
-        assert result == {"title": "Stew"}
+        assert result["title"] == "Stew"
 
     def test_an_unrelated_failure_is_not_retried(self):
         def boom(_):

@@ -21,6 +21,7 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 from recipe_wrangler.utils.env_loader import load_runtime_env  # noqa: E402
+from recipe_wrangler.utils.elastic_auth import elastic_request
 
 load_runtime_env()
 DUMPS_ROOT = REPO_ROOT / "dumps" / "sent"
@@ -84,7 +85,7 @@ def _write_latest(pointer: Path, text: str) -> None:
 
 def _es_request(base_url: str, path: str, *, method: str = "GET", body: Any | None = None) -> dict[str, Any]:
     data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = Request(f"{base_url.rstrip('/')}{path}", data=data, method=method)
+    req = elastic_request(f"{base_url.rstrip('/')}{path}", data=data, method=method)
     req.add_header("Content-Type", "application/json")
     try:
         with urlopen(req, timeout=120) as resp:
@@ -247,7 +248,7 @@ def export_assets(bundle_dir: Path) -> dict[str, Any]:
     target = bundle_dir / "assets"
     target.mkdir(parents=True, exist_ok=True)
 
-    source_dir = REPO_ROOT / "data" / "Irish_SafeFood" / "images"
+    source_dir = REPO_ROOT / "data" / "recipes" / "irish_safefood" / "images"
     out_path = target / f"irish_safefood_images_{bundle_dir.name}.tar.gz"
 
     with tarfile.open(out_path, "w:gz") as tar:
@@ -458,7 +459,7 @@ def write_metadata(bundle_dir: Path, exported: dict[str, dict[str, Any]]) -> Non
             [
                 "Assets:",
                 "```bash",
-                f"tar -xzf assets/irish_safefood_images_{bundle_dir.name}.tar.gz -C data/Irish_SafeFood",
+                f"tar -xzf assets/irish_safefood_images_{bundle_dir.name}.tar.gz -C data/recipes/irish_safefood",
                 "```",
                 "",
             ]

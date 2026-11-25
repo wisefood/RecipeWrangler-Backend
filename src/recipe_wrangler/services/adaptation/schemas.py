@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from .models import ComparisonConstraints
 
 
 Region = Literal["IE", "HU", "EU", "SI"]
@@ -17,6 +19,26 @@ Mode = Literal[
     "vegan",
     "vegetarian",
 ]
+
+
+class EnhancementRequest(BaseModel):
+    """Button-style request; evidence attestations are never public inputs."""
+
+    model_config = ConfigDict(extra="forbid")
+    region: Region
+    mode: Literal["nutrition", "sustainability", "cost"] = "nutrition"
+    goal_nutrients: List[str] = Field(default_factory=list, max_length=20,
+        description="Optional energy, sugar, saturated_fats or sodium goals. Meaningful nutrient reductions may qualify within the same Nutri-Score grade.")
+    constraints: ComparisonConstraints = Field(default_factory=ComparisonConstraints)
+
+
+class SmallGainRequest(BaseModel):
+    """Deterministic small-gain adaptation of one recipe in a regional profile; no model calls."""
+
+    model_config = ConfigDict(extra="forbid")
+    region: Region
+    allergens: list[str] = Field(default_factory=list, description="User's allergens (e.g. milk, gluten, nuts); no swap may contain them.")
+    diet: Literal["vegan", "vegetarian", "pescatarian"] | None = Field(None, description="User's diet; no swap may break it.")
 
 
 class SuggestionsRequest(BaseModel):
@@ -215,7 +237,7 @@ class SuggestionsResponse(BaseModel):
     # ---- LLM metadata (populated when use_llm=true) ----
     llm_used: bool = Field(False, description="Whether the LLM judge ran and produced this ranking.")
     llm_model: Optional[str] = Field(None, description="Model id that produced the ranking (e.g. 'qwen3-32b').")
-    llm_source: Optional[Literal["vllm", "groq"]] = None
+    llm_source: Optional[Literal["vllm", "groq", "openrouter"]] = None
     llm_rejected: list[LLMRejection] = Field(
         default_factory=list,
         description="Candidates the LLM dropped as culinary-nonsense, with reasons.",
@@ -257,3 +279,23 @@ class SimulateResponse(BaseModel):
     original_co2e_per_serving_kg: Optional[float] = None
     simulated_co2e_per_serving_kg: Optional[float] = None
     co2e_reduction_per_serving_kg: Optional[float] = None
+
+
+class AdaptationResponse(BaseModel):
+    """One answer shape for every mode (a recipe_adaptations row). `adapted`, `original`, `swap` and `benefit` are filled when status is `adapted`;
+    otherwise `reason_code` and `reason` say why. `offending` and `applied_restrictions` appear when the user sent allergens or a diet."""
+
+    model_config = ConfigDict(extra="allow")
+    recipe_id: str
+    mode: Literal["nutrition", "sustainability", "cost", "time"]
+    region: Region
+    version: str
+    status: Literal["adapted", "no_suggestion", "not_scored", "not_suitable_for_user"]
+    is_adapted: bool
+    reason_code: str | None = None
+    reason: str | None = None
+    original: dict | None = None
+    adapted: dict | None = None
+    swap: dict | list | None = None
+    benefit: dict | None = None
+    provenance: dict | None = None

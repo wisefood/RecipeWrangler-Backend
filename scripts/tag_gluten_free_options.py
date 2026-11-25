@@ -30,7 +30,7 @@ except Exception:  # pragma: no cover - optional dependency
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_INPUT = REPO_ROOT / "data/HealthyFoods/HealthyFood_recipes_clean.json"
+DEFAULT_INPUT = REPO_ROOT / "data/recipes/healthyfoods/HealthyFood_recipes_clean.json"
 DEFAULT_OUTPUT = (
     REPO_ROOT / "section5_outputs/data/repro_gluten_free_option_predictions.csv"
 )

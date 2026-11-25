@@ -11,7 +11,7 @@ import json
 import subprocess
 from pathlib import Path
 
-IN_FILE = Path("data/MyPlate/myplate_nutrition.json")
+IN_FILE = Path("data/recipes/myplate/myplate_nutrition.json")
 
 UPSERT_SQL = """
 INSERT INTO "nutrients-recipe-profiles"

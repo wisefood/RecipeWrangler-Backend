@@ -14,8 +14,8 @@ import requests
 from bs4 import BeautifulSoup
 
 
-DEFAULT_INPUT_URLS = Path("data/HealthyFoods/recipe_urls.json")
-DEFAULT_OUTPUT = Path("data/HealthyFoods/HealthyFood_recipes_nutrition.json")
+DEFAULT_INPUT_URLS = Path("data/recipes/healthyfoods/recipe_urls.json")
+DEFAULT_OUTPUT = Path("data/recipes/healthyfoods/HealthyFood_recipes_nutrition.json")
 
 TARGET_FIELDS = [
     "Calories",

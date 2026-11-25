@@ -55,7 +55,7 @@ app = create_app()
 install_error_handler(app)
 
 # Serve locally generated images (e.g. Irish_SafeFood FLUX images)
-_data_dir = Path(__file__).resolve().parents[3] / "data"
+_data_dir = Path(os.getenv('NUTRITION_MATCHING_ASSET_ROOT', str(Path(__file__).resolve().parents[3]))) / "data"
 if _data_dir.exists():
     app.mount("/static/data", StaticFiles(directory=str(_data_dir)), name="static_data")
 
@@ -85,6 +85,16 @@ app.include_router(adaptation_router)
 @app.on_event("startup")
 async def startup_event():
     """Application startup hook."""
+    if os.getenv('NUTRITION_MATCHER_MODE', 'legacy').lower() == 'new':
+        from recipe_wrangler.repositories.matching_store import deployment
+        from recipe_wrangler.matching.runtime import engine
+        from recipe_wrangler.matching import projection_worker
+        selected = deployment()
+        release = os.getenv('NUTRITION_MATCHING_RELEASE') or selected['release_id']
+        if selected != {'release_id': release, 'mode': 'new'}:
+            raise RuntimeError('Matching runtime and production deployment disagree')
+        engine(release).embed('startup readiness')
+        projection_worker.start()
 
     def _warm_search_app() -> None:
         """Build the NL search app off the request path so the first user
@@ -108,13 +118,15 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on application shutdown."""
+    from recipe_wrangler.matching import projection_worker
+    projection_worker.stop()
     from recipe_wrangler.utils.nutrition_postgres import close_engine
     close_engine()
 
 if __name__ == "__main__":
     uvicorn.run(
         "recipe_wrangler.api.main:app",
-        host="0.0.0.0",
+        host="127.0.0.1",  # localhost only; reach it via ssh -L
         port=settings.api_port or int(os.getenv("PORT", "8001")),
         reload=True,
     )

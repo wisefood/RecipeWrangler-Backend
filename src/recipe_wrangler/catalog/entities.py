@@ -16,6 +16,7 @@ from recipe_wrangler.api.config import get_settings
 from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog.entity import DependentEntity, Entity, ValidationError
 from recipe_wrangler.utils.convenience import compute_convenience_tags
+from recipe_wrangler.utils.es_recipe_evidence import recipe_allergen_fields
 
 # Nutri-Score labels in quality order; the rank is what sorting uses.
 NUTRI_RANKS: dict[str, int] = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5}
@@ -144,6 +145,7 @@ class Recipe(Entity):
         # --- planning eligibility ------------------------------------------- #
         self._apply_planning_tier(doc)
 
+        doc.update(recipe_allergen_fields(doc.get("allergens"), doc.get("allergen_evidence")))
         return doc
 
     @staticmethod

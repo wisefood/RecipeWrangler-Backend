@@ -33,10 +33,10 @@ from typing import Any, Iterable
 from recipe_wrangler.catalog import diets as D
 from recipe_wrangler.catalog import sources as S
 from recipe_wrangler.catalog.nutrition import per_serving, within_targets
+from recipe_wrangler.utils.es_recipe_evidence import recipe_allergen_fields, known_allergen_exclusions, allergen_filter_groups, recipe_consumer_fields
 from recipe_wrangler.utils.food_ontology import (
     ALLERGEN_NAME_TERMS,
     allergen_name_terms,
-    expand_allergen_exclusions,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,6 +72,9 @@ _SOURCE_FIELDS = [
     # `per_serving` has to give up and the candidate arrives unprofiled.
     "serves",
     "source",
+    "allergens",
+    "allergen_evidence",
+    "consumer_suitability", "suitable_for",
 ]
 
 
@@ -88,72 +91,78 @@ _MAIN_MEAL_COURSES: tuple[str, ...] = ("main-dish", "soup", "salad")
 _MACRO_OVERSAMPLE = 5
 
 
-# Ingredient words that indicate an allergen, beyond the allergen's own name.
-#
-# The declared `allergens` field is incomplete — a mozzarella recipe carries
-# `allergens: []` and passed a milk exclusion. Substring matching alone does not
-# close that: "dairy" appears in 27 recipes, while "cheese" appears in 1,328,
-# and no amount of wildcarding turns one into the other.
-#
-# The table itself lives with the allergen vocabulary in
-# ``utils.food_ontology`` (``ALLERGEN_NAME_TERMS``), keyed by the canonical
-# identifiers, because the Neo4j candidates path needs the same words for its
-# CONTAINS backstop. Callers may still send "dairy", "nuts" or "tree nuts":
-# ``allergen_exclusions`` folds those through the alias table before looking
-# a term list up, so one place is maintained.
+# Ingredient words that indicate an allergen, beyond the allergen's own name:
+# the lexical backstop for missing declarations. The table lives with the
+# allergen vocabulary in ``utils.food_ontology`` (``ALLERGEN_NAME_TERMS``),
+# keyed by the canonical identifiers, because the Neo4j candidates path needs
+# the same words for its CONTAINS backstop. The reviewed exact-name exceptions
+# below apply only here; positive flat/nested evidence always excludes.
 ALLERGEN_INGREDIENT_TERMS: dict[str, tuple[str, ...]] = ALLERGEN_NAME_TERMS
+
+
+# Exact normalized names only: never exempt a mixture such as coconut milk
+# with cream. This list reduces known substring errors, not all unknowns.
+# Pine nuts and chestnuts are not on the EU tree-nut list but are called
+# nuts; they stay excluded for a nut allergy (ALLERGEN_NAME_TERMS is generous
+# on purpose: a false exclusion costs a recipe, a false inclusion a reaction).
+_LEXICAL_ALLERGEN_EXCEPTIONS: dict[str, set[str]] = {
+    "milk": {"coconut milk", "coconut cream", "soy milk", "soya milk", "oat milk",
+             "almond milk", "rice milk", "oat cream", "almond yogurt", "peanut butter",
+             "almond butter", "cashew butter", "butter beans", "butternut squash",
+             "vegan parmesan cheese", "cream of tartar", "cocoa butter", "cashew cheese"},
+    "egg": {"eggplant", "eggplants", "eggplant, raw"},
+    "tree_nut": {"coconut", "coconut milk", "coconut cream", "coconut oil", "coconut flour",
+                 "desiccated coconut", "nutmeg", "ground nutmeg", "butternut squash",
+                 "peanut", "peanuts", "peanut butter"},
+    "peanut": {"coconut", "coconut milk", "coconut cream", "coconut oil", "coconut flour",
+               "desiccated coconut", "nutmeg", "ground nutmeg", "butternut squash"},
+    "crustacean_shellfish": {"oyster mushroom", "oyster mushrooms", "king oyster mushroom",
+                            "king oyster mushrooms", "oyster mushroom powder"},
+    "molluscs": {"oyster mushroom", "oyster mushrooms", "king oyster mushroom",
+                 "king oyster mushrooms", "oyster mushroom powder"},
+}
 
 
 def allergen_exclusions(allergen: str) -> list[dict[str, Any]]:
     """Clauses that, OR-ed under a `must_not`, exclude one allergen.
 
-    Three sources, because no single one is complete:
+    * recorded positive conflicts (the flat `allergens` labels and nested
+      `allergen_evidence` that says contains), for every spelling the name
+      resolves to through the shared alias table; possible/unknown evidence
+      stays visible;
+    * an ingredient whose name *contains* the allergen word or one of
+      `ALLERGEN_NAME_TERMS` for its canonical identifiers (mozzarella for
+      `dairy`, prawns for `crustacean_shellfish`), except reviewed exact
+      names that only look alike (coconut, nutmeg, oyster mushroom).
 
-    * the declared `allergens` field, for the canonical identifier the name
-      means (and the name as sent, in case the index ever carried it raw);
-    * an ingredient whose name *contains* the allergen word, via a wildcard on
-      the keyword subfield. A plain analysed `match` cannot do this — "milk"
-      does not match "buttermilk" — and the earlier version used one while
-      claiming otherwise;
-    * `ALLERGEN_NAME_TERMS` for each canonical identifier, which is what
-      actually catches mozzarella for `dairy` and prawns for
-      `crustacean_shellfish`. Substring matching alone cannot: the two words
-      share no characters.
-
-    Multi-word allergens also contribute each word separately, so "tree nuts"
-    excludes an ingredient naming "nuts". Separate clauses rather than one
-    analysed match, so they OR as exclusions instead of requiring all of them.
     A name the vocabulary does not know ("kiwi") is excluded by itself.
     """
     word = allergen.replace("_", " ").strip()
     if not word:
         return []
 
-    # Canonical plus implied: `gluten` also drops `wheat`-tagged recipes.
-    canonical = expand_allergen_exclusions([allergen])
-
-    clauses: list[dict[str, Any]] = [
-        {"term": {"allergens": name}}
-        for name in dict.fromkeys([allergen.strip().lower(), *canonical])
-    ]
+    clauses = known_allergen_exclusions([allergen])
+    groups = allergen_filter_groups([allergen])
+    exceptions = set.intersection(*(
+        _LEXICAL_ALLERGEN_EXCEPTIONS.get(group, set()) for group in groups
+    )) if groups else set()
 
     def contains(fragment: str) -> dict[str, Any]:
-        return {
-            "nested": {
-                "path": "ingredients",
-                "query": {
-                    "wildcard": {
-                        "ingredients.name.kw": {
-                            "value": f"*{fragment}*",
-                            "case_insensitive": True,
-                        }
-                    }
-                },
-            }
-        }
+        keyword = {"wildcard": {"ingredients.name.kw": {
+            "value": f"*{fragment}*", "case_insensitive": True,
+        }}}
+        query = {"bool": {"must": [keyword], "must_not": [
+            {"terms": {"ingredients.name.kw": sorted(exceptions)}}
+        ]}} if exceptions else keyword
+        return {"nested": {"path": "ingredients", "query": query}}
 
     fragments = {word}
     fragments.update(part for part in word.split() if len(part) >= 3)
+    fragments.update(allergen_name_terms([allergen]))
+
+    for group in groups:
+        fragments.update(ALLERGEN_INGREDIENT_TERMS.get(group, ()))
+    # Canonical identifiers and their implications (gluten brings wheat).
     fragments.update(allergen_name_terms([allergen]))
 
     for fragment in sorted(fragments):
@@ -223,23 +232,8 @@ def _hard_filters(request: Any, course_types: list[str]) -> list[dict[str, Any]]
     if course_types:
         filters.append({"terms": {"course_types": course_types}})
 
-    # Allergen exclusion, deliberately broader than the `allergens` field alone.
-    #
-    # That field is derived from HAS_ALLERGEN edges in the graph, and it is
-    # incomplete: a mozzarella recipe with `allergens: []` passed a milk
-    # exclusion. The Neo4j path does not have this problem because it also walks
-    # ingredient names and FoodOn ancestry, so matching only the flat field here
-    # would make the new path *less* safe than the one it replaces — the one
-    # regression that is not acceptable to trade for better recommendations.
-    #
-    # Two clauses per allergen, OR-ed as an exclusion: the declared allergen,
-    # and any ingredient naming it. The second catches "mozzarella cheese" for
-    # `dairy` and "buttermilk" for `milk` where the edge is missing.
-    #
-    # Still narrower than Neo4j's taxonomic walk, which resolves ancestor
-    # *names* — Elasticsearch stores FoodOn ancestry as ids, so an equivalent
-    # check needs the id set for each allergen, not a name match. Until that
-    # exists, FOODCHAT_CANDIDATES_FROM_ELASTIC should stay off in production.
+    # Hard constraints survive every relaxation step. Exact lexical exceptions
+    # never override positive declarations; unknowns retain response warnings.
     for allergen in _norm(getattr(profile, "allergies", []) or []):
         filters.append(
             {"bool": {"must_not": _allergen_exclusions(allergen)}}
@@ -265,19 +259,25 @@ def _hard_filters(request: Any, course_types: list[str]) -> list[dict[str, Any]]
                 }
             )
 
-    diet = _norm(getattr(profile, "diet", []) or [])
+    diet = [D.canonical_diet(tag) or tag for tag in _norm(getattr(profile, "diet", []) or [])]
 
     # Claiming the diet is not enough. 44% of this corpus's `vegan` recipes
     # contain meat, dairy, egg or honey by ingredient name — the tags come from
     # the sources and were never checked against the ingredient lists. A member
     # who asks for vegan and is served scrambled eggs has been actively misled.
-    filters.extend(D.exclusion_filters(diet))
+    filters.extend(D.exclusion_filters([tag for tag in diet if tag != "pescatarian"]))
 
     for tag in diet:
-        # Same three-way match the search path uses. `suitable_for` is the
-        # better signal but is unpopulated until the vegan/vegetarian classifier
-        # runs, so falling back to the source tags is what keeps diet filtering
-        # working at all today.
+        if D.canonical_diet(tag) == "pescatarian":
+            filters.append(D.pescatarian_assessment_filter())
+            continue
+        if tag in D.ALLERGEN_ABSENCE_RULES:
+            continue
+        # Same rule as the search path: vegan/vegetarian trust only the
+        # three-state assessment, never legacy source tags.
+        if tag in {"vegan", "vegetarian"}:
+            filters.append({"term": {"suitable_for": tag}})
+            continue
         filters.append(
             {
                 "bool": {
@@ -494,6 +494,8 @@ def fetch_candidates_es(request: Any) -> dict[str, list[dict[str, Any]]]:
                 continue
             items.append(
                 {
+                    **recipe_allergen_fields(src.get("allergens"), src.get("allergen_evidence")),
+                    **recipe_consumer_fields(src.get("consumer_suitability"), allergens=src.get("allergens"), evidence=src.get("allergen_evidence")),
                     "recipe_id": recipe_id,
                     "title": str(src.get("title") or "").strip(),
                     "ingredients": _flatten_ingredients(src.get("ingredients")),

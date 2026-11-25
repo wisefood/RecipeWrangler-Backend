@@ -1,3 +1,5 @@
+from recipe_wrangler.utils.food_ontology import CLASSIFICATION_VERSION
+
 from recipe_wrangler.repositories.neo4j_recipes import (
     detect_allergen_evidence_from_names,
     detect_allergens_from_names,
@@ -47,7 +49,9 @@ def test_compound_sauces_and_pastes_trigger_their_hidden_allergens() -> None:
         "caesar dressing": "fish",
     }
     for ingredient, allergen in cases.items():
-        assert allergen in detect_allergens_from_names([ingredient]), ingredient
+        evidence = detect_allergen_evidence_from_names([ingredient])
+        presence = 'contains' if ingredient in {'hazelnut praline', 'worcestershire sauce', 'worcester sauce'} else 'possible'
+        assert any(row['allergen'] == allergen and row['presence'] == presence for row in evidence), ingredient
 
 
 def test_compound_keywords_keep_word_boundaries() -> None:
@@ -65,12 +69,12 @@ def test_unpersisted_analysis_evidence_preserves_ingredient_pairing() -> None:
             "ingredient": "Caesar dressing",
             "ingredient_id": "",
             "declaration_id": "",
-            "presence": "contains",
+            "presence": "possible",
             "evidence_status": "inferred",
             "sources": ["keyword"],
             "foodon_ids": [],
             "keyword_matches": ["caesar dressing"],
-            "classification_version": "fato-foodon-v1",
+            "classification_version": CLASSIFICATION_VERSION,
         }
     ]
 
@@ -168,3 +172,40 @@ def test_allergen_keywords_use_word_boundaries() -> None:
     allergens = detect_allergens_from_names(ingredients)
     assert "egg" not in allergens
     assert "milk" not in allergens
+
+
+# Known failures from the 3 November 2026 tagging-evaluation hard cases
+# (analysis/tagging-eval-2026-11-03/hard_cases.json, category known_failure).
+import pytest
+
+
+@pytest.mark.parametrize("line, allergens", [
+    ("500g hoki fillets, cut in chunks", {"fish"}),
+    ("4 x 175g (6oz) hake fillets from sustainable sources", {"fish"}),
+    ("250g wholemeal penne", {"wheat", "gluten"}),
+    ("250g penne", {"wheat", "gluten"}),
+    ("225g pre-made plain sponge cake", {"wheat", "gluten", "egg"}),
+    ("200g low-fat vanilla yoghurt", {"milk"}),
+    ("2 squid tubes, thinly sliced", {"molluscs"}),
+    ("800g large calamari hoods", {"molluscs"}),
+])
+def test_known_failure_lines_are_detected(line: str, allergens: set[str]) -> None:
+    assert allergens <= set(detect_allergens_from_names([line]))
+
+
+@pytest.mark.parametrize("line, allergen", [
+    ("900g butternut squash", "tree_nut"),
+    ("1/4 teaspoon ground nutmeg", "tree_nut"),
+    ("1 cup shredded coconut", "tree_nut"),
+    ("2 tablespoons cornflour", "gluten"),
+    ("150g gluten-free penne", "gluten"),
+    ("250g gluten-free pasta such as spaghetti", "wheat"),
+    ("200g rice noodles", "gluten"),
+    ("250 g buckwheat flour", "gluten"),
+    ("1 cup lingonberries", "fish"),
+    ("4 potato dumplings", "fish"),
+    ("½ cup oat milk", "milk"),
+    ("vegan basil pesto", "milk"),
+])
+def test_known_failure_rules_do_not_overmatch(line: str, allergen: str) -> None:
+    assert allergen not in detect_allergens_from_names([line])

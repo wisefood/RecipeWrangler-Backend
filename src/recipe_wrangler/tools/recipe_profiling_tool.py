@@ -3,7 +3,8 @@
 # recipe_profiling.py
 
 import re
-from typing import Any, Dict
+from collections import Counter
+from typing import Any, Dict, Optional
 
 from recipe_wrangler.pricing.cost_calculator import calculate_recipe_cost_profile
 from recipe_wrangler.pricing.recipe_cost_categories import load_recipe_cost_calibration
@@ -220,6 +221,13 @@ def Recipe_Profiling_Tool(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
     merged["nutrition_source_key"] = nutrition_source_key
     merged["nutrition_source"] = nutrition_result.get("source")
+    merged['matching_metadata']={k:nutrition_result[k] for k in ['mechanism_version','catalogue_release','matcher_mode','matching_run_id','quantity_version','quantity_input_hash'] if k in nutrition_result}
+    merged['nutrition_quality']=nutrition_result.get('nutrition_quality')
+    merged['matching_nutri_score']=nutrition_result.get('nutri_score')
+    merged['matching_nutri_score_breakdown']=nutrition_result.get('nutri_score_breakdown')
+    if 'shadow_matching_profile' in nutrition_result:
+        merged['shadow_matching_profile']=nutrition_result['shadow_matching_profile']
+    merged['nutrition_completeness']={k:nutrition_result[k] for k in ['nutrition_status','nutrient_status','complete_totals','complete_totals_per_serving','supported_partial_totals','supported_partial_totals_per_serving','missing_contributions','missing_mass_share','calculation_assumptions','mechanism_version','totals_mode','legacy_totals','legacy_totals_per_serving'] if k in nutrition_result}
 
     nutrition_details = nutrition_result.get("details", [])
     sustainability_details = [
@@ -271,18 +279,21 @@ _CLEAN_TOTAL_KEYS = [
 ]
 
 
-def _extract_clean_totals(totals: Dict[str, Any], suffix: str) -> Dict[str, float] | None:
+def _extract_clean_totals(totals: Dict[str, Any], suffix: str, *, allow_missing: bool=False) -> Dict[str, Optional[float]] | None:
     """Return totals keyed by clean names (e.g. protein_g) regardless of input format."""
     # Prefer pre-built clean_totals emitted by nutritional_calculator
     clean = totals.get("clean_totals")
     if isinstance(clean, dict) and all(k in clean for k in _CLEAN_TOTAL_KEYS):
-        return {k: float(clean[k]) for k in _CLEAN_TOTAL_KEYS}
+        if not allow_missing and any(clean[k] is None for k in _CLEAN_TOTAL_KEYS):return None
+        return {k:float(clean[k]) if clean[k] is not None else None for k in _CLEAN_TOTAL_KEYS}
     # Fall back to suffix keys (e.g. total_protein_g_irish)
-    result: Dict[str, float] = {}
+    result: Dict[str, Optional[float]] = {}
     for key in _CLEAN_TOTAL_KEYS:
         val = totals.get(f"total_{key}{suffix}")
         if val is None:
-            return None
+            if not allow_missing:return None
+            result[key]=None
+            continue
         result[key] = float(val)
     return result
 
@@ -462,6 +473,15 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "region": region,
         "source": nutrition_source,
     }
+    if state.ingredient_original_texts:
+        from recipe_wrangler.matching.source_evidence import unique_source_lines
+        originals = list(state.ingredient_original_texts)
+        if len(originals) == len(names):
+            # Parser evidence is already aligned; cross-references are not a new join.
+            counts = Counter(originals)
+            payload['original_texts'] = [line if line and counts[line] == 1 else '' for line in originals]
+        else:
+            payload['original_texts'] = unique_source_lines(names, originals)
 
     directions: List[str] = list(state.directions or [])
     profile: Dict[str, Any] = Recipe_Profiling_Tool(payload)
@@ -475,7 +495,7 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
     if score_input:
         score_ingredients = []
         for i in range(min(len(names), len(weights), len(prof_items))):
-            entry: Dict[str, Any] = {"name": names[i], "weight_grams": weights[i]}
+            entry: Dict[str, Any] = {"name": names[i], "weight_grams": prof_items[i].get('weight_g', weights[i])}
             for key in ("food_groups", "ingredient_class_ancestors"):
                 if prof_items[i].get(key):
                     entry[key] = prof_items[i][key]
@@ -484,6 +504,10 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         if "error" not in maybe_score:
             nutri_score_breakdown = maybe_score.pop("breakdown", None)
             nutri_score_payload = maybe_score
+
+    if profile.get('nutrition_quality') is not None:
+        nutri_score_payload = profile.get('matching_nutri_score')
+        nutri_score_breakdown = profile.get('matching_nutri_score_breakdown')
 
     merged: List[Dict[str, Any]] = []
     n = min(len(names), len(measurements), len(weights), len(prof_items))
@@ -555,6 +579,9 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "low_confidence_weight_indices": low_confidence_weight_indices,
         "nutrition_coverage": nutrition_coverage,
         "nutrition_low_coverage": nutrition_low_coverage,
+        "nutrition_completeness": profile.get("nutrition_completeness"),
+        "matching_metadata": profile.get('matching_metadata'),
+        "nutrition_quality": profile.get('nutrition_quality'),
         "sustainability_coverage": sustainability_coverage,
         "sustainability_low_coverage": sustainability_low_coverage,
         "ingredient_count": _n_ing,
@@ -610,9 +637,12 @@ def Recipe_Profiling_Node(state: RecipeState) -> RecipeState:
         "weights_capped": weights_capped,
         "nutrition_coverage": nutrition_coverage,
         "nutrition_low_coverage": nutrition_low_coverage,
+        "nutrition_completeness": profile.get("nutrition_completeness"),
+        "matching_metadata": profile.get('matching_metadata'),
         "sustainability_coverage": sustainability_coverage,
         "sustainability_low_coverage": sustainability_low_coverage,
         "profiling_quality": quality_flags,
+        "shadow_matching_profile": profile.get('shadow_matching_profile'),
         "cost_profile": cost_profile,
         "total_sustainability": total_sustainability,
         "total_sustainability_per_serving": total_sustainability_per_serving,

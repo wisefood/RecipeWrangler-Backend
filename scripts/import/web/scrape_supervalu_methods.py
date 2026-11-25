@@ -22,7 +22,7 @@ from bs4 import BeautifulSoup
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_INPUT = REPO_ROOT / "data" / "SuperValu" / "supervalu.json"
+DEFAULT_INPUT = REPO_ROOT / "data" / "recipes" / "supervalu" / "supervalu.json"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"

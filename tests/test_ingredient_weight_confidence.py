@@ -1,7 +1,19 @@
 import unittest
 from unittest.mock import patch
+import pytest
 
 from recipe_wrangler.tools import ingredient_weight_tool as mod
+
+
+@pytest.fixture(autouse=True)
+def offline_default_weight_catalogue(monkeypatch):
+    # Retrieval tests provide their own fake collections; ordinary weight tests use local references.
+    monkeypatch.setattr(mod, '_get_usda_links_collections', lambda: [])
+    mod._embedding_usda_link.cache_clear()
+    mod._usda_links_lexical_index.cache_clear()
+    yield
+    mod._embedding_usda_link.cache_clear()
+    mod._usda_links_lexical_index.cache_clear()
 
 
 class IngredientWeightConfidenceTests(unittest.TestCase):
@@ -24,9 +36,9 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
             result = self.invoke_debug(["salt"], ["to taste"])
 
         detail = result["details"][0]
-        self.assertEqual(result["weights"], [mod.TO_TASTE_MIN_GRAMS])
-        self.assertEqual(detail["match_type"], "to_taste_min")
-        self.assertEqual(detail["confidence"], 0.9)
+        self.assertEqual(result["weights"], [1.0])
+        self.assertEqual(detail["match_type"], "seasoning_policy_estimate")
+        self.assertEqual(detail["quantity_assumption"]["status"], "estimated")
 
     def test_blank_water_and_herbs_are_negligible_salt_is_a_pinch_and_oil_is_a_teaspoon(self):
         with patch.object(mod, "_live_llm_weight_fallback", return_value=(None, "disabled", "pinch")):
@@ -34,7 +46,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
             result = self.invoke_debug(names, [""] * len(names))
 
         self.assertEqual(result["weights"][:3], [mod.TO_TASTE_MIN_GRAMS] * 3)
-        self.assertEqual(result["weights"][3:], [0.3, mod.BLANK_OIL_GRAMS])
+        self.assertEqual(result["weights"][3:], [1.0, mod.BLANK_OIL_GRAMS])
 
     def test_blank_plain_salt_is_one_pinch_and_other_blank_lines_get_the_policy_default(self):
         with patch.object(
@@ -44,8 +56,8 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         ):
             result = self.invoke_debug(["salt", "sea salt", "soy sauce", "olive oil"], ["", None, "", ""])
 
-        self.assertEqual(result["weights"][:2], [0.3, 0.3])
-        self.assertEqual(result["details"][0]["blank_quantity_policy"], "salt_pinch")
+        self.assertEqual(result["weights"][:2], [1.0, 1.0])
+        self.assertEqual(result["details"][0]["blank_quantity_policy"], "salt_pepper_1g_per_recipe_v1")
         self.assertEqual(result["weights"][2:], [mod.BLANK_DEFAULT_GRAMS, mod.BLANK_OIL_GRAMS])
         self.assertEqual(result["details"][2]["blank_quantity_policy"], "negligible_default")
         self.assertEqual(result["details"][3]["blank_quantity_policy"], "oil_default")
@@ -574,10 +586,12 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
 
         self.assertEqual(
             result["weights"],
-            [1092.0, 236.0, 58.0, 33.5, 120.0, 346.0, 453.0, 776.25, 240.0, 452.0, 240.0],
+            [1092.0, 236.0, 58.0, 33.5, 120.0, 176.0, 453.0, 776.25, 240.0, 452.0, 240.0],
         )
         self.assertTrue(
-            all(d["match_type"] == "common_unit_reference_fallback" for d in result["details"])
+            all(d["match_type"] == (
+                "reviewed_european_size_reference" if i == 5 else "common_unit_reference_fallback"
+            ) for i, d in enumerate(result["details"]))
         )
 
     def test_common_references_cover_more_sampled_count_units(self):
@@ -738,9 +752,9 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
                 mod,
                 "canonical_name_to_usda",
                 return_value={
-                    "usda_id": "01138",
+                    "usda_id": "05146",
                     "canonical": "whole goose",
-                    "food_group": "Dairy and Egg Products",
+                    "food_group": "Poultry Products",
                 },
             ),
             patch.object(mod, "_estimate_grams_from_usda_id", side_effect=ValueError("No direct portion match")),
@@ -895,12 +909,12 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
                 if kwargs.get("offset", 0) > 0:
                     return {"documents": [], "metadatas": []}
                 return {
-                    "documents": ["Rice, white, cooked"],
+                    "documents": ["Rice, white, raw"],
                     "metadatas": [
                         {
                             "usda_id": "20000",
                             "canonical_id": "rice",
-                            "usda_food_label": "Rice, white, cooked",
+                            "usda_food_label": "Rice, white, raw",
                             "food_group": "Cereal Grains and Pasta",
                         }
                     ],
@@ -1288,7 +1302,7 @@ class IngredientWeightConfidenceTests(unittest.TestCase):
         self.assertTrue(
             all(
                 d["match_type"]
-                in {"common_unit_reference_fallback", "liquid_density_volume_fallback"}
+                in {"common_unit_reference_fallback", "liquid_density_volume_fallback", "usda_explicit_size_reference"}
                 for d in result["details"]
             )
         )

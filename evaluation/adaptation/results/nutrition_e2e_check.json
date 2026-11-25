@@ -1,0 +1,3013 @@
+[
+ {
+  "recipe_id": "009c4f03-b7c3-59c5-9e9a-a538e040c296",
+  "title": "Neven Maguire's turkey, rocket and pine nut pasta",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g: claimed 0.04 measured -0.19"
+  ]
+ },
+ {
+  "recipe_id": "02eb89b9-77d9-423f-9b5c-aaeba0c53e73",
+  "title": "Lamb on skewers",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "051f296b-f373-53a3-9ea1-664322afc60c",
+  "title": "Spinach and mandarin salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "08ff1b57-ad12-5814-a100-d7ffe45b2418",
+  "title": "Nutty Veggie Couscous",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed",
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "fibre_g: claimed 0.17 measured -0.28",
+   "fibre_g 5.6->4.1"
+  ]
+ },
+ {
+  "recipe_id": "0a99a224-3378-56d8-8407-4cf0a6f1920f",
+  "title": "Sage and breadcrumb stuffing",
+  "claimed_grade": "C->A",
+  "grade": "C->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.03 measured -0.17",
+   "sugar_g: claimed 0.03 measured -0.02",
+   "sodium_mg: claimed 0.00 measured -0.01"
+  ]
+ },
+ {
+  "recipe_id": "0b4a8093-3b37-4d28-823b-69e7a8a47a1c",
+  "title": "Chicory with bean",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "0c7814ae-56bf-5302-96c1-0bb9149a4ff0",
+  "title": "Pasta with salmon and peas",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 624.68125 vs saved 698.115",
+   "energy_kcal: claimed 0.05 measured -0.00",
+   "saturated_fat_g: claimed 0.35 measured 0.01",
+   "protein_g: claimed 0.00 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "0de4551a-09c5-425a-b0af-f4bbbb5bc26c",
+  "title": "Beef soup",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "0f9e7c0f-ab0a-4c45-b6b1-48585043b5e7",
+  "title": "Chanterelles with eggs",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "10617a7b-622b-5428-8ec0-3f8ee62229d4",
+  "title": "Brown bread ice cream",
+  "claimed_grade": "D->C",
+  "grade": "D->C",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sodium_mg: claimed 0.04 measured -0.25"
+  ]
+ },
+ {
+  "recipe_id": "10a4d044-81b4-5958-b14e-fb0e4e523d5f",
+  "title": "Tuna pasta bake",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 758.62275 vs saved 634.423"
+  ]
+ },
+ {
+  "recipe_id": "1286f90a-5326-5768-8b4f-af415de99f69",
+  "title": "Fruit Crumble",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "128a007b-cb48-5f98-8435-1e2dd6457834",
+  "title": "Hot pasta salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "1448e270-4fa3-5793-84f2-926aa109934d",
+  "title": "Queen cakes",
+  "claimed_grade": "D->D",
+  "grade": "D->D",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 73.65645833333333 vs saved 89.565"
+  ]
+ },
+ {
+  "recipe_id": "17a1357b-b7d2-5ea1-a51d-cdafd961e062",
+  "title": "Leftover lamb curry",
+  "claimed_grade": "B->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 311.12984225621415 vs saved 278.752",
+   "protein_g: claimed 0.19 measured 0.05"
+  ]
+ },
+ {
+  "recipe_id": "1bcfa204-c186-5aaf-a1dc-e48b8d71e375",
+  "title": "Barmbrack",
+  "claimed_grade": "D->D",
+  "grade": "D->D",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "1c38da95-43a0-5574-b801-20e125cd17fb",
+  "title": "Roast potatoes",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 144.531 vs saved 216.174"
+  ]
+ },
+ {
+  "recipe_id": "1c53a9ab-4415-5d01-b447-0d6d40c8c29e",
+  "title": "Tomato and onion relish",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "1d95be06-ddfa-522a-9ba3-b0a9343a64a8",
+  "title": "Roasted vegetable pasta",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "1fdb7597-d963-5d96-9691-8b7b58d1dc64",
+  "title": "Roast lamb with garlic and herbs",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "2001cc1f-c037-4b94-b93a-a6d6a444e1e4",
+  "title": "Potatoes, sautéed",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 241.84714500000004 vs saved 270.174"
+  ]
+ },
+ {
+  "recipe_id": "20444379-9223-43e6-9cb6-9cf548b2fea3",
+  "title": "Honey apples",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "2050ac79-fd2b-56ce-969e-a88ab4a346ff",
+  "title": "Beef chilli con carne soup",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "20c2c7f4-d103-46fb-b966-30a1f255832f",
+  "title": "Wheat žganci",
+  "claimed_grade": "D->C",
+  "grade": "D->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "214df3cb-6ec4-53ee-b686-bd2535a7fe20",
+  "title": "BLT pasta salad",
+  "claimed_grade": "B->B",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 514.0153226577438 vs saved 782.84"
+  ]
+ },
+ {
+  "recipe_id": "232dec15-3991-44bf-802f-7771a87e4c41",
+  "title": "Zucchini stuffed with beef",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g 26.4->24.3"
+  ]
+ },
+ {
+  "recipe_id": "236785a3-5cea-4b2d-9f4a-16191a875561",
+  "title": "Asparagus frittata",
+  "claimed_grade": "B->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "264f0666-8ef4-4cd8-ada7-b544631c77ad",
+  "title": "Lasagna",
+  "claimed_grade": "C->A",
+  "grade": "C->A",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g 6.7->10.3",
+   "protein_g 40.2->32.1"
+  ]
+ },
+ {
+  "recipe_id": "26fa2b97-7638-5b7c-b774-b831989eb2ef",
+  "title": "Banana and walnut loaf",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "270b15ec-0597-4496-b635-8414620f4039",
+  "title": "Beef goulash",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "272dd01c-3f29-5745-83d9-540a70871b4b",
+  "title": "Beef chilli con carne",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "2c192a1f-a737-5fbd-82d3-6f011c3464f1",
+  "title": "Apple and berry crumble",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 257.2750892288082 vs saved 226.688",
+   "fibre_g 7.2->5.8"
+  ]
+ },
+ {
+  "recipe_id": "2c8ed38a-4f89-5c68-b43f-3199894a2a57",
+  "title": "Simple sponge cake",
+  "claimed_grade": "D->C",
+  "grade": "D->D",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "fibre_g: claimed 0.35 measured -0.00"
+  ]
+ },
+ {
+  "recipe_id": "2d42c40b-6760-5b0b-80e8-6fd0d21532b6",
+  "title": "Pork and vegetable noodle stir fry",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.02 measured -0.01",
+   "fibre_g: claimed 0.82 measured 0.28",
+   "protein_g: claimed 0.03 measured 0.01"
+  ]
+ },
+ {
+  "recipe_id": "2e48d6c8-1ede-5873-b75f-7b072ab4fe60",
+  "title": "Apple sponge squares",
+  "claimed_grade": "D->D",
+  "grade": "D->D",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "2f076ea7-d0ec-4434-aed2-f5da26458ff2",
+  "title": "Crêpes with curd cheese, gratinated",
+  "claimed_grade": "D->D",
+  "grade": "D->D",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "2f9a3235-a982-449e-9010-13cbeba8a047",
+  "title": "Kale soup",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "35d0eae1-5665-5b32-913c-d99e36ac6433",
+  "title": "Brussels Sprouts with Garlic and Ham",
+  "claimed_grade": "B->B",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 121.35249999999999 vs saved 147.974"
+  ]
+ },
+ {
+  "recipe_id": "36679557-9500-441d-a13a-cfbe97671362",
+  "title": "Rice pudding",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "37fcdf86-2308-514d-b515-e5d6586da2f1",
+  "title": "Spicy scrambled eggs",
+  "claimed_grade": "B->B",
+  "grade": "C->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "3ab08b82-c981-4bcc-b17c-498c25908cf7",
+  "title": "Slovenian rolled dumplings (štruklji) with tarragon",
+  "claimed_grade": "D->D",
+  "grade": "D->D",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g: claimed 0.34 measured 0.14"
+  ]
+ },
+ {
+  "recipe_id": "3c4b19b1-739c-5cc3-bf9c-aca98a582177",
+  "title": "Chicken casserole",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "3eb3516c-9049-4ac4-a5c2-bddff398ae47",
+  "title": "Fuži",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "41d2e26d-8d41-5114-9fda-02a5d214923c",
+  "title": "Pizza",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.01 measured 0.00",
+   "saturated_fat_g: claimed 0.20 measured 0.00",
+   "protein_g: claimed 0.15 measured -0.00"
+  ]
+ },
+ {
+  "recipe_id": "42e58dbf-8c3a-5df5-ac77-16e77d62f7cf",
+  "title": "Penne with tomato and ricotta",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "430b8836-1c84-53c5-a612-de07276d52a5",
+  "title": "Adrian Martin's leftover turkey curry with rice and naan bread",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "fibre_g 8.0->6.7"
+  ]
+ },
+ {
+  "recipe_id": "492ffc2b-7e22-573c-aed9-57f5c8592710",
+  "title": "Chicken and ginger curry with fragrant rice",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed",
+   "worsening"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 508.1287395833334 vs saved 408.12",
+   "saturated_fat_g: claimed 0.02 measured -0.07",
+   "sodium_mg 476.6->667.5"
+  ]
+ },
+ {
+  "recipe_id": "499fffaa-85fc-5dd4-bfad-905b80e9c04b",
+  "title": "Lamb rogan josh",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 364.2777500000001 vs saved 221.272"
+  ]
+ },
+ {
+  "recipe_id": "4a22acf8-0821-485f-be9b-a8949cb1bc27",
+  "title": "Moussaka",
+  "claimed_grade": "C->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "4adf344f-3847-58c2-8c12-6d235efb9732",
+  "title": "Banana and oat smoothie",
+  "claimed_grade": "A->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "4c8fb1a5-9f1d-5c35-9ba0-fba19679965d",
+  "title": "Banana bread",
+  "claimed_grade": "C->C",
+  "grade": "C->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "50d86508-0d37-575e-9195-0a8995ff8849",
+  "title": "Moroccan vegetable tagine",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "5138e7c3-e4fb-542d-bfdf-45e0826e4a46",
+  "title": "Chicken biryani",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 690.00395 vs saved 607.399",
+   "energy_kcal: claimed 0.00 measured -0.00",
+   "sugar_g: claimed 0.01 measured 0.00",
+   "saturated_fat_g: claimed 0.04 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "545cf91e-867c-5a9b-b2b5-76e8eb7cf1b5",
+  "title": "Green risotto",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "585cc494-f521-5961-adf9-1b39060937a1",
+  "title": "Hot cross buns",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "5aac38f8-99c7-428e-a82b-4fdf0b22e36f",
+  "title": "Clear soup with tiny semolina dumplings, carrots, and eggs",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "5b88126d-887e-566e-8c7b-e82f96d8c11e",
+  "title": "Roast chicken with lemon, herbs and pepper",
+  "claimed_grade": "B->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "5c443517-da92-5880-b20b-2dbec3f2961d",
+  "title": "Baked cod with lemon and olive oil",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "5d66c578-0bb9-5b14-bcfd-a39a0cf938e6",
+  "title": "Caramelised onion, mushroom and cheese quiche",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "5df6e6fe-164c-5932-93fa-5c838f50686b",
+  "title": "Veggie-topped bagels with poached egg",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "5fb10997-ce79-5721-b9d1-9bc26d9eafb9",
+  "title": "Fruit flan",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "60883d08-9c0b-453d-a92a-47c880796b0b",
+  "title": "Sweet cheese štruklji",
+  "claimed_grade": "D->D",
+  "grade": "C->D",
+  "fails": [
+   "gain_not_confirmed",
+   "grade_drop",
+   "worsening"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 293.3223104 vs saved 371.118",
+   "energy_kcal: claimed 0.06 measured -0.21",
+   "sugar_g: claimed 0.11 measured -0.20",
+   "saturated_fat_g: claimed 0.14 measured -0.47",
+   "sodium_mg: claimed 0.00 measured -0.16",
+   "Nutriscore_C->Nutriscore_D",
+   "energy_kcal 293.3->354.2",
+   "saturated_fat_g 7.2->10.7",
+   "sodium_mg 565.8->658.5"
+  ]
+ },
+ {
+  "recipe_id": "60dad7f2-7d2a-59a2-a9e4-a3e1d1e69af6",
+  "title": "Chicken in tomato sauce with rice",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.03 measured -0.00",
+   "sodium_mg: claimed 0.00 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "61a24ba0-63a6-5acd-bb5d-ac680d595774",
+  "title": "Pork stir-fry",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "620d42fa-dd7d-4a06-9a6c-2463c7bdb45b",
+  "title": "Flike",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "63f264fb-88ba-544e-80f9-25de5f9b3520",
+  "title": "Spaghetti with spinach and lemon crème fraiche sauce",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 441.51199999999994 vs saved 527.335",
+   "energy_kcal: claimed 0.07 measured 0.00",
+   "saturated_fat_g: claimed 0.37 measured 0.02",
+   "protein_g: claimed 0.01 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "68c8cc45-0f92-5d41-aede-6fe192ee7ffd",
+  "title": "Penne with tuna, tomato and sweetcorn",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g: claimed 0.02 measured -0.10"
+  ]
+ },
+ {
+  "recipe_id": "68d0db1c-48fa-5dd3-bacb-a559503e1ad7",
+  "title": "Walnut and sultana bread with almonds",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "6967915d-e471-5e27-9543-a979e1d7b177",
+  "title": "Sprout and onion tart",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "6cea47f3-0acb-4d5c-8579-da8b94531dfd",
+  "title": "Stuffed calamari",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "6cf335bc-626e-45ea-baaa-578e521463b9",
+  "title": "Ćevapčići, grilled",
+  "claimed_grade": "D->D",
+  "grade": "D->D",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "6d07f3fd-2a28-55ce-b17b-9cc87f068dcb",
+  "title": "Traditional cranberry sauce",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "6d559541-a210-5c4c-b7ed-afee27b1aa43",
+  "title": "Spaghetti Bolognese",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.02 measured -0.01",
+   "fibre_g: claimed 1.16 measured 0.42",
+   "protein_g: claimed 0.03 measured 0.01"
+  ]
+ },
+ {
+  "recipe_id": "6d72129b-eb1d-4a12-bb81-5a26190d3b06",
+  "title": "Spoon dumplings",
+  "claimed_grade": "D->D",
+  "grade": "D->D",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "6de05a74-710a-56cd-bfc6-747c341435f0",
+  "title": "Caribbean pork chops with mango salsa",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "6f9b10ea-4eb2-57ab-b3df-14697e56d403",
+  "title": "Courgette bites",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "70b99fcc-5504-570f-a34d-e2e356be8a0c",
+  "title": "Sweet chilli chicken wrap",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 417.40130000000005 vs saved 347.136"
+  ]
+ },
+ {
+  "recipe_id": "7128a548-685c-4530-9c0d-7f6944854548",
+  "title": "Balkan-style grilled patty (Pleskavica)",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "72322097-0815-5f3a-ae48-58d38a33bd61",
+  "title": "Chickpea and lentil curry",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 468.1659521988528 vs saved 531.592",
+   "sugar_g: claimed 0.02 measured -0.07",
+   "fibre_g: claimed 0.17 measured 0.02",
+   "protein_g: claimed 0.07 measured 0.01"
+  ]
+ },
+ {
+  "recipe_id": "7364e09d-9e08-4da9-8e73-1cc47a4378e1",
+  "title": "Mushrooms in sour cream",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "7380173d-4ae3-5f7a-8993-26539b925c07",
+  "title": "Chicken burrito",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.02 measured 0.00",
+   "sugar_g: claimed 0.02 measured 0.00",
+   "sodium_mg: claimed 0.13 measured 0.00",
+   "fibre_g: claimed 0.19 measured -0.00",
+   "protein_g: claimed 0.01 measured -0.00"
+  ]
+ },
+ {
+  "recipe_id": "7393d197-453c-5e79-a22b-d3c372edd438",
+  "title": "Spicy chicken and rice bowl",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 641.7485 vs saved 545.031",
+   "protein_g: claimed 0.06 measured 0.02"
+  ]
+ },
+ {
+  "recipe_id": "763549b8-5ca8-4f44-81f4-81e1e267c075",
+  "title": "Roux soup",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "7693d2bd-2c91-4336-96cb-0203969ee226",
+  "title": "Strawberry roulade",
+  "claimed_grade": "C->C",
+  "grade": "C->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "793fb8f4-5904-550e-ade5-6378455acd2e",
+  "title": "Lamb chilli con carne",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "7beb7575-4779-5b9d-a366-a92bad519961",
+  "title": "Mixed bean salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sodium_mg: claimed 0.11 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "7f88a926-d6a6-59cc-907b-92abb1c029be",
+  "title": "Pepperoni pizza",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g: claimed 0.03 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "80719fb4-fa37-5c27-85b8-22645a3a1ed2",
+  "title": "Thai green chicken curry",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "80ef1381-dfff-5a77-b97f-0efcda019e06",
+  "title": "Grilled pork chops - student style",
+  "claimed_grade": "D->B",
+  "grade": "C->B",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 241.27842583851177 vs saved 290.081",
+   "sugar_g: claimed 0.01 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "818cff0b-2387-5c8c-ba81-bc8a45ec1e00",
+  "title": "Baked potato with beans and cheese",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 340.52 vs saved 434.659"
+  ]
+ },
+ {
+  "recipe_id": "821b56db-8827-526d-922a-a5140dbb6d21",
+  "title": "Vegetable biryani",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.01 measured -0.00",
+   "sugar_g: claimed 0.01 measured 0.00",
+   "saturated_fat_g: claimed 0.08 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "833546f2-e06b-4b0a-a762-a7b32dca9f79",
+  "title": "Apple strudel",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "8339feef-de60-5f00-ba3f-1ad790ae0c9d",
+  "title": "Pork and apricot kebabs",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [
+   "gain_not_confirmed",
+   "worsening"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 789.73225 vs saved 597.938",
+   "sodium_mg: claimed 0.11 measured 0.03",
+   "sugar_g 67.0->85.6"
+  ]
+ },
+ {
+  "recipe_id": "84b5f7cc-a25f-57e3-b0f0-1c0ad97c0933",
+  "title": "Mint sauce",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "85bf52e3-99c8-48d4-bc6f-b78fd7019ed5",
+  "title": "Curd spoon dumplings",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "85c21dfd-c43f-4d47-bdc5-363db93be348",
+  "title": "Flat potatoballs",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "85f71e0c-a3e9-4237-9a6d-14cab6aae851",
+  "title": "Veal steak with prosciutto",
+  "claimed_grade": "C->B",
+  "grade": "C->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "87893e3e-03de-5efa-bcf2-f3c4873fc8e7",
+  "title": "Barbecue chicken drumsticks",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "8887050d-0211-570a-8b23-0d4030082d31",
+  "title": "Homemade burgers",
+  "claimed_grade": "B->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 445.71000000000004 vs saved 402.105"
+  ]
+ },
+ {
+  "recipe_id": "89c7ac56-9eb5-50c1-be9d-8ae1f60f410d",
+  "title": "Macaroni and cheese",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g: claimed 0.01 measured -0.00"
+  ]
+ },
+ {
+  "recipe_id": "8ae49d93-703d-5203-a632-b0b5f7d0c34c",
+  "title": "Sweet Potato Fries",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "8d85ba3b-e0e8-4899-b714-9e715207c53f",
+  "title": "Applesauce",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "93241982-a112-5e59-8bd3-a6695d8d662a",
+  "title": "Pork and pepper kebabs",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "93ebb2e2-9471-5be6-8181-e1b87c64e43f",
+  "title": "Honey glazed carrots",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "9667bc81-4943-43eb-b523-c5d8f725a1b5",
+  "title": "Beef, boiled",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "9676e71e-df4f-4976-b602-b7b706d88179",
+  "title": "Cheese-gratinated mushrooms",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g 23.9->18.6"
+  ]
+ },
+ {
+  "recipe_id": "97ae65f4-5702-5b81-9d51-41084503e533",
+  "title": "Pesto pasta",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "98042ef7-bcfd-5e5e-bd45-31e60c426e95",
+  "title": "Pork chops with mashed potatoes and veg",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "98a7372a-841e-56be-9d30-be72f478d7c6",
+  "title": "Chicken curry",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "9a042316-ad71-53a4-8fa5-2b4986eb654d",
+  "title": "Warm chicken noodle salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "9a1aaa53-19eb-5060-ba13-90638fd8037f",
+  "title": "Beef stew",
+  "claimed_grade": "B->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 312.592 vs saved 418.892"
+  ]
+ },
+ {
+  "recipe_id": "9b90214f-890b-443f-a2ce-dc266b75f054",
+  "title": "Bean soup",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "9c15ccdc-c1e8-4897-a099-7fdf18322e8c",
+  "title": "Roast pork from Gorenjska",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g: claimed 0.07 measured -0.61",
+   "fibre_g: claimed 1.37 measured -0.04"
+  ]
+ },
+ {
+  "recipe_id": "9c4a5e59-c95b-5a38-8090-3ce292d76f93",
+  "title": "Chargrilled veggie kebabs",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "9cbcf873-9615-5cbe-950e-95afdc96f4de",
+  "title": "Roasted chickpea and vegetable bake",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_10",
+  "title": "Roasted duck breast with braised red cabbage and apple",
+  "claimed_grade": "A->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_100",
+  "title": "Eggnoodle dish with lettuce and vinegar \"tojásos nokedli\"",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_101",
+  "title": "Layered potato casserole \"rakott krumpli\"",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_102",
+  "title": "Hungarian baked pasta with dairy and bacon \"túrós csusza\"",
+  "claimed_grade": "C->A",
+  "grade": "C->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_103",
+  "title": "Deep-fried cheese in breadcrumbs with sweet corn rice and salad",
+  "claimed_grade": "D->C",
+  "grade": "D->C",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g 35.4->24.3"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_104",
+  "title": "Green pea soup; Sweet cottage cheese dumplings in breadcrumbs",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_107",
+  "title": "Roasted catfish with rosemary, mashed potatoes and cucumber salad",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_108",
+  "title": "Catfish paprikash with baked pasta, quark, sour cream and bacon",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_109",
+  "title": "Chicken paprikash with dumplings and saurkraut",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_110",
+  "title": "Roasted chicken thighs with cold potatosalad",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_111",
+  "title": "Braised liver with cooked potatoes, parsley and pickled pearl onions",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_112",
+  "title": "Grilled pork sausage with mustard, white bread and pickles",
+  "claimed_grade": "D->B",
+  "grade": "D->B",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "fibre_g 5.9->3.1"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_113",
+  "title": "Székely-style cabbage stew",
+  "claimed_grade": "C->A",
+  "grade": "C->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_114",
+  "title": "Hungarin goulash suop with white bread",
+  "claimed_grade": "C->C",
+  "grade": "C->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_115",
+  "title": "Venison/deer stew with dumplings and pickled beetroot",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_116",
+  "title": "Split pea pottage with roasted mushrooms",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "sodium_gain_unverifiable"
+  ],
+  "notes": [
+   "sodium gain unverifiable: the pipeline reads LoSalt as plain salt (lines of 1 g or less by policy; the local parser also does it above 1 g)"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_117",
+  "title": "Creamy mushroom risotto",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_118",
+  "title": "Pasta salad with chickpeas and fresh vegetables",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g: claimed 0.06 measured -0.00"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_119",
+  "title": "Chickpea curry with brown rice",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_12",
+  "title": "Shaksuka with pita bread",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_120",
+  "title": "Creamy broccoli pasta with white bean",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_121",
+  "title": "Green pea soup; Peanut butter on toast with sour cherries",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_122",
+  "title": "Brussels sprouts and lentil salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_123",
+  "title": "Black bean burritos",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_124",
+  "title": "Tofu slices, couscous, tomato salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed",
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "sodium_mg: claimed 0.01 measured -0.03",
+   "fibre_g: claimed 1.05 measured 0.41",
+   "protein_g 12.0->7.7"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_125",
+  "title": "Tortilla pizza",
+  "claimed_grade": "C->A",
+  "grade": "C->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_127",
+  "title": "Veggie burger",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_129",
+  "title": "Eggplant spread with crackers and crispy chickpeas",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_13",
+  "title": "Warm quinoa salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_131",
+  "title": "Hummus with falafel and vegetables",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_132",
+  "title": "Pasta with zakuska and beans",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_133",
+  "title": "Tomatoes and beans with toast",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_134",
+  "title": "Hungarian cottage cheese spread on brown bread with hot green peppers",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_136",
+  "title": "Zucchini and carrot fritters with garlic yogurt",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_137",
+  "title": "Beetroot risotto, goat cheese",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_138",
+  "title": "Greek salad, croutons",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.23 measured -0.04"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_14",
+  "title": "Tortilla wrap filled with egg, goat cheese, rocket salad and tomato",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.25 measured 0.05"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_140",
+  "title": "Turkish eggs with toasted whole wheat bread",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_141",
+  "title": "Salad with boiled eggs",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_142",
+  "title": "Salmon filet with sautéed vegetables",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_143",
+  "title": "Chicken skewers with peppers, onion, zucchini served with couscous and tzatziki",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g 48.5->45.9"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_144",
+  "title": "Roasted chicken wings with bulgur salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_145",
+  "title": "Duck rilette on toast with radish",
+  "claimed_grade": "D->D",
+  "grade": "D->D",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_146",
+  "title": "Frankfurter/boiled sausage with mustard, sauerkraut and rye bread",
+  "claimed_grade": "C->A",
+  "grade": "C->A",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g 19.3->17.2"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_148",
+  "title": "Beef and veggie soup; Bacon wrapped asparagus",
+  "claimed_grade": "B->A",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_149",
+  "title": "Chili con carne",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_15",
+  "title": "Liver pâté with ciabatta and grapes",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_150",
+  "title": "Brassói-style fried pork with potatoes",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_19",
+  "title": "Carrot, cucumber and celery sticks with blocks of hard cheese",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g 13.6->9.3"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_2",
+  "title": "Hummus on toast",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_21",
+  "title": "Beetroot hummus on breadstick with broccoli sprouts",
+  "claimed_grade": "C->C",
+  "grade": "C->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_22",
+  "title": "Lentilspread on multigrain buns",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_23",
+  "title": "White bean spread with sun-dried tomatoes and crispy tortilla",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_29",
+  "title": "Carrotcake porridge",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_30",
+  "title": "Applepie porridge",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_31",
+  "title": "Pumpkin-spiced porridge",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_33",
+  "title": "Peanut butter on toast with raspberries",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g 16.7->15.3"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_35",
+  "title": "Vegan pancake topped with peanut butter and jam",
+  "claimed_grade": "C->B",
+  "grade": "C->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_36",
+  "title": "Hungarian ratatuille with bread",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_38",
+  "title": "Cheese sandwich",
+  "claimed_grade": "C->B",
+  "grade": "C->A",
+  "fails": [
+   "gain_not_confirmed",
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.27 measured 0.10",
+   "protein_g 18.0->15.1"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_4",
+  "title": "Cottage cheese with dill on toast",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_40",
+  "title": "Peanut butter on toast with yogurt and peach",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g 24.0->22.6"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_41",
+  "title": "Guacamole on toast with feta cheese",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.16 measured -0.03"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_42",
+  "title": "Firtatta",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_44",
+  "title": "Scrambled oats",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_45",
+  "title": "Eggplant spread with soft boiled eggs on toast",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_46",
+  "title": "Egg spread with multigrain bread",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_47",
+  "title": "Hummus on toast with poached egg and smoked paprika",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_48",
+  "title": "Tuna and corn salad with tortilla",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.06 measured 0.02",
+   "sodium_mg: claimed 0.30 measured 0.15",
+   "fibre_g: claimed 0.53 measured 0.06",
+   "protein_g: claimed 0.04 measured -0.00"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_5",
+  "title": "Zacusca on bread stick with roasted chickpeas on top",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_50",
+  "title": "Hungarian smoked sausage sandwich",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g: claimed 0.11 measured -0.15",
+   "sodium_mg: claimed 0.25 measured 0.00",
+   "protein_g: claimed 0.23 measured 0.01"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_56",
+  "title": "Celery sticks and carrot with hummus",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_6",
+  "title": "Lentil pottage with falafel",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_66",
+  "title": "Caprese salad",
+  "claimed_grade": "D->B",
+  "grade": "D->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_70",
+  "title": "Cottage cheese with spelt cracker",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_72",
+  "title": "American pancakes with apple sauce",
+  "claimed_grade": "C->C",
+  "grade": "C->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_73",
+  "title": "Apple muffins",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_75",
+  "title": "Egg muffins",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_76",
+  "title": "French toast with banana",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_79",
+  "title": "Hungarian white mold salami with baguette and hot peppers",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_8",
+  "title": "Mushroom stew with cooked potatoes and parsley",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_81",
+  "title": "Green pea pottage with garlic bread",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_83",
+  "title": "Roasted veggie soup with toasted chickpeas and croutons",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_85",
+  "title": "Vegetables in breadcrumbs with corn rice",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_88",
+  "title": "Chickpea wrap",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sodium_mg: claimed 0.46 measured 0.19",
+   "protein_g: claimed 0.06 measured -0.02"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_89",
+  "title": "Stuffed peppers, vegan",
+  "claimed_grade": "A->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 92.67999999999999 vs saved 123.97"
+  ]
+ },
+ {
+  "recipe_id": "ESSRG_9",
+  "title": "Chicken breast in breadcrumb with steamed vegetables and white rice",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_90",
+  "title": "Layered cauliflower casserole, vegan",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_91",
+  "title": "Cabbage pasta",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_92",
+  "title": "Potato pasta with pickled beetroot",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_93",
+  "title": "Fussili with green pesto, courgettes and chickpeas",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_94",
+  "title": "Red lentil pottage with potatoes, topped with pumpkin seeds",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_95",
+  "title": "Spinach pottage with potatoes",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_96",
+  "title": "Vegan bolognese spaghetti",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_97",
+  "title": "Oven baked vegetables and tofu with tahini dressing",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_98",
+  "title": "Green pea soup; Poppy seed pasta",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ESSRG_99",
+  "title": "Hungarian ratatuille with eggs and bread",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "a09dc4ce-1bee-5d75-a11f-c2b139f5d79b",
+  "title": "Granny Bríd's chicken",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 522.5883541666666 vs saved 425.738"
+  ]
+ },
+ {
+  "recipe_id": "a0a7fc4a-561f-5495-bcab-344a8cb0bb81",
+  "title": "Pea soup with bacon",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.01 measured -0.00",
+   "sugar_g: claimed 0.01 measured 0.00",
+   "saturated_fat_g: claimed 0.04 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "a1206962-747e-59e6-95bd-2d3d742ec088",
+  "title": "Wholemeal scones",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "a2b11a0f-4b24-56b1-a132-2854d818d21a",
+  "title": "Porridge",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "a2bd0ae8-4cb2-56ec-a276-c2d5b65c33cf",
+  "title": "Baked oat bars",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "a3a30e86-8d42-569d-a35e-df7f97c81302",
+  "title": "Super easy Sunday roast chicken",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "a5d3f799-c09f-4516-89dd-da0941900a92",
+  "title": "Loška smojka stew",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "a81e35b3-b3c4-5157-a221-ac57339f880e",
+  "title": "Brussels Sprouts with Honey and Mustard",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "a881047f-68d7-5bed-a345-5237e98ed5b6",
+  "title": "Stephen McAllister's thai chilli chicken",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed",
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g: claimed 0.02 measured 0.01",
+   "saturated_fat_g 2.0->2.5"
+  ]
+ },
+ {
+  "recipe_id": "a9d5e020-c739-5d5f-9605-b82dde40fdb4",
+  "title": "Honey roast ham",
+  "claimed_grade": "D->C",
+  "grade": "D->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "aad29733-7432-4436-b9d9-326b23c7396d",
+  "title": "Herb soup",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ab2fc20a-a84f-4b8f-acc9-e72dc2784fbb",
+  "title": "Fried bread slices",
+  "claimed_grade": "D->C",
+  "grade": "D->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ac9dd146-c2bf-5b21-83c4-b851c2953375",
+  "title": "Mushroom and courgette tagliatelle",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "acd3172c-2e81-5f3e-b9ec-3241d23a7770",
+  "title": "Vegetable paella",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.01 measured -0.00",
+   "sugar_g: claimed 0.01 measured -0.00",
+   "saturated_fat_g: claimed 0.05 measured 0.00",
+   "sodium_mg: claimed 0.24 measured 0.06"
+  ]
+ },
+ {
+  "recipe_id": "af96c8e8-ce13-49d3-9337-06a0fbb15b57",
+  "title": "Fish goulash",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "b00c8b2a-a8d4-5782-ba90-6ffdc591be03",
+  "title": "Sweet potato satay stew",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "b1a62f7e-8407-4005-a024-a125172e9add",
+  "title": "Beef in horseradish sauce",
+  "claimed_grade": "D->C",
+  "grade": "D->C",
+  "fails": [
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g 38.1->32.5"
+  ]
+ },
+ {
+  "recipe_id": "b533c99b-b2a1-47c6-a185-351f81e7b83e",
+  "title": "Potato goulash",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "b56223b3-42d9-51b1-a320-5c5a9e417718",
+  "title": "Chicken and pasta salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g: claimed 0.11 measured -0.04"
+  ]
+ },
+ {
+  "recipe_id": "b65d06fa-fffa-5e67-abfa-313876a52f98",
+  "title": "Nutty fried rice with satay sauce",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "b68a8fc1-ef8e-47f6-8f1c-8db6789d0f15",
+  "title": "Viennese schnitzel",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "b845c6dd-22b4-4690-bcb0-25a4083a51ad",
+  "title": "Idrija dumplings (žlikrofi), boiled",
+  "claimed_grade": "C->B",
+  "grade": "E->E",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 1121.355 vs saved 510.428"
+  ]
+ },
+ {
+  "recipe_id": "b86ea4ab-4283-52d2-a598-4c92a770f701",
+  "title": "Greek pasta salad",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "b9c6b8be-4b41-4978-ac0c-1ae683ab4b78",
+  "title": "Pasta with cabbage",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "bacdb571-372a-5aa0-8a80-3e6ff2843da9",
+  "title": "Sweet potato crisps",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "bca5fc34-a0b6-423a-8492-5b5dde42179c",
+  "title": "Slovenian rolled cake (potica) with walnuts",
+  "claimed_grade": "C->B",
+  "grade": "C->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "bcb33fed-9cd5-4075-9ab2-4e6ae9b5b0bc",
+  "title": "Banana bread",
+  "claimed_grade": "D->D",
+  "grade": "D->D",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "bdb5b7cf-1f4e-5b22-88b4-9866c9c464db",
+  "title": "Homemade oven chips",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 278.942 vs saved 428.542"
+  ]
+ },
+ {
+  "recipe_id": "bebfea79-d65e-52a3-b4ea-ab89fea0cc29",
+  "title": "Chicken in barbecue sauce",
+  "claimed_grade": "A->A",
+  "grade": "B->A",
+  "fails": [
+   "gain_not_confirmed",
+   "worsening"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 631.3650000000001 vs saved 335.63",
+   "energy_kcal: claimed 0.08 measured -0.44",
+   "saturated_fat_g: claimed 0.69 measured 0.19",
+   "sodium_mg: claimed 0.36 measured -0.93",
+   "energy_kcal 631.4->907.0",
+   "sodium_mg 342.8->663.0"
+  ]
+ },
+ {
+  "recipe_id": "bfb276ad-0ce0-4b34-85bb-aed467362068",
+  "title": "Potato salad with onion",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "c1f80d7d-3498-5a15-bd4d-98680b8e6a05",
+  "title": "Vegetable stir-fry",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "c2216aee-cc8d-4385-beb5-0d6b367388ac",
+  "title": "Prekmurje gibanica layered pastry",
+  "claimed_grade": "D->B",
+  "grade": "D->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "c27313a6-9649-42d8-9d67-4dc60379d7d6",
+  "title": "Buckwheat žganci with melted butter",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "c532f51e-3ad6-4c53-9674-4362465d0b51",
+  "title": "Buckwheat pocket",
+  "claimed_grade": "A->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "c59aa820-1f78-4f43-99c1-171139a4b15a",
+  "title": "Deaf štruklji",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "c7a15508-17a0-524c-b2af-bc47814a0627",
+  "title": "Cereal with fresh fruit and nuts",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "c93c6e19-5aa7-59fc-b7c7-ba8249824534",
+  "title": "Baked raisin apples",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 153.4611875 vs saved 190.355"
+  ]
+ },
+ {
+  "recipe_id": "c9698e22-f7da-4a43-889e-6cc4eeef1068",
+  "title": "Ajdnek",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "c96f7729-250b-4781-87f8-c7f7be875edb",
+  "title": "Chicken, fried",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "c9dab5cb-8dc7-4724-9de5-db1c152c0276",
+  "title": "Mashed potatoes",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ca09c6c5-2859-5f03-b838-67828e34a48d",
+  "title": "Pancakes",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "cb905240-1415-5df9-837b-473483f576ec",
+  "title": "Tuna pasta with sweetcorn and peppers",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 568.37375 vs saved 492.378"
+  ]
+ },
+ {
+  "recipe_id": "cba0509e-5924-57b3-95bb-7d7325ea83d4",
+  "title": "Tuna rice salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "cca9d9a5-76e1-51b9-8efc-49e83ec0a24b",
+  "title": "Spinach and feta frittata",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "cecbc1db-4f37-5424-81fb-f3cc8f4e9911",
+  "title": "Chicken Caesar salad",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 373.395 vs saved 275.745",
+   "sugar_g: claimed 0.11 measured 0.04"
+  ]
+ },
+ {
+  "recipe_id": "cf4d4aef-7e3e-4d12-91f5-ff33bf08d79f",
+  "title": "Chicken paprikash",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "cf95fb67-86b4-4a65-bcdc-00d918cbd728",
+  "title": "Potato with mangold",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "d38a88e0-478b-560c-8857-e8eb1f6d01b1",
+  "title": "Bread and Butter Pudding",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "d8e2c4ab-656e-47a7-9114-6db4373d3e73",
+  "title": "Flat meatballs",
+  "claimed_grade": "D->C",
+  "grade": "D->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "da9bb460-3acb-5246-b670-35853dc5132c",
+  "title": "Aoife's shepherd's pie",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "dc3e75e1-f991-5959-9b14-e8d3ab589fef",
+  "title": "Teriyaki salmon",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "dc843bbd-b2fb-4b12-bfb3-40b73282e7d7",
+  "title": "Leavened dough for dumplings",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "dd1d5c94-c035-5c1a-9618-8c9ff46ded2e",
+  "title": "Minestrone soup with bacon",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.01 measured -0.00",
+   "sugar_g: claimed 0.01 measured 0.00",
+   "saturated_fat_g: claimed 0.03 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "de5a74cf-a01f-5046-bca3-5de01eabbf05",
+  "title": "One pot roast chicken and vegetables",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed",
+   "worsening"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g: claimed 0.00 measured -0.00",
+   "sodium_mg: claimed 0.24 measured -2.09",
+   "sodium_mg 156.4->483.8"
+  ]
+ },
+ {
+  "recipe_id": "e146ad9f-9688-4576-9de2-e1f69e839200",
+  "title": "Martin's goose",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "protein_g: claimed 0.07 measured 0.03"
+  ]
+ },
+ {
+  "recipe_id": "e45f6794-f659-44d4-b123-308d2cf5425b",
+  "title": "Chicken stew",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "e476d55d-6867-5e6e-95fc-21106d2747ed",
+  "title": "Lemon and rosemary turkey crown",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 403.01625 vs saved 365.516"
+  ]
+ },
+ {
+  "recipe_id": "e53deb30-2230-57a3-b9fb-63e32401229f",
+  "title": "Turkey and butternut squash curry",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "e9e84e5c-3d2f-5fa9-80e4-8bc090214ac2",
+  "title": "Pasta with courgette, olive oil, garlic and chilli",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "fibre_g: claimed 2.19 measured 0.85",
+   "protein_g: claimed 0.11 measured -0.02"
+  ]
+ },
+ {
+  "recipe_id": "e9fb7b9c-78b7-5cd2-806f-43c0d2bcce60",
+  "title": "Pea risotto",
+  "claimed_grade": "A->A",
+  "grade": "B->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "sugar_g: claimed 0.03 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "ea4cd06b-d3fb-5fe2-8fd8-e62bf5bbb779",
+  "title": "Neven Maguire's turkey, ham and potato pie",
+  "claimed_grade": "B->B",
+  "grade": "B->B",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.04 measured 0.00",
+   "saturated_fat_g: claimed 0.15 measured 0.00",
+   "protein_g: claimed 0.00 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "eafb2509-1fcf-5348-97e8-ddcd110ebbbc",
+  "title": "Chicken goujons with potato wedges",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed",
+   "worsening"
+  ],
+  "labels": [
+   "stale_baseline"
+  ],
+  "notes": [
+   "pipeline energy 420.8592 vs saved 539.7",
+   "energy_kcal: claimed 0.07 measured -0.45",
+   "saturated_fat_g: claimed 0.41 measured -0.43",
+   "sodium_mg: claimed 0.10 measured -0.29",
+   "energy_kcal 420.9->609.4",
+   "saturated_fat_g 2.4->3.5",
+   "sodium_mg 313.6->405.2"
+  ]
+ },
+ {
+  "recipe_id": "ed9b8c65-ac00-55a9-817f-1d461cd4d1bf",
+  "title": "Thai butternut squash curry",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "eee2cf94-9b4a-56bd-adb0-81c38999e90e",
+  "title": "Ultimate basic muffins",
+  "claimed_grade": "D->D",
+  "grade": "D->D",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "f1bf9389-64a5-59a4-8cd2-644c4265a555",
+  "title": "Scotch broth",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.09 measured -0.04",
+   "saturated_fat_g: claimed 0.43 measured -0.12",
+   "protein_g: claimed 0.07 measured 0.01"
+  ]
+ },
+ {
+  "recipe_id": "f4da5282-8e10-555a-80e8-0ce75eee8db5",
+  "title": "Vegetables provencal",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "f57c9035-fa26-5638-ae22-7fa0a063f0ad",
+  "title": "Spicy Christmas biscuits",
+  "claimed_grade": "C->C",
+  "grade": "C->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "f9b3888c-d870-5452-b5bf-df638d75f72a",
+  "title": "Apricot loaf",
+  "claimed_grade": "C->C",
+  "grade": "C->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "fc7a299f-ddb2-575c-8048-cecd1d78cbbb",
+  "title": "Brussels sprouts with apple and red onion",
+  "claimed_grade": "A->A",
+  "grade": "A->A",
+  "fails": [
+   "gain_not_confirmed"
+  ],
+  "labels": [],
+  "notes": [
+   "energy_kcal: claimed 0.01 measured -0.00",
+   "sugar_g: claimed 0.01 measured 0.00",
+   "saturated_fat_g: claimed 0.06 measured 0.00"
+  ]
+ },
+ {
+  "recipe_id": "fd653d65-0188-4030-9397-0e8d2cb1cf7a",
+  "title": "Risotto with peas",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ff5eeb2e-2d46-47da-8834-c4061a15f9db",
+  "title": "Potato žganci",
+  "claimed_grade": "B->A",
+  "grade": "B->A",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ },
+ {
+  "recipe_id": "ffbea373-7cff-5335-9a7b-8806a26e9b95",
+  "title": "Quick and easy blueberry muffins",
+  "claimed_grade": "C->C",
+  "grade": "C->C",
+  "fails": [],
+  "labels": [],
+  "notes": []
+ }
+]

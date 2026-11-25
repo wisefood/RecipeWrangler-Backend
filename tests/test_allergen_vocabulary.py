@@ -126,11 +126,13 @@ class TestRequestModelsFoldOnTheWayIn:
 class TestTheMatchingPathsAgree:
     def test_cypher_compares_canonical_ids(self):
         _, params = _build_where_clause(RecipeSearchFilters(exclude_allergens=["gluten", "dairy"]))
-        assert params["exclude_allergens"] == ["gluten", "wheat", "milk"]
+        # Stored-label spellings (e.g. a legacy "dairy" label) are matched too.
+        assert {"gluten", "wheat", "milk"} <= set(params["exclude_allergens"])
 
     def test_elastic_candidates_exclude_by_canonical_term_and_by_name(self):
         flat = _flatten(_allergen_exclusions("Tree Nuts"))
-        assert {"allergens": "tree_nut"} in [c.get("term") for c in _allergen_exclusions("Tree Nuts") if "term" in c]
+        labels = [v for c in _allergen_exclusions("Tree Nuts") for v in c.get("terms", {}).get("allergens", [])]
+        assert "tree_nut" in labels
         assert "*almond*" in flat and "*cashew*" in flat
 
     def test_a_canonical_id_the_table_never_keyed_now_reaches_ingredients(self):
@@ -140,6 +142,13 @@ class TestTheMatchingPathsAgree:
         assert "*prawn*" in flat and "*lobster*" in flat
         flat = _flatten(_allergen_exclusions("molluscs"))
         assert "*mussel*" in flat and "*squid*" in flat
+
+    def test_a_nut_allergy_still_screens_pine_nuts_and_chestnuts(self):
+        """Not EU tree nuts, but called nuts: the generous reading stands."""
+        flat = _flatten(_allergen_exclusions("tree_nut"))
+        assert "*pine nut*" in flat and "*chestnut*" in flat
+        assert "pine nuts" not in flat and "chestnuts" not in flat
+        assert "coconut" in flat  # exact-name exception the branch reviewed
 
     def test_the_catalog_table_is_the_shared_one(self):
         assert ALLERGEN_INGREDIENT_TERMS is ALLERGEN_NAME_TERMS

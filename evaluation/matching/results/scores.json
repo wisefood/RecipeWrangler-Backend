@@ -1,0 +1,1254 @@
+{
+ "gold_identity_current_6nov": {
+  "hungarian": {
+   "different_food": 11,
+   "exact": 690,
+   "nutrient:equivalent": 133,
+   "nutrient:exact": 690,
+   "nutrient:harmful": 41,
+   "nutrient:not_comparable": 61,
+   "nutrient:off": 32,
+   "nutrient:unaligned": 23,
+   "same_food_other_table": 256,
+   "unaligned": 23
+  },
+  "slovenian": {
+   "different_food": 3,
+   "exact": 633,
+   "gold_unreachable": 5,
+   "nutrient:equivalent": 120,
+   "nutrient:exact": 633,
+   "nutrient:gold_unreachable": 5,
+   "nutrient:harmful": 3,
+   "nutrient:off": 24,
+   "nutrient:unaligned": 2,
+   "same_food_different_state": 9,
+   "same_food_other_table": 135,
+   "unaligned": 2
+  }
+ },
+ "gold_identity_v31_4nov": {
+  "hungarian": {
+   "different_food": 11,
+   "exact": 690,
+   "nutrient:equivalent": 133,
+   "nutrient:exact": 690,
+   "nutrient:harmful": 39,
+   "nutrient:not_comparable": 63,
+   "nutrient:off": 32,
+   "nutrient:unaligned": 23,
+   "same_food_other_table": 256,
+   "unaligned": 23
+  },
+  "slovenian": {
+   "different_food": 3,
+   "exact": 633,
+   "gold_unreachable": 3,
+   "no_match": 2,
+   "nutrient:equivalent": 120,
+   "nutrient:exact": 633,
+   "nutrient:gold_unreachable": 3,
+   "nutrient:harmful": 3,
+   "nutrient:no_match": 2,
+   "nutrient:off": 24,
+   "nutrient:unaligned": 2,
+   "same_food_different_state": 9,
+   "same_food_other_table": 135,
+   "unaligned": 2
+  }
+ },
+ "release2_vs_release1_full_corpus_4nov": {
+  "summary": {
+   "profiles": 30972,
+   "old_n": 309536,
+   "new_n": 309536,
+   "old_matched": 285802,
+   "new_matched": 291777,
+   "old_complete": 13288,
+   "new_complete": 16014,
+   "changed_match": 34113,
+   "kcal_within_5pct": 22557,
+   "kcal_within_20pct": 26366,
+   "kcal_compared": 30935
+  },
+  "per_source": {
+   "HealthyFoods": {
+    "old_n": 223888,
+    "new_n": 223888,
+    "old_matched": 204654,
+    "new_matched": 209383
+   },
+   "MyPlate": {
+    "old_n": 33816,
+    "new_n": 33816,
+    "old_matched": 31681,
+    "new_matched": 32316
+   },
+   "FoodHero": {
+    "old_n": 15464,
+    "new_n": 15464,
+    "old_matched": 14696,
+    "new_matched": 14948
+   },
+   "Best of Hungary": {
+    "old_n": 2712,
+    "new_n": 2712,
+    "old_matched": 2530,
+    "new_matched": 2538
+   },
+   "Curated Irish Recipes": {
+    "old_n": 11724,
+    "new_n": 11724,
+    "old_matched": 11299,
+    "new_matched": 11422
+   },
+   "Slovenian Kitchen": {
+    "old_n": 5888,
+    "new_n": 5888,
+    "old_matched": 5512,
+    "new_matched": 5547
+   },
+   "Irish Heart Foundation": {
+    "old_n": 5172,
+    "new_n": 5172,
+    "old_matched": 4885,
+    "new_matched": 4965
+   },
+   "Curated Slovenian Recipes": {
+    "old_n": 3144,
+    "new_n": 3144,
+    "old_matched": 3088,
+    "new_matched": 3136
+   },
+   "SuperValu": {
+    "old_n": 2612,
+    "new_n": 2612,
+    "old_matched": 2472,
+    "new_matched": 2499
+   },
+   "The Hungary Soul": {
+    "old_n": 1044,
+    "new_n": 1044,
+    "old_matched": 947,
+    "new_matched": 955
+   },
+   "Curated Hungarian Recipes": {
+    "old_n": 4072,
+    "new_n": 4072,
+    "old_matched": 4038,
+    "new_matched": 4068
+   }
+  },
+  "nutri_score_transitions": {
+   "None->None": 27279,
+   "Nutriscore_A->Nutriscore_A": 1159,
+   "None->Nutriscore_A": 702,
+   "Nutriscore_B->Nutriscore_B": 672,
+   "None->Nutriscore_B": 233,
+   "Nutriscore_C->Nutriscore_C": 225,
+   "Nutriscore_A->None": 156,
+   "Nutriscore_D->Nutriscore_D": 125,
+   "Nutriscore_B->None": 95,
+   "None->Nutriscore_C": 65,
+   "Nutriscore_B->Nutriscore_A": 53,
+   "Nutriscore_C->None": 45,
+   "Nutriscore_C->Nutriscore_B": 27,
+   "None->Nutriscore_D": 26,
+   "Nutriscore_A->Nutriscore_B": 24,
+   "Nutriscore_D->None": 16,
+   "Nutriscore_D->Nutriscore_C": 15,
+   "Nutriscore_C->Nutriscore_A": 15,
+   "Nutriscore_B->Nutriscore_C": 11,
+   "Nutriscore_D->Nutriscore_B": 10,
+   "Nutriscore_E->Nutriscore_E": 7,
+   "Nutriscore_C->Nutriscore_D": 6,
+   "Nutriscore_A->Nutriscore_C": 4,
+   "Nutriscore_A->Nutriscore_D": 1,
+   "Nutriscore_B->Nutriscore_D": 1
+  },
+  "gram_changes": {
+   "total_rows": 792,
+   "approved_rows": 660,
+   "approved_pairs_seen": 165,
+   "approved_pairs_listed": 165,
+   "unexpected": [
+    [
+     "0324456580",
+     "eu",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "0324456580",
+     "hungarian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "0324456580",
+     "irish",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "0324456580",
+     "slovenian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1000313259",
+     "eu",
+     "groundnut oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1000313259",
+     "hungarian",
+     "groundnut oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1000313259",
+     "irish",
+     "groundnut oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1000313259",
+     "slovenian",
+     "groundnut oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "12784cb6-f889-56d6-8004-fcf4ff23cf1a",
+     "eu",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "12784cb6-f889-56d6-8004-fcf4ff23cf1a",
+     "hungarian",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "12784cb6-f889-56d6-8004-fcf4ff23cf1a",
+     "irish",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "12784cb6-f889-56d6-8004-fcf4ff23cf1a",
+     "slovenian",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1461223232",
+     "eu",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "1461223232",
+     "hungarian",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "1461223232",
+     "irish",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "1461223232",
+     "slovenian",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "1eacc097-fc8d-57e0-809a-381a100ecbb8",
+     "eu",
+     "pumpkin seed oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1eacc097-fc8d-57e0-809a-381a100ecbb8",
+     "hungarian",
+     "pumpkin seed oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1eacc097-fc8d-57e0-809a-381a100ecbb8",
+     "irish",
+     "pumpkin seed oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1eacc097-fc8d-57e0-809a-381a100ecbb8",
+     "slovenian",
+     "pumpkin seed oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1f595787-c301-5c46-a2be-7232ae422a2f",
+     "eu",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1f595787-c301-5c46-a2be-7232ae422a2f",
+     "hungarian",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1f595787-c301-5c46-a2be-7232ae422a2f",
+     "irish",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "1f595787-c301-5c46-a2be-7232ae422a2f",
+     "slovenian",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "2109e209-9273-5f63-9c29-9f4cb16558ea",
+     "eu",
+     "sunflower oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "2109e209-9273-5f63-9c29-9f4cb16558ea",
+     "hungarian",
+     "sunflower oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "2109e209-9273-5f63-9c29-9f4cb16558ea",
+     "irish",
+     "sunflower oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "2109e209-9273-5f63-9c29-9f4cb16558ea",
+     "slovenian",
+     "sunflower oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "251bfbed-0b8d-5d5a-9547-216839fee875",
+     "eu",
+     "Olive Oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "251bfbed-0b8d-5d5a-9547-216839fee875",
+     "hungarian",
+     "Olive Oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "251bfbed-0b8d-5d5a-9547-216839fee875",
+     "irish",
+     "Olive Oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "251bfbed-0b8d-5d5a-9547-216839fee875",
+     "slovenian",
+     "Olive Oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "2527217795",
+     "eu",
+     "honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "2527217795",
+     "hungarian",
+     "honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "2527217795",
+     "irish",
+     "honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "2527217795",
+     "slovenian",
+     "honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "2912210543",
+     "eu",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "2912210543",
+     "hungarian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "2912210543",
+     "irish",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "2912210543",
+     "slovenian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "3648936730",
+     "eu",
+     "sesame oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "3648936730",
+     "hungarian",
+     "sesame oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "3648936730",
+     "irish",
+     "sesame oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "3648936730",
+     "slovenian",
+     "sesame oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "3732791672",
+     "eu",
+     "mayonnaise",
+     24.75,
+     24.750000000000004,
+     false
+    ],
+    [
+     "3732791672",
+     "hungarian",
+     "mayonnaise",
+     24.75,
+     24.750000000000004,
+     false
+    ],
+    [
+     "3732791672",
+     "irish",
+     "mayonnaise",
+     24.75,
+     24.750000000000004,
+     false
+    ],
+    [
+     "3732791672",
+     "slovenian",
+     "mayonnaise",
+     24.75,
+     24.750000000000004,
+     false
+    ],
+    [
+     "3835610824",
+     "eu",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "3835610824",
+     "hungarian",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "3835610824",
+     "irish",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "3835610824",
+     "slovenian",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "4074317814",
+     "eu",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "4074317814",
+     "hungarian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "4074317814",
+     "irish",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "4074317814",
+     "slovenian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "4964331962",
+     "eu",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "4964331962",
+     "hungarian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "4964331962",
+     "irish",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "4964331962",
+     "slovenian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "5242375601",
+     "eu",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "5242375601",
+     "hungarian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "5242375601",
+     "irish",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "5242375601",
+     "slovenian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "5701a4ff-fd59-5d52-93f6-25e7c2287b31",
+     "eu",
+     "Light Tahini",
+     49.5,
+     49.50000000000001,
+     false
+    ],
+    [
+     "5701a4ff-fd59-5d52-93f6-25e7c2287b31",
+     "hungarian",
+     "Light Tahini",
+     49.5,
+     49.50000000000001,
+     false
+    ],
+    [
+     "5701a4ff-fd59-5d52-93f6-25e7c2287b31",
+     "irish",
+     "Light Tahini",
+     49.5,
+     49.50000000000001,
+     false
+    ],
+    [
+     "5701a4ff-fd59-5d52-93f6-25e7c2287b31",
+     "slovenian",
+     "Light Tahini",
+     49.5,
+     49.50000000000001,
+     false
+    ],
+    [
+     "5f1bca7d-e2ee-56db-9993-7fe7b60afe72",
+     "eu",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "5f1bca7d-e2ee-56db-9993-7fe7b60afe72",
+     "hungarian",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "5f1bca7d-e2ee-56db-9993-7fe7b60afe72",
+     "irish",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "5f1bca7d-e2ee-56db-9993-7fe7b60afe72",
+     "slovenian",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "6525380565",
+     "eu",
+     "spaghetti sauce",
+     713.9999999999999,
+     714.0,
+     false
+    ],
+    [
+     "6525380565",
+     "hungarian",
+     "spaghetti sauce",
+     713.9999999999999,
+     714.0,
+     false
+    ],
+    [
+     "6525380565",
+     "irish",
+     "spaghetti sauce",
+     713.9999999999999,
+     714.0,
+     false
+    ],
+    [
+     "6525380565",
+     "slovenian",
+     "spaghetti sauce",
+     713.9999999999999,
+     714.0,
+     false
+    ],
+    [
+     "6563146618",
+     "eu",
+     "ketchup",
+     198.0,
+     198.00000000000003,
+     false
+    ],
+    [
+     "6563146618",
+     "hungarian",
+     "ketchup",
+     198.0,
+     198.00000000000003,
+     false
+    ],
+    [
+     "6563146618",
+     "irish",
+     "ketchup",
+     198.0,
+     198.00000000000003,
+     false
+    ],
+    [
+     "6563146618",
+     "slovenian",
+     "ketchup",
+     198.0,
+     198.00000000000003,
+     false
+    ],
+    [
+     "6a2d5d54-a0cd-5d75-9c99-a0fe5690102f",
+     "eu",
+     "acacia honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "6a2d5d54-a0cd-5d75-9c99-a0fe5690102f",
+     "hungarian",
+     "acacia honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "6a2d5d54-a0cd-5d75-9c99-a0fe5690102f",
+     "irish",
+     "acacia honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "6a2d5d54-a0cd-5d75-9c99-a0fe5690102f",
+     "slovenian",
+     "acacia honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "7801988425",
+     "eu",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "7801988425",
+     "hungarian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "7801988425",
+     "irish",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "7801988425",
+     "slovenian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "7c17253a-08ce-5b05-9063-0f045960ee15",
+     "eu",
+     "honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "7c17253a-08ce-5b05-9063-0f045960ee15",
+     "hungarian",
+     "honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "7c17253a-08ce-5b05-9063-0f045960ee15",
+     "irish",
+     "honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "7c17253a-08ce-5b05-9063-0f045960ee15",
+     "slovenian",
+     "honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "7eda5795-154a-5419-b5e7-ebd1a0af19eb",
+     "eu",
+     "sunflower oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "7eda5795-154a-5419-b5e7-ebd1a0af19eb",
+     "eu",
+     "linden honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "7eda5795-154a-5419-b5e7-ebd1a0af19eb",
+     "hungarian",
+     "sunflower oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "7eda5795-154a-5419-b5e7-ebd1a0af19eb",
+     "hungarian",
+     "linden honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "7eda5795-154a-5419-b5e7-ebd1a0af19eb",
+     "irish",
+     "sunflower oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "7eda5795-154a-5419-b5e7-ebd1a0af19eb",
+     "irish",
+     "linden honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "7eda5795-154a-5419-b5e7-ebd1a0af19eb",
+     "slovenian",
+     "sunflower oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "7eda5795-154a-5419-b5e7-ebd1a0af19eb",
+     "slovenian",
+     "linden honey",
+     63.89999999999999,
+     63.9,
+     false
+    ],
+    [
+     "8067790291",
+     "eu",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "8067790291",
+     "hungarian",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "8067790291",
+     "irish",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "8067790291",
+     "slovenian",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "8487049351",
+     "eu",
+     "oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "8487049351",
+     "hungarian",
+     "oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "8487049351",
+     "irish",
+     "oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "8487049351",
+     "slovenian",
+     "oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "9167337873",
+     "eu",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "9167337873",
+     "hungarian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "9167337873",
+     "irish",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "9167337873",
+     "slovenian",
+     "vegetable oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "9428351890",
+     "eu",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "9428351890",
+     "hungarian",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "9428351890",
+     "irish",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "9428351890",
+     "slovenian",
+     "vegetable oil",
+     20.700000000000003,
+     20.7,
+     false
+    ],
+    [
+     "a4621634-fe7c-5bff-8fbf-d53a21813e04",
+     "eu",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "a4621634-fe7c-5bff-8fbf-d53a21813e04",
+     "hungarian",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "a4621634-fe7c-5bff-8fbf-d53a21813e04",
+     "irish",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "a4621634-fe7c-5bff-8fbf-d53a21813e04",
+     "slovenian",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "c4b0ed80-5e81-5cbf-b19f-137f77a1bfd2",
+     "eu",
+     "Olive Oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "c4b0ed80-5e81-5cbf-b19f-137f77a1bfd2",
+     "hungarian",
+     "Olive Oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "c4b0ed80-5e81-5cbf-b19f-137f77a1bfd2",
+     "irish",
+     "Olive Oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "c4b0ed80-5e81-5cbf-b19f-137f77a1bfd2",
+     "slovenian",
+     "Olive Oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "d31a1f0e-e872-595c-9dff-68a98ea906aa",
+     "eu",
+     "rapeseed oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "d31a1f0e-e872-595c-9dff-68a98ea906aa",
+     "hungarian",
+     "rapeseed oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "d31a1f0e-e872-595c-9dff-68a98ea906aa",
+     "irish",
+     "rapeseed oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "d31a1f0e-e872-595c-9dff-68a98ea906aa",
+     "slovenian",
+     "rapeseed oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "f6b8dea1-fab7-587f-a16f-23b4c9cdd413",
+     "eu",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "f6b8dea1-fab7-587f-a16f-23b4c9cdd413",
+     "hungarian",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "f6b8dea1-fab7-587f-a16f-23b4c9cdd413",
+     "irish",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ],
+    [
+     "f6b8dea1-fab7-587f-a16f-23b4c9cdd413",
+     "slovenian",
+     "olive oil",
+     41.400000000000006,
+     41.4,
+     false
+    ]
+   ],
+   "unexpected_count": 132
+  },
+  "gold_stored_v30": {
+   "hungarian": {
+    "exact": 690,
+    "equivalent": 133,
+    "harmful": 39,
+    "not_comparable": 63,
+    "unaligned": 23,
+    "off": 32
+   },
+   "slovenian": {
+    "exact": 633,
+    "equivalent": 120,
+    "off": 24,
+    "harmful": 3,
+    "unaligned": 2,
+    "gold_unreachable": 3,
+    "no_match": 2
+   }
+  }
+ }
+}

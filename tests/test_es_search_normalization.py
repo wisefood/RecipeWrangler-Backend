@@ -66,20 +66,21 @@ def _should_terms(body: dict) -> list[dict]:
 
 class TestDietFilterUsesSlugs:
     def test_diet_tag_filter_is_slugged(self):
-        body = build_es_query(RecipeSearchConstraints(diet_tags=["gluten-free"]))
-        assert {"tags": "gluten_free"} in _should_terms(body)
+        """'gluten-free' and 'gluten free' both resolve to the gluten_free allergen-absence rule (a hard filter)."""
+        from recipe_wrangler.catalog import diets as D
+        for spelling in ("gluten-free", "gluten free", "Gluten_Free"):
+            body = build_es_query(RecipeSearchConstraints(diet_tags=[spelling]))
+            assert all(f in body["query"]["bool"]["filter"] for f in D.exclusion_filters(["gluten_free"]))
 
-    def test_consumer_group_diets_query_evidence_and_tag(self):
-        """vegan/vegetarian are three-state assessments — but the assessment is
-        unpopulated, so querying it alone returns zero. Match either."""
-        terms = _should_terms(build_es_query(RecipeSearchConstraints(diet_tags=["vegan"])))
-        assert {"suitable_for": "vegan"} in terms
-        assert {"tags": "vegan"} in terms
-
-    def test_diet_filter_matches_either_signal(self):
-        body = build_es_query(RecipeSearchConstraints(diet_tags=["vegetarian"]))
-        clause = next(c for c in body["query"]["bool"]["filter"] if "bool" in c)
-        assert clause["bool"]["minimum_should_match"] == 1
+    def test_consumer_group_diets_trust_only_the_assessment(self):
+        """A legacy `vegan` tag must not admit a recipe the assessment rejects
+        (Steamed Hake was tagged vegan/vegetarian and served to both)."""
+        for diet in ("vegan", "vegetarian"):
+            body = build_es_query(RecipeSearchConstraints(diet_tags=[diet]))
+            filters = body["query"]["bool"]["filter"]
+            assert {"term": {"suitable_for": diet}} in filters
+            assert {"tags": diet} not in _should_terms(body)
+            assert {"diet_tags": diet} not in _should_terms(body)
 
 
 class TestCourseTypeFilterSurvivesTheReadFlip:
@@ -213,3 +214,13 @@ class TestRankQueryNeverFilters:
     def test_no_text_falls_back_to_deterministic_order(self):
         body = build_es_query(RecipeSearchConstraints())
         assert body["sort"][0] != "_score"
+
+
+def test_foodchat_consumer_group_diets_trust_only_the_assessment():
+    from types import SimpleNamespace
+    from recipe_wrangler.catalog import foodchat
+    request = SimpleNamespace(constraints=SimpleNamespace(),
+                              user_profile=SimpleNamespace(diet=["vegan"], allergies=[]))
+    filters = foodchat._hard_filters(request, [])
+    assert {"term": {"suitable_for": "vegan"}} in filters
+    assert not any({"term": {"tags": "vegan"}} in f.get("bool", {}).get("should", []) for f in filters)

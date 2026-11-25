@@ -14,7 +14,7 @@ import torch
 from diffusers import FluxPipeline
 from neo4j import GraphDatabase
 
-IMAGE_DIR = Path("data/Irish_SafeFood/images")
+IMAGE_DIR = Path("data/recipes/irish_safefood/images")
 IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 IMAGE_URL_PREFIX = "/static/data/Irish_SafeFood/images"
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run regional nutrition profiling for PLANEAT recipes.
 
-PLANEAT recipes (data/ESSRG/ESSRG_recipes_clean.json) already carry resolved
+PLANEAT recipes (data/recipes/essrg/ESSRG_recipes_clean.json) already carry resolved
 CoFID ingredient names and gram weights, so no LLM parsing or weight estimation
 is needed. For each recipe and each region this script:
 
@@ -38,7 +38,7 @@ from recipe_wrangler.utils.nutrition_postgres import (  # noqa: E402
 REGIONS = ["irish", "hungarian", "eu", "slovenian"]
 ES_REGION_CODE = {"irish": "ie", "hungarian": "hu", "eu": "eu", "slovenian": "slovenian"}
 
-DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "ESSRG" / "ESSRG_recipes_clean.json"
+DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "recipes" / "essrg" / "ESSRG_recipes_clean.json"
 CHECKPOINT_PATH = Path(__file__).resolve().parent / "profile_planeat_regions.checkpoint.json"
 
 

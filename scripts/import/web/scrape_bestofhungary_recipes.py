@@ -87,6 +87,20 @@ def recipe_id(title: str) -> str:
     return str(uuid5(NAMESPACE_URL, f"{SOURCE}:{title}"))
 
 
+def _flatten_instructions(value) -> list[str]:
+    if isinstance(value, str):
+        return [value.strip()] if value.strip() else []
+    if isinstance(value, list):
+        return [text for item in value for text in _flatten_instructions(item)]
+    if not isinstance(value, dict):
+        return []
+    for key in ("itemListElement", "steps", "recipeInstructions"):
+        if value.get(key) is not None:
+            return _flatten_instructions(value[key])
+    text = value.get("text") or value.get("name")
+    return [text.strip()] if isinstance(text, str) and text.strip() else []
+
+
 def build_recipe(url: str, data: dict) -> dict:
     title = data.get("name", "")
     prep_min = _iso_duration_to_minutes(data.get("prepTime"))
@@ -103,10 +117,7 @@ def build_recipe(url: str, data: dict) -> dict:
     images = data.get("image") or []
     image_url = images[0] if isinstance(images, list) and images else images or None
 
-    instructions = data.get("recipeInstructions") or []
-    method_steps = [
-        step.get("text", "") for step in instructions if isinstance(step, dict)
-    ]
+    method_steps = _flatten_instructions(data.get("recipeInstructions"))
 
     category = data.get("recipeCategory") or None
     tags = [TAG]

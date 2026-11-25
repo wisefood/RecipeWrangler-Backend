@@ -15,7 +15,7 @@ from neo4j import GraphDatabase
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DATA_DIR = REPO_ROOT / "data" / "MyPlate"
+DATA_DIR = REPO_ROOT / "data" / "recipes" / "myplate"
 
 DEFAULT_CANONICAL = DATA_DIR / "myplate_recipes_with_canonical_ingredients.json"
 DEFAULT_MAP = DATA_DIR / "myplate_recipe_id_map.json"

@@ -84,39 +84,39 @@ def _miskg_candidates(name: str) -> list[dict[str, Any]]:
     return out
 
 
-def _foodon_candidates(name: str) -> list[dict[str, Any]]:
-    """FoodOn taxonomy siblings — tightest fit (depth 1) first; stop at first hit."""
+def _foodon_candidates(name: str, *, expand: bool = False) -> list[dict[str, Any]]:
+    """Taxonomy siblings, up to twenty per depth; expansion visits all three depths."""
 
     template = """
         MATCH (i:Ingredient)
         WHERE toLower(i.name) = toLower($name)
         MATCH (i)-[:HAS_CLASS]->(c:FoodOnClass)
+        WITH DISTINCT c
         MATCH (c)-[:SUBCLASS_OF*{depth}]->(ancestor:FoodOnClass)
+        WITH DISTINCT c, ancestor
         MATCH (sib:FoodOnClass)-[:SUBCLASS_OF*1..{depth}]->(ancestor)
         WHERE sib <> c
+        WITH DISTINCT sib
         MATCH (cand:Ingredient)-[:HAS_CLASS]->(sib)
         WHERE toLower(cand.name) <> toLower($name)
         RETURN DISTINCT cand.name AS name
         LIMIT 20
     """
+    candidates = []
     for depth in (1, 2, 3):
         query = template.replace("{depth}", str(depth))
         rows = run_query(query, {"name": name})
         names = [r["name"] for r in rows if r.get("name")]
         if names:
-            return [
-                {
-                    "name": n,
-                    "source": "foodon",
-                    "category_distance": _DEPTH_TO_DISTANCE[depth],
-                }
-                for n in names
-            ]
-    return []
+            candidates.extend({"name": n, "source": "foodon",
+                "category_distance": _DEPTH_TO_DISTANCE[depth]} for n in names)
+            if not expand:
+                break
+    return candidates
 
 
 @lru_cache(maxsize=4096)
-def find_substitute_candidates(name: str) -> list[dict[str, Any]]:
+def find_substitute_candidates(name: str, *, expand: bool = False) -> list[dict[str, Any]]:
     """Merged MISKG + FoodOn candidate list, deduplicated by lowercase name.
 
     MISKG wins on duplicates because it is curated.
@@ -130,7 +130,7 @@ def find_substitute_candidates(name: str) -> list[dict[str, Any]]:
     """
 
     seen: dict[str, dict[str, Any]] = {}
-    for cand in _miskg_candidates(name) + _foodon_candidates(name):
+    for cand in _miskg_candidates(name) + _foodon_candidates(name, expand=expand):
         key = (cand["name"] or "").strip().lower()
         if not key or key == name.strip().lower():
             continue

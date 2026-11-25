@@ -1,7 +1,8 @@
 """Redis-backed recipe cache.
 
-Only active when RECIPE_CACHE_ENABLED=true. All public functions are safe to call
-unconditionally — they become no-ops when caching is disabled or Redis is unreachable.
+Only active when RECIPE_CACHE_ENABLED=true. Normal callers tolerate Redis outages;
+strict projection invalidation propagates failures so its durable job can retry.
+Disabled caching remains a no-op.
 """
 
 from __future__ import annotations
@@ -174,7 +175,8 @@ def cache_delete_many(recipe_ids: Iterable[str]) -> None:
         logger.warning("Redis cache_delete_many failed (%d ids)", len(ids), exc_info=True)
 
 
-def cache_delete(recipe_id: str, variant: str | None = None) -> None:
+def cache_delete(recipe_id: str, variant: str | None = None, *, strict: bool = False) -> None:
+    """Invalidate recipe variants; strict projection jobs retry cache failures."""
     if not _is_enabled():
         return
     try:
@@ -188,3 +190,5 @@ def cache_delete(recipe_id: str, variant: str | None = None) -> None:
         client.delete(*keys)
     except Exception:
         logger.warning("Redis cache_delete failed for %s", recipe_id, exc_info=True)
+        if strict:
+            raise

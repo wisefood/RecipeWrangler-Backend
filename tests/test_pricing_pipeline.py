@@ -185,6 +185,33 @@ def test_base_lookup_uses_median_of_selected_details() -> None:
     assert result["aggregation_method"] == "median_of_selected_detail_prices"
 
 
+def _fish_rows(forms: dict[str, float], name: str = "salmon") -> pd.DataFrame:
+    return pd.DataFrame([
+        {"ingredient_id": f"{name}_{detail}", "ingredient_name": name, "ingredient_detail": detail,
+         "food_group": "fish and seafood", "pli_category": "Fish", "target_country": "IE",
+         "estimated_eur_per_kg": price, "market_stage": "retail_selling", "n_source_countries": 2,
+         "n_observations": 10, "price_dispersion": 0.1, "n_source_aggregates": 0, "relative_dispersion": 0.1,
+         "date_start": "2025-08-01", "date_end": "2026-07-31", "confidence": "Medium",
+         "source_countries": '["DE", "IE"]', "source_datasets": '["eumofa_online_retail_fish"]',
+         "provenance": '["eumofa_online_retail_fish"]', "has_direct_target_observation": True, "pli_year": 2025}
+        for detail, price in forms.items()])
+
+
+@pytest.mark.parametrize("forms,expected", [
+    # smoked, frozen and breaded forms never move the price of the fish; fresh fillets win over whole fish
+    ({"fresh, fillets": 24.0, "frozen, fillets": 34.0, "smoked, slices": 41.0, "fresh, gutted": 11.0,
+      "frozen, fillets, breaded and battered": 9.0}, 24.0),
+    # no fillet: other fresh forms
+    ({"fresh, whole": 10.0, "fresh, gutted": 12.0, "smoked, slices": 41.0}, 11.0),
+    # no fresh form: plain frozen
+    ({"frozen, whole": 8.0, "smoked, slices": 41.0, "prepared/preserved, canned in olive oil": 30.0}, 8.0),
+    # only processed forms: keep all rather than invent a price
+    ({"smoked, slices": 40.0, "prepared/preserved, canned in olive oil": 30.0}, 35.0),
+])
+def test_fish_base_price_uses_plain_fresh_forms_only(forms, expected) -> None:
+    assert build_base_lookup(_fish_rows(forms)).iloc[0]["estimated_eur_per_kg"] == expected
+
+
 def test_get_price_returns_provenance_rich_result(tmp_path) -> None:
     pd.DataFrame(
         [

@@ -189,17 +189,22 @@ Provider-agnostic via the OpenAI-compatible Chat Completions API — works again
 
 Config (read at call time, env vars):
 
-| Var | Default (vllm) | Default (groq) |
-|---|---|---|
-| `ADAPT_LLM_SOURCE` | `vllm` | `groq` |
-| `ADAPT_LLM_BASE_URL` | `http://localhost:8005/v1` | `https://api.groq.com/openai/v1` |
-| `ADAPT_LLM_MODEL` | `qwen3-32b` | `openai/gpt-oss-20b` |
-| `ADAPT_LLM_API_KEY` | `none` | `$GROQ_API_KEY` |
-| `ADAPT_LLM_TIMEOUT` | `90` (seconds) | `90` |
+| Var | Default (vllm) | Default (groq) | Default (openrouter) |
+|---|---|---|---|
+| `ADAPT_LLM_SOURCE` | `vllm` | `groq` | `openrouter` |
+| `ADAPT_LLM_BASE_URL` | `http://localhost:8005/v1` | `https://api.groq.com/openai/v1` | `$OPENROUTER_BASE_URL` or `https://openrouter.ai/api/v1` |
+| `ADAPT_LLM_MODEL` | `qwen3-32b` | `openai/gpt-oss-20b` | `qwen/qwen3-32b` |
+| `ADAPT_LLM_API_KEY` | `none` | `$GROQ_API_KEY` | `$OPENROUTER_API_KEY` (required) |
+| `ADAPT_LLM_TIMEOUT` | `90` (seconds) | `90` | `90` |
 
 Fail-open: any LLM error (network timeout, malformed JSON, empty ranking) → caller falls back to the deterministic ranking and the endpoint never 422s a request that the deterministic pipeline could have answered.
 
-Qwen3-specific: the judge passes `extra_body={"chat_template_kwargs": {"enable_thinking": False}}` so Qwen3 doesn't waste the token budget on `<think>` blocks before the JSON. Harmless for non-Qwen models that ignore the flag.
+The vLLM transport disables Qwen thinking via `chat_template_kwargs.enable_thinking=false`.
+OpenRouter uses `reasoning.enabled=false` and `provider.require_parameters=true`;
+the vLLM-specific field is not sent to OpenRouter or Groq. Explicit adaptation
+key/URL/model settings override provider defaults. The controlled contextual and
+instruction-draft path shares these settings, but abstains on inference failure;
+the legacy ranking fallback described above belongs only to the existing judge.
 
 Observed behaviour on the audit recipes (qwen3-32b on local vLLM):
 - **PB Fudge Frosting**: rejected `valencia oranges` and `peanut flour` (wheat allergen); kept `peanut powder` with a recipe-aware justification. ~7s.

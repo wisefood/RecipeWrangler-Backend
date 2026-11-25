@@ -27,6 +27,7 @@ from recipe_wrangler.api.exceptions import (
     NotFoundError,
 )
 from recipe_wrangler.api.config import get_settings
+from recipe_wrangler.utils.line_allergens import extra_line_evidence
 from recipe_wrangler.utils.http_pool import get_http_session, post_query_with_retry
 
 from recipe_wrangler.api.activity import report_search
@@ -68,13 +69,13 @@ from recipe_wrangler.repositories.neo4j_recipes import (
     detect_allergen_evidence_from_names,
     detect_allergens_from_names,
     fetch_recipe_dish_types_by_ids,
-    find_ingredient_substitutes,
     infer_diet_tags,
     replace_recipe_nutrition_claims,
     resolve_collection_source_id,
     resolve_recipe_ids_by_query,
     set_recipe_status,
     update_recipe_in_neo4j,
+    fetch_recipe_allergens_by_ids,
     upsert_recipe_to_neo4j,
 )
 from recipe_wrangler.repositories.postgres_nutrition import (
@@ -96,7 +97,7 @@ logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _HEALTHYFOODS_NUTRITION_PATH = (
-    _REPO_ROOT / "data/HealthyFoods/HealthyFood_recipes_nutrition.json"
+    _REPO_ROOT / "data/recipes/healthyfoods/HealthyFood_recipes_nutrition.json"
 )
 from recipe_wrangler.tools.recipe_profiling_chain import (
     Recipe_Profiling_Chain,
@@ -133,24 +134,33 @@ from recipe_wrangler.schemas import (
     RecipeScaleResponse,
     RecipeSearchFilters,
     RecipeSearchRequest,
-    RecipeSubstituteRequest,
-    RecipeSubstituteResponse,
     RecipeUpdateRequest,
     RecipeUpdateResponse,
     RecipeUrlRequest,
 )
+
+from recipe_wrangler.utils.es_recipe_evidence import recipe_allergen_fields, recipe_consumer_fields
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
 _RECIPE_BASE_CACHE_VARIANT = "base"
 
 
-def _analysis_allergen_fields(ingredient_names: list[str]) -> dict[str, Any]:
-    """Return paired, explainable keyword evidence for an unpersisted recipe."""
+def _analysis_allergen_fields(
+    ingredient_names: list[str], original_lines: list[str] | None = None
+) -> dict[str, Any]:
+    """Return paired, explainable keyword evidence for an unpersisted recipe.
+
+    Original lines only add definite allergens the reduced names lost ("soy milk" -> "milk").
+    """
     evidence = detect_allergen_evidence_from_names(ingredient_names)
+    evidence += extra_line_evidence(
+        {row["allergen"] for row in evidence if row["presence"] == "contains"}, original_lines
+    )
     return {
-        "allergens": sorted({row["allergen"] for row in evidence}),
+        "allergens": sorted({row["allergen"] for row in evidence if row["presence"] == "contains"}),
         "allergen_evidence": evidence,
+        **recipe_allergen_fields(None, evidence),
     }
 
 
@@ -232,6 +242,8 @@ def _catalog_recipe_payload(doc: dict[str, Any]) -> dict[str, Any]:
     recipe["ingredients"] = ingredients
     recipe["tags"] = list(recipe.get("tags") or [])
     recipe["allergens"] = list(recipe.get("allergens") or [])
+    recipe.update(recipe_allergen_fields(recipe["allergens"], recipe.get("allergen_evidence")))
+    recipe.update(recipe_consumer_fields(recipe.get("consumer_suitability"), allergens=recipe["allergens"], evidence=recipe.get("allergen_evidence")))
     # The old FoodChat card field was named dish_types. Keep its response
     # contract while reading the canonical v4 course_types field.
     recipe["dish_types"] = list(recipe.get("course_types") or [])
@@ -290,10 +302,8 @@ def _nutrition_source_from_region(region: str | None) -> str | None:
 def _recipe_response_cache_variant(region: str | None, slim: bool) -> str:
     region_key = str(region or "default").strip().upper() or "DEFAULT"
     region_key = "".join(ch if ch.isalnum() else "_" for ch in region_key)
-    # v2: detail responses carry `allergens`. Bumping the variant retires
-    # pre-allergen cache entries, which would otherwise keep serving payloads
-    # with no allergens (indistinguishable from "this recipe has none").
-    return f"detail:v2:region:{region_key}:slim:{int(slim)}"
+    # v4 includes current three-state composition assessments.
+    return f"detail:v4:region:{region_key}:slim:{int(slim)}"
 
 
 # Bumped whenever the card gains a field. An entry cached before the field
@@ -302,8 +312,8 @@ def _recipe_response_cache_variant(region: str | None, slim: bool) -> str:
 # vegetarian recipe as not vegetarian. Silent, wrong, and safety-shaped, so the
 # old entries have to be unreachable rather than merely stale.
 #
-#   v2: diet_tags added
-_CARD_NUTRITION_CACHE_VERSION = "v2"
+#   v2: diet_tags added; v3: allergen uncertainty assessment added
+_CARD_NUTRITION_CACHE_VERSION = "v4"
 
 
 def _card_nutrition_cache_variant(region: str | None) -> str:
@@ -347,7 +357,7 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 50))
     payload = {
         "size": safe_limit,
-        "_source": ["recipe_id", "title", "image_url"],
+        "_source": ["recipe_id", "title", "image_url", "allergens", "allergen_evidence"],
         "query": {
             "function_score": {
                 "query": {
@@ -386,6 +396,7 @@ def _random_myplate_from_elastic(limit: int = 10) -> list[dict[str, Any]]:
             {
                 "recipe_id": rid,
                 "title": title.strip(),
+                **recipe_allergen_fields(source.get("allergens"), source.get("allergen_evidence")),
                 "source": "myplate",
                 "image_url": image_url.strip(),
             }
@@ -989,7 +1000,7 @@ def _sustainability_explanation(
     contributors.sort(key=lambda item: item["kg_co2e"], reverse=True)
     return {
         "kg_co2e_per_serving": total,
-        "method": "Ingredient weights multiplied by Sustainable FooDB emission factors.",
+        "method": "Ingredient weights multiplied by AGRIBALYSE 3.2 emission factors (reviewed name mapping; CONCITO and role averages only complete the total).",
         "top_contributors": contributors[:3],
         "coverage": quality.get("sustainability_coverage"),
         "guidance": (
@@ -1010,10 +1021,9 @@ def _healthyfoods_nutrition_number(value: object) -> float | None:
 
 @lru_cache(maxsize=1)
 def _healthyfoods_source_nutrition_index() -> dict[str, dict[str, Any]]:
-    try:
-        data = json.loads(_HEALTHYFOODS_NUTRITION_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+    from recipe_wrangler.utils.pipeline_data_pg import load_pipeline_data_or_file
+
+    data = load_pipeline_data_or_file("healthyfoods_nutrition", _HEALTHYFOODS_NUTRITION_PATH)
     recipes = data.get("recipes") if isinstance(data, dict) else None
     if not isinstance(recipes, list):
         return {}
@@ -1300,6 +1310,8 @@ def get_recipe(
             nutri_score_label=nutri_score_str if isinstance(nutri_score_str, str) else None,
             nutri_score_color=_nutri_color_from_score(nutri_score_str),
             status=str(recipe.get("status") or "active"),
+            **recipe_allergen_fields(recipe.get("allergens"), recipe.get("allergen_evidence")),
+            **recipe_consumer_fields(recipe.get("consumer_suitability"), allergens=recipe.get("allergens"), evidence=recipe.get("allergen_evidence")),
         )
         if not include_disabled:
             _cache_recipe_response(recipe_id, resolved_recipe_id, detail_cache_variant, response)
@@ -1538,6 +1550,8 @@ def get_recipe(
     # the v4 catalog. Detail reads must not round-trip to Neo4j to rediscover
     # information already owned by the search document.
     payload["allergens"] = sorted(payload.get("allergens") or [])
+    payload.update(recipe_allergen_fields(payload["allergens"], payload.get("allergen_evidence")))
+    payload.update(recipe_consumer_fields(payload.get("consumer_suitability"), allergens=payload["allergens"], evidence=payload.get("allergen_evidence")))
 
     response = RecipeDetailResponse(**payload)
     # A pending-profile response must not be cached: the background job
@@ -1573,9 +1587,9 @@ def _persist_profile_trace_best_effort(payload: dict[str, Any], profile_result: 
     from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals, _CLEAN_TOTAL_KEYS
     nutrition_source_key = profile_result.get("nutrition_source_key") or ""
     suffix = f"_{nutrition_source_key}" if nutrition_source_key else ""
-    clean_totals = _extract_clean_totals(totals, suffix) if isinstance(totals, dict) else None
+    clean_totals = _extract_clean_totals(totals, suffix,allow_missing=True) if isinstance(totals, dict) else None
     clean_per_serving = (
-        {k: v / profile_result.get("serves", 1) for k, v in clean_totals.items()}
+        {k:v / profile_result.get("serves",1) if v is not None else None for k,v in clean_totals.items()}
         if clean_totals and profile_result.get("serves")
         else None
     )
@@ -1725,8 +1739,8 @@ def _es_card(card: dict[str, Any]) -> dict[str, Any]:
         "status": card.get("status") or "active",
         "allergens": card.get("allergens") or [],
         "allergen_evidence": card.get("allergen_evidence") or [],
-        "suitable_for": card.get("suitable_for") or [],
-        "consumer_suitability": card.get("consumer_suitability") or [],
+        **recipe_allergen_fields(card.get("allergens"), card.get("allergen_evidence")),
+        **recipe_consumer_fields(card.get("consumer_suitability"), allergens=card.get("allergens"), evidence=card.get("allergen_evidence")),
         # Already canonicalized by es_recipe_search, so the client sees one
         # spelling regardless of which builder wrote the document.
         "course_types": card.get("course_types") or [],
@@ -1850,7 +1864,9 @@ def _build_card_nutrition(
         tags=recipe.get("tags") or [],
         dish_types=recipe.get("dish_types") or [],
         diet_tags=recipe.get("diet_tags") or [],
+        **recipe_consumer_fields(recipe.get("consumer_suitability"), allergens=allergens, evidence=recipe.get("allergen_evidence")),
         allergens=allergens,
+        **recipe_allergen_fields(allergens, recipe.get("allergen_evidence")),
         kcal_per_serving=kcal,
         protein_g_per_serving=protein,
         carbs_g_per_serving=carbs,
@@ -2002,8 +2018,9 @@ _NOT_QUESTION_SIGNAL = frozenset({
     "rank_query",
     # The caller's, not the question's: profile allergens and preference
     # boosts. Allergens the *question* stated are read from the extractor
-    # separately, so a "peanut-free" question still counts.
-    "exclude_allergens", "boost_tags", "boost_ingredients",
+    # separately, so a "peanut-free" question still counts. Profile diets are
+    # hard filters merged into diet_tags, so there is no boost_tags field here.
+    "exclude_allergens", "boost_ingredients",
     # Plumbing.
     "limit", "offset", "region", "include_disabled", "include_facets",
 })
@@ -2039,8 +2056,8 @@ async def recipe_search(
     # carries no limit field; the primary pipeline uses its own default).
     limit = 10
 
-    # If no free-text question is provided, return a random landing page.
-    if not question:
+    # Only an unconfigured request may bypass deterministic constraint handling.
+    if not question and not payload.model_dump(exclude_defaults=True, exclude={"question"}):
         random_results: list[dict[str, Any]] = []
         try:
             random_results = await run_in_threadpool(_random_myplate_from_elastic, limit=limit)
@@ -2049,15 +2066,18 @@ async def recipe_search(
 
         return {"results": random_results or []}
 
-    extractor = await run_in_threadpool(get_recipe_constraint_extractor)
-    extract_started = time.perf_counter()
-    try:
-        constraints = (
-            await run_in_threadpool(extractor.run_extract_constraints, question)
-        )["query_constraints"]
-    except Exception as exc:  # noqa: BLE001
-        raise map_dependency_error("recipe constraint extraction", exc) from exc
-    extract_seconds = time.perf_counter() - extract_started
+    constraints: dict[str, Any] = {}
+    extract_seconds = 0.0
+    if question:
+        extractor = await run_in_threadpool(get_recipe_constraint_extractor)
+        extract_started = time.perf_counter()
+        try:
+            constraints = (
+                await run_in_threadpool(extractor.run_extract_constraints, question)
+            )["query_constraints"]
+        except Exception as exc:  # noqa: BLE001
+            raise map_dependency_error("recipe constraint extraction", exc) from exc
+        extract_seconds = time.perf_counter() - extract_started
 
     search_intent = constraints.get("search_intent") or "constraints"
     title_only = search_intent == "title"
@@ -2077,8 +2097,8 @@ async def recipe_search(
         )
     )
 
-    # Diet asked for in the question is a hard filter. Member preferences are
-    # soft boosts, while allergies remain hard exclusions.
+    # Diet (question, profile or chip) and allergies are hard constraints;
+    # only preferred ingredients are soft boosts.
     base_constraints = dict(
         include_ingredients=(
             [] if title_only else requested_ingredients
@@ -2109,7 +2129,6 @@ async def recipe_search(
             [] if title_only else constraints.get("nutrition_claims") or []
         ),
         nutri_scores=[] if title_only else constraints.get("nutri_scores") or [],
-        boost_tags=payload.diet_tags,
         boost_ingredients=payload.preferred_ingredients,
         title_keywords=(
             [] if title_only else constraints.get("title_keywords") or []
@@ -2262,14 +2281,16 @@ async def recipe_search(
         if _selected:
             base_constraints[_field] = list(dict.fromkeys(_selected))
 
-    # Diet needs its own field because `payload.diet_tags` already means
-    # something else here — the member's profile groups, applied as boosts. A
-    # diet the caller ticked is a requirement, so it lands on the hard filter
-    # and joins whatever the question itself stated rather than replacing it:
-    # "vegan" in the box and "gluten-free" on the chip means both.
-    if payload.require_diet_tags:
+    # Profile diet groups and ticked diets are requirements, even for title
+    # searches: a vegan profile must never be shown chicken. They join whatever
+    # the question stated rather than replacing it.
+    if payload.diet_tags or payload.require_diet_tags:
         base_constraints["diet_tags"] = list(
-            dict.fromkeys([*base_constraints["diet_tags"], *payload.require_diet_tags])
+            dict.fromkeys([
+                *base_constraints["diet_tags"],
+                *payload.diet_tags,
+                *payload.require_diet_tags,
+            ])
         )
 
     # Lexical fallback.
@@ -2520,7 +2541,7 @@ async def recipe_profile(
         total_time = parsed.get("total_time") or 0
         serves = trusted_serves or parsed.get("serves") or 0
         try:
-            allergen_fields = _analysis_allergen_fields(names)
+            allergen_fields = _analysis_allergen_fields(names, parsed.get("ingredient_original_texts"))
             auto_allergens = allergen_fields["allergens"]
             auto_tags = list(infer_diet_tags(set(auto_allergens)))
         except Exception:
@@ -2536,6 +2557,7 @@ async def recipe_profile(
             "serves": serves if serves > 0 else None,
             "allergens": auto_allergens,
             "allergen_evidence": allergen_fields["allergen_evidence"],
+            **recipe_allergen_fields(auto_allergens, allergen_fields["allergen_evidence"]),
             "tags": auto_tags,
             # also expose split form for display/editing
             "ingredient_names": names,
@@ -2586,9 +2608,10 @@ async def recipe_profile(
             if isinstance(item, dict)
             and str(item.get("name") or item.get("ingredient") or "").strip()
         ]
-    allergen_fields = _analysis_allergen_fields(profile_names)
+    allergen_fields = _analysis_allergen_fields(profile_names, profile_result.get("ingredient_original_texts"))
     profile_result["allergens"] = allergen_fields["allergens"]
     profile_result["allergen_evidence"] = allergen_fields["allergen_evidence"]
+    profile_result.update(recipe_allergen_fields(allergen_fields["allergens"], allergen_fields["allergen_evidence"]))
 
     if payload.annotate:
         from recipe_wrangler.catalog import annotation
@@ -2790,14 +2813,14 @@ async def recipe_create(
 
         nutrition_source_key = profile_result.get("nutrition_source_key") or nutrition_source
         totals = profile_result.get("profiling_totals") or {}
-        clean_totals = _extract_clean_totals(totals, f"_{nutrition_source_key}")
+        clean_totals = _extract_clean_totals(totals, f"_{nutrition_source_key}",allow_missing=True)
         clean_per_serving = (
-            {k: v / payload.serves for k, v in clean_totals.items()}
+            {k:v / payload.serves if v is not None else None for k,v in clean_totals.items()}
             if clean_totals else None
         )
 
         # Compute nutri_score_breakdown immediately (same logic as backfill).
-        if clean_totals:
+        if clean_totals and all(v is not None for v in clean_totals.values()):
             try:
                 prof_ingredients = profile_result.get("ingredients") or []
                 nutri_score_breakdown = _build_nutri_score_breakdown(
@@ -2812,7 +2835,6 @@ async def recipe_create(
     # has run its detection -- computing them from this pre-write guess would
     # silently ignore anything FoodOn finds that the keyword scan misses.
     auto_allergens = detect_allergens_from_names(ingredient_names)
-    merged_allergens: list[str] = sorted(set(auto_allergens) | set(payload.allergens))
 
     # --- Neo4j write ---
     try:
@@ -2827,7 +2849,8 @@ async def recipe_create(
             serves=float(payload.serves),
             image_url=payload.image_url,
             url=payload.url,
-            allergens=merged_allergens,
+            allergens=auto_allergens,
+            declared_allergens=payload.allergens,
             user_tags=payload.tags,
             source="user",
             source_id=payload.source_id,
@@ -2930,135 +2953,27 @@ async def recipe_create(
     response_allergens = list(projected.get("allergens") or [])
     if not response_evidence:
         response_evidence = detect_allergen_evidence_from_names(ingredient_names)
-    if not response_allergens:
-        response_allergens = sorted(
-            {row["allergen"] for row in response_evidence} | set(merged_allergens)
-        )
+    # A delayed/partial projection must not erase the claims just persisted.
+    declaration_ids = {row.get("declaration_id") for row in response_evidence}
+    for name in sorted({name.strip().lower() for name in payload.allergens if name.strip()}):
+        declaration_id = f"recipe:{recipe_id}:declared:{name}"
+        if declaration_id not in declaration_ids:
+            response_evidence.append({
+                "allergen": name, "ingredient": "recipe declaration", "ingredient_id": "",
+                "declaration_id": declaration_id, "presence": "contains",
+                "evidence_status": "declared", "sources": ["recipe_create"],
+                "foodon_ids": [], "keyword_matches": [],
+                "classification_version": "recipe-declaration-v1",
+            })
+    response_allergens = sorted(
+        set(response_allergens) | {row["allergen"] for row in response_evidence
+                                   if row.get("presence", "contains") in {"contains", "present"}} | set(merged_allergens)
+    )
     return RecipeCreateResponse(
         recipe_id=recipe_id,
         allergens=response_allergens,
         allergen_evidence=response_evidence,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Ingredient substitution endpoint
-# ---------------------------------------------------------------------------
-
-@router.post(
-    "/{recipe_id}/substitute",
-    response_model=RecipeSubstituteResponse,
-    tags=["recipes"],
-    summary="Substitute an ingredient and return the updated nutrition profile",
-)
-async def recipe_substitute(
-    recipe_id: str,
-    payload: RecipeSubstituteRequest,
-) -> RecipeSubstituteResponse:
-    """Find the best substitute for an ingredient in a recipe and re-profile the result.
-
-    Lookup order for substitutes:
-    1. HAS_SUBSTITUTION edges (MISKG-curated).
-    2. FoodOn taxonomy siblings (3-hop ancestor search).
-
-    Returns the first (best) candidate along with the full nutrition profile
-    of the recipe after the swap.
-    """
-    region = str(payload.region or "IE").strip().upper()
-    if region not in {"IE", "HU", "EU", "SI"}:
-        region = "IE"
-
-    # --- Fetch recipe ---
-    try:
-        recipe = _catalog_recipe_by_id(recipe_id)
-    except Exception as exc:
-        raise map_dependency_error("Elasticsearch", exc) from exc
-
-    if not recipe:
-        raise NotFoundError(detail=f"Recipe '{recipe_id}' not found")
-
-    # --- Confirm ingredient is in the recipe ---
-    ingredient_lower = payload.ingredient.strip().lower()
-    recipe_ingredients: list[dict[str, Any]] = recipe.get("ingredients") or []
-    matched = next(
-        (ing for ing in recipe_ingredients if (ing.get("name") or "").lower() == ingredient_lower),
-        None,
-    )
-    if matched is None:
-        raise NotFoundError(
-            detail=f"Ingredient '{payload.ingredient}' not found in recipe '{recipe_id}'"
-        )
-
-    # --- Find substitutes ---
-    try:
-        sub_result = find_ingredient_substitutes(payload.ingredient)
-    except Exception as exc:
-        raise map_dependency_error("Neo4j", exc) from exc
-
-    candidates: list[str] = sub_result.get("candidates") or []
-    source: str | None = sub_result.get("source")
-
-    if not candidates:
-        raise NotFoundError(
-            detail=f"No substitutes found for ingredient '{payload.ingredient}'"
-        )
-
-    best_substitute = candidates[0]
-
-    # --- Build modified ingredient list (swap name, keep measurement) ---
-    modified_ingredient_names: list[str] = []
-    modified_measurements: list[str] = []
-    for ing in recipe_ingredients:
-        name = ing.get("name") or ""
-        measurement = ing.get("measurement") or ing.get("quantity") or name
-        if name.lower() == ingredient_lower:
-            modified_ingredient_names.append(best_substitute)
-        else:
-            modified_ingredient_names.append(name)
-        modified_measurements.append(measurement)
-
-    # --- Re-profile with substitute ---
-    serves = float(recipe.get("serves") or 1)
-    total_time = recipe.get("duration")
-
-    profile_error: str | None = None
-    try:
-        profile_result = await _invoke_profile_with_timeout({
-            "title": recipe.get("title") or "",
-            "ingredient_names": modified_ingredient_names,
-            "measurements": modified_measurements,
-            "serves": serves,
-            "total_time": float(total_time) if total_time is not None else None,
-            "directions": recipe.get("instructions") or [],
-            "region": region,
-            "debug": False,
-        })
-        if not isinstance(profile_result, dict):
-            raise InternalError(
-                detail="Profiling pipeline returned unexpected payload",
-                extra={"title": "ProfilingPipelineError"},
-            )
-
-        # Strip top-level None values (unset pipeline state)
-        profile_result = {k: v for k, v in profile_result.items() if v is not None}
-    except Exception as exc:
-        profile_error = str(exc)
-        profile_result = {
-            "status": "profiling_unavailable",
-            "region": region,
-            "title": recipe.get("title") or "",
-            "serves": serves,
-            "modified_ingredients": modified_ingredient_names,
-            "measurements": modified_measurements,
-            "error": profile_error,
-        }
-
-    return RecipeSubstituteResponse(
-        original_ingredient=payload.ingredient,
-        substitute=best_substitute,
-        substitution_source=source,
-        candidates=candidates,
-        modified_recipe_profile=profile_result,
+        **recipe_allergen_fields(response_allergens, response_evidence),
     )
 
 
@@ -3155,19 +3070,14 @@ async def recipe_update(recipe_id: str, payload: RecipeUpdateRequest) -> RecipeU
 
     current_allergens: list[str] = []
     try:
-        allergen_rows = _run_query(
-            """
-            MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
-            WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
-            RETURN DISTINCT al.name AS name
-            """,
-            {"recipe_id": recipe_id},
-        )
-        current_allergens = [row["name"] for row in allergen_rows if row.get("name")]
+        current_allergens = fetch_recipe_allergens_by_ids([recipe_id]).get(recipe_id, [])
     except Exception:
         pass
 
-    return RecipeUpdateResponse(recipe_id=recipe_id, updated_fields=updated_fields, tags=current_tags, allergens=current_allergens)
+    return RecipeUpdateResponse(
+        recipe_id=recipe_id, updated_fields=updated_fields, tags=current_tags, allergens=current_allergens,
+        **recipe_allergen_fields(current_allergens),
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -95,8 +95,9 @@ def fetch_detail(url: str) -> dict:
     method_steps = []
     instr = soup.select_one("[itemprop=recipeInstructions]")
     if instr:
-        for li in instr.select("li"):
-            text = li.get_text(strip=True)
+        elements = instr.select("li") or instr.find_all(["p", "div"], recursive=False)
+        for element in elements:
+            text = element.get_text(" ", strip=True)
             if text:
                 method_steps.append(text)
 

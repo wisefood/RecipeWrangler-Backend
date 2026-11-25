@@ -23,11 +23,7 @@ def test_only_true_allergen_absence_tags_are_computed_from_allergens() -> None:
         "dairy_free",
         "gluten_free",
     }
-    assert compute_diet_tags(set()) == [
-        "nut_free",
-        "dairy_free",
-        "gluten_free",
-    ]
+    assert compute_diet_tags(set()) == []
 
 
 def test_allergen_absence_rules_block_their_own_restrictions() -> None:

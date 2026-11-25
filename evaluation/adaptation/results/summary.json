@@ -1,0 +1,42 @@
+{
+ "date": "2026-11-19",
+ "recipes": 537,
+ "outcomes": {
+  "adapted": 284,
+  "enriched": 204,
+  "no_sensible_adaptation": 49
+ },
+ "llm_rewrites": 283,
+ "code_card_only": [
+  "80f22057-4ed3-5918-82ca-ac44f066a413",
+  "87893e3e-03de-5efa-bcf2-f3c4873fc8e7",
+  "9f958127-6e54-5628-8b96-5efef98564d8"
+ ],
+ "e2e_check": {
+  "adapted_checked": 284,
+  "pass": 220,
+  "flags": {
+   "gain_not_confirmed": 51,
+   "worsening": 23,
+   "grade_drop": 1
+  },
+  "labels": {
+   "stale_baseline": 32,
+   "sodium_gain_unverifiable": 1
+  },
+  "claimed_letter_gains": 83,
+  "confirmed": 73,
+  "parser": "local qwen3-32b on the shared vLLM (no hosted calls); sodium gains from LoSalt lines are measured through the reviewed low-sodium-salt alias"
+ },
+ "grade_shifts": {
+  "A->A": 157,
+  "C->A": 6,
+  "D->C": 8,
+  "D->D": 11,
+  "B->A": 42,
+  "B->B": 25,
+  "C->B": 23,
+  "C->C": 8,
+  "D->B": 4
+ }
+}

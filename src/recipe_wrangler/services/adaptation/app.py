@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "recipe_wrangler.services.adaptation.app:app",
-        host="0.0.0.0",
+        host="127.0.0.1",  # localhost only; reach it via ssh -L
         port=int(os.getenv("ADAPTATION_PORT", "8101")),
         reload=True,
     )

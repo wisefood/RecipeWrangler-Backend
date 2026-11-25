@@ -8,12 +8,12 @@ def weigh(name, measurement):
     return result["weights"][0], result["details"][0]
 
 
-def test_whole_chicken_mass_is_scaled_to_edible_meat():
+def test_whole_chicken_mass_stays_gross_for_the_with_bone_record():
+    # The matcher prices whole chicken with "Chicken, whole, raw, meat and skin, weighed with bone" (reviewed 2026-11-06).
     grams, detail = weigh("whole chicken", "1.5 kg")
 
-    assert abs(grams - 1500 * 0.608) < 0.01
-    assert detail["match_type"] == "direct_mass_edible_yield"
-    assert detail["purchased_grams"] == 1500
+    assert grams == 1500
+    assert detail["match_type"] == "direct_mass"
 
 
 def test_whole_skinless_chicken_uses_meat_only_yield_and_count_reference():
@@ -37,4 +37,4 @@ def test_whole_duck_count_reference_then_edible_yield():
 def test_bare_count_of_whole_bird_uses_whole_reference():
     grams, detail = weigh("whole chicken", "1.0")
 
-    assert abs(grams - 1600 * 0.608) < 0.01
+    assert grams == 1600

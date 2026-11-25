@@ -142,7 +142,7 @@ class TestAllergenExclusionIsSubstantive:
     """
 
     def test_the_declared_allergen_is_still_excluded(self):
-        assert {"term": {"allergens": "milk"}} in _allergen_exclusions("milk")
+        assert "milk" in _allergen_exclusions("milk")[0]["terms"]["allergens"]
 
     def test_substring_matching_is_a_wildcard_not_a_match(self):
         """`match` cannot find "milk" inside "buttermilk"."""

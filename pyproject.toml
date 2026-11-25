@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "recipe-wrangler"
 version = "0.0.0"
 description = "RecipeWrangler backend"
-readme = "docs/README.md"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.111.0",
@@ -78,10 +78,14 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "recipe_wrangler.pricing" = ["*.json"]
+"recipe_wrangler.utils" = ["data/*.json", "data/*.md"]
+"recipe_wrangler.matching" = ["*.json"]
+"recipe_wrangler.tools" = ["data/*.json", "data/*.csv"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 testpaths = ["tests"]
+markers = ["asyncio: async test, run with asyncio.run by tests/conftest.py"]
 
 [dependency-groups]
 dev = [

@@ -7,7 +7,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DIR = REPO_ROOT / "data" / "Slovenian-Comp-Tables"
+DIR = REPO_ROOT / "data" / "nutrition" / "composition_tables" / "slovenian"
 
 SECTION_EN = {
     "ENERGIJSKA VREDNOST": "Energy value",

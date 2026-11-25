@@ -1,0 +1,349 @@
+case_id,split,ingredient,measurement,reference_grams
+fineli20-205-KPL_M,development,"potato, peeled",1 medium,60.0
+fineli20-300-KPL_M,development,carrot,1 medium,65.0
+fineli20-304-KPL_S,development,turnip,1 small,80.0
+fineli20-305-KPL_M,test,"beetroot, red beet",1 medium,80.0
+fineli20-308-KPL_M,test,radish,1 medium,10.0
+fineli20-309-KPL_M,development,parsnip,1 medium,150.0
+fineli20-310-KPL_M,test,jerusalem artichoke,1 medium,70.0
+fineli20-311-KPL_L,test,"celeriac, turnip-rooted celery, knob celery, celery root",1 large,800.0
+fineli20-320-KPL_L,test,white cabbage,1 large,1500.0
+fineli20-321-DL,test,red cabbage,100 ml,40.0
+fineli20-322-KPL_S,test,cauliflower,1 small,400.0
+fineli20-324-KPL_M,test,broccoli,1 medium,350.0
+fineli20-326-DL,test,kale,100 ml,50.0
+fineli20-327-KPL_M,test,brussels sprout,1 medium,15.0
+fineli20-329-KPL_M,development,kohlrabi,1 medium,230.0
+fineli20-330-KPL_M,development,lettuce,1 medium,100.0
+fineli20-331-DL,development,iceberg lettuce,100 ml,25.0
+fineli20-335-KPL_L,development,onion,1 large,200.0
+fineli20-337-KPL_S,test,leek,1 small,120.0
+fineli20-338-DL,development,rhubarb,100 ml,60.0
+fineli20-339-KPL_M,test,celery,1 medium,380.0
+fineli20-345-KPL_M,development,"champignon, fresh",1 medium,15.0
+fineli20-367-KPL_S,development,chanterelle,1 small,25.0
+fineli20-346-KPL_S,development,cucumber,1 small,250.0
+fineli20-352-KPL_S,test,tomato,1 small,75.0
+fineli20-354-DL,test,tomato puree,100 ml,90.0
+fineli20-398-DL,test,"tomatoes, crushed, canned",100 ml,100.0
+fineli20-355-KPL_S,test,"sweet pepper, average",1 small,120.0
+fineli20-362-KPL_L,development,aubergine,1 large,500.0
+fineli20-389-KPL_L,development,"zucchini, summer squash",1 large,450.0
+fineli20-393-KPL_M,test,garlic,1 medium,3.5
+fineli20-392-DL,development,chives,100 ml,40.0
+fineli20-300-KPL_S,development,carrot,1 small,35.0
+fineli20-304-KPL_L,development,turnip,1 large,270.0
+fineli20-309-KPL_S,development,parsnip,1 small,100.0
+fineli20-311-KPL_M,test,"celeriac, turnip-rooted celery, knob celery, celery root",1 medium,600.0
+fineli20-27-DL,test,"flour, cornstarch, cornflour",100 ml,55.0
+fineli20-100-DL,test,"flour, rye, wholegrain rye flour",100 ml,55.0
+fineli20-103-DL,test,rye flakes,100 ml,30.0
+fineli20-110-DL,test,"flour, wheat flour, semi-coarse",100 ml,65.0
+fineli20-111-DL,test,"flour, whole wheat flour, graham flour",100 ml,55.0
+fineli20-112-DL,test,semolina,100 ml,100.0
+fineli20-115-DL,test,wheat germ,100 ml,25.0
+fineli20-116-DL,test,wheat bran,100 ml,20.0
+fineli20-126-DL,test,"flour, breadcrumbs",100 ml,50.0
+fineli20-150-DL,test,"flour, barley flour",100 ml,55.0
+fineli20-151-DL,test,"barley, pearl",100 ml,85.0
+fineli20-153-DL,development,"oats, rolled, oat flakes",100 ml,40.0
+fineli20-170-DL,development,oat bran,100 ml,60.0
+fineli20-156-DL,test,"rice, white",100 ml,85.0
+fineli20-158-DL,test,"rice, wholegrain",100 ml,85.0
+fineli20-182-DL,test,"flour, rice flour, rice flake",100 ml,55.0
+fineli20-160-DL,test,"flour, millet, whole or crushed grains",100 ml,80.0
+fineli20-161-DL,test,"flour, buckwheat, whole or crushed grains",100 ml,75.0
+fineli20-162-DL,development,"flour, potato starch, potato flour",100 ml,60.0
+fineli20-27-RKL,test,"flour, cornstarch, cornflour",1 tablespoon,7.0
+fineli20-100-RKL,test,"flour, rye, wholegrain rye flour",1 tablespoon,8.0
+fineli20-103-RKL,test,rye flakes,1 tablespoon,4.5
+fineli20-110-RKL,test,"flour, wheat flour, semi-coarse",1 tablespoon,10.0
+fineli20-111-RKL,test,"flour, whole wheat flour, graham flour",1 tablespoon,9.0
+fineli20-112-RKL,test,semolina,1 tablespoon,15.0
+fineli20-115-RKL,test,wheat germ,1 tablespoon,5.0
+fineli20-116-RKL,test,wheat bran,1 tablespoon,3.0
+fineli20-126-RKL,test,"flour, breadcrumbs",1 tablespoon,7.0
+fineli20-150-RKL,test,"flour, barley flour",1 tablespoon,8.0
+fineli20-151-RKL,test,"barley, pearl",1 tablespoon,12.5
+fineli20-401-DL,development,"apple, dried",100 ml,25.0
+fineli20-11060-DL,development,"apple, domestic, without skin",100 ml,65.0
+fineli20-409-DL,test,"apricot, dried",100 ml,50.0
+fineli20-423-KPL_M,test,"grape, average, green or red, seedless",1 medium,7.0
+fineli20-428-DL,test,raisin,100 ml,60.0
+fineli20-440-DL,development,"lingonberry, cowberry",100 ml,60.0
+fineli20-441-DL,test,cranberry,100 ml,60.0
+fineli20-442-DL,development,"blueberry, bilberry",100 ml,60.0
+fineli20-444-DL,development,blackcurrant,100 ml,50.0
+fineli20-445-DL,test,redcurrant,100 ml,50.0
+fineli20-446-DL,test,gooseberry,100 ml,45.0
+fineli20-447-DL,test,strawberry,100 ml,50.0
+fineli20-448-DL,development,raspberry,100 ml,50.0
+fineli20-449-DL,test,cloudberry,100 ml,50.0
+fineli20-11049-KPL_M,development,"banana, without skin",1 medium,125.0
+fineli20-409-KPL_M,test,"apricot, dried",1 medium,7.0
+fineli20-423-DL,test,"grape, average, green or red, seedless",100 ml,70.0
+fineli20-428-KPL_M,test,raisin,1 medium,0.4
+fineli20-440-RKL,development,"lingonberry, cowberry",1 tablespoon,12.0
+fineli20-441-RKL,test,cranberry,1 tablespoon,12.0
+fineli20-442-RKL,development,"blueberry, bilberry",1 tablespoon,12.0
+fineli20-444-RKL,development,blackcurrant,1 tablespoon,10.0
+fineli20-445-RKL,test,redcurrant,1 tablespoon,10.0
+fineli20-446-RKL,test,gooseberry,1 tablespoon,9.0
+fineli20-447-RKL,test,strawberry,1 tablespoon,10.0
+fineli20-448-RKL,development,raspberry,1 tablespoon,10.0
+fineli20-449-RKL,test,cloudberry,1 tablespoon,10.0
+fineli20-11049-KPL_S,development,"banana, without skin",1 small,100.0
+fineli20-370-DL,development,"pea, green",100 ml,60.0
+fineli20-371-DL,development,"pea, green, dried",100 ml,85.0
+fineli20-372-KPL_M,test,"bean, green bean, string bean",1 medium,15.0
+fineli20-373-DL,test,"bean, common bean, brown bean, white bean, average",100 ml,85.0
+fineli20-395-DL,test,"bean, white bean, boiled",100 ml,70.0
+fineli20-391-DL,test,"soya beans, dried",100 ml,85.0
+fineli20-399-DL,test,"lentils, green/brown, dried",100 ml,80.0
+fineli20-375-KPL_M,development,"nut, hazelnut",1 medium,1.0
+fineli20-376-DL,development,"nut, walnut",100 ml,60.0
+fineli20-378-KPL_M,test,"nut, peanut",1 medium,0.7
+fineli20-379-DL,development,almond,100 ml,70.0
+fineli20-382-DL,test,coconut flake,100 ml,35.0
+fineli20-385-DL,test,"sesame seed, with hull",100 ml,60.0
+fineli20-372-DL,test,"bean, green bean, string bean",100 ml,55.0
+fineli20-375-DL,development,"nut, hazelnut",100 ml,65.0
+fineli20-376-RKL,development,"nut, walnut",1 tablespoon,6.0
+fineli20-378-DL,test,"nut, peanut",100 ml,70.0
+fineli20-379-RKL,development,almond,1 tablespoon,10.0
+fineli20-382-RKL,test,coconut flake,1 tablespoon,5.0
+fineli20-385-RKL,test,"sesame seed, with hull",1 tablespoon,8.5
+fineli20-372-RKL,test,"bean, green bean, string bean",1 tablespoon,9.0
+fineli20-375-RKL,development,"nut, hazelnut",1 tablespoon,10.0
+fineli20-378-RKL,test,"nut, peanut",1 tablespoon,10.0
+fineli20-385-TL,test,"sesame seed, with hull",1 teaspoon,3.0
+fineli20-600-DL,development,"milk, raw milk, 4.4 % fat, without added vitamin d",100 ml,100.0
+fineli20-604-DL,development,"milk, goat milk",100 ml,100.0
+fineli20-606-DL,development,"milk, 0% fat, i ug added vitamin d",100 ml,100.0
+fineli20-613-DL,development,"sour milk, butter milk",100 ml,100.0
+fineli20-615-DL,development,"sour cream, 10-12% fat",100 ml,100.0
+fineli20-628-DL,development,"creme fraiche, 28% fat",100 ml,100.0
+fineli20-630-DL,development,"sour cream, 40% fat",100 ml,100.0
+fineli20-617-DL,development,"curd milk, plain, 3.5% fat",100 ml,100.0
+fineli20-619-DL,development,"yoghurt, plain, 2.5% fat, low-lactose",100 ml,100.0
+fineli20-620-DL,development,"yoghurt, plain, bulgarian, 9% fat",100 ml,100.0
+fineli20-622-DL,development,"quark, <0.5% fat",100 ml,100.0
+fineli20-600-RKL,development,"milk, raw milk, 4.4 % fat, without added vitamin d",1 tablespoon,15.0
+fineli20-604-RKL,development,"milk, goat milk",1 tablespoon,15.0
+fineli20-606-RKL,development,"milk, 0% fat, i ug added vitamin d",1 tablespoon,15.0
+fineli20-613-RKL,development,"sour milk, butter milk",1 tablespoon,15.0
+fineli20-615-RKL,development,"sour cream, 10-12% fat",1 tablespoon,15.0
+fineli20-628-RKL,development,"creme fraiche, 28% fat",1 tablespoon,15.0
+fineli20-630-RKL,development,"sour cream, 40% fat",1 tablespoon,15.0
+fineli20-500-DL,development,butter,100 ml,95.0
+fineli20-535-DL,test,rapeseed oil,100 ml,90.0
+fineli20-536-DL,test,olive oil,100 ml,90.0
+fineli20-537-DL,test,peanut oil,100 ml,90.0
+fineli20-540-DL,development,sunflower oil,100 ml,90.0
+fineli20-542-DL,test,soybean oil,100 ml,90.0
+fineli20-543-DL,test,"corn oil, maize oil",100 ml,90.0
+fineli20-550-DL,test,"lard, frying fat",100 ml,95.0
+fineli20-552-DL,test,coconut butter,100 ml,95.0
+fineli20-553-DL,development,"tallow, beef fat",100 ml,85.0
+fineli20-500-RKL,development,butter,1 tablespoon,14.0
+fineli20-535-RKL,test,rapeseed oil,1 tablespoon,13.5
+fineli20-536-RKL,test,olive oil,1 tablespoon,13.5
+fineli20-537-RKL,test,peanut oil,1 tablespoon,13.5
+fineli20-1-DL,development,sugar,100 ml,85.0
+fineli20-3-DL,test,syrup,100 ml,140.0
+fineli20-4-DL,development,honey,100 ml,140.0
+fineli20-1-RKL,development,sugar,1 tablespoon,12.0
+fineli20-3-RKL,test,syrup,1 tablespoon,20.0
+fineli20-4-RKL,development,honey,1 tablespoon,20.0
+fineli20-1-TL,development,sugar,1 teaspoon,4.0
+fineli20-3-TL,test,syrup,1 teaspoon,6.5
+fineli20-20-DL,test,"cocoa powder, unsweetened",100 ml,40.0
+fineli20-28-DL,test,mustard,100 ml,110.0
+fineli20-30-DL,test,"salt, iodised",100 ml,125.0
+fineli20-31-DL,test,soy sauce,100 ml,120.0
+fineli20-74-RKL,test,baking powder,1 tablespoon,15.0
+fineli20-20-RKL,test,"cocoa powder, unsweetened",1 tablespoon,6.0
+fineli20-28-RKL,test,mustard,1 tablespoon,16.0
+fineli20-30-RKL,test,"salt, iodised",1 tablespoon,20.0
+fineli20-851-KPL_L,development,"egg yolk, 34% of egg mass",1 large,25.0
+fineli20-852-KPL_M,development,"egg white, 66% of egg mass",1 medium,35.0
+fineli20-855-KPL_M,development,"egg, quail, raw",1 medium,10.0
+fineli20-858-KPL_M,development,egg without shell,1 medium,55.0
+fineli20-851-KPL_M,development,"egg yolk, 34% of egg mass",1 medium,20.0
+fineli20-852-KPL_S,development,"egg white, 66% of egg mass",1 small,30.0
+fineli20-900-DL,test,"coffee, average",100 ml,100.0
+fineli20-901-DL,test,tea,100 ml,100.0
+fineli20-923-DL,test,"tea, herbal tea",100 ml,100.0
+fineli20-922-DL,test,"water, tap water",100 ml,100.0
+fineli20-703-KPL_S,test,"pork chop, thick layer of fat",1 small,100.0
+fineli20-705-KPL_M,test,pork shoulder,1 medium,800.0
+fineli20-707-KPL_M,test,"bacon, 32% fat",1 medium,20.0
+fineli20-718-KPL_S,test,beef round,1 small,200.0
+fineli20-722-KPL_L,test,beef sirloin,1 large,2000.0
+fineli20-726-KPL_M,test,"veal roast, raw",1 medium,1250.0
+fineli20-732-KPL_M,development,lamb roast,1 medium,2250.0
+fineli20-754-DL,test,chicken strips,100 ml,100.0
+fineli20-788-KPL_M,test,"liver, chicken",1 medium,30.0
+fineli20-703-KPL_L,test,"pork chop, thick layer of fat",1 large,150.0
+fineli20-718-KPL_L,test,beef round,1 large,300.0
+fineli20-722-KPL_M,test,beef sirloin,1 medium,1750.0
+fineli20-800-KPL_L,development,baltic herring,1 large,40.0
+fineli20-804-KPL_M,test,cod,1 medium,2500.0
+fineli20-812-KPL_L,development,perch,1 large,300.0
+fineli20-813-KPL_M,test,pike,1 medium,1500.0
+fineli20-817-KPL_S,test,"salmon, whole",1 small,2000.0
+fineli20-820-KPL_S,test,flounder,1 small,300.0
+fineli20-800-KPL_M,development,baltic herring,1 medium,20.0
+fineli20-804-KPL_S,test,cod,1 small,1000.0
+fineli20-812-KPL_M,development,perch,1 medium,200.0
+fineli20-813-KPL_S,test,pike,1 small,1000.0
+fineli20-817-KPL_L,test,"salmon, whole",1 large,4000.0
+fineli20-820-KPL_L,test,flounder,1 large,1000.0
+fineli20-11689-DL,extra-148,"asparagus, raw, cleaned",100 ml,55.0
+fineli20-11689-KPL_M,extra-148,"asparagus, raw, cleaned",1 medium,35.0
+fineli20-11689-KPL_S,extra-148,"asparagus, raw, cleaned",1 small,15.0
+fineli20-28933-KPL_L,extra-148,avocado  with skin and stone,1 large,300.0
+fineli20-11057-KPL_S,extra-148,"avocado, without skin and stone",1 small,100.0
+fineli20-11057-KPL_M,extra-148,"avocado, without skin and stone",1 medium,120.0
+fineli20-11134-RKL,extra-148,"basil, fresh",1 tablespoon,2.0
+fineli20-11134-DL,extra-148,"basil, fresh",100 ml,13.0
+fineli20-384-KPL_M,extra-148,"beansprouts and alfalfa sprouts, average",1 medium,0.4
+fineli20-384-DL,extra-148,"beansprouts and alfalfa sprouts, average",100 ml,40.0
+fineli20-384-RKL,extra-148,"beansprouts and alfalfa sprouts, average",1 tablespoon,7.0
+fineli20-602-DL,extra-148,"beestings, colostrum",100 ml,100.0
+fineli20-602-TL,extra-148,"beestings, colostrum",1 teaspoon,5.0
+fineli20-602-RKL,extra-148,"beestings, colostrum",1 tablespoon,15.0
+fineli20-454-RKL,extra-148,"berry, average",1 tablespoon,12.0
+fineli20-454-DL,extra-148,"berry, average",100 ml,55.0
+fineli20-312-KPL_M,extra-148,black salsify,1 medium,180.0
+fineli20-794-TL,extra-148,blood,1 teaspoon,5.0
+fineli20-794-DL,extra-148,blood,100 ml,100.0
+fineli20-794-RKL,extra-148,blood,1 tablespoon,15.0
+fineli20-819-KPL_L,extra-148,burbot,1 large,3000.0
+fineli20-819-KPL_M,extra-148,burbot,1 medium,1800.0
+fineli20-819-KPL_S,extra-148,burbot,1 small,500.0
+fineli20-28920-KPL_M,extra-148,cherry with stone,1 medium,8.0
+fineli20-28920-DL,extra-148,cherry with stone,100 ml,60.0
+fineli20-377-KPL_M,extra-148,chestnut,1 medium,15.0
+fineli20-31557-KPL_M,extra-148,"chili, green, raw",1 medium,10.0
+fineli20-34238-DL,extra-148,"coriander, fresh",100 ml,13.0
+fineli20-29208-TL,extra-148,couscous,1 teaspoon,4.0
+fineli20-29208-RKL,extra-148,couscous,1 tablespoon,12.0
+fineli20-29208-DL,extra-148,couscous,100 ml,80.0
+fineli20-836-KPL_L,extra-148,crayfish,1 large,160.0
+fineli20-836-KPL_M,extra-148,crayfish,1 medium,115.0
+fineli20-836-KPL_S,extra-148,crayfish,1 small,70.0
+fineli20-369-RKL,extra-148,"dill, fresh",1 tablespoon,2.5
+fineli20-821-KPL_M,extra-148,eel,1 medium,1000.0
+fineli20-34848-KPL_M,extra-148,european sprat,1 medium,20.0
+fineli20-34848-KPL_S,extra-148,european sprat,1 small,13.0
+fineli20-34848-KPL_L,extra-148,european sprat,1 large,40.0
+fineli20-11071-KPL_L,extra-148,"exotic fruit, average, mango/papaya, without skin",1 large,320.0
+fineli20-11071-KPL_M,extra-148,"exotic fruit, average, mango/papaya, without skin",1 medium,240.0
+fineli20-30914-KPL_M,extra-148,florence fennel,1 medium,200.0
+fineli20-31256-DL,extra-148,"fresh pasta, contains egg",100 ml,95.0
+fineli20-31256-RKL,extra-148,"fresh pasta, contains egg",1 tablespoon,14.0
+fineli20-753-KPL_L,extra-148,game bird,1 large,2000.0
+fineli20-753-KPL_M,extra-148,game bird,1 medium,1000.0
+fineli20-753-KPL_S,extra-148,game bird,1 small,500.0
+fineli20-33023-KPL_M,extra-148,"ginger root, raw",1 medium,180.0
+fineli20-11047-KPL_S,extra-148,"grapefruit, without skin",1 small,195.0
+fineli20-11047-KPL_L,extra-148,"grapefruit, without skin",1 large,325.0
+fineli20-11047-KPL_M,extra-148,"grapefruit, without skin",1 medium,260.0
+fineli20-31552-KPL_M,extra-148,guava,1 medium,65.0
+fineli20-28944-KPL_S,extra-148,honeydew melon with skin,1 small,700.0
+fineli20-11203-DL,extra-148,"honeydew melon, without skin",100 ml,70.0
+fineli20-11203-KPL_M,extra-148,"honeydew melon, without skin",1 medium,750.0
+fineli20-11589-RKL,extra-148,horseradish,1 tablespoon,10.0
+fineli20-11589-DL,extra-148,horseradish,100 ml,45.0
+fineli20-791-KPL_L,extra-148,kidney,1 large,500.0
+fineli20-791-KPL_M,extra-148,kidney,1 medium,400.0
+fineli20-791-KPL_S,extra-148,kidney,1 small,300.0
+fineli20-28939-KPL_M,extra-148,"kiwi fruit, with skin",1 medium,95.0
+fineli20-11050-KPL_S,extra-148,"kiwi fruit, without skin",1 small,70.0
+fineli20-11050-KPL_L,extra-148,"kiwi fruit, without skin",1 large,115.0
+fineli20-11048-KPL_M,extra-148,"lemon, without skin",1 medium,80.0
+fineli20-11048-KPL_S,extra-148,"lemon, without skin",1 small,60.0
+fineli20-11048-KPL_L,extra-148,"lemon, without skin",1 large,100.0
+fineli20-866-KPL_M,extra-148,lobster,1 medium,150.0
+fineli20-866-KPL_L,extra-148,lobster,1 large,200.0
+fineli20-866-KPL_S,extra-148,lobster,1 small,100.0
+fineli20-117-DL,extra-148,"macaroni, pasta",100 ml,55.0
+fineli20-119-RKL,extra-148,"macaroni, whole wheat",1 tablespoon,7.5
+fineli20-11046-KPL_M,extra-148,"mandarin, average, without skin",1 medium,80.0
+fineli20-28935-KPL_L,extra-148,"mandarin, average, with skin",1 large,150.0
+fineli20-11046-KPL_S,extra-148,"mandarin, average, without skin",1 small,65.0
+fineli20-34361-KPL_L,extra-148,"mango, without skin",1 large,320.0
+fineli20-34361-KPL_M,extra-148,"mango, without skin",1 medium,240.0
+fineli20-28915-KPL_M,extra-148,"muskmelon/cantaloupe melon, with skin",1 medium,600.0
+fineli20-477-DL,extra-148,"muskmelon/cantaloupe melon, without skin",100 ml,70.0
+fineli20-334-DL,extra-148,"nettle, stinging nettle",100 ml,40.0
+fineli20-28924-KPL_L,extra-148,"orange, average, with skin",1 large,380.0
+fineli20-28924-KPL_S,extra-148,"orange, average, with skin",1 small,220.0
+fineli20-28924-KPL_M,extra-148,"orange, average, with skin",1 medium,300.0
+fineli20-863-KPL_M,extra-148,"oyster, european",1 medium,90.0
+fineli20-34694-KPL_M,extra-148,"papaya, without skin",1 medium,300.0
+fineli20-34694-DL,extra-148,"papaya, without skin",100 ml,85.0
+fineli20-333-RKL,extra-148,parsley,1 tablespoon,2.0
+fineli20-34680-KPL_M,extra-148,passion fruit,1 medium,50.0
+fineli20-31675-DL,extra-148,"pasta, spaghetti, macaroni, naturally gluten-free",100 ml,55.0
+fineli20-30193-RKL,extra-148,"pasta, multigrain, wheat, rye and barley",1 tablespoon,7.5
+fineli20-28922-KPL_S,extra-148,"peach/nectarine, average, with stone",1 small,125.0
+fineli20-28922-DL,extra-148,"peach/nectarine, average, with stone",100 ml,80.0
+fineli20-28922-KPL_M,extra-148,"peach/nectarine, average, with stone",1 medium,145.0
+fineli20-28917-KPL_L,extra-148,"pear, with skin",1 large,320.0
+fineli20-11062-KPL_M,extra-148,"pear, without skin",1 medium,195.0
+fineli20-11062-KPL_S,extra-148,"pear, without skin",1 small,115.0
+fineli20-28923-KPL_L,extra-148,"pineapple, with skin",1 large,1500.0
+fineli20-11056-KPL_M,extra-148,"pineapple, without skin",1 medium,600.0
+fineli20-28923-KPL_S,extra-148,"pineapple, with skin",1 small,750.0
+fineli20-28918-KPL_L,extra-148,"plum, with stone",1 large,110.0
+fineli20-11053-DL,extra-148,"plum, without stone",100 ml,60.0
+fineli20-28918-KPL_S,extra-148,"plum, with stone",1 small,33.0
+fineli20-31555-DL,extra-148,"pomegranate, without skin",100 ml,60.0
+fineli20-31555-KPL_L,extra-148,"pomegranate, without skin",1 large,250.0
+fineli20-31555-KPL_S,extra-148,"pomegranate, without skin",1 small,120.0
+fineli20-815-KPL_M,extra-148,"powan, whitefish, pollan, lavaret",1 medium,1000.0
+fineli20-815-KPL_L,extra-148,"powan, whitefish, pollan, lavaret",1 large,1500.0
+fineli20-815-KPL_S,extra-148,"powan, whitefish, pollan, lavaret",1 small,500.0
+fineli20-350-KPL_M,extra-148,pumpkin,1 medium,600.0
+fineli20-31175-DL,extra-148,quinoa,100 ml,90.0
+fineli20-34232-KPL_M,extra-148,radicchio,1 medium,100.0
+fineli20-34232-KPL_L,extra-148,radicchio,1 large,150.0
+fineli20-34232-KPL_S,extra-148,radicchio,1 small,40.0
+fineli20-822-KPL_S,extra-148,"rainbow trout, whole, average",1 small,1000.0
+fineli20-848-KPL_M,extra-148,"rainbow trout sea, fillet",1 medium,500.0
+fineli20-822-KPL_L,extra-148,"rainbow trout, whole, average",1 large,1200.0
+fineli20-11004-DL,extra-148,"roe, average",100 ml,90.0
+fineli20-11007-RKL,extra-148,rose hip,1 tablespoon,11.0
+fineli20-11007-DL,extra-148,rose hip,100 ml,55.0
+fineli20-457-RKL,extra-148,"rowanberry, sorbus",1 tablespoon,10.0
+fineli20-457-DL,extra-148,"rowanberry, sorbus",100 ml,50.0
+fineli20-30369-KPL_M,extra-148,"sausage, fresh sausage, siskonmakkara",1 medium,35.0
+fineli20-455-RKL,extra-148,sea buckthorn berry,1 tablespoon,11.0
+fineli20-455-DL,extra-148,sea buckthorn berry,100 ml,55.0
+fineli20-33038-KPL_S,extra-148,"sharon, kaki, persimon",1 small,200.0
+fineli20-33038-KPL_L,extra-148,"sharon, kaki, persimon",1 large,320.0
+fineli20-33038-KPL_M,extra-148,"sharon, kaki, persimon",1 medium,240.0
+fineli20-11734-KPL_S,extra-148,shiitake mushroom,1 small,5.0
+fineli20-11734-KPL_M,extra-148,shiitake mushroom,1 medium,12.0
+fineli20-11734-KPL_L,extra-148,shiitake mushroom,1 large,20.0
+fineli20-835-DL,extra-148,shrimp,100 ml,50.0
+fineli20-835-KPL_M,extra-148,shrimp,1 medium,2.0
+fineli20-33456-DL,extra-148,spinach,100 ml,50.0
+fineli20-33456-KPL_M,extra-148,spinach,1 medium,2.0
+fineli20-823-KPL_L,extra-148,trout,1 large,3000.0
+fineli20-823-KPL_S,extra-148,trout,1 small,2000.0
+fineli20-823-KPL_M,extra-148,trout,1 medium,2500.0
+fineli20-752-KPL_S,extra-148,turkey with skin,1 small,4000.0
+fineli20-28945-DL,extra-148,"turkey mince, fat 5-6%",100 ml,75.0
+fineli20-752-KPL_M,extra-148,turkey with skin,1 medium,6000.0
+fineli20-809-KPL_L,extra-148,"vendace, lake",1 large,30.0
+fineli20-809-KPL_S,extra-148,"vendace, lake",1 small,15.0
+fineli20-809-KPL_M,extra-148,"vendace, lake",1 medium,25.0
+fineli20-28931-KPL_L,extra-148,"watermelon, with skin",1 large,5000.0
+fineli20-28931-KPL_M,extra-148,"watermelon, with skin",1 medium,3500.0
+fineli20-28931-KPL_S,extra-148,"watermelon, with skin",1 small,2000.0
+fineli20-805-KPL_M,extra-148,"zander, pike-perch",1 medium,1300.0
+fineli20-805-KPL_L,extra-148,"zander, pike-perch",1 large,1900.0
+fineli20-805-KPL_S,extra-148,"zander, pike-perch",1 small,650.0

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from functools import lru_cache
 from typing import Any
 
 from recipe_wrangler.utils.consumer_suitability import (
@@ -12,22 +13,32 @@ from recipe_wrangler.utils.consumer_suitability import (
     SUPPORTED_CONSUMER_GROUPS,
     VEGAN_NAME_EXCLUSIONS,
     VEGETARIAN_NAME_EXCLUSIONS,
+    classification_version,
+    PESCATARIAN_NAME_EXCLUSIONS,
+    keyword_pattern,
+    dietary_keyword_evidence,
+    dietary_title_evidence,
+    mask_diet_alternatives,
 )
 from recipe_wrangler.utils.food_ontology import (
     ALLERGEN_DETECTION_RULES,
     ALLERGEN_EXCLUSION_REGEXES,
     ALLERGEN_ONTOLOGY_MAPPINGS,
+    ALLERGEN_POSSIBLE_KEYWORDS,
     CLASSIFICATION_VERSION,
     FATO_ALLERGEN_CLASS_IRI,
     FATO_ALLERGEN_DECLARATION_CLASS_IRI,
     allergen_name_terms,
 )
 from recipe_wrangler.utils.diet_tags import compute_diet_tags
+from recipe_wrangler.utils.es_recipe_evidence import allergen_filter_values, recipe_allergen_fields
 from recipe_wrangler.utils.foodon_matching import (
     fetch_label_index,
+    ingredient_link_batches,
     match_ingredient_to_foodon,
     write_link as write_foodon_link,
 )
+from recipe_wrangler.utils.ingredient_context import contextual_hits, mask_food_lookalikes
 from recipe_wrangler.utils.non_food_ingredients import is_unambiguous_non_food_ingredient
 from recipe_wrangler.utils.neo4j_utils import driver, run_query
 from recipe_wrangler.utils.nutrition_claims import NUTRITION_CLAIM_TAG_NAMES
@@ -232,8 +243,10 @@ def fetch_recipe_allergens_by_ids(ids: list[str]) -> dict[str, list[str]]:
     MATCH (r:Recipe)
     WHERE r.recipe_id = rid OR r.id = rid
     OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
-    WITH rid, [n IN collect(DISTINCT al.name) WHERE n IS NOT NULL AND trim(toString(n)) <> ""] AS allergens
-    RETURN rid AS recipe_id, allergens
+    WITH rid, r, collect(DISTINCT al.name) AS detected
+    RETURN rid AS recipe_id, reduce(names = [], name IN detected + coalesce(r.declared_allergens, []) |
+      CASE WHEN name IS NULL OR trim(name) = "" OR name IN names THEN names ELSE names + name END
+    ) AS allergens
     """
     rows = run_query(query, {"ids": ids})
     return {
@@ -283,6 +296,11 @@ def update_recipe_in_neo4j(
     if seasonality is not None:
         set_clauses.append("r.seasonality = $seasonality")
         params["seasonality"] = seasonality
+    if allergens is not None:
+        set_clauses.append("r.declared_allergens = $declared_allergens")
+        set_clauses.append("r.declared_allergens_updated_at = datetime()")
+        set_clauses.append("r.declared_allergens_source = 'recipe_edit'")
+        params["declared_allergens"] = sorted({name.strip().lower() for name in allergens if name.strip()})
     set_clauses.append("r.edited = true")
     set_clauses.append("r.edited_at = datetime()")
 
@@ -292,90 +310,6 @@ def update_recipe_in_neo4j(
     )
     if not result:
         return False
-
-    if allergens is not None:
-        with driver.session() as session:
-            # Remove all existing allergen edges from this recipe's ingredients, then re-add
-            session.run(
-                """
-                MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)-[rel:HAS_ALLERGEN]->(a:Allergen)
-                WHERE r.recipe_id = $recipe_id OR r.id = $recipe_id
-                WITH DISTINCT i, a, rel
-                OPTIONAL MATCH (i)-[:HAS_DECLARATION]->
-                               (d:AllergenDeclaration)-[:CONCERNS]->(a)
-                WITH rel, collect(DISTINCT d) AS declarations
-                FOREACH (d IN declarations | DETACH DELETE d)
-                DELETE rel
-                """,
-                {"recipe_id": recipe_id},
-            )
-            for allergen in allergens:
-                session.run(
-                    """
-                    MATCH (r:Recipe)-[:HAS_INGREDIENT]->(i:Ingredient)
-                    WHERE (r.recipe_id = $recipe_id OR r.id = $recipe_id)
-                    WITH i, [idx IN range(0, size($keywords) - 1)
-                      WHERE toLower(i.name) =~ $keyword_regexes[idx]
-                      | $keywords[idx]] AS hits
-                    WHERE size(hits) > 0
-                    MERGE (al:Allergen {name: $allergen})
-                    SET al.canonical_id = $allergen,
-                        al.eu_label = $eu_label,
-                        al.jurisdiction = "EU",
-                        al.fato_class_iri = $fato_class_iri,
-                        al.foodon_label_claim_id = $foodon_label_claim_id,
-                        al.classification_version = $classification_version
-                    MERGE (i)-[rel:HAS_ALLERGEN]->(al)
-                    SET rel.sources = CASE
-                            WHEN rel.sources IS NULL THEN ["keyword"]
-                            WHEN "keyword" IN rel.sources THEN rel.sources
-                            ELSE rel.sources + ["keyword"]
-                        END,
-                        rel.keyword_matches = CASE
-                            WHEN rel.keyword_matches IS NULL THEN hits
-                            ELSE rel.keyword_matches
-                                 + [x IN hits
-                                    WHERE NOT x IN rel.keyword_matches]
-                        END,
-                        rel.presence = "contains",
-                        rel.evidence_status = "inferred",
-                        rel.classification_version = $classification_version
-                    WITH i, al, rel
-                    SET i.canonical_id = coalesce(i.canonical_id, randomUUID())
-                    MERGE (declaration:AllergenDeclaration {
-                        declaration_id:
-                            "ingredient:" + toString(i.canonical_id)
-                            + ":allergen:" + al.name
-                            + ":version:" + $classification_version
-                    })
-                    ON CREATE SET declaration.created_at = datetime()
-                    SET declaration.declaration_type =
-                            "inferred_ingredient_presence",
-                        declaration.presence = rel.presence,
-                        declaration.evidence_status = rel.evidence_status,
-                        declaration.sources = rel.sources,
-                        declaration.keyword_matches = rel.keyword_matches,
-                        declaration.fato_class_iri =
-                            $fato_declaration_class_iri,
-                        declaration.classification_version =
-                            $classification_version,
-                        declaration.updated_at = datetime()
-                    MERGE (i)-[:HAS_DECLARATION]->(declaration)
-                    MERGE (declaration)-[:CONCERNS]->(al)
-                    """,
-                    {
-                        "recipe_id": recipe_id,
-                        "allergen": allergen,
-                        "keywords": _ALLERGEN_KEYWORDS.get(allergen, [allergen]),
-                        "keyword_regexes": [
-                            _allergen_keyword_regex(keyword)
-                            for keyword in _ALLERGEN_KEYWORDS.get(
-                                allergen, [allergen]
-                            )
-                        ],
-                        **_allergen_ontology_params(allergen),
-                    },
-                )
 
     if tags is not None:
         with driver.session() as session:
@@ -422,6 +356,7 @@ def upsert_recipe_to_neo4j(
     creator: str | None = None,
     url: str | None = None,
     seasonality: list[str] | None = None,
+    declared_allergens: list[str] | None = None,
 ) -> tuple[list[str], list[str]]:
     """Write (or update) a recipe and its ingredient/allergen/tag graph in Neo4j.
 
@@ -429,10 +364,12 @@ def upsert_recipe_to_neo4j(
         ingredient_lines: Original raw strings ("1 cup flour") — stored on Ingredients_original.
         ingredient_names:  Clean names ("flour") — stored on Ingredient nodes.
         measurements:      Quantity+unit strings ("1 cup") — stored on HAS_INGREDIENT edge.
-        allergens:         Keyword-detected + user-declared allergens, computed by the
-                            caller before this call. Seeds the keyword-matching step (3);
-                            the FoodOn step (3b) independently checks every category
-                            regardless, so this list does not gate FoodOn detection.
+        allergens:         Legacy caller detection hints, retained in the return set.
+                            Ingredient keyword writes use the shared name detector.
+        declared_allergens: Recipe-level positive claims, stored separately from
+                            inferred ingredient facts. None preserves existing claims;
+                            [] clears only recipe-owned claims. Imported metadata is
+                            not independently verified source truth.
         user_tags:         Only the tags the user explicitly supplied. Diet tags
                             (nut_free, dairy_free, ...) are derived *here*, from the
                             complete allergen set this function detects (keyword +
@@ -469,6 +406,11 @@ def upsert_recipe_to_neo4j(
                 // never overwritten: a later edit by someone else must not
                 // rewrite authorship. Redacted from public responses.
                 r.creator       = coalesce(r.creator, $creator)
+            FOREACH (_ IN CASE WHEN $declared_allergens IS NULL THEN [] ELSE [1] END |
+                SET r.declared_allergens = $declared_allergens,
+                    r.declared_allergens_source = $declaration_source,
+                    r.declared_allergens_updated_at = datetime()
+            )
             """,
             {
                 "recipe_id": recipe_id,
@@ -483,6 +425,11 @@ def upsert_recipe_to_neo4j(
                 "instructions": instructions,
                 "seasonality": seasonality,
                 "creator": creator,
+                "declared_allergens": (
+                    sorted({name.strip().lower() for name in declared_allergens if name.strip()})
+                    if declared_allergens is not None else None
+                ),
+                "declaration_source": "recipe_create" if source == "user" else "imported_recipe_metadata",
             },
         )
 
@@ -590,15 +537,20 @@ def upsert_recipe_to_neo4j(
                     ancestor_level=(method == "ancestor_embedding"),
                 )
 
-        # 3. Tag ingredients with allergens (shared Ingredient nodes, affects all recipes using them)
-        for allergen in allergens:
+        # Recipe claims never seed shared ingredient facts; use contextual name evidence.
+        for allergen in _ALLERGEN_KEYWORDS:
+            ingredient_hits = [
+                {"name": name, "hits": result[0], "presence": result[1]}
+                for name in sorted(set(ingredient_names))
+                if (result := _allergen_keyword_evidence(name, allergen))[0]
+            ]
+            if not ingredient_hits:
+                continue
             session.run(
                 """
-                MATCH (r:Recipe {recipe_id: $recipe_id})-[:HAS_INGREDIENT]->(i:Ingredient)
-                WITH i, [idx IN range(0, size($keywords) - 1)
-                  WHERE toLower(i.name) =~ $keyword_regexes[idx]
-                  | $keywords[idx]] AS hits
-                WHERE size(hits) > 0
+                UNWIND $ingredient_hits AS candidate
+                MATCH (r:Recipe {recipe_id: $recipe_id})-[:HAS_INGREDIENT]->(i:Ingredient {name: candidate.name})
+                WITH i, candidate
                 MERGE (al:Allergen {name: $allergen})
                 SET al.canonical_id = $allergen,
                     al.eu_label = $eu_label,
@@ -606,6 +558,7 @@ def upsert_recipe_to_neo4j(
                     al.fato_class_iri = $fato_class_iri,
                     al.foodon_label_claim_id = $foodon_label_claim_id,
                     al.classification_version = $classification_version
+                FOREACH (_ IN CASE candidate.presence WHEN 'contains' THEN [1] ELSE [] END |
                 MERGE (i)-[rel:HAS_ALLERGEN]->(al)
                 SET rel.sources = CASE
                         WHEN rel.sources IS NULL THEN ["keyword"]
@@ -613,15 +566,16 @@ def upsert_recipe_to_neo4j(
                         ELSE rel.sources + ["keyword"]
                     END,
                     rel.keyword_matches = CASE
-                        WHEN rel.keyword_matches IS NULL THEN hits
+                        WHEN rel.keyword_matches IS NULL THEN candidate.hits
                         ELSE rel.keyword_matches
-                             + [x IN hits
+                             + [x IN candidate.hits
                                 WHERE NOT x IN rel.keyword_matches]
                     END,
                     rel.presence = "contains",
                     rel.evidence_status = "inferred",
                     rel.classification_version = $classification_version
-                WITH i, al, rel
+                )
+                WITH i, al, candidate
                 SET i.canonical_id = coalesce(i.canonical_id, randomUUID())
                 MERGE (declaration:AllergenDeclaration {
                     declaration_id:
@@ -632,10 +586,12 @@ def upsert_recipe_to_neo4j(
                 ON CREATE SET declaration.created_at = datetime()
                 SET declaration.declaration_type =
                         "inferred_ingredient_presence",
-                    declaration.presence = rel.presence,
-                    declaration.evidence_status = rel.evidence_status,
-                    declaration.sources = rel.sources,
-                    declaration.keyword_matches = rel.keyword_matches,
+                    declaration.presence = CASE WHEN declaration.presence = 'contains'
+                                               THEN 'contains' ELSE candidate.presence END,
+                    declaration.evidence_status = 'inferred',
+                    declaration.sources = coalesce(declaration.sources, [])
+                        + CASE WHEN 'keyword' IN coalesce(declaration.sources, []) THEN [] ELSE ['keyword'] END,
+                    declaration.keyword_matches = candidate.hits,
                     declaration.fato_class_iri =
                         $fato_declaration_class_iri,
                     declaration.classification_version =
@@ -647,13 +603,7 @@ def upsert_recipe_to_neo4j(
                 {
                     "recipe_id": recipe_id,
                     "allergen": allergen,
-                    "keywords": _ALLERGEN_KEYWORDS.get(allergen, [allergen]),
-                    "keyword_regexes": [
-                        _allergen_keyword_regex(keyword)
-                        for keyword in _ALLERGEN_KEYWORDS.get(
-                            allergen, [allergen]
-                        )
-                    ],
+                    "ingredient_hits": ingredient_hits,
                     **_allergen_ontology_params(allergen),
                 },
             )
@@ -669,6 +619,8 @@ def upsert_recipe_to_neo4j(
         # FoodOn-classification pipeline -- a genuinely brand-new ingredient
         # name has none yet, same limitation food_groups derivation already
         # documents.
+        supported_links = [item for batch in ingredient_link_batches(session, recipe_id=recipe_id)
+                           for item in batch]
         for allergen_name, rule in ALLERGEN_DETECTION_RULES.items():
             if not rule["roots"]:
                 continue
@@ -678,6 +630,8 @@ def upsert_recipe_to_neo4j(
                              -[:HAS_CLASS]->(f:FoodOnClass)
                 MATCH (f)-[:SUBCLASS_OF*0..]->(a:FoodOnClass)
                 WHERE a.foodon_id IN $roots
+                  AND any(item IN $supported_links WHERE item.element_id = elementId(i)
+                          AND item.name = i.name AND f.foodon_id IN item.class_ids)
                   AND none(pattern IN $name_exclusions
                            WHERE toLower(i.name) =~ pattern)
                 WITH i, collect(DISTINCT a.foodon_id) AS foodon_ids,
@@ -730,6 +684,7 @@ def upsert_recipe_to_neo4j(
                     "recipe_id": recipe_id,
                     "allergen": allergen_name,
                     "roots": rule["roots"],
+                    "supported_links": supported_links,
                     "name_exclusions": ALLERGEN_EXCLUSION_REGEXES.get(
                         allergen_name, []
                     ),
@@ -747,8 +702,9 @@ def upsert_recipe_to_neo4j(
                 session.run(
                     """
                     MATCH (r:Recipe {recipe_id: $recipe_id})
-                          -[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
-                    RETURN collect(DISTINCT al.name) AS names
+                    OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
+                    WITH r, collect(DISTINCT al.name) AS detected
+                    RETURN detected + coalesce(r.declared_allergens, []) AS names
                     """,
                     {"recipe_id": recipe_id},
                 ).single()["names"]
@@ -805,10 +761,14 @@ def upsert_recipe_to_neo4j(
                     "group": group,
                     "status": status,
                     "blocking": blocking,
-                    "version": SUITABILITY_CLASSIFICATION_VERSION,
+                    "version": classification_version(group),
                 },
             )
 
+    # Mark only after the existing import/allergen workflow has completed.
+    with driver.session() as session:
+        session.run('''MATCH (r:Recipe {recipe_id:$id})
+            SET r.matching_input_revision=randomUUID()''', {'id':recipe_id}).consume()
     return full_allergens, final_tags
 
 
@@ -816,7 +776,7 @@ def upsert_recipe_to_neo4j(
 # corpus-wide tagger. Keeping a second hand-copied map here previously let the
 # API silently miss keywords added to the batch path.
 _ALLERGEN_KEYWORDS: dict[str, list[str]] = {
-    allergen: list(rule["keywords"])
+    allergen: list(dict.fromkeys(rule["keywords"] + ALLERGEN_POSSIBLE_KEYWORDS.get(allergen, [])))
     for allergen, rule in ALLERGEN_DETECTION_RULES.items()
 }
 
@@ -837,23 +797,10 @@ def _allergen_ontology_params(allergen: str) -> dict[str, str | None]:
 
 
 def _allergen_keyword_regex(keyword: str) -> str:
-    escaped = re.escape(keyword.strip().casefold()).replace(r"\ ", r"\s+")
-    return rf".*\b{escaped}(e?s)?\b.*"
+    return rf".*{keyword_pattern(keyword)}.*"
 
 
-_PLANT_DAIRY_ALTERNATIVE_PATTERNS = (
-    r"\b(?:coconut|soy|soya|almond|oat|rice|cashew|hazelnut|hemp|pea)"
-    r"(?:[\s-]+(?:flavoured|flavored))?[\s-]+(?:milk|cream|yogurt|yoghurt)\b",
-    r"\b(?:milk|cream|yogurt|yoghurt)[\s-]+alternative\b",
-    r"\bnon[\s-]*dairy\b",
-    r"\bdairy[\s-]*free\b",
-    r"\bplant[\s-]*based\b",
-    r"\bvegan\b",
-    r"\b(?:peanut|almond|cashew|hazelnut|walnut|seed|nut)[\s-]+butter\b",
-    r"\bbutter[\s-]*beans?\b",
-    r"\bbeans?,[\s-]*butter\b",
-    r"\bbutternut\b",
-    r"\bcream[\s-]+substitute\b",
+_LEGACY_NON_DAIRY_NAMES = (
     r"^(?:powdered butter|cream rice|cream parsley|milk rice|"
     r"coconut paste milk|butter almond|oil cocoa butter|butter paper)$",
     r"^cream sherry$",
@@ -864,10 +811,12 @@ _GLUTEN_SAFE_PATTERNS = (
     r"^gluten[\s-]+(?:baking flour|self raising flour|flour|soy sauce|bread|"
     r"pasta|flour almond coconut|flour mix|bread mix)$",
     r"\bbuckwheat\b",
-    r"\b(?:rice|tapioca|potato|almond|coconut|besan|chickpea|corn|maize|"
-    r"quinoa|cassava|arrowroot)[\s-]+flour\b",
+    r"\b(?:rice|tapioca|potato|almond|coconut|besan|chickpea|garbanzo|corn|maize|"
+    r"quinoa|cassava|arrowroot|pumpkin[\s-]+seed)[\s-]+(?:garbanzo[\s-]+|starch[\s/]+)?flour\b",
     r"\b(?:rice|pulse|chickpea|corn|maize|quinoa)[\s-]+"
     r"(?:noodles?|pasta|spaghetti)\b",
+    r"\b(?:edamame|mung[\s-]+bean)[\s-]+fettuccine\b",
+    r"\b(?:rice|mung[\s-]+bean)[\s-]+vermicelli(?:[\s-]+noodles?)?\b",
     r"\btamari\b",
     r"^(?:ground|minced|fresh|crystallized|crystallised|pickled|glace)?"
     r"[\s-]*ginger$",
@@ -875,32 +824,32 @@ _GLUTEN_SAFE_PATTERNS = (
 )
 
 
-def _is_plant_dairy_alternative(name: str) -> bool:
-    normalized = re.sub(r"\s+", " ", name.strip().casefold())
-    return any(
-        re.search(pattern, normalized)
-        for pattern in _PLANT_DAIRY_ALTERNATIVE_PATTERNS
-    )
-
-
 def _is_gluten_safe_name(name: str) -> bool:
     normalized = re.sub(r"\s+", " ", name.strip().casefold())
     return any(re.search(pattern, normalized) for pattern in _GLUTEN_SAFE_PATTERNS)
 
 
+@lru_cache(maxsize=1024)
+def _allergen_keyword_patterns(keyword: str) -> tuple[re.Pattern, re.Pattern, re.Pattern]:
+    """Keep fixed keyword patterns out of Python's shared, limited regex cache."""
+    pattern = keyword_pattern(keyword)
+    return (
+        re.compile(pattern),
+        re.compile(r"\b(?:without|no(?:[\s-]+added)?|(?:does|do|did)\s*n[o']?t\s+contain|"
+                   r"doesn['’]t\s+contain|(?:free|clear)\s+(?:of|from))\s+(?:any\s+)?" + pattern),
+        re.compile(pattern + r"[ -]*free\b"),
+    )
+
+
 def _keyword_matches(name: str, keyword: str) -> bool:
     """Match an allergen keyword as words, not as an arbitrary substring."""
-    pattern = (
-        r"(?<!\w)"
-        + re.escape(keyword.casefold()).replace(r"\ ", r"\s+")
-        + r"(?:e?s)?(?!\w)"
-    )
-    return re.search(pattern, name.casefold()) is not None
+    return _allergen_keyword_patterns(keyword)[0].search(name.casefold()) is not None
 
 
 _SUITABILITY_NAME_EXCLUSIONS: dict[str, list[str]] = {
     "vegan": VEGAN_NAME_EXCLUSIONS,
     "vegetarian": VEGETARIAN_NAME_EXCLUSIONS,
+    "pescatarian": PESCATARIAN_NAME_EXCLUSIONS,
 }
 
 
@@ -920,15 +869,13 @@ def _classify_recipe_suitability(
     scan can miss entirely.
     """
     rule = GROUP_RULES[group]
-    exclusions = _SUITABILITY_NAME_EXCLUSIONS[group]
-
     def _blocked(name: str) -> bool:
-        return not any(re.search(p, name.casefold()) for p in exclusions) and any(
-            _keyword_matches(name, kw) for kw in rule["blocking_keywords"]
-        )
+        hits, presence = dietary_keyword_evidence(name, group)
+        return bool(hits) and presence == "contains"
 
     blocking_names = sorted({name for name in ingredient_names if _blocked(name)})
-    title_blocked = bool(title) and _blocked(title)
+    title_hits, title_presence = dietary_title_evidence(title or '', group)
+    title_blocked = bool(title_hits) and title_presence == 'contains'
     if blocking_names or title_blocked or (allergens & set(rule["blocking_allergens"])):
         return "not_suitable", blocking_names
     return "unknown", []
@@ -1002,22 +949,137 @@ def find_ingredient_substitutes(ingredient_name: str) -> dict[str, Any]:
     return {"candidates": [], "source": None}
 
 
+_VEGETABLE_NOODLES = re.compile(
+    r"\b(?:courgettes?|zucchinis?|squash|carrots?|cucumbers?|sweet[ -]potato(?:es)?|"
+    r"kelp|konjac|shirataki|vegetable|veggie|vege)[a-z ,]*?\bnoodles?\b"
+    r"|\bspiral(?:i[sz]ed|ised)\b[^;]*?\bnoodles?\b"
+    r"|\bnoodles?\b(?=[^;]*\bspiral(?:i[sz]ed|ised)\b)"
+)
+# Not grape wine, so no sulphite declaration can be assumed from the word "wine".
+_WINE_NOT_SULPHITE = re.compile(
+    r"\b(?:\w+[ -])?wine[ -]+vinegar\b|\b(?:rice|plum|ginger)[ -]+wine\b|\bwine[ -]+gums?\b"
+    r"|\bvinegar\b[^;]{0,12}?[(,][^)]*\bwine\b[^)]*\)?"
+    r"|\b(?:champagne|vermouth)[ -]+vinegar\b"
+)
+_EXAMPLE_TAIL = re.compile(
+    r"\s*[\(,;]?\s*\b(?:such as|e\.g\.?|eg\.?|for (?:example|instance)|try|(?:of )?your choice)\b.*$", re.IGNORECASE
+)
+
+
+def _allergen_lexical_hits(name: str, allergen: str) -> list[str]:
+    """Keep an alternative in one clause from masking another clause's food."""
+    normalized = name.strip().casefold()
+    # Commas and ampersands occur inside food names and free-from qualifiers.
+    clauses = re.split(r"\s+(?:and|with|plus|or)\s+|[;+]", normalized)
+    hits: set[str] = set()
+    for clause in clauses:
+        if allergen == "egg" and re.search(r"\begg[ -]*free\b", clause):
+            continue
+        if allergen == "egg" and re.search(r"\bmayo(?:nnaise)?\b", clause) and re.search(
+            r"\b(?:vegan|eggless|egg[ -]*less|plant[ -]*based|dairy[ -]*free)\b", clause
+        ):
+            continue
+        if allergen == "fish" and re.search(
+            r"\b(?:vegan|vegetarian|fish[ -]*free|anchovy[ -]*free)\b[^;]*\bworcester", clause
+        ):
+            continue
+        if allergen == "milk" and any(re.fullmatch(p, clause.strip()) for p in _LEGACY_NON_DAIRY_NAMES):
+            continue
+        if allergen == "gluten" and _is_gluten_safe_name(clause):
+            continue
+        keywords = _ALLERGEN_KEYWORDS[allergen]
+        if allergen == "wheat" and _is_gluten_safe_name(clause):
+            # Gluten-free wheat starch can still contain wheat allergenic proteins.
+            keywords = ["wheat", "spelt", "durum", "semolina", "bulgur", "seitan"]
+            clause = re.sub(r"\bwheat\s*(?:&\s*gluten\s*)?[ -]*free\b", " ", clause)
+        if allergen in {"tree_nut", "peanut"}:
+            clause = re.sub(r"\b(?:pine[\s-]*nuts?|chestnuts?)\b", " ", clause)
+        if allergen == "peanut":
+            clause = re.sub(r"\b(?:cashew|almond|hazel|brazil|macadamia|pecan|pistachio)[\s-]+nuts?\b", " ", clause)
+        if allergen == "sulphites" and re.search(
+            r"\b(?:sulphites?|sulfites?)[ -]*free\b", clause
+        ):
+            continue
+        if allergen in {"molluscs", "crustacean_shellfish"}:
+            clause = re.sub(r"\boyster[\s-]+mushrooms?\b", "mushroom", clause)
+        for keyword in keywords:
+            candidate = clause
+            # Only adjacent ingredient exclusions; never infer recipe-wide absence.
+            if not re.search(r"\bnot\b.*\bwithout\b", candidate):
+                _, negated, free_from = _allergen_keyword_patterns(keyword)
+                candidate = negated.sub(" ", candidate)
+                candidate = free_from.sub(" ", candidate)
+            if _keyword_matches(candidate, keyword):
+                hits.add(keyword.casefold())
+    return sorted(hits)
+
+
+def _allergen_keyword_evidence(name: str, allergen: str) -> tuple[list[str], str]:
+    """Separate a named ingredient from optional choices and product-formulation risks."""
+    original_name = name
+    if allergen == 'milk':
+        name = mask_food_lookalikes(name, 'milk')
+        name = mask_diet_alternatives(name, 'vegan')
+    elif allergen in {'molluscs', 'crustacean_shellfish'}:
+        name = mask_food_lookalikes(name, 'seafood')
+    elif allergen == 'fish':
+        name = mask_food_lookalikes(name, 'fish')
+    elif allergen in {'gluten', 'wheat'}:
+        name = re.sub(r'\bwaffle[ -]+(?:(?:iron|maker)s?|cut)\b', ' equipment_or_cut ', name.casefold())
+        name = _VEGETABLE_NOODLES.sub(' vegetable_strands ', name.casefold())
+    elif allergen == 'sulphites':
+        name = re.sub(r'\bchampagne[ -]+(?:grapes?|mango(?:es)?)\b', ' fruit ', name.casefold())
+    possible = set(ALLERGEN_POSSIBLE_KEYWORDS.get(allergen, []))
+    hits, presence = contextual_hits(
+        name, lambda clause: _allergen_lexical_hits(clause, allergen), possible
+    )
+    if not hits and allergen == 'crustacean_shellfish':
+        # Generic imitation crab needs a composition warning, not confirmed crab.
+        hits, _ = contextual_hits(
+            mask_food_lookalikes(original_name, 'crustacean_formulation'),
+            lambda clause: _allergen_lexical_hits(clause, allergen), possible,
+        )
+        presence = 'possible'
+    # Foods named only in an example list ("vegetables such as celery") are not definite.
+    if presence == "contains" and _EXAMPLE_TAIL.search(name):
+        head = _EXAMPLE_TAIL.sub("", name)
+        head_hits, _ = contextual_hits(
+            head, lambda clause: _allergen_lexical_hits(clause, allergen), possible
+        )
+        if not head_hits:
+            presence = "possible"
+    if allergen == "wheat" and "wheat" not in hits and re.search(
+        r"\b(?:rye|oat[ -]+pastry)\b", original_name.casefold()
+    ):
+        presence = "possible"
+    if allergen == "sulphites" and presence == "contains" and re.search(
+        r"\b(?:no|without)[ -]+(?:added[ -]+)?sul(?:ph|f)ites?\b|\bsul(?:ph|f)ite[ -]*free\b", original_name.casefold()
+    ):
+        presence = "possible"  # wine keeps natural sulphites even when none are added
+    if allergen == "sulphites" and presence == "contains":
+        grape_hits, grape_presence = contextual_hits(
+            _WINE_NOT_SULPHITE.sub(" ", name.casefold()),
+            lambda clause: _allergen_lexical_hits(clause, allergen), possible,
+        )
+        if not (grape_hits and grape_presence == "contains"):
+            presence = "possible"
+    return hits, presence
+
+
+def _allergen_keyword_hits(name: str, allergen: str) -> list[str]:
+    """Compatibility helper for reconciliation of confirmed positive evidence."""
+    hits, presence = _allergen_keyword_evidence(name, allergen)
+    return hits if presence == "contains" else []
+
+
 def detect_allergens_from_names(ingredient_names: list[str]) -> list[str]:
-    """Return allergen labels present in the ingredient name list (keyword match)."""
-    found: set[str] = set()
-    for name in ingredient_names:
-        name_lower = name.strip().lower()
-        for allergen, keywords in _ALLERGEN_KEYWORDS.items():
-            if allergen == "milk" and _is_plant_dairy_alternative(name_lower):
-                continue
-            if allergen in {"gluten", "wheat"} and _is_gluten_safe_name(
-                name_lower
-            ):
-                continue
-            matched = any(_keyword_matches(name_lower, kw) for kw in keywords)
-            if matched:
-                found.add(allergen)
-    return sorted(found)
+    """Return keyword presence labels without whole-name alternative masking."""
+    return sorted({
+        allergen
+        for name in ingredient_names
+        for allergen in _ALLERGEN_KEYWORDS
+        if (result := _allergen_keyword_evidence(name, allergen))[0] and result[1] == "contains"
+    })
 
 
 def detect_allergen_evidence_from_names(
@@ -1034,19 +1096,8 @@ def detect_allergen_evidence_from_names(
         ingredient = str(raw_name or "").strip()
         if not ingredient:
             continue
-        normalized = ingredient.casefold()
-        for allergen, keywords in _ALLERGEN_KEYWORDS.items():
-            if allergen == "milk" and _is_plant_dairy_alternative(normalized):
-                continue
-            if allergen in {"gluten", "wheat"} and _is_gluten_safe_name(
-                normalized
-            ):
-                continue
-            hits = sorted({
-                keyword.casefold()
-                for keyword in keywords
-                if _keyword_matches(normalized, keyword)
-            })
+        for allergen in _ALLERGEN_KEYWORDS:
+            hits, presence = _allergen_keyword_evidence(ingredient, allergen)
             if not hits:
                 continue
             evidence.append(
@@ -1055,7 +1106,7 @@ def detect_allergen_evidence_from_names(
                     "ingredient": ingredient,
                     "ingredient_id": "",
                     "declaration_id": "",
-                    "presence": "contains",
+                    "presence": presence,
                     "evidence_status": "inferred",
                     "sources": ["keyword"],
                     "foodon_ids": [],
@@ -1189,6 +1240,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     allergies = _normalize_foodchat_terms(
         allergen_name_terms(request_data.user_profile.allergies)
     )
+    allergen_labels = allergen_filter_values(request_data.user_profile.allergies)
     exclude_ingredients = _normalize_foodchat_terms(request_data.constraints.exclude_ingredients)
     combined_exclusions = list(dict.fromkeys(allergies + exclude_ingredients))
     include_ingredients = _normalize_foodchat_terms(request_data.constraints.include_ingredients)
@@ -1267,6 +1319,10 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
       AND toLower(coalesce(r.source, '')) <> 'recipe1m'
       AND {NEO4J_NOT_DISABLED}
       AND (size($exclude_ids) = 0 OR NOT coalesce(toString(r.recipe_id), toString(r.id), '') IN $exclude_ids)
+      AND (size($allergen_labels) = 0 OR NONE(label IN
+        coalesce(r.declared_allergens, []) +
+        [(r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(allergen:Allergen) | allergen.name]
+        WHERE toLower(label) IN $allergen_labels))
 
     WITH r, valid_diet_tags
 
@@ -1285,6 +1341,8 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
 
     RETURN coalesce(toString(r.recipe_id), toString(r.id)) AS recipe_id,
            r.title AS title,
+           coalesce(r.declared_allergens, []) +
+           [(r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(allergen:Allergen) | allergen.name] AS allergens,
            reduce(s = '', x IN orig_ingredients | CASE WHEN s = '' THEN x ELSE s + ', ' + x END) AS ingredients,
            reduce(s = '', x IN coalesce(r.instructions, []) | CASE WHEN s = '' THEN x ELSE s + ' ' + x END) AS directions
     """
@@ -1303,6 +1361,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
     base_params = {
         "diet_tags": diet_tags,
         "combined_exclusions": combined_exclusions,
+        "allergen_labels": allergen_labels,
         "include_ingredients": include_ingredients,
         "favorite_recipe_ids": favorite_ids,
         "randomize": randomize,
@@ -1332,6 +1391,7 @@ def fetch_foodchat_candidates(request_data: Any) -> dict[str, list[dict]]:
             if not recipe_id or not title:
                 continue
             candidates.append({
+                **recipe_allergen_fields(row.get("allergens")),
                 "recipe_id": recipe_id,
                 "title": title,
                 "ingredients": str(row.get("ingredients") or ""),

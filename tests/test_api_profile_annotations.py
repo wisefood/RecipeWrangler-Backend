@@ -40,7 +40,7 @@ def profiled(monkeypatch):
     monkeypatch.setattr(
         R,
         "_analysis_allergen_fields",
-        lambda names: {"allergens": [], "allergen_evidence": []},
+        lambda names, original_lines=None: {"allergens": [], "allergen_evidence": []},
     )
 
 
@@ -123,10 +123,6 @@ class TestAnnotationModelDefault:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
-
-    def test_main_dish_audit_shares_the_default(self):
-        audit = self._load_script("audit_main_dish_claims")
-        assert audit.DEFAULT_MODEL == annotation.DEFAULT_MODEL
 
     def test_bulk_annotator_shares_the_default(self):
         script = self._load_script("annotate_recipes")

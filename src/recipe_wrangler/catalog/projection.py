@@ -27,17 +27,20 @@ from __future__ import annotations
 import logging
 from typing import Any, Iterable
 
-from recipe_wrangler.catalog import sources as S
+from recipe_wrangler.catalog import annotation, sources as S
 from recipe_wrangler.catalog.entities import nutri_label, recipe_entity
 from recipe_wrangler.catalog.nutrition import apply_profiles, load_profiles_for
 from recipe_wrangler.catalog.integrity import content_digest
+from recipe_wrangler.catalog.portion_display import ingredient_display_text
 from recipe_wrangler.utils.consumer_suitability import (
-    SUITABILITY_CLASSIFICATION_VERSION,
+    SUITABILITY_CLASSIFICATION_VERSION, PESCATARIAN_CLASSIFICATION_VERSION,
 )
 from recipe_wrangler.utils.diet_tags import DIET_TAG_NAMES
 from recipe_wrangler.utils.nutrition_claims import NUTRITION_CLAIM_TAG_NAMES
 from recipe_wrangler.utils.es_recipe_evidence import (
+    assessed_diet_tags,
     normalize_allergen_evidence,
+    recipe_allergen_fields,
     normalize_consumer_suitability,
     suitable_groups,
 )
@@ -59,41 +62,81 @@ MATCH (r:Recipe)
 WHERE r.recipe_id = $rid OR r.id = $rid
 CALL (r) {
   OPTIONAL MATCH (r)-[rel:HAS_INGREDIENT]->(i:Ingredient)
-  WITH i, rel ORDER BY coalesce(rel.position, 2147483647), i.name
+  CALL (r, rel, i) {
+    OPTIONAL MATCH (r)-[original_rel:HAS_INGREDIENT_ORIGINAL]->(original:Ingredients_original)
+    WHERE rel.position >= 0 AND original_rel.position = rel.position
+    WITH r, rel, i, collect(original) AS originals
+    WITH r, rel, i, originals, head(originals) AS original
+    RETURN CASE
+      WHEN size(originals) = 1 AND size([
+        (r)-[other_rel:HAS_INGREDIENT]->(:Ingredient)
+        WHERE other_rel.position = rel.position | other_rel
+      ]) = 1
+      AND size([(original)-[:MAPS_TO]->(mapped:Ingredient) | mapped]) <= 1
+      AND all(mapped IN [(original)-[:MAPS_TO]->(target:Ingredient) | target] WHERE mapped = i)
+      THEN coalesce(originals[0].original_text, originals[0].name)
+      ELSE null
+    END AS source_text
+  }
+  WITH i, rel, source_text ORDER BY coalesce(rel.position, 2147483647), i.name
   RETURN collect(CASE WHEN i IS NULL THEN NULL ELSE {
     name: i.name,
     quantity: coalesce(rel.quantity, rel.measurement),
     unit: rel.unit,
     measurement: rel.measurement,
+    display: rel.display,
+    source_text: source_text,
+    weight_grams: rel.weight_grams,
     position: rel.position,
     canonical_id: i.canonical_id
   } END) AS ingredients
 }
 CALL (r) {
   OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_ALLERGEN]->(al:Allergen)
-  RETURN collect(DISTINCT al.name) AS allergens
+  WITH r, collect(DISTINCT al.name) AS detected
+  OPTIONAL MATCH (r)-[:HAS_ALLERGEN]->(recipe_allergen:Allergen)
+  WITH r, detected, collect(DISTINCT recipe_allergen.name) AS recipe_allergens
+  RETURN detected + recipe_allergens + coalesce(r.declared_allergens, []) AS allergens
 }
 CALL (r) {
-  OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(:Ingredient)-[:HAS_CLASS]->(:FoodOnClass)
-                 -[:SUBCLASS_OF*0..5]->(anc:FoodOnClass)
-  RETURN collect(DISTINCT anc.foodon_id) AS ingredient_class_ancestors
+  OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(ingredient:Ingredient)-[:HAS_CLASS]->(direct:FoodOnClass)
+  OPTIONAL MATCH path=(direct)-[:SUBCLASS_OF*0..5]->(anc:FoodOnClass)
+  RETURN collect(DISTINCT anc.foodon_id) AS ingredient_class_ancestors,
+         collect(DISTINCT CASE WHEN anc IS NULL THEN NULL ELSE {
+           ingredient: ingredient.name, ingredient_id: ingredient.canonical_id,
+           foodon_id: anc.foodon_id, distance: length(path)
+         } END) AS ingredient_foodon_paths
 }
 CALL (r) {
   OPTIONAL MATCH (r)-[:HAS_INGREDIENT]->(i:Ingredient)
                  -[:HAS_DECLARATION]->(d:AllergenDeclaration)
                  -[:CONCERNS]->(al:Allergen)
-  RETURN collect(DISTINCT CASE WHEN al IS NULL THEN NULL ELSE {
+  WITH r, collect(DISTINCT CASE WHEN al IS NULL THEN NULL ELSE {
     allergen: al.name, ingredient: i.name, ingredient_id: i.canonical_id,
     declaration_id: d.declaration_id, presence: d.presence,
     evidence_status: d.evidence_status, sources: d.sources,
     foodon_ids: d.foodon_ids, keyword_matches: d.keyword_matches,
     classification_version: d.classification_version
-  } END) AS allergen_evidence
+  } END) AS detected
+  OPTIONAL MATCH (r)-[:HAS_DECLARATION]->(recipe_declaration:AllergenDeclaration)-[:CONCERNS]->(recipe_allergen:Allergen)
+  WITH r, detected, collect(DISTINCT CASE WHEN recipe_allergen IS NULL THEN NULL ELSE {
+    allergen: recipe_allergen.name, ingredient: "recipe declaration", ingredient_id: "",
+    declaration_id: recipe_declaration.declaration_id, presence: recipe_declaration.presence,
+    evidence_status: recipe_declaration.evidence_status, sources: recipe_declaration.sources,
+    foodon_ids: recipe_declaration.foodon_ids, keyword_matches: recipe_declaration.keyword_matches,
+    classification_version: recipe_declaration.classification_version
+  } END) AS recipe_evidence
+  RETURN detected + recipe_evidence + [name IN coalesce(r.declared_allergens, []) | {
+    allergen: name, ingredient: "recipe declaration", ingredient_id: "",
+    declaration_id: "recipe:" + coalesce(toString(r.recipe_id), toString(r.id)) + ":declared:" + name,
+    presence: "contains", evidence_status: "declared", sources: [coalesce(r.declared_allergens_source, "recipe_edit")],
+    foodon_ids: [], keyword_matches: [], classification_version: "recipe-declaration-v1"
+  }] AS allergen_evidence
 }
 CALL (r) {
   OPTIONAL MATCH (r)-[s:SUITABILITY_FOR]->(g:ConsumerGroup)
-  WHERE g.name IN ["vegan", "vegetarian"]
-    AND s.classification_version = $suitability_version
+  WHERE (g.name IN ["vegan", "vegetarian"] AND s.classification_version = $suitability_version)
+     OR (g.name = "pescatarian" AND s.classification_version = $pescatarian_version)
   RETURN collect(DISTINCT CASE WHEN g IS NULL THEN NULL ELSE {
     group: g.name, status: s.status,
     blocking_ingredients: s.blocking_ingredients,
@@ -128,7 +171,7 @@ RETURN
   r.ground_truth_nutrition_source AS ground_truth_nutrition_source,
   r.creator AS creator,
   r.meal_type AS meal_type, r.dish_type AS dish_type, r.seasonality AS seasonality,
-  ingredients, allergens, ingredient_class_ancestors,
+  ingredients, allergens, ingredient_class_ancestors, ingredient_foodon_paths,
   allergen_evidence, consumer_suitability, tags, tag_dish_types, diet_tags,
   nutrition_claims
 LIMIT 1
@@ -171,7 +214,7 @@ def _int(value: object) -> int | None:
     return int(number) if number is not None else None
 
 
-def _clean_ingredients(values: object) -> list[dict[str, Any]]:
+def _clean_ingredients(values: object, *, source: str = "") -> list[dict[str, Any]]:
     if not isinstance(values, (list, tuple)):
         return []
     ingredients: list[dict[str, Any]] = []
@@ -198,6 +241,16 @@ def _clean_ingredients(values: object) -> list[dict[str, Any]]:
         measurement = _clean(value.get("measurement"))
         if measurement:
             entry["measurement"] = measurement
+        display_text, display_source = ingredient_display_text(
+            ingredient_name=name,
+            calculation_measurement=measurement,
+            stored_display=value.get("display"),
+            source_text=value.get("source_text"),
+            source=source,
+        )
+        if display_text:
+            entry["display_text"] = display_text
+            entry["display_source"] = display_source
         canonical_id = _clean(value.get("canonical_id"))
         if canonical_id:
             entry["canonical_urn"] = f"urn:ingredient:{canonical_id}"
@@ -212,6 +265,7 @@ def fetch_owner_row(recipe_id: str) -> dict[str, Any] | None:
             {
                 "rid": recipe_id,
                 "suitability_version": SUITABILITY_CLASSIFICATION_VERSION,
+                "pescatarian_version": PESCATARIAN_CLASSIFICATION_VERSION,
                 "diet_tag_names": list(DIET_TAG_NAMES),
                 "nutrition_claim_names": list(NUTRITION_CLAIM_TAG_NAMES),
             },
@@ -240,7 +294,22 @@ def build_document(
     consumer = normalize_consumer_suitability(
         row.get("consumer_suitability"),
         classification_version=SUITABILITY_CLASSIFICATION_VERSION,
+        allergens=row.get("allergens"), evidence=row.get("allergen_evidence"),
     )
+
+    existing_evidence = list((preserve or {}).get("annotation_evidence") or [])
+    food_group_input = {
+        "ingredient_foodon_paths": row.get("ingredient_foodon_paths") or [],
+        "ingredient_class_ancestors": row.get("ingredient_class_ancestors") or [],
+        "ingredient_names": [
+            item.get("name") if isinstance(item, dict) else str(item)
+            for item in row.get("ingredients") or []
+            if item
+        ],
+        "existing_food_groups": (preserve or {}).get("food_groups") or [],
+        "existing_annotation_evidence": existing_evidence,
+    }
+    food_groups, food_group_evidence = annotation.derive_food_groups(food_group_input)
 
     doc: dict[str, Any] = {
         "urn": f"urn:recipe:{recipe_id}",
@@ -278,18 +347,26 @@ def build_document(
             row.get("ground_truth_nutrition_source")
         )
         or None,
-        "ingredients": _clean_ingredients(row.get("ingredients")),
+        "ingredients": _clean_ingredients(
+            row.get("ingredients"), source=_clean(row.get("source"))
+        ),
         "ingredient_class_ancestors": _clean_list(row.get("ingredient_class_ancestors")),
+        "food_groups": food_groups,
         "allergens": _clean_list(row.get("allergens")),
         "allergen_evidence": normalize_allergen_evidence(row.get("allergen_evidence")),
         "consumer_suitability": consumer,
         "suitable_for": suitable_groups(consumer),
         "tags": _clean_list(row.get("tags")),
-        "diet_tags": _clean_list(row.get("diet_tags")),
+        "diet_tags": assessed_diet_tags(row.get("diet_tags"), consumer,
+                                        allergens=row.get("allergens"), evidence=row.get("allergen_evidence")),
         "nutrition_claims": _clean_list(row.get("nutrition_claims")),
         "seasonality": _clean_list(row.get("seasonality")),
     }
     apply_profiles(doc, profiles or [])
+
+    doc["annotation_evidence"] = [
+        entry for entry in existing_evidence if entry.get("facet") != "food_groups"
+    ] + food_group_evidence
 
     doc = {k: v for k, v in doc.items() if v is not None}
     if preserve:
@@ -297,6 +374,8 @@ def build_document(
         if preserve.get("embedding_text") != doc.get("title"):
             for field in ("embedding", "embedding_model", "embedding_text", "embedded_at"):
                 preserve.pop(field, None)
+        preserve.pop("food_groups", None)
+        preserve.pop("annotation_evidence", None)
         # ES-owned fields win: a re-derived course type must not overwrite one
         # a person confirmed.
         doc.update(preserve)
@@ -306,6 +385,7 @@ def build_document(
     # choice rather than a correctness one. If a field is ever added to both,
     # this must move above the update or the digest will describe the owners
     # while the document describes the index.
+    doc.update(recipe_allergen_fields(doc.get("allergens"), doc.get("allergen_evidence")))
     doc["content_digest"] = content_digest(doc)
     return doc
 
@@ -320,14 +400,15 @@ OWNER_PROJECTED_FIELDS: tuple[str, ...] = (
     "cost_category_code", "cost_category_status", "cost_price_coverage", "cost",
     "disabled_at", "has_rcsi_nutrition", "has_planeat_nutrition",
     "ground_truth_nutrition_source", "ingredients", "ingredient_class_ancestors",
-    "allergens", "allergen_evidence", "consumer_suitability",
+    "food_groups",
+    "allergens", "allergen_evidence", "allergen_uncertainty", "allergen_assessment", "consumer_suitability",
     "suitable_for", "tags", "diet_tags", "nutrition_claims", "seasonality",
 )
 
 
 # Fields that exist only in Elasticsearch and must survive a re-projection.
 ES_OWNED_FIELDS: tuple[str, ...] = (
-    "course_types", "cuisines", "flavor_profiles", "moods", "food_groups",
+    "course_types", "cuisines", "flavor_profiles", "moods",
     "annotation_evidence", "enhancements", "ai_generated_fields",
     "ai_allergens", "ai_tags", "embedding", "embedding_model",
     "embedding_text", "embedded_at", "review_status", "visibility",
@@ -388,7 +469,7 @@ def project(recipe_id: str, *, refresh: str = "wait_for") -> dict[str, Any]:
     existing = entity.get(recipe_id) or {}
     preserve = {
         field: existing[field]
-        for field in ES_OWNED_FIELDS
+        for field in (*ES_OWNED_FIELDS, "food_groups")
         if existing.get(field) not in (None, [], {}, "")
     }
 

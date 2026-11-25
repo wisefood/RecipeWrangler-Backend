@@ -21,7 +21,7 @@ if load_dotenv:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CSV_PATH = Path(os.getenv("IRISH_INGREDIENTS_CSV", REPO_ROOT / "data/raw/irish/Irish_Comp_Table.csv"))
+CSV_PATH = Path(os.getenv("IRISH_INGREDIENTS_CSV", REPO_ROOT / "data/nutrition/composition_tables/irish/Irish_Comp_Table.csv"))
 
 DB_NAME = os.getenv("NUTRITION_DB", os.getenv("POSTGRES_DB", "rag"))
 DB_USER = os.getenv("NUTRITION_USER", os.getenv("POSTGRES_USER", "rag"))

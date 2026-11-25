@@ -24,7 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CSV_PATH = Path(
     os.getenv(
         "HUNGARIAN_INGREDIENTS_CSV",
-        REPO_ROOT / "data/processed/hungarian-comp-table/hungarian_comp_table.csv",
+        REPO_ROOT / "data/nutrition/composition_tables/hungarian/hungarian_comp_table.csv",
     )
 )
 

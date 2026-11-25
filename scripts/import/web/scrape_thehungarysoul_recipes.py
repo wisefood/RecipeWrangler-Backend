@@ -76,18 +76,18 @@ def list_recipe_urls() -> list[str]:
     return urls
 
 
-def _flatten_instructions(instructions: list) -> list[str]:
-    steps = []
-    for entry in instructions or []:
-        if not isinstance(entry, dict):
-            continue
-        if entry.get("@type") == "HowToSection":
-            for step in entry.get("itemListElement") or []:
-                if isinstance(step, dict) and step.get("text"):
-                    steps.append(step["text"])
-        elif entry.get("text"):
-            steps.append(entry["text"])
-    return steps
+def _flatten_instructions(value) -> list[str]:
+    if isinstance(value, str):
+        return [value.strip()] if value.strip() else []
+    if isinstance(value, list):
+        return [text for item in value for text in _flatten_instructions(item)]
+    if not isinstance(value, dict):
+        return []
+    for key in ("itemListElement", "steps", "recipeInstructions"):
+        if value.get(key) is not None:
+            return _flatten_instructions(value[key])
+    text = value.get("text") or value.get("name")
+    return [text.strip()] if isinstance(text, str) and text.strip() else []
 
 
 def fetch_detail(url: str) -> dict | None:

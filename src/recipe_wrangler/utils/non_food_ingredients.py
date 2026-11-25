@@ -25,12 +25,15 @@ _NON_FOOD_PHRASES = (
     "ice cube tray", "ice cube trays", "round cutter", "round cutters",
     "cookie cutter", "cookie cutters", "ramekin", "ramekins",
     "glass jar", "glass jars", "drinking glass", "drinking glasses",
+    "egg mould", "egg moulds", "egg mold", "egg molds",
 )
 
 _NON_FOOD_EXACT = {
     "frying pan", "jar", "jars", "oven bag", "oven bags",
     "twine", "string", "kitchen string", "string or twine", "twine or string",
     "thermometer", "stainless steel turner",
+    "culinary pipette", "culinary pipettes",
+    "miniature culinary pipette", "miniature culinary pipettes",
 }
 
 

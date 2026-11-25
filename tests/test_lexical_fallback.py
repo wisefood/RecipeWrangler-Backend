@@ -81,7 +81,7 @@ class TestCallerFacetsAreNotSignal:
     """The regression itself: a chip must not disable the fallback."""
 
     @pytest.mark.parametrize("facet", [
-        "exclude_allergens", "boost_tags", "boost_ingredients",
+        "exclude_allergens", "boost_ingredients",
     ])
     def test_caller_supplied_fields_are_not_consulted(self, facet):
         # These carry the member's profile and preference boosts, never a

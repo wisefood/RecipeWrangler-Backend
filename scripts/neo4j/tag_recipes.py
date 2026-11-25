@@ -283,6 +283,11 @@ def _tag_pescatarian(
 
 
 def _tag_30_minutes_or_less(driver) -> int:
+    with driver.session() as session:
+        session.run(
+            'MATCH (:Recipe)-[rel:HAS_TAG]->(:Tag {name: "30_minutes_or_less"}) '
+            "DELETE rel"
+        ).consume()
     query = """
     MATCH (r:Recipe)
     WITH r, coalesce(r.duration, r.total_time, r.duration_min) AS minutes

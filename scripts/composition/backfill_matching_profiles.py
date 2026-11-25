@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import math
 from pathlib import Path
 from sqlalchemy import text
 from recipe_wrangler.matching.runtime import engine,VERSION
 from recipe_wrangler.matching.quantities import source_recipe_index,recipe_inputs
+from recipe_wrangler.matching.source_evidence import stated_weight
 from recipe_wrangler.matching.source_context import graph_source_lines
 from recipe_wrangler.repositories import matching_store as store
 from recipe_wrangler.utils.nutrition_postgres import get_engine
@@ -38,20 +40,32 @@ def bind_source_lines(names,originals,frozen,lines,weights=None):
     Frozen evidence whose saved names or weights predate later corrections is stale: keep its text, drop its quantities.
     """
     if frozen is not None and weights is not None and _stale(frozen,names,weights):
-        originals=[old or (o.get('original_text') or '') for old,o in zip(originals,frozen['occurrences'],strict=True)]
+        occ=frozen['occurrences']
+        originals=[old or (occ[i].get('original_text') or '') if i<len(occ) else old
+                   for i,old in enumerate(originals)]
         frozen=None
     if frozen is None:return recover_missing_context(names,originals,lines)[0],None
     frozen=copy.deepcopy(frozen);occurrences=frozen['occurrences']
     filled,_=recover_missing_context([o['parsed_name'] for o in occurrences],
         [o.get('original_text') or '' for o in occurrences],lines)
-    for occurrence,line in zip(occurrences,filled,strict=True):occurrence['original_text']=line
+    for occurrence,line in zip(occurrences,filled,strict=True):
+        occurrence['original_text']=line
+        evidence=occurrence.get('quantity_evidence')
+        if evidence:
+            # A rule change after the freeze (e.g. bracket-after-count is the line total) makes the
+            # saved evidence stale: drop it so the current parse of the source line wins.
+            parsed=stated_weight(occurrence['parsed_name'],evidence.get('source_line') or line)
+            if parsed is None or parsed['kind']!=evidence.get('kind') or not math.isclose(
+                    parsed['weight_g'],evidence.get('weight_g') or -1.0,rel_tol=1e-9):
+                occurrence['quantity_evidence']=None
     return originals,frozen
 
 
 def _stale(frozen,names,weights):
-    # Saved names or weights corrected after the evidence was frozen (e.g. "Pepper" -> "capsicum pepper").
+    # Saved names, weights or line counts corrected after the evidence was frozen
+    # (e.g. "Pepper" -> "capsicum pepper", or a glued line split into two occurrences).
     occurrences=frozen['occurrences']
-    return len(occurrences)==len(names) and any((o.get('baseline_parsed_name') or o['parsed_name'])!=n
+    return len(occurrences)!=len(names) or any((o.get('baseline_parsed_name') or o['parsed_name'])!=n
         or o['saved_weight_g']!=w for o,n,w in zip(occurrences,names,weights))
 
 

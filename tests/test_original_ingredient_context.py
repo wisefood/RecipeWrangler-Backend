@@ -206,6 +206,28 @@ def test_backfill_keeps_corrected_names_when_frozen_evidence_is_stale():
     assert originals==['100 g Pepper, capsicum, yellow, raw','150 g onion']
 
 
+def test_backfill_treats_a_changed_line_count_as_stale_frozen_evidence():
+    from scripts.composition.backfill_matching_profiles import bind_source_lines
+    evidence={'occurrences':[
+        {'parsed_name':'Butter','saved_weight_g':0.5,'original_text':'Butter'}]}
+    originals,frozen=bind_source_lines(['Butter','Sugar'],['',''],evidence,[],weights=[125.0,125.0])
+    assert frozen is None
+    assert originals==['Butter','']
+
+
+def test_backfill_drops_frozen_evidence_the_current_rule_reparses_differently():
+    from scripts.composition.backfill_matching_profiles import bind_source_lines
+    line='4 x large (75g) wholemeal pita breads'
+    evidence={'occurrences':[
+        {'parsed_name':'wholemeal pita breads','saved_weight_g':300.0,'original_text':line,
+         'quantity_evidence':{'kind':'explicit_source_mass','source_line':line,'weight_g':75.0}}]}
+    _,frozen=bind_source_lines(['wholemeal pita breads'],[''],evidence,[],weights=[300.0])
+    assert frozen is not None
+    # bracket after a count is the line total under the current rule, so the frozen per-piece
+    # evidence is stale and must be dropped, not raise in recipe_inputs
+    assert frozen['occurrences'][0]['quantity_evidence'] is None
+
+
 def test_archived_scrape_replaces_fragmented_graph_lines_by_unique_title(tmp_path):
     from scripts.composition.backfill_matching_profiles import archived_source_lines
     raw=tmp_path/'raw.json'

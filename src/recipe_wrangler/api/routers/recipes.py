@@ -69,6 +69,7 @@ from recipe_wrangler.repositories.neo4j_recipes import (
     detect_allergen_evidence_from_names,
     detect_allergens_from_names,
     fetch_recipe_dish_types_by_ids,
+    find_ingredient_substitutes,
     infer_diet_tags,
     replace_recipe_nutrition_claims,
     resolve_collection_source_id,
@@ -134,6 +135,8 @@ from recipe_wrangler.schemas import (
     RecipeScaleResponse,
     RecipeSearchFilters,
     RecipeSearchRequest,
+    RecipeSubstituteRequest,
+    RecipeSubstituteResponse,
     RecipeUpdateRequest,
     RecipeUpdateResponse,
     RecipeUrlRequest,
@@ -2974,6 +2977,127 @@ async def recipe_create(
         allergens=response_allergens,
         allergen_evidence=response_evidence,
         **recipe_allergen_fields(response_allergens, response_evidence),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Ingredient substitution endpoint
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{recipe_id}/substitute",
+    response_model=RecipeSubstituteResponse,
+    tags=["recipes"],
+    summary="Substitute an ingredient and return the updated nutrition profile",
+)
+async def recipe_substitute(
+    recipe_id: str,
+    payload: RecipeSubstituteRequest,
+) -> RecipeSubstituteResponse:
+    """Find the best substitute for an ingredient in a recipe and re-profile the result.
+
+    Lookup order for substitutes:
+    1. HAS_SUBSTITUTION edges (MISKG-curated).
+    2. FoodOn taxonomy siblings (3-hop ancestor search).
+
+    Returns the first (best) candidate along with the full nutrition profile
+    of the recipe after the swap.
+    """
+    region = str(payload.region or "IE").strip().upper()
+    if region not in {"IE", "HU", "EU", "SI"}:
+        region = "IE"
+
+    # --- Fetch recipe ---
+    try:
+        recipe = _catalog_recipe_by_id(recipe_id)
+    except Exception as exc:
+        raise map_dependency_error("Elasticsearch", exc) from exc
+
+    if not recipe:
+        raise NotFoundError(detail=f"Recipe '{recipe_id}' not found")
+
+    # --- Confirm ingredient is in the recipe ---
+    ingredient_lower = payload.ingredient.strip().lower()
+    recipe_ingredients: list[dict[str, Any]] = recipe.get("ingredients") or []
+    matched = next(
+        (ing for ing in recipe_ingredients if (ing.get("name") or "").lower() == ingredient_lower),
+        None,
+    )
+    if matched is None:
+        raise NotFoundError(
+            detail=f"Ingredient '{payload.ingredient}' not found in recipe '{recipe_id}'"
+        )
+
+    # --- Find substitutes ---
+    try:
+        sub_result = find_ingredient_substitutes(payload.ingredient)
+    except Exception as exc:
+        raise map_dependency_error("Neo4j", exc) from exc
+
+    candidates: list[str] = sub_result.get("candidates") or []
+    source: str | None = sub_result.get("source")
+
+    if not candidates:
+        raise NotFoundError(
+            detail=f"No substitutes found for ingredient '{payload.ingredient}'"
+        )
+
+    best_substitute = candidates[0]
+
+    # --- Build modified ingredient list (swap name, keep measurement) ---
+    modified_ingredient_names: list[str] = []
+    modified_measurements: list[str] = []
+    for ing in recipe_ingredients:
+        name = ing.get("name") or ""
+        measurement = ing.get("measurement") or ing.get("quantity") or name
+        if name.lower() == ingredient_lower:
+            modified_ingredient_names.append(best_substitute)
+        else:
+            modified_ingredient_names.append(name)
+        modified_measurements.append(measurement)
+
+    # --- Re-profile with substitute ---
+    serves = float(recipe.get("serves") or 1)
+    total_time = recipe.get("duration")
+
+    profile_error: str | None = None
+    try:
+        profile_result = await _invoke_profile_with_timeout({
+            "title": recipe.get("title") or "",
+            "ingredient_names": modified_ingredient_names,
+            "measurements": modified_measurements,
+            "serves": serves,
+            "total_time": float(total_time) if total_time is not None else None,
+            "directions": recipe.get("instructions") or [],
+            "region": region,
+            "debug": False,
+        })
+        if not isinstance(profile_result, dict):
+            raise InternalError(
+                detail="Profiling pipeline returned unexpected payload",
+                extra={"title": "ProfilingPipelineError"},
+            )
+
+        # Strip top-level None values (unset pipeline state)
+        profile_result = {k: v for k, v in profile_result.items() if v is not None}
+    except Exception as exc:
+        profile_error = str(exc)
+        profile_result = {
+            "status": "profiling_unavailable",
+            "region": region,
+            "title": recipe.get("title") or "",
+            "serves": serves,
+            "modified_ingredients": modified_ingredient_names,
+            "measurements": modified_measurements,
+            "error": profile_error,
+        }
+
+    return RecipeSubstituteResponse(
+        original_ingredient=payload.ingredient,
+        substitute=best_substitute,
+        substitution_source=source,
+        candidates=candidates,
+        modified_recipe_profile=profile_result,
     )
 
 

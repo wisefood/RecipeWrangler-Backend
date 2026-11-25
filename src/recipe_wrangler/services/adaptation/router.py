@@ -12,9 +12,14 @@ from fastapi import APIRouter, HTTPException, Path, Query
 
 from .schemas import (
     AdaptationResponse,
+    SimulateRequest,
+    SimulateResponse,
+    SuggestionsRequest,
+    SuggestionsResponse,
     EnhancementRequest,
     SmallGainRequest,
 )
+from .service import generate_suggestions, simulate_swap
 from .enhancement_response import EnhancementResponse
 
 
@@ -52,3 +57,41 @@ def nutrition_adaptation(payload: SmallGainRequest, recipe_id: str = Path(...)) 
     from .service import _region_to_source
     from .nutrition_adaptation import adapt_active_recipe
     return adapt_active_recipe(recipe_id, _region_to_source(payload.region), allergens=payload.allergens, diet=payload.diet)
+
+
+@router.post(
+    "/{recipe_id}/adapt/suggestions",
+    response_model=SuggestionsResponse,
+)
+def suggestions(
+    payload: SuggestionsRequest,
+    recipe_id: str = Path(..., description="Recipe ID as stored in PostgreSQL profile."),
+) -> SuggestionsResponse:
+    result = generate_suggestions(
+        recipe_id=recipe_id,
+        region=payload.region,
+        max_swaps=payload.max_swaps,
+        use_llm=payload.use_llm,
+        mode=payload.mode,
+        goal_nutrients=payload.goal_nutrients,
+        target_serves=payload.target_serves,
+    )
+    return SuggestionsResponse(**result)
+
+
+@router.post(
+    "/{recipe_id}/adapt/simulate",
+    response_model=SimulateResponse,
+)
+def simulate(
+    payload: SimulateRequest,
+    recipe_id: str = Path(..., description="Recipe ID as stored in PostgreSQL profile."),
+) -> SimulateResponse:
+    result = simulate_swap(
+        recipe_id=recipe_id,
+        region=payload.region,
+        original_ingredient=payload.swap.original_ingredient,
+        substitute_ingredient=payload.swap.substitute_ingredient,
+        weight_g=payload.swap.weight_g,
+    )
+    return SimulateResponse(**result)

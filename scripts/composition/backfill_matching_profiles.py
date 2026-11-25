@@ -10,6 +10,7 @@ from recipe_wrangler.matching.runtime import engine,VERSION
 from recipe_wrangler.matching.quantities import source_recipe_index,recipe_inputs
 from recipe_wrangler.matching.source_evidence import stated_weight
 from recipe_wrangler.matching.source_context import graph_source_lines
+from recipe_wrangler.utils.neo4j_utils import run_query
 from recipe_wrangler.repositories import matching_store as store
 from recipe_wrangler.utils.nutrition_postgres import get_engine
 from scripts.composition.repair_original_ingredient_context import recover_missing_context
@@ -69,6 +70,15 @@ def _stale(frozen,names,weights):
         or o['saved_weight_g']!=w for o,n,w in zip(occurrences,names,weights))
 
 
+def _serves_for(recipe_id, serves_override, graph_serves, quality, trace):
+    # The graph is the source of truth for serves after a snapshot sync; the saved legacy
+    # row can still carry a pre-fix value (e.g. "1 loaf (16 slices)" read as 1).
+    if serves_override and recipe_id in serves_override:return serves_override[recipe_id]
+    graph=graph_serves.get(recipe_id)
+    if graph:return graph
+    return quality.get('serves') or trace.get('serves')
+
+
 def backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None,serves=None):
     with get_engine().connect() as lock:
         # One lock per shard: shards split recipes, so they never write the same profile.
@@ -111,6 +121,9 @@ def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,
         evidence=source_recipe_index(json.loads(frozen.read_text()))
     # Saved profiles lost most source lines; bind the graph originals one-to-one, never by position.
     source_lines={**graph_source_lines(sorted({row['recipe_id'] for row in rows})),**archived_source_lines(rows)}
+    graph_serves={row['rid']:row['serves'] for row in run_query(
+        'MATCH (r:Recipe) WHERE r.recipe_id IN $ids RETURN r.recipe_id AS rid, r.serves AS serves',
+        {'ids':sorted({row['recipe_id'] for row in rows})})}
     failures=[];processed=0
     output=Path('analysis')/('matching_backfill_'+release_id);output.mkdir(exist_ok=True)
     name='status' if shards==1 else f'status_{shard}_of_{shards}'
@@ -141,7 +154,7 @@ def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,
             names=inputs['names'];originals=inputs['originals']
             quantities=[q['quantity_evidence'] for q in inputs['quantities']]
             quality=row['profiling_quality'] or {};trace=row['trace'] or {}
-            serves=(serves_override or {}).get(row['recipe_id']) or quality.get('serves') or trace.get('serves')
+            serves=_serves_for(row['recipe_id'],serves_override,graph_serves,quality,trace)
             # Snapshot old data before any active-run change; reference rows are excluded.
             store.save_run(row['recipe_id'],row['nutrition_source'],None,'legacy_snapshot_complete_v2',
                 {'profile':row},row)

@@ -228,6 +228,15 @@ def test_backfill_drops_frozen_evidence_the_current_rule_reparses_differently():
     assert frozen['occurrences'][0]['quantity_evidence'] is None
 
 
+def test_backfill_prefers_graph_serves_over_stale_saved_serves():
+    from scripts.composition.backfill_matching_profiles import _serves_for
+    # "1 loaf (16 slices)": graph fixed to 16 by the snapshot sync, legacy row still says 1
+    assert _serves_for('r1', {}, {'r1': 16.0}, {'serves': 1.0}, {}) == 16.0
+    assert _serves_for('r1', {'r1': 8.0}, {'r1': 16.0}, {'serves': 1.0}, {}) == 8.0
+    assert _serves_for('r2', {}, {}, {'serves': 4.0}, {'serves': 2.0}) == 4.0
+    assert _serves_for('r3', {}, {}, {}, {}) is None
+
+
 def test_archived_scrape_replaces_fragmented_graph_lines_by_unique_title(tmp_path):
     from scripts.composition.backfill_matching_profiles import archived_source_lines
     raw=tmp_path/'raw.json'

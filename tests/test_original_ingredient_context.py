@@ -249,3 +249,11 @@ def test_archived_scrape_replaces_fragmented_graph_lines_by_unique_title(tmp_pat
           {'recipe_id':'2','source':'FoodHero','title':'Twin'},
           {'recipe_id':'3','source':'MyPlate','title':'Agua Fresca'}]
     assert archived_source_lines(rows,{'FoodHero':raw})=={'1':['1 to 2 Tablespoons lime juice']}
+
+
+def test_recomputing_an_identical_run_marks_it_latest():
+    # Run ids are content hashes; consumers pick the latest run by created_at, so a re-run
+    # that reproduces an older profile must move ahead of any newer, different run.
+    connection=Mock()
+    insert_run(connection,'recipe','eu','release','v',{'serves':2.0},{'clean_totals':{}})
+    assert 'DO UPDATE SET created_at=now()' in str(connection.execute.call_args_list[0].args[0])

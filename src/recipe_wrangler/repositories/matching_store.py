@@ -151,7 +151,7 @@ def insert_run(c,recipe_id: str, source: str, release_id: str | None, version: s
     c.execute(text('''INSERT INTO public.matching_profile_runs
             (run_id,recipe_id,nutrition_source,release_id,mechanism_version,input_hash,profile)
             VALUES(:id,:recipe,:source,:release,:version,:hash,CAST(:profile AS jsonb))
-            ON CONFLICT(run_id) DO NOTHING'''),{'id':run_id,'recipe':recipe_id,'source':source,
+            ON CONFLICT(run_id) DO UPDATE SET created_at=now()'''),{'id':run_id,'recipe':recipe_id,'source':source,
             'release':release_id,'version':version,'hash':input_hash,
             'profile':json.dumps(profile,allow_nan=False)})
     if activate:

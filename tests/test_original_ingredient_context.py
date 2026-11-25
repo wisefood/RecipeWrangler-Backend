@@ -235,6 +235,9 @@ def test_backfill_prefers_graph_serves_over_stale_saved_serves():
     assert _serves_for('r1', {'r1': 8.0}, {'r1': 16.0}, {'serves': 1.0}, {}) == 8.0
     assert _serves_for('r2', {}, {}, {'serves': 4.0}, {'serves': 2.0}) == 4.0
     assert _serves_for('r3', {}, {}, {}, {}) is None
+    # Fractional source yields keep the legacy sanitize policy: round, estimate below 1.
+    assert _serves_for('r4', {}, {'r4': 2.5}, {'serves': 2.0}, {}, 300) == 2.0
+    assert _serves_for('r5', {}, {'r5': 0.5}, {'serves': 1.0}, {}, 120) == 1.0
 
 
 def test_archived_scrape_replaces_fragmented_graph_lines_by_unique_title(tmp_path):

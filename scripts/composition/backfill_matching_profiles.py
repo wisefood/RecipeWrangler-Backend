@@ -11,6 +11,7 @@ from recipe_wrangler.matching.quantities import source_recipe_index,recipe_input
 from recipe_wrangler.matching.source_evidence import stated_weight
 from recipe_wrangler.matching.source_context import graph_source_lines
 from recipe_wrangler.utils.neo4j_utils import run_query
+from recipe_wrangler.tools.recipe_profiling_tool import _sanitize_serves
 from recipe_wrangler.repositories import matching_store as store
 from recipe_wrangler.utils.nutrition_postgres import get_engine
 from scripts.composition.repair_original_ingredient_context import recover_missing_context
@@ -70,12 +71,14 @@ def _stale(frozen,names,weights):
         or o['saved_weight_g']!=w for o,n,w in zip(occurrences,names,weights))
 
 
-def _serves_for(recipe_id, serves_override, graph_serves, quality, trace):
+def _serves_for(recipe_id, serves_override, graph_serves, quality, trace, total_weight_g=0):
     # The graph is the source of truth for serves after a snapshot sync; the saved legacy
-    # row can still carry a pre-fix value (e.g. "1 loaf (16 slices)" read as 1).
+    # row can still carry a pre-fix value (e.g. "1 loaf (16 slices)" read as 1). Sanitize it
+    # like the legacy pipeline did (round given yields, estimate below 1), so fractional
+    # source yields (2.5, 0.5) keep their current per-serving policy.
     if serves_override and recipe_id in serves_override:return serves_override[recipe_id]
     graph=graph_serves.get(recipe_id)
-    if graph:return graph
+    if graph:return _sanitize_serves(graph,total_weight_g)[0]
     return quality.get('serves') or trace.get('serves')
 
 
@@ -154,7 +157,7 @@ def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,
             names=inputs['names'];originals=inputs['originals']
             quantities=[q['quantity_evidence'] for q in inputs['quantities']]
             quality=row['profiling_quality'] or {};trace=row['trace'] or {}
-            serves=_serves_for(row['recipe_id'],serves_override,graph_serves,quality,trace)
+            serves=_serves_for(row['recipe_id'],serves_override,graph_serves,quality,trace,sum(w or 0 for w in weights))
             # Snapshot old data before any active-run change; reference rows are excluded.
             store.save_run(row['recipe_id'],row['nutrition_source'],None,'legacy_snapshot_complete_v2',
                 {'profile':row},row)

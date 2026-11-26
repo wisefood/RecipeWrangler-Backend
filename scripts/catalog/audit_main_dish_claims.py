@@ -152,6 +152,16 @@ Judge the recipe as written. Be careful in both directions:
 - "Bolognese sauce" or "Pasta sauce" is NOT a main dish, even though it is
   savoury, cooked and filling. It produces a sauce; the meal needs pasta.
 - A salad, soup or starter substantial enough to be a meal MAY be both. Say so.
+- A pasta, ravioli, tortellini or gnocchi dish served with its sauce ("Spaghetti
+  with marinara sauce", "Mushroom ravioli with chilli and lime sauce") IS a main
+  dish: the recipe produces the plate. Only the bare sauce is an accompaniment.
+- Meatballs, fishcakes, fritters, falafel, dumplings, sausage rolls and similar
+  patties or parcels served with a dip or sauce ARE main dishes. The dip is a
+  component, not the recipe.
+- Plain cooked grains (rice, quinoa, barley, millet, polenta), mashed or roast
+  potatoes, potato cakes, bread, flatbread, rubs, seasonings, marinades, gravies and
+  vegetable-only side preparations ("Green Bean Sauté", "Panned Cabbage") are NOT
+  main dishes. They are eaten with something else.
 
 Then assign the courses the recipe really belongs to, using ONLY these values:
 {', '.join(S.COURSE_TYPES)}

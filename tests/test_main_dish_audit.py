@@ -226,5 +226,19 @@ class PromptTests(unittest.TestCase):
         self.assertEqual([v.strip() for v in line.split(",")], list(S.COURSE_TYPES))
 
 
+class OwnerReviewPromptTests(unittest.TestCase):
+    """Owner review 2026-11-24 lives in the prompt, not in a title keep list."""
+
+    def test_prompt_keeps_sauced_pasta_and_patties_as_mains(self):
+        prompt = " ".join(audit.SYSTEM_PROMPT.split())
+        for phrase in ("Spaghetti with marinara sauce", "Meatballs, fishcakes, fritters, falafel"):
+            self.assertIn(phrase, prompt)
+
+    def test_prompt_demotes_plain_sides(self):
+        prompt = " ".join(audit.SYSTEM_PROMPT.split())
+        for phrase in ("Plain cooked grains", "potato cakes", "gravies", "Green Bean Saut"):
+            self.assertIn(phrase, prompt)
+
+
 if __name__ == "__main__":
     unittest.main()

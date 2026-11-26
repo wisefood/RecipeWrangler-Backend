@@ -10,7 +10,7 @@ KEEP = [
     "Tortellini", "Mushroom ravioli", "Creamy pesto ravioli", "Salsa verde pasta", "Spaghetti with marinara",
     "Pappardelle", "conchiglie", "Spinach and black olive sauce with pasta", "Pasta with tomato and mascarpone",
     "Spaghetti with Quick Meat Sauce", "Italian meatballs", "Beef olives", "sausage rolls", "Chicken pick",
-    "Brussels Sprouts with Mushroom Sauce", "Mushrooms with puttanesca", "Potato Pals", "Hiding Rabbits",
+    "Mushrooms with puttanesca", "Potato Pals", "Hiding Rabbits",
     "Zombie feet", "fritters", "Fishcakes", "Falafels", "Jack o", "Calamari", "Basil pesto with risoni",
     "Mini prawn tortillas", "Spoon dumplings", "Scallops, apple",
 ]

@@ -66,6 +66,10 @@ Rules, in order of importance:
    and soy sauce does not make it Chinese.
 4. Assign at most 1 course_type, 2 cuisines, 4 flavor_profiles, and 2 moods.
 5. confidence is your own 0-1 estimate that the whole assignment is right.
+6. Use main-dish only for a recipe that is a complete plate on its own. A bare
+   sauce, gravy, marinade, rub, seasoning, bread, plain grain or potato side, or
+   vegetable-only side is a side. Pasta with its sauce, meatballs, fishcakes,
+   fritters, falafel, dumplings and sausage rolls are main dishes.
 
 {vocabulary_block()}
 

@@ -76,6 +76,12 @@ class TestPromptConstruction:
     def test_system_prompt_warns_against_single_ingredient_inference(self):
         assert "olive oil does not make a dish Italian" in A.SYSTEM_PROMPT
 
+    def test_system_prompt_defines_main_dish_from_owner_review(self):
+        """Owner review 2026-11-24: sauces/breads/plain grains are sides; filled pasta, meatballs, fishcakes are mains."""
+        prompt = " ".join(A.SYSTEM_PROMPT.split())
+        for phrase in ("complete plate", "bare sauce", "plain grain", "Pasta with its sauce", "meatballs", "fishcakes"):
+            assert phrase in prompt
+
     def test_source_cuisine_prior_is_offered_as_a_prior_not_a_fact(self):
         prompt = A.build_user_prompt(title="Goulash", source="Curated Hungarian Recipes")
         assert "hungarian" in prompt.lower()

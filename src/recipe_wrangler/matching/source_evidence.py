@@ -97,7 +97,8 @@ def stated_weight(name: str, line: str, *, source_name: str | None = None) -> di
         return {'weight_g':pack,'kind':'explicit_source_mass','source_line':line}
     # "8 small (600g) chicken thighs": the bracket is the line's mass in grams; the shared
     # parser rule only reads it per piece when a total would be far too light ("4 small (50g) eggs").
-    if re.match(r'^\d+\s*(?:[x×]\s*)?(?:mini|small|medium|large|individual)\s*\(',text) and any(word[:4] in text for word in re.findall(r'[a-z]+',name.casefold())):
+    # "3 (75g) pita breads" too, not only size words, so graph weights and calories read it the same way.
+    if re.match(r'^\d+\s*(?:[x×]\s*)?(?:(?:mini|small|medium|large|individual)\s*)?\(',text) and any(word[:4] in text for word in re.findall(r'[a-z]+',name.casefold())):
         from recipe_wrangler.tools.parse_recipe_tool import _bracket_total_mass
         mass=_bracket_total_mass(text,'1',name)
         return {'weight_g':mass,'kind':'explicit_source_mass','source_line':line} if mass and 0<mass<=10000 else None

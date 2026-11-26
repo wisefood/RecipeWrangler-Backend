@@ -1048,14 +1048,65 @@ def _bracket_total_mass(display: str, measurement: str, name: str) -> float | No
               or (volume and re.match(r"^\s*\d+(?:\.\d+)?\s*[a-z]+\s*$", measurement, re.IGNORECASE))):
         return None
     tail = display[match.end():match.end() + 30]
-    if re.search(r"\b(?:each|apiece|per)\b", tail):
+    # "(300g each)" or "(200g) each" is per piece; "(about 500g) chicken breasts, each cut in 2" is not.
+    if re.match(r"[^),;]*\b(?:each|apiece|per)\b|\s*\)\s*(?:each|apiece)\b", tail):
         return grams * count
     if count > 1 and not volume and not re.search(r"\btotal\b", tail):
-        table = _table_weight(name, f"{count:g} {unit}".strip())
+        # The line's own words ("4 new potatoes (160g)") describe the piece better than a parsed name that lost them.
+        between = re.sub(r"^[\s\d/.½⅓⅔¼¾⅛⅜⅝⅞x×]+", "", display[: display.index("(")]).strip()
+        between = re.sub(rf"^{re.escape(unit)}\b", "", between).strip() if unit else between
+        own = between if set(re.findall(r"[a-z]+", between)) & set(re.findall(r"[a-z]+", name.casefold())) else name
+        table = _table_weight(own, f"{count:g} {unit}".strip())
         # Flip to per piece only when the total is at least twice too light and one piece fits the reference.
         if table and grams / table < 0.5 and 0.6 <= grams * count / table <= 1.7:
             return grams * count
     return grams
+
+
+_MASS_MEASUREMENT_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*(g|grams?|kg|oz|ounces?|lbs?|pounds?)\s*$", re.IGNORECASE)
+_MASS_FACTORS = {"g": 1.0, "gram": 1.0, "grams": 1.0, "kg": 1000.0, "oz": 28.3495, "ounce": 28.3495, "ounces": 28.3495,
+                 "lb": 453.592, "lbs": 453.592, "pound": 453.592, "pounds": 453.592}
+_LEADING_QUANTITY_RE = re.compile(r"^\s*((?:\d+\s+)?(?:\d+/\d+|[½⅓⅔¼¾⅛⅜⅝⅞]|\d+(?:\.\d+)?))")
+_EXPLICIT_EQUIVALENT_MASS_RE = re.compile(
+    r"\(\s*(?:about|around|approx\.?|~)?\s*\d+(?:\.\d+)?\s*(?:g|kg)\b|\b(?:about|around|approx\.?)\s*\d+(?:\.\d+)?\s*(?:g|kg)\b",
+    re.IGNORECASE,
+)
+
+
+def restore_source_stated_mass(measurement: str, line: str, name: str) -> str | None:
+    """A mass the source line states wins over the parsed amount: wrong grams (HealthyFoods lists
+    every line twice and the parse summed the copies: "⅓ cup (60g)" stored as 120 g) and counts or
+    units the weight tool would guess ("4 new potatoes (200g)"). The nutrition profile reads the
+    line the same way, so graph and calories agree."""
+    measurement = str(measurement or "").strip()
+    if not measurement or measurement.casefold() == "optional":
+        return None
+    text = line.casefold()
+    # Added amounts ("1 tbsp + 100g"), lines naming two masses (glued lines, raw-weight asides) and
+    # "1,000 g" / "0,2 g" separators the mass reader does not parse stay as parsed.
+    if re.search(r"\+|\bplus\b|\d,\d", text) or len(set(re.findall(r"(\d+(?:\.\d+)?)\s*(?:g|kg)\b", text))) > 1:
+        return None
+    mass = _MASS_MEASUREMENT_RE.match(measurement)
+    if mass is None:
+        # A count, size or volume gives way only to the same line's stated equivalent: same leading
+        # number and a bracketed or "about" mass ("2 rashers (about 100g)"), never a neighbour's mass.
+        lead, own = _LEADING_QUANTITY_RE.match(text), _LEADING_QUANTITY_RE.match(measurement)
+        if not (lead and own and _EXPLICIT_EQUIVALENT_MASS_RE.search(text)):
+            return None
+        a, b = _deterministic_quantity(lead[1]), _deterministic_quantity(own[1])
+        if a is None or b is None or not math.isclose(a, b, rel_tol=0.01):
+            return None
+    grams = _bracket_total_mass(text, "1", name)  # same total/"each" rule as the display path
+    if grams is None:
+        from recipe_wrangler.matching.source_evidence import stated_weight
+
+        stated = stated_weight(name, line)
+        if not stated or stated["kind"] != "explicit_source_mass":
+            return None
+        grams = stated["weight_g"]
+    if mass and math.isclose(float(mass[1]) * _MASS_FACTORS[mass[2].casefold()], grams, rel_tol=0.01):
+        return None
+    return f"{_format_quantity(grams)} g"
 
 
 def restore_explicit_source_measurement(
@@ -1869,6 +1920,9 @@ def prepare_entries_for_weights(
                 )
                 if recovered is not None:
                     current["measurement"] = recovered
+                stated = restore_source_stated_mass(current["measurement"], line, current["name"])
+                if stated is not None:
+                    current["measurement"] = stated
         # A metric amount cannot come from a line with no digits ("Salt and pepper to taste"): it leaked from another line.
         if line is not None and not re.search(r"\d", line) and re.search(r"^\s*[\d.]+\s*(?:g|kg|ml|l)\b", current["measurement"], re.IGNORECASE):
             current["measurement"] = ""

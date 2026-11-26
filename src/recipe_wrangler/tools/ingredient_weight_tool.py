@@ -1038,6 +1038,7 @@ _REVIEWED_CUP_GRAMS = (
     (re.compile(r"\bsunflower seeds?\b"), 140.0, "sunflower seeds (USDA)"),
     (re.compile(r"\bcashews?\b"), 137.0, "cashews (USDA dry roasted)"),
     (re.compile(r"\b(?:peanut|nut|seed)\s+butter\b|\bsunflower seed butter\b"), 258.0, "nut butter (USDA peanut butter)"),
+    (re.compile(r"\b(?:coleslaw|slaw)\b(?=.*\bmix\b)|\bslaw mix\b"), 70.0, "undressed coleslaw mix (USDA shredded cabbage)"),
     (re.compile(r"\bred cabbage\b|\bcabbage\b"), 89.0, "cabbage chopped (USDA)"),
     (re.compile(r"\bcapsicum\b|\bbell pepper\b"), 149.0, "sweet pepper chopped (USDA)"),
     (re.compile(r"\bpineapple\b"), 165.0, "pineapple chunks (USDA)"),
@@ -1905,6 +1906,9 @@ def _infer_unit_from_name(name: str, bare_count: bool = True) -> Optional[str]:
         return "stalk"
     if "cinnamon" in tokens:
         return "stick"
+    # "corn sweetcorn tortillas" are tortillas, not corn cobs.
+    if set(tokens) & {"tortilla", "tortillas"} and not set(tokens) & {"chip", "chips"}:
+        return "tortilla"
     preferred_units = {
         "leaf",
         "leaves",
@@ -2191,7 +2195,7 @@ def _common_unit_reference_grams(
         return sized(10.0, "pearl onion")
     if single_count_unit and "onion" in tokens:
         return sized(110.0, "onion")
-    if single_count_unit and "potato" in tokens and (tokens & {"baby", "new"}):
+    if single_count_unit and "potato" in tokens and (tokens & {"baby", "new", "petite", "chat"}):
         return sized(25.0, "baby/new potato")
     if single_count_unit and "potato" in tokens:
         return sized(173.0, "potato")
@@ -2207,6 +2211,11 @@ def _common_unit_reference_grams(
         return sized(123.0, "tomato")
     if single_count_unit and "peach" in tokens:
         return sized(150.0, "peach")
+    # A ring, slice or chunk is a part of the fruit, not a whole 905 g pineapple.
+    if single_count_unit and "pineapple" in tokens and tokens & {"ring", "slice"}:
+        return sized(47.0, "pineapple ring or slice (USDA canned, 3-inch)")
+    if single_count_unit and "pineapple" in tokens and tokens & {"chunk", "cube", "piece"}:
+        return sized(10.0, "pineapple chunk (USDA cup of chunks 165 g)")
     if single_count_unit and "pineapple" in tokens:
         return sized(905.0, "pineapple edible portion")
     if single_count_unit and "pear" in tokens:
@@ -2217,6 +2226,8 @@ def _common_unit_reference_grams(
         return sized(69.0, "kiwifruit")
     if single_count_unit and "plum" in tokens:
         return sized(66.0, "plum")
+    if single_count_unit and "apricot" in tokens and tokens & {"dried", "dry"}:
+        return sized(7.0, "dried apricot (USDA half 3.5 g)")
     if single_count_unit and "apricot" in tokens:
         return sized(35.0, "apricot")
     if single_count_unit and "prune" in tokens:
@@ -2265,7 +2276,7 @@ def _common_unit_reference_grams(
         return sized(15.0, "radish")
     if single_count_unit and "fennel" in tokens:
         return sized(234.0, "fennel bulb")
-    if single_count_unit and "spinach" in tokens:
+    if single_count_unit and "spinach" in tokens and not tokens & {"wrap", "tortilla"}:
         return sized(250.0, "spinach bunch")
     if single_count_unit and "egg" in tokens and not tokens & {
         "yolk",
@@ -2298,6 +2309,8 @@ def _common_unit_reference_grams(
         and tokens & {"pepper", "chile", "chilli", "chili"}
     ):
         return sized(2.0, "dried chile pepper")
+    if single_count_unit and tokens & {"pepper", "capsicum"} and tokens & {"peppadew", "piquante", "cherry"}:
+        return sized(10.0, "small pickled pepper (USDA pepper piece)")
     if single_count_unit and tokens & {"pepper", "capsicum"}:
         return sized(120.0, "bell pepper")
     if single_count_unit and tokens & {"eggplant", "aubergine"}:

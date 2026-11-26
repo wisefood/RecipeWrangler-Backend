@@ -16,6 +16,7 @@ from recipe_wrangler.tools.parse_recipe_tool import (
     _assign_lines_to_entries,
     restore_bouillon_form,
     restore_explicit_source_measurement,
+    restore_source_stated_mass,
     restore_greasing_measurement,
     restore_leading_quantity_from_source,
     restore_sibling_quantity,
@@ -575,6 +576,7 @@ def main() -> int:
         for recipe in payload:
             repaired = []
             previous = None
+            previous_input = previous_raw = None
             ingredients = recipe.get("ingredients") or []
             source_lines = raw_source_lines.get(input_path.name, {}).get(
                 _title_key(recipe.get("title")),
@@ -684,6 +686,20 @@ def main() -> int:
                             "source_line": raw_source_line,
                             "reason": recovered_reason,
                         })
+                    stated = restore_source_stated_mass(
+                        str(current.get("measurement") or ""), raw_source_line, str(current.get("name") or "")
+                    )
+                    if stated is not None:
+                        raw_source_repairs.append({
+                            "source_file": input_path.name,
+                            "recipe_title": recipe.get("title"),
+                            "ingredient": current.get("name"),
+                            "old_measurement": current.get("measurement"),
+                            "new_measurement": stated,
+                            "source_line": raw_source_line,
+                            "reason": "source_stated_mass",
+                        })
+                        current["measurement"] = stated
                 if reason == "display_count":
                     restored_display_units += 1
                 elif reason == "source_unit":
@@ -695,6 +711,14 @@ def main() -> int:
                 ):
                     current["measurement"] = "optional"
                     marked_discretionary_quantities += 1
+                # A repeated parser row (HealthyFoods lists lines twice) gets the same source-mass repair as its twin.
+                if _signature(item) == previous_input and previous_raw is not None:
+                    stated = restore_source_stated_mass(
+                        str(current.get("measurement") or ""), previous_raw, str(current.get("name") or "")
+                    )
+                    if stated is not None:
+                        current["measurement"] = stated
+                previous_input, previous_raw = _signature(item), raw_source_line
                 signature = _signature(current)
                 if signature == previous:
                     removed_adjacent_duplicates += 1

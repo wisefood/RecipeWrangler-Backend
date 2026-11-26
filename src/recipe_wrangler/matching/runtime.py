@@ -22,7 +22,7 @@ from recipe_wrangler.matching.candidate_gate import CompatibilityGatedCatalogue
 from recipe_wrangler.matching.occurrence_facts import recover_occurrence_facts,occurrence_key,source_description_name,stated_oil_example
 from recipe_wrangler.matching.nutrition_policy import SourceNutrientPolicy,calculation_decision
 from recipe_wrangler.matching.source_suitability import replacement_reason,choose_supported_occurrence_candidate,recovered_property_support,material_scope_conflicts
-from recipe_wrangler.matching.quantities import recipe_inputs,resolve_quantity,QUANTITY_VERSION,per_person_weight,adjusted_weight,effective_quantity
+from recipe_wrangler.matching.quantities import recipe_inputs,resolve_quantity,QUANTITY_VERSION,per_person_weight,adjusted_weight,effective_quantity,apply_frying_oil_absorption
 from recipe_wrangler.matching.reviewed_aliases import BLOCKED_RECORDS,REVIEWED_ALIASES,APPROXIMATE_NAMES,RECORD_FILLS,REVIEWED_SELECTIONS,low_salt_name,preferred_name,stated_state_name,reviewed_record_compatible
 from recipe_wrangler.matching.completeness_repair import eligible_record, choose_complete_record, label_key
 
@@ -97,6 +97,14 @@ class Catalogue:
 
 
 _COUNTED_PEPPER = re.compile(r'^\s*(?:\d+(?:[./]\d+)?|[¼½¾])\s*(?:(?:small|medium|large)\s+)?(?:(?:red|green|yellow|orange)\s+and\s+\d+\s+(?:red|green|yellow|orange)\s+)?peppers?\b', re.I)
+
+
+_SUGGESTION = re.compile(r'\s*\(\s*(?:try|or use|can use|can substitute|substitute|you can (?:also )?use)\b[^()]*\)', re.I)
+
+
+def without_suggestion(original):
+    """"flour (try half whole-wheat flour)": the bracket offers an alternative, it does not describe the food."""
+    return _SUGGESTION.sub('', original or '')
 
 
 def counted_pepper_name(name, original):
@@ -240,6 +248,7 @@ class MatchingEngine:
 
     @lru_cache(maxsize=16000)
     def resolve(self,name,region,original=''):
+        original = without_suggestion(original)
         result = self._resolve(name,region,original)
         current = result.get('source_facts')
         if not current or not missing_metrics(current) or not hasattr(self, 'rows'):
@@ -437,8 +446,8 @@ class MatchingEngine:
         inputs=recipe_inputs(ingredient_names,weights,originals,serves=serves)
         if source_bindings is not None:inputs['source_bindings']=copy.deepcopy(source_bindings)
         if quantity_evidence is not None:
-            inputs['quantities']=[resolve_quantity(n,w,o,e,serves=serves) for n,w,o,e in
-                zip(ingredient_names,weights,originals,quantity_evidence,strict=True)]
+            inputs['quantities']=apply_frying_oil_absorption(ingredient_names,originals,[resolve_quantity(n,w,o,e,serves=serves) for n,w,o,e in
+                zip(ingredient_names,weights,originals,quantity_evidence,strict=True)])
             inputs['quantity_input_hash']=store.digest([QUANTITY_VERSION,ingredient_names,weights,
                 originals,inputs['quantities']])
         details=[];contributions=[]

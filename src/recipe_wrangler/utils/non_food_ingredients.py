@@ -26,6 +26,11 @@ _NON_FOOD_PHRASES = (
     "cookie cutter", "cookie cutters", "ramekin", "ramekins",
     "glass jar", "glass jars", "drinking glass", "drinking glasses",
     "egg mould", "egg moulds", "egg mold", "egg molds",
+    "muffin tray", "bun tray", "flan tin", "pastry cutter", "pastry cutters",
+    "paper case", "paper cases", "patty pan case", "patty pan cases",
+    "patty cake case", "patty cake cases", "greaseproof paper", "cooking twine",
+    "kitchen twine", "paper cone", "paper cones", "paper bag", "paper bags",
+    "plastic bag", "plastic bags", "bamboo stick", "bamboo sticks",
 )
 
 _NON_FOOD_EXACT = {

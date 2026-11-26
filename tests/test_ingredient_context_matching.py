@@ -190,6 +190,15 @@ def test_generic_nut_words_contain_both_nut_allergens(name, allergen):
     assert _allergen_keyword_evidence(name, allergen)[1] == 'contains'
 
 
-@pytest.mark.parametrize('name', ['nutmeg', 'butternut squash', 'coconut', 'pine nuts'])
-def test_nut_lookalikes_are_not_nut_hits(name):
-    assert _allergen_keyword_evidence(name, 'tree_nut')[0] == []
+@pytest.mark.parametrize('name', [
+    'nutmeg', 'butternut squash', 'coconut', 'pine nuts', 'ginger nut biscuits', 'ginger nuts',
+    'gingernut biscuits', 'soy nuts', 'soya nuts', 'soy nut butter',
+])
+@pytest.mark.parametrize('allergen', ['peanut', 'tree_nut'])
+def test_nut_lookalikes_are_not_nut_hits(name, allergen):
+    assert _allergen_keyword_evidence(name, allergen)[0] == []
+
+
+def test_nut_lookalike_does_not_mask_real_nuts_or_soy():
+    assert _allergen_keyword_evidence('ginger nut biscuits and walnuts', 'tree_nut')[1] == 'contains'
+    assert _allergen_keyword_evidence('soy nuts', 'soy')[1] == 'contains'

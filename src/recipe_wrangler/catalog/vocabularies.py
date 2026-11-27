@@ -232,15 +232,23 @@ _GRAIN_RE = re.compile(
     r"crumpets?|muffins?|bagels?|rolls?|buns?|toast|croutons?|granola|muesli|popcorn|taco shells?|gnocchi|"
     r"lasagn?e|orzo|vermicelli|udon|soba|pancakes?|crepes?|dumpling|wontons?|spelt|bran|malt|panko|cake|"
     r"cornbread|stuffing|arborio|basmati|risotto|ramen|risoni|fettuccine|fettucine|linguine|penne|tagliatelle|"
-    r"rigatoni|fusilli|pappardelle)\b"
+    r"rigatoni|fusilli|pappardelle|naans?|poppadums?|pappadums?|papadums?|pizza (?:dough|bases?)|freekeh|"
+    r"baguettes?|sourdough|ciabatta|weet-?bix|wheatgerm|kamut|teff|amaranth|sorghum|orecchiette|tortellini|ravioli|"
+    r"cannelloni|csipetke|matzo|bulgar|pretzels?|crispbread|breadsticks?|strudel|pie crust|pikelets?|pittas?|flatbreads?|"
+    r"rice paper|sago)\b"
 )
 _NOT_GRAIN_RE = re.compile(r"\b(oil|extract|essence|sauce)\b")
 _NOT_GRAIN_EXCEPT_RE = re.compile(r"\b(flour|rice|noodles?)\b")
 _NOT_GRAIN_NAME_RE = re.compile(r"\b(vinegar|wine|paper|oil|bran oil|sauce|extract|noodle sauce)\b")
 _LEGUME_RE = re.compile(
     r"\b(beans?|lentils?|chickpeas?|chick peas|garbanzos?|pulses?|dh?al|tofu|tempeh|hummus|falafel|edamame|"
-    r"soy ?milk|soymilk|soya|soy ?mince|lupin)\b"
+    r"soy ?milk|soymilk|soya|soy ?mince|lupin|split peas?|black-?eyed peas?|cowpeas?|pigeon peas?)\b"
 )
+_SEAFOOD_RE = re.compile(
+    r"\b(mussels?|scallops?|clams?|oysters?|crab(?:meat)?|lobsters?|crayfish|cockles?|pipis?|abalone|octopus|"
+    r"calamari|squid|prawns?|shrimps?|langoustines?)\b"
+)
+_NOT_SEAFOOD_RE = re.compile(r"\b(sauce|stock|paste|crackers?|chips|crab apples?|chowder|cakes?|dumplings?|wontons?)\b")
 _NOT_LEGUME_RE = re.compile(
     r"\b(soy sauce|tamari|green beans?|french beans?|runner beans?|string beans?|bean sprouts?|vanilla|coffee|"
     r"cocoa|jelly ?beans?|beans? and rice)\b"
@@ -269,6 +277,8 @@ def name_food_groups(name: str) -> set[str]:
         groups.add("nuts_and_seeds")
     if _LEGUME_RE.search(lowered) and not _NOT_LEGUME_RE.search(lowered) and not _NOT_LEGUME_NAME_RE.search(lowered):
         groups.add("legumes")
+    if _SEAFOOD_RE.search(lowered) and not _NOT_SEAFOOD_RE.search(lowered):
+        groups.add("seafood")
     return groups
 
 

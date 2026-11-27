@@ -313,3 +313,15 @@ class TestFoodGroupNameRules:
         assert self.derive("rhubarb", "FOODON_00001057", "FOODON_00001261") == ["vegetables"]
         assert A.derive_food_groups({"ingredient_names": ["new potatoes"]})[0] == ["vegetables"]
         assert A.derive_food_groups({"ingredient_names": ["potato flour"]})[0] == ["grains"]
+
+    def test_flatbreads_doughs_and_split_peas_are_named_groups(self):
+        for name in ["naan breads", "poppadums", "pizza dough", "freekeh", "sourdough", "weet-bix"]:
+            assert A.derive_food_groups({"ingredient_names": [name]})[0] == ["grains"], name
+        assert A.derive_food_groups({"ingredient_names": ["split peas"]})[0] == ["legumes"]
+        assert A.derive_food_groups({"ingredient_names": ["black-eyed peas"]})[0] == ["legumes"]
+
+    def test_shellfish_names_are_seafood_but_sauces_are_not(self):
+        for name in ["mussels", "scallops", "crab meat", "king prawns", "calamari"]:
+            assert A.derive_food_groups({"ingredient_names": [name]})[0] == ["seafood"], name
+        for name in ["oyster sauce", "prawn crackers", "crab apples"]:
+            assert "seafood" not in A.derive_food_groups({"ingredient_names": [name]})[0], name

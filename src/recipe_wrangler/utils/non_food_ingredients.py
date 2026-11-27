@@ -31,12 +31,16 @@ _NON_FOOD_PHRASES = (
     "patty cake case", "patty cake cases", "greaseproof paper", "cooking twine",
     "kitchen twine", "paper cone", "paper cones", "paper bag", "paper bags",
     "plastic bag", "plastic bags", "bamboo stick", "bamboo sticks",
+    "muffin cup", "muffin cups", "cupcake container", "cupcake containers",
+    "zip lock bag", "zip lock bags", "jam jar", "jam jars", "jelly jars",
+    "craft peg", "craft pegs", "pipe cleaner", "pipe cleaners",
+    "craft animal eyes", "rolling pin",
 )
 
 _NON_FOOD_EXACT = {
     "frying pan", "jar", "jars", "oven bag", "oven bags",
     "twine", "string", "kitchen string", "string or twine", "twine or string",
-    "thermometer", "stainless steel turner",
+    "thermometer", "stainless steel turner", "ribbon",
     "culinary pipette", "culinary pipettes",
     "miniature culinary pipette", "miniature culinary pipettes",
 }

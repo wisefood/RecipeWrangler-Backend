@@ -43,7 +43,7 @@ from recipe_wrangler.tools.parse_recipe_tool import (  # noqa: E402
     _assign_lines_to_entries,
     split_salt_and_pepper_rows,
 )
-from scripts.prepare_weight_ready_parser_snapshot import RAW_SOURCE_PATHS, _title_key  # noqa: E402
+from scripts.prepare_weight_ready_parser_snapshot import RAW_SOURCE_PATHS, _best_candidate, _title_key  # noqa: E402
 
 SNAP = REPO / "data/recipes/parsed_snapshot/2026-09-24"
 PROJECTION_METHOD = "deterministic_weight_v3"
@@ -83,13 +83,20 @@ def _norm_url(url: object) -> str:
     return re.sub(r"[?#].*$", "", str(url or "")).rstrip("/").lower().replace("http://", "https://")
 
 
-def _load_raw(filename: str, title_key: str) -> dict[str, dict]:
-    raw: dict[str, dict] = {}
+def _load_raw(filename: str, title_key: str) -> dict[str, list[dict]]:
+    raw: dict[str, list[dict]] = {}
     for path in RAW_SOURCE_PATHS[filename]:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         for record in data if isinstance(data, list) else data.values():
-            raw.setdefault(_title_key(record.get(title_key) or record.get("title") or record.get("name")), record)
+            raw.setdefault(_title_key(record.get(title_key) or record.get("title") or record.get("name")), []).append(record)
     return raw
+
+
+def pick_record(candidates: list[dict], ingredients: list[dict]) -> dict | None:
+    """Same-title raw recipes (two MyPlate "Black Bean Soup"): take the one whose lines fit the parsed entries."""
+    if not candidates:
+        return None
+    return candidates[_best_candidate([[str(x) for x in c.get("ingredients") or []] for c in candidates], ingredients)]
 
 
 def _raw_positions(raw_lines: list[str]) -> tuple[list[str], list[int]]:
@@ -345,7 +352,7 @@ def main() -> None:
                     if record["source"] == source:
                         by_title[_title_key(record["title"])].append(record["id"])
             for recipe in recipes[: args.limit or None]:
-                record = raw.get(_title_key(recipe["title"]))
+                record = pick_record(raw.get(_title_key(recipe["title"]), []), recipe.get("ingredients") or [])
                 ids = by_url.get(_norm_url((record or {}).get(url_key)), [])
                 if not ids and args.create_missing and record:
                     same_title = by_title.get(_title_key(recipe["title"]), [])
@@ -408,7 +415,7 @@ def main() -> None:
             excluded = json.loads((SNAP / "excluded_recipes.json").read_text(encoding="utf-8"))
             for item in excluded:
                 source, url_key, title_key = DATASETS[item["source_file"]]
-                record = _load_raw(item["source_file"], title_key).get(_title_key(item["recipe_title"]))
+                record = next(iter(_load_raw(item["source_file"], title_key).get(_title_key(item["recipe_title"]), [])), None)
                 ids = [
                     r["id"]
                     for r in session.run(

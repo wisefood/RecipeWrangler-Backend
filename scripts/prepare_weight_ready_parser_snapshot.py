@@ -63,10 +63,10 @@ def _title_key(value: object) -> str:
     return re.sub(r"\s*\((?:breakfast|lunch|dinner|snack)\)$", "", text)
 
 
-def _load_raw_source_lines() -> dict[str, dict[str, list[str]]]:
-    result: dict[str, dict[str, list[str]]] = {}
+def _load_raw_source_lines() -> dict[str, dict[str, list[list[str]]]]:
+    result: dict[str, dict[str, list[list[str]]]] = {}
     for output_name, paths in RAW_SOURCE_PATHS.items():
-        titles: dict[str, list[str]] = {}
+        titles: dict[str, list[list[str]]] = {}
         for path in paths:
             payload = json.loads(path.read_text(encoding="utf-8"))
             recipes = payload.values() if isinstance(payload, dict) else payload
@@ -78,9 +78,30 @@ def _load_raw_source_lines() -> dict[str, dict[str, list[str]]]:
                     if not lines or line != lines[-1]:
                         lines.append(line)
                 if title and lines:
-                    titles.setdefault(_title_key(title), lines)
+                    titles.setdefault(_title_key(title), []).append(lines)
         result[output_name] = titles
     return result
+
+
+def _best_candidate(candidates: list[list[str]], ingredients: list[dict]) -> int:
+    """Several raw recipes can share a title; pick the one whose lines contain most parsed names.
+
+    ponytail: token overlap, first candidate wins ties; add a source-id join if parsed files ever carry one.
+    """
+
+    def score(lines: list[str]) -> int:
+        folded = [line.casefold() for line in lines]
+        hits = 0
+        for item in ingredients:
+            tokens = re.findall(r"[a-z]{3,}", str(item.get("name") or "").casefold())
+            hits += bool(tokens) and any(all(t in line for t in tokens) for line in folded)
+        return hits
+
+    return max(range(len(candidates)), key=lambda i: score(candidates[i]))
+
+
+def _pick_raw_lines(candidates: list[list[str]], ingredients: list[dict]) -> list[str]:
+    return candidates[_best_candidate(candidates, ingredients)] if candidates else []
 
 # (file, recipe title, ingredient, old measurement) -> new measurement
 VERIFIED_REPAIRS = {
@@ -578,9 +599,9 @@ def main() -> int:
             previous = None
             previous_input = previous_raw = None
             ingredients = recipe.get("ingredients") or []
-            source_lines = raw_source_lines.get(input_path.name, {}).get(
-                _title_key(recipe.get("title")),
-                [],
+            source_lines = _pick_raw_lines(
+                raw_source_lines.get(input_path.name, {}).get(_title_key(recipe.get("title")), []),
+                ingredients,
             )
             assigned_source_lines = _assign_lines_to_entries(ingredients, source_lines)
             for item, raw_source_line in zip(ingredients, assigned_source_lines):

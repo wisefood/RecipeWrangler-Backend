@@ -993,7 +993,7 @@ def _allergen_lexical_hits(name: str, allergen: str) -> list[str]:
             keywords = ["wheat", "spelt", "durum", "semolina", "bulgur", "seitan"]
             clause = re.sub(r"\bwheat\s*(?:&\s*gluten\s*)?[ -]*free\b", " ", clause)
         if allergen in {"tree_nut", "peanut"}:
-            clause = re.sub(r"\b(?:pine[\s-]*nuts?|chestnuts?)\b", " ", clause)
+            clause = re.sub(r"\b(?:pine[\s-]*nuts?|chestnuts?|ginger[\s-]*nuts?|soya?[\s-]*nuts?)\b", " ", clause)
         if allergen == "peanut":
             clause = re.sub(r"\b(?:cashew|almond|hazel|brazil|macadamia|pecan|pistachio)[\s-]+nuts?\b", " ", clause)
         if allergen == "sulphites" and re.search(

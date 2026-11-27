@@ -3,11 +3,15 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import math
 from pathlib import Path
 from sqlalchemy import text
 from recipe_wrangler.matching.runtime import engine,VERSION
 from recipe_wrangler.matching.quantities import source_recipe_index,recipe_inputs
+from recipe_wrangler.matching.source_evidence import stated_weight
 from recipe_wrangler.matching.source_context import graph_source_lines
+from recipe_wrangler.utils.neo4j_utils import run_query
+from recipe_wrangler.tools.recipe_profiling_tool import _sanitize_serves
 from recipe_wrangler.repositories import matching_store as store
 from recipe_wrangler.utils.nutrition_postgres import get_engine
 from scripts.composition.repair_original_ingredient_context import recover_missing_context
@@ -38,30 +42,53 @@ def bind_source_lines(names,originals,frozen,lines,weights=None):
     Frozen evidence whose saved names or weights predate later corrections is stale: keep its text, drop its quantities.
     """
     if frozen is not None and weights is not None and _stale(frozen,names,weights):
-        originals=[old or (o.get('original_text') or '') for old,o in zip(originals,frozen['occurrences'],strict=True)]
+        occ=frozen['occurrences']
+        originals=[old or (occ[i].get('original_text') or '') if i<len(occ) else old
+                   for i,old in enumerate(originals)]
         frozen=None
     if frozen is None:return recover_missing_context(names,originals,lines)[0],None
     frozen=copy.deepcopy(frozen);occurrences=frozen['occurrences']
     filled,_=recover_missing_context([o['parsed_name'] for o in occurrences],
         [o.get('original_text') or '' for o in occurrences],lines)
-    for occurrence,line in zip(occurrences,filled,strict=True):occurrence['original_text']=line
+    for occurrence,line in zip(occurrences,filled,strict=True):
+        occurrence['original_text']=line
+        evidence=occurrence.get('quantity_evidence')
+        if evidence:
+            # A rule change after the freeze (e.g. bracket-after-count is the line total) makes the
+            # saved evidence stale: drop it so the current parse of the source line wins.
+            parsed=stated_weight(occurrence['parsed_name'],evidence.get('source_line') or line)
+            if parsed is None or parsed['kind']!=evidence.get('kind') or not math.isclose(
+                    parsed['weight_g'],evidence.get('weight_g') or -1.0,rel_tol=1e-9):
+                occurrence['quantity_evidence']=None
     return originals,frozen
 
 
 def _stale(frozen,names,weights):
-    # Saved names or weights corrected after the evidence was frozen (e.g. "Pepper" -> "capsicum pepper").
+    # Saved names, weights or line counts corrected after the evidence was frozen
+    # (e.g. "Pepper" -> "capsicum pepper", or a glued line split into two occurrences).
     occurrences=frozen['occurrences']
-    return len(occurrences)==len(names) and any((o.get('baseline_parsed_name') or o['parsed_name'])!=n
+    return len(occurrences)!=len(names) or any((o.get('baseline_parsed_name') or o['parsed_name'])!=n
         or o['saved_weight_g']!=w for o,n,w in zip(occurrences,names,weights))
 
 
-def backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None):
+def _serves_for(recipe_id, serves_override, graph_serves, quality, trace, total_weight_g=0):
+    # The graph is the source of truth for serves after a snapshot sync; the saved legacy
+    # row can still carry a pre-fix value (e.g. "1 loaf (16 slices)" read as 1). Sanitize it
+    # like the legacy pipeline did (round given yields, estimate below 1), so fractional
+    # source yields (2.5, 0.5) keep their current per-serving policy.
+    if serves_override and recipe_id in serves_override:return serves_override[recipe_id]
+    graph=graph_serves.get(recipe_id)
+    if graph:return _sanitize_serves(graph,total_weight_g)[0]
+    return quality.get('serves') or trace.get('serves')
+
+
+def backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None,serves=None):
     with get_engine().connect() as lock:
         # One lock per shard: shards split recipes, so they never write the same profile.
         key='matching_backfill:'+release_id+('' if shards==1 else f':{shard}/{shards}')
         acquired=lock.execute(text('SELECT pg_try_advisory_lock(hashtextextended(:key,0))'),{'key':key}).scalar()
         if not acquired:raise RuntimeError('Another backfill for this release is running')
-        try:return _backfill(release_id,limit,activate,source_evidence,shard,shards,recipe_ids,sources)
+        try:return _backfill(release_id,limit,activate,source_evidence,shard,shards,recipe_ids,sources,serves)
         finally:lock.execute(text('SELECT pg_advisory_unlock(hashtextextended(:key,0))'),{'key':key})
 
 
@@ -71,7 +98,7 @@ FULL_ROW='''SELECT recipe_id,title,source,nutrition_source,
             FROM "nutrients-recipe-profiles"'''
 
 
-def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None):
+def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,shards=1,recipe_ids=None,sources=None,serves_override=None):
     matcher=engine(release_id)
     with get_engine().connect() as c:
         # Keys only up front; each full row (with large debug/trace fields) is read when processed.
@@ -97,6 +124,9 @@ def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,
         evidence=source_recipe_index(json.loads(frozen.read_text()))
     # Saved profiles lost most source lines; bind the graph originals one-to-one, never by position.
     source_lines={**graph_source_lines(sorted({row['recipe_id'] for row in rows})),**archived_source_lines(rows)}
+    graph_serves={row['rid']:row['serves'] for row in run_query(
+        'MATCH (r:Recipe) WHERE r.recipe_id IN $ids RETURN r.recipe_id AS rid, r.serves AS serves',
+        {'ids':sorted({row['recipe_id'] for row in rows})})}
     failures=[];processed=0
     output=Path('analysis')/('matching_backfill_'+release_id);output.mkdir(exist_ok=True)
     name='status' if shards==1 else f'status_{shard}_of_{shards}'
@@ -123,11 +153,11 @@ def _backfill(release_id,limit=None,activate=False,source_evidence=None,shard=0,
             originals,frozen=bind_source_lines(names,originals,evidence.get(row['recipe_id']),
                 source_lines.get(row['recipe_id'],[]),weights=weights)
             inputs=recipe_inputs(names,weights,originals,frozen)
-            if done.get(key)==(inputs['quantity_input_hash'],inputs['originals']):continue
+            if done.get(key)==(inputs['quantity_input_hash'],inputs['originals']) and key[0] not in (serves_override or {}):continue
             names=inputs['names'];originals=inputs['originals']
             quantities=[q['quantity_evidence'] for q in inputs['quantities']]
             quality=row['profiling_quality'] or {};trace=row['trace'] or {}
-            serves=quality.get('serves') or trace.get('serves')
+            serves=_serves_for(row['recipe_id'],serves_override,graph_serves,quality,trace,sum(w or 0 for w in weights))
             # Snapshot old data before any active-run change; reference rows are excluded.
             store.save_run(row['recipe_id'],row['nutrition_source'],None,'legacy_snapshot_complete_v2',
                 {'profile':row},row)
@@ -157,8 +187,9 @@ if __name__=='__main__':
     p.add_argument('--source-evidence',type=Path)
     p.add_argument('--recipe-ids',type=Path,help='File with one recipe_id per line; default all')
     p.add_argument('--sources',help='Comma-separated nutrition sources; default eu,irish,hungarian,slovenian')
+    p.add_argument('--serves',action='append',default=[],help='RECIPE_ID=SERVINGS override (repeatable)')
     p.add_argument('--shard',type=int,default=0);p.add_argument('--shards',type=int,default=1)
     a=p.parse_args()
     if not 0<=a.shard<a.shards:p.error('--shard must be in [0, --shards)')
     backfill(a.release_id,a.limit,a.activate,a.source_evidence,a.shard,a.shards,
-        a.recipe_ids.read_text().split() if a.recipe_ids else None,a.sources.split(',') if a.sources else None)
+        a.recipe_ids.read_text().split() if a.recipe_ids else None,a.sources.split(',') if a.sources else None,{k:float(v) for k,v in (x.split('=') for x in a.serves)})

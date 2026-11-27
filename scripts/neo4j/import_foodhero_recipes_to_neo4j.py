@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +26,10 @@ except Exception:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_INPUT = REPO_ROOT / "data" / "recipes" / "foodhero" / "foodhero_recipes_clean.json"
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "import" / "foodhero"))
+from transform_foodhero_recipes_json import transform  # noqa: E402
+
+DEFAULT_INPUT = REPO_ROOT / "data" / "recipes" / "foodhero" / "foodhero_recipes.json"
 load_dotenv(REPO_ROOT / ".env")
 
 
@@ -286,7 +290,7 @@ def _iter_items(items: list[tuple[str, dict[str, Any]]]):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT, help="FoodHero clean JSON path")
+    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT, help="Raw FoodHero JSON path (normalized on load)")
     parser.add_argument(
         "--keep-missing-required",
         action="store_true",
@@ -295,7 +299,7 @@ def main() -> None:
     args = parser.parse_args()
 
     input_path = args.input if args.input.is_absolute() else (REPO_ROOT / args.input)
-    raw = json.loads(input_path.read_text(encoding="utf-8"))
+    raw = transform(json.loads(input_path.read_text(encoding="utf-8")))
     if not isinstance(raw, dict):
         raise ValueError("Input JSON must be an object keyed by recipe title.")
 

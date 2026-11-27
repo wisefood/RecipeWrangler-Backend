@@ -54,9 +54,11 @@ def test_explicit_zero_and_ambiguous_quantities_are_preserved():
 def test_frozen_source_evidence_cannot_bypass_current_per_item_guard():
     line='4 x large (300g) Sebago potatoes, scrubbed and dried'
     result=resolve_quantity('sebago potatoes',1200,line,
-        {'weight_g':300,'kind':'explicit_source_mass','source_line':line})
+        {'weight_g':1200,'kind':'explicit_source_mass','source_line':line})
     assert result['weight_g']==1200
-    assert result['quantity_evidence'] is None
+    with pytest.raises(ValueError,match='disagrees'):
+        resolve_quantity('sebago potatoes',1200,line,
+            {'weight_g':300,'kind':'explicit_source_mass','source_line':line})
     with pytest.raises(ValueError,match='disagrees'):
         resolve_quantity('milk',200,evidence={'weight_g':200,'kind':'explicit_source_mass','source_line':'100g milk'})
 

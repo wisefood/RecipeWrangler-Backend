@@ -34,13 +34,13 @@ def test_reviewed_named_sources(line, expected):
     ('1/2 cup raisins', 'sulphites'), ('20 g Wine vinegar', 'sulphites'),
     ('1 teaspoon low-sodium soy sauce', 'wheat'),
     ('1 teaspoon low-sodium soy sauce', 'gluten'),
-    ('chopped nuts (optional)', 'tree_nut'), ('mixed nuts', 'tree_nut'),
+    ('chopped nuts (optional)', 'tree_nut'),
     ('250g ricotta ravioli or tortellini', 'milk'),
     ('milk or almond milk', 'milk'), ('may contain milk', 'milk'),
     ('vegetable stock cube', 'celery'), ('vegetable stock cube', 'milk'),
     ('hummus', 'sesame'), ('basil pesto', 'milk'),
     ('Caesar dressing', 'fish'), ('rye breadcrumbs', 'wheat'),
-    ('mixed nuts', 'peanut'), ('no added sulphites wine', 'sulphites'),
+    ('no added sulphites wine', 'sulphites'),
     ('oat pastry', 'wheat'),
 ])
 def test_uncertain_formulations_and_choices_are_possible(line, allergen):
@@ -49,6 +49,14 @@ def test_uncertain_formulations_and_choices_are_possible(line, allergen):
     assert allergen not in detect_allergens_from_names([line])
     assessment = recipe_allergen_fields(None, evidence)['allergen_assessment']
     assert allergen in assessment['possible_allergens']
+
+
+@pytest.mark.parametrize('allergen', ['peanut', 'tree_nut'])
+def test_generic_mixed_nuts_are_contains(allergen):
+    # Generic "mixed nuts" may be peanut: treated as present, not possible.
+    evidence = detect_allergen_evidence_from_names(['mixed nuts'])
+    assert any(r['allergen'] == allergen and r['presence'] == 'contains' for r in evidence)
+    assert allergen in detect_allergens_from_names(['mixed nuts'])
 
 
 @pytest.mark.parametrize('line,allergen', [

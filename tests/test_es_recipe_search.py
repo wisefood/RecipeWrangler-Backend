@@ -571,6 +571,13 @@ def test_profile_diet_tags_are_hard_filters_on_question_search():
     assert constraints.boost_tags==[]
 
 
+def test_time_limit_excludes_unknown_duration():
+    """duration 0 means unknown, so "under 30 minutes" must not match it."""
+    from recipe_wrangler.tools.es_recipe_search import RecipeSearchConstraints, build_es_query
+    filters = build_es_query(RecipeSearchConstraints(max_duration_minutes=30))["query"]["bool"]["filter"]
+    assert {"range": {"duration": {"gt": 0, "lte": 30}}} in filters
+
+
 class TestTitleRelaxationLadder:
     """A strict title match relaxes to any-word before it gives up entirely.
 

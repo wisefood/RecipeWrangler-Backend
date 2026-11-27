@@ -6,7 +6,9 @@ Recipes are joined to the graph by URL (never by title). For every matched recip
 ``HAS_INGREDIENT`` (one relationship per parsed row, ``CREATE`` so repeated ingredients are kept) and the
 ``MAPS_TO`` edges of the recipe's ``Ingredients_original`` nodes, carrying the audited deterministic weight and its
 provenance. Shared ``Ingredient`` nodes are reused by name (case-insensitive) so their allergen / FoodOn / cost links
-survive; only genuinely new names create a node. ``Ingredients_original`` nodes are never modified.
+survive; only genuinely new names create a node. ``Ingredients_original`` nodes are never modified here: they are
+joined to the rows by position, so when they differ from the raw scrape the recipe page shows another ingredient's text.
+Such recipes are reported as ``originals_misaligned``; fix them with ``refresh_ingredient_originals.py`` first.
 
 ``--delete-excluded`` removes the excluded recipes (graph node, Elasticsearch document, profile rows).
 
@@ -41,7 +43,7 @@ from recipe_wrangler.tools.parse_recipe_tool import (  # noqa: E402
     _assign_lines_to_entries,
     split_salt_and_pepper_rows,
 )
-from scripts.prepare_weight_ready_parser_snapshot import RAW_SOURCE_PATHS, _title_key  # noqa: E402
+from scripts.prepare_weight_ready_parser_snapshot import RAW_SOURCE_PATHS, _best_candidate, _title_key  # noqa: E402
 
 SNAP = REPO / "data/recipes/parsed_snapshot/2026-09-24"
 PROJECTION_METHOD = "deterministic_weight_v3"
@@ -62,17 +64,39 @@ DATASETS = {
 }
 
 
+_WORDS = re.compile(r"[a-z]{3,}")
+
+
+def same_line(a: str, b: str) -> bool:
+    """Same ingredient line up to scrape noise (an " X" marker, "/ oz" conversions): shared words, not equal text."""
+    wa, wb = set(_WORDS.findall(a.lower())), set(_WORDS.findall(b.lower()))
+    return (not wa and not wb) or bool(wa & wb and len(wa & wb) / min(len(wa), len(wb)) >= 0.6)
+
+
+def misaligned(originals: list[str | None], raw_lines: list[str]) -> bool:
+    return len(originals) != len(raw_lines) or any(
+        not same_line(str(a or ""), b) for a, b in zip(originals, raw_lines)
+    )
+
+
 def _norm_url(url: object) -> str:
     return re.sub(r"[?#].*$", "", str(url or "")).rstrip("/").lower().replace("http://", "https://")
 
 
-def _load_raw(filename: str, title_key: str) -> dict[str, dict]:
-    raw: dict[str, dict] = {}
+def _load_raw(filename: str, title_key: str) -> dict[str, list[dict]]:
+    raw: dict[str, list[dict]] = {}
     for path in RAW_SOURCE_PATHS[filename]:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         for record in data if isinstance(data, list) else data.values():
-            raw.setdefault(_title_key(record.get(title_key) or record.get("title") or record.get("name")), record)
+            raw.setdefault(_title_key(record.get(title_key) or record.get("title") or record.get("name")), []).append(record)
     return raw
+
+
+def pick_record(candidates: list[dict], ingredients: list[dict]) -> dict | None:
+    """Same-title raw recipes (two MyPlate "Black Bean Soup"): take the one whose lines fit the parsed entries."""
+    if not candidates:
+        return None
+    return candidates[_best_candidate([[str(x) for x in c.get("ingredients") or []] for c in candidates], ingredients)]
 
 
 def _raw_positions(raw_lines: list[str]) -> tuple[list[str], list[int]]:
@@ -171,6 +195,12 @@ def _first_number(value: object) -> float | None:
     return float(match.group()) if match else None
 
 
+def _servings(value: object) -> float | None:
+    """"1 loaf (16 slices)" is 16 servings, not 1; otherwise the first number."""
+    counted = re.search(r"\(\s*(\d+(?:\.\d+)?)\s*(?:slices?|pieces?|servings?|portions?)\b", str(value or ""), re.IGNORECASE)
+    return float(counted.group(1)) if counted else _first_number(value)
+
+
 def _minutes(value: object) -> float | None:
     """"1 hour 15 minutes" -> 75, "30" -> 30; None when there is no number."""
     text = str(value or "").lower()
@@ -196,7 +226,7 @@ def node_props(source: str, record: dict, recipe_id: str) -> dict:
     instructions = record.get("instructions") or record.get("directions") or []
     if isinstance(instructions, str):
         instructions = [instructions]
-    serves = _first_number(record.get("serves") or record.get("servings") or record.get("recipe_yield") or record.get("makes"))
+    serves = _servings(record.get("serves") or record.get("servings") or record.get("recipe_yield") or record.get("makes"))
     duration = _minutes(record.get("time_minutes") or record.get("duration"))
     if duration is None:
         prep, cook = _minutes(record.get("prep_time")), _minutes(record.get("cook_time"))
@@ -322,7 +352,7 @@ def main() -> None:
                     if record["source"] == source:
                         by_title[_title_key(record["title"])].append(record["id"])
             for recipe in recipes[: args.limit or None]:
-                record = raw.get(_title_key(recipe["title"]))
+                record = pick_record(raw.get(_title_key(recipe["title"]), []), recipe.get("ingredients") or [])
                 ids = by_url.get(_norm_url((record or {}).get(url_key)), [])
                 if not ids and args.create_missing and record:
                     same_title = by_title.get(_title_key(recipe["title"]), [])
@@ -361,6 +391,14 @@ def main() -> None:
                     )
                     continue
                 raw_lines = [str(line) for line in (record or {}).get("ingredients") or []]
+                originals = [
+                    x["t"] for x in session.run(
+                        "MATCH (r:Recipe {recipe_id:$id})-[h:HAS_INGREDIENT_ORIGINAL]->(o) "
+                        "RETURN o.original_text AS t ORDER BY h.position", id=ids[0],
+                    )
+                ]
+                if misaligned(originals, raw_lines):
+                    report.setdefault("originals_misaligned", []).append({"source": source, "recipe_id": ids[0], "title": recipe["title"]})
                 rows = build_rows(recipe, raw_lines)
                 for row in rows:
                     row["name"] = resolve_name(row["name"], index)
@@ -377,7 +415,7 @@ def main() -> None:
             excluded = json.loads((SNAP / "excluded_recipes.json").read_text(encoding="utf-8"))
             for item in excluded:
                 source, url_key, title_key = DATASETS[item["source_file"]]
-                record = _load_raw(item["source_file"], title_key).get(_title_key(item["recipe_title"]))
+                record = next(iter(_load_raw(item["source_file"], title_key).get(_title_key(item["recipe_title"]), [])), None)
                 ids = [
                     r["id"]
                     for r in session.run(

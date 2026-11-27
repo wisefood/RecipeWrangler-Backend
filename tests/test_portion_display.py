@@ -69,3 +69,28 @@ def test_non_calculation_native_source_is_not_reverse_converted():
     assert display("eggs", "100 g", "Curated Irish Recipes") == (
         "100 g eggs", "calculation_fallback"
     )
+
+
+def test_authored_display_does_not_repeat_a_plural_or_singular_name():
+    assert display("lemon", "2.0", "HealthyFoods", "2 lemons")[0] == "2 lemons"
+    assert display("egg", "4.0", "HealthyFoods", "4 eggs")[0] == "4 eggs"
+    assert display("lime", "3.0", "HealthyFoods", "3 limes")[0] == "3 limes"
+    assert display("lemons", "1.0", "HealthyFoods", "zest 1 lemon")[0] == "zest 1 lemon"
+    assert display("flour", "1 cup", "HealthyFoods", "1 cup")[0] == "1 cup flour"
+
+
+def test_authored_display_drops_trailing_point_zero():
+    assert display("egg", "1.0", "HealthyFoods", "1.0 eggs")[0] == "1 egg"
+    assert display("flour", "1.5 cup", "HealthyFoods", "1.5 cup")[0] == "1.5 cup flour"
+
+
+def test_a_neighbours_original_line_is_not_shown_for_this_ingredient():
+    from recipe_wrangler.catalog.portion_display import usable_source_texts
+
+    shifted = usable_source_texts(
+        ["onion", "carrot", "garlic"],
+        ["4 ounces or", "1 cup chopped onion", "½ cup chopped carrot"],
+    )
+    assert shifted == [None, None, "½ cup chopped carrot"]
+    legitimate = ["2 eggs", "salt and pepper to taste"]
+    assert usable_source_texts(["chicken egg", "salt"], legitimate) == legitimate

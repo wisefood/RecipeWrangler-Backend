@@ -119,6 +119,28 @@ def source_recipe_index(recipes: list[dict]) -> dict:
     return result
 
 
+_FRYING = re.compile(r'\b(?:for|to)\s+(?:deep[- ]|shallow[- ]|pan[- ])?fry(?:ing)?\b|\bdeep[- ]fry(?:ing)?\b', re.I)
+_FAT = re.compile(r'\b(?:oil|lard|ghee|shortening|dripping|fat)\b', re.I)
+_NOT_FRIED = re.compile(r'\b(?:oil|lard|ghee|shortening|dripping|water|stock|broth|salt)\b', re.I)
+# Absorbed frying fat: about 10% of the fried food's pre-fry weight (recipe-software convention; food-service
+# frying absorbs 8-25%, Oklahoma State extension). Never more than the oil listed.
+FRYING_ABSORPTION_SHARE = 0.10
+
+
+def apply_frying_oil_absorption(names: list[str], originals: list[str], quantities: list[dict]) -> list[dict]:
+    """Oil listed "for frying" stays in the pan; count only what the food absorbs."""
+    food = sum(q['weight_g'] for n, q in zip(names, quantities) if not _NOT_FRIED.search(n))
+    for name, original, q in zip(names, originals, quantities):
+        # "2 tablespoons oil, melted, plus extra for frying": the listed amount goes into the dish.
+        if _FAT.search(name) and _FRYING.search(original or '') and not re.search(r'\b(?:plus|extra)\b', original, re.I) and q['weight_g'] > 0:
+            absorbed = min(q['weight_g'], FRYING_ABSORPTION_SHARE * food)
+            if absorbed < q['weight_g']:
+                q.update(weight_g=absorbed, quantity_evidence=None, quantity_status='frying_oil_absorption_estimate',
+                         quantity_assumption={'policy': 'frying_oil_absorption', 'share_of_food_weight': FRYING_ABSORPTION_SHARE,
+                                              'listed_oil_g': q['original_weight_g'], 'fried_food_g': food, 'weight_g': absorbed})
+    return quantities
+
+
 def recipe_inputs(names: list[str], weights: list[float], originals: list[str],
                   source_recipe: dict | None=None, *, serves: float | None=None) -> dict:
     if not len(names)==len(weights)==len(originals):raise ValueError('Ingredient/quantity/context lengths differ')
@@ -132,7 +154,8 @@ def recipe_inputs(names: list[str], weights: list[float], originals: list[str],
         names=[o['parsed_name'] for o in occurrences]
         originals=[o['original_text'] for o in occurrences]
         evidence=[o.get('quantity_evidence') for o in occurrences]
-    quantities=[resolve_quantity(n,w,o,e,serves=serves) for n,w,o,e in zip(names,weights,originals,evidence,strict=True)]
+    quantities=apply_frying_oil_absorption(names,originals,
+        [resolve_quantity(n,w,o,e,serves=serves) for n,w,o,e in zip(names,weights,originals,evidence,strict=True)])
     return {'names':names,'weights':weights,'originals':originals,'quantities':quantities,
         'quantity_input_hash':digest([QUANTITY_VERSION,names,weights,originals,quantities]),
         'quantity_version':QUANTITY_VERSION}

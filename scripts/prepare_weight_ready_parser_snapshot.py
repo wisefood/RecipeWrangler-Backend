@@ -16,8 +16,11 @@ from recipe_wrangler.tools.parse_recipe_tool import (
     _assign_lines_to_entries,
     restore_bouillon_form,
     restore_explicit_source_measurement,
+    restore_source_stated_mass,
     restore_greasing_measurement,
     restore_leading_quantity_from_source,
+    restore_sibling_quantity,
+    restore_superscript_fraction_quantity,
     restore_stock_cube_measurement,
     restore_whole_bird_name,
 )
@@ -60,10 +63,10 @@ def _title_key(value: object) -> str:
     return re.sub(r"\s*\((?:breakfast|lunch|dinner|snack)\)$", "", text)
 
 
-def _load_raw_source_lines() -> dict[str, dict[str, list[str]]]:
-    result: dict[str, dict[str, list[str]]] = {}
+def _load_raw_source_lines() -> dict[str, dict[str, list[list[str]]]]:
+    result: dict[str, dict[str, list[list[str]]]] = {}
     for output_name, paths in RAW_SOURCE_PATHS.items():
-        titles: dict[str, list[str]] = {}
+        titles: dict[str, list[list[str]]] = {}
         for path in paths:
             payload = json.loads(path.read_text(encoding="utf-8"))
             recipes = payload.values() if isinstance(payload, dict) else payload
@@ -75,9 +78,30 @@ def _load_raw_source_lines() -> dict[str, dict[str, list[str]]]:
                     if not lines or line != lines[-1]:
                         lines.append(line)
                 if title and lines:
-                    titles.setdefault(_title_key(title), lines)
+                    titles.setdefault(_title_key(title), []).append(lines)
         result[output_name] = titles
     return result
+
+
+def _best_candidate(candidates: list[list[str]], ingredients: list[dict]) -> int:
+    """Several raw recipes can share a title; pick the one whose lines contain most parsed names.
+
+    ponytail: token overlap, first candidate wins ties; add a source-id join if parsed files ever carry one.
+    """
+
+    def score(lines: list[str]) -> int:
+        folded = [line.casefold() for line in lines]
+        hits = 0
+        for item in ingredients:
+            tokens = re.findall(r"[a-z]{3,}", str(item.get("name") or "").casefold())
+            hits += bool(tokens) and any(all(t in line for t in tokens) for line in folded)
+        return hits
+
+    return max(range(len(candidates)), key=lambda i: score(candidates[i]))
+
+
+def _pick_raw_lines(candidates: list[list[str]], ingredients: list[dict]) -> list[str]:
+    return candidates[_best_candidate(candidates, ingredients)] if candidates else []
 
 # (file, recipe title, ingredient, old measurement) -> new measurement
 VERIFIED_REPAIRS = {
@@ -95,6 +119,13 @@ VERIFIED_REPAIRS = {
     ("foodhero_final_parsed.json", "Cucumber, Pineapple and Serrano Chile Salad", "hot peppers", "3.0"): "1.5",
     ("healthyfoods_final_parsed_fixed.json", "Super-quick strawberry brûlées", "strawberries", "3.0 cups"): "1.5 cups",
     ("healthyfoods_final_parsed_fixed.json", "Sweet and spicy fish stir-fry", "basmati rice", "1.0 pouch"): "450.0 g",
+    # Raw scrape glued two lines ("150g crushed arrowroot biscuits 1 cup rolled oats ..."; "1 teaspoon dried mixed or" /
+    # "fresh herbs"): the model took the first number for the second ingredient.
+    ("healthyfoods_remaining_a-n_parsed.json", "Lemon and coconut slice", "rolled oats", "150.0 cup"): "1.0 cup",
+    ("healthyfoods_remaining_a-n_parsed.json", "Mixed vegetable frittata", "mixed herbs", "250.0 teaspoon"): "1.0 teaspoon",
+    # "¹⁄³ cup ... (or other ...)" and "¹⁄³ cup mixed fresh herbs ( ... X , ...)": superscript fraction read as 1.
+    ("healthyfoods_final_parsed_fixed.json", "Salmon quinoa with yoghurt dressing", "Greek yoghurt, feta & dill salad dressing", "1.0 cup"): "0.33 cup",
+    ("healthyfoods_final_parsed_fixed.json", "Sweet potato and beetroot rosti with jalapeno dressing", "mixed fresh herbs", "1.0 cup"): "0.33 cup",
     # Whole bird weight read from the raw source line, not the count or a range end.
     ("safefood_v1_parsed.json", "Roast chicken with lemon, herbs and pepper (dinner)", "chicken", "1.0 kg"): "1.5 kg",
     ("safefood_v1_parsed.json", "Roast chicken with roasted vegetables and potatoes (dinner)", "chicken", "1.0 lb"): "1.5 kg",
@@ -566,10 +597,11 @@ def main() -> int:
         for recipe in payload:
             repaired = []
             previous = None
+            previous_input = previous_raw = None
             ingredients = recipe.get("ingredients") or []
-            source_lines = raw_source_lines.get(input_path.name, {}).get(
-                _title_key(recipe.get("title")),
-                [],
+            source_lines = _pick_raw_lines(
+                raw_source_lines.get(input_path.name, {}).get(_title_key(recipe.get("title")), []),
+                ingredients,
             )
             assigned_source_lines = _assign_lines_to_entries(ingredients, source_lines)
             for item, raw_source_line in zip(ingredients, assigned_source_lines):
@@ -635,6 +667,22 @@ def main() -> int:
                             "reason": "source_leading_quantity",
                         })
                         current["measurement"] = corrected
+                    sibling = restore_sibling_quantity(
+                        str(current.get("measurement") or ""), raw_source_line, source_lines
+                    ) or restore_superscript_fraction_quantity(
+                        str(current.get("measurement") or ""), raw_source_line, str(current.get("name") or "")
+                    )
+                    if sibling is not None:
+                        raw_source_repairs.append({
+                            "source_file": input_path.name,
+                            "recipe_title": recipe.get("title"),
+                            "ingredient": current.get("name"),
+                            "old_measurement": current.get("measurement"),
+                            "new_measurement": sibling,
+                            "source_line": raw_source_line,
+                            "reason": "sibling_line_quantity",
+                        })
+                        current["measurement"] = sibling
                 # A to-season/optional row must not borrow a quantity from a
                 # same-name line ("1 teaspoon of salt") in the raw source.
                 if raw_source_line is not None and not _DISCRETIONARY_NOTE_RE.search(
@@ -659,6 +707,20 @@ def main() -> int:
                             "source_line": raw_source_line,
                             "reason": recovered_reason,
                         })
+                    stated = restore_source_stated_mass(
+                        str(current.get("measurement") or ""), raw_source_line, str(current.get("name") or "")
+                    )
+                    if stated is not None:
+                        raw_source_repairs.append({
+                            "source_file": input_path.name,
+                            "recipe_title": recipe.get("title"),
+                            "ingredient": current.get("name"),
+                            "old_measurement": current.get("measurement"),
+                            "new_measurement": stated,
+                            "source_line": raw_source_line,
+                            "reason": "source_stated_mass",
+                        })
+                        current["measurement"] = stated
                 if reason == "display_count":
                     restored_display_units += 1
                 elif reason == "source_unit":
@@ -670,6 +732,14 @@ def main() -> int:
                 ):
                     current["measurement"] = "optional"
                     marked_discretionary_quantities += 1
+                # A repeated parser row (HealthyFoods lists lines twice) gets the same source-mass repair as its twin.
+                if _signature(item) == previous_input and previous_raw is not None:
+                    stated = restore_source_stated_mass(
+                        str(current.get("measurement") or ""), previous_raw, str(current.get("name") or "")
+                    )
+                    if stated is not None:
+                        current["measurement"] = stated
+                previous_input, previous_raw = _signature(item), raw_source_line
                 signature = _signature(current)
                 if signature == previous:
                     removed_adjacent_duplicates += 1

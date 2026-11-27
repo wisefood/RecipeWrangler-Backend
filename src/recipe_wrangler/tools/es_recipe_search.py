@@ -618,7 +618,7 @@ def build_es_query(c: RecipeSearchConstraints) -> dict[str, Any]:
             filter_.append({"terms": {f"nutri_score_{region}": list(dict.fromkeys(grades))}})
 
     if c.max_duration_minutes is not None:
-        filter_.append({"range": {"duration": {"lte": c.max_duration_minutes}}})
+        filter_.append({"range": {"duration": {"gt": 0, "lte": c.max_duration_minutes}}})
 
     if c.min_servings is not None:
         filter_.append({"range": {"serves": {"gte": c.min_servings}}})

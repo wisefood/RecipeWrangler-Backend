@@ -139,7 +139,7 @@ class MealPlanRequest(BaseModel):
     tags: list[str] = Field(
         default_factory=list,
         description="Claim tags to prefer, e.g. high_protein, high_fibre, "
-                    "low_calorie, 30_minutes_or_less. See /api/v2/tools for the "
+                    "low_calorie. See /api/v2/tools for the "
                     "planning-relevant list. The FIRST preference surrendered "
                     "when a slot cannot be filled, because claims are the "
                     "scarcest annotation in the corpus.",

@@ -132,6 +132,16 @@ REVIEWED_SELECTIONS['evaporated fat-free milk'] = {
     'public': {'usda_sr_legacy:01097': {'food_name': 'Milk, canned, evaporated, nonfat', 'source': 'usda_sr_legacy:01097',
         'values': {'energy_kcal': 78.0, 'protein_g': 7.55, 'fat_g': 0.2, 'saturated_fat_g': 0.121, 'carbs_g': 11.35,
                    'sugar_g': 11.35, 'fibre_g': 0.0, 'sodium_mg': 115.0}}}}
+# Reviewed 2026-11-26 (calorie outliers): stated forms the plain match turned into another kind of food.
+for _name, _identifier, _label in (
+    ('fresh pasta', 'fineli:31256', 'FRESH PASTA, CONTAINS EGG'),
+    ('oven sweet potato fries', 'catalogue:["Finnish Food Composition database Fineli 2025","EFSA EU FCDB 2026","34672"]', 'SWEET POTATO FRIES, OVEN-BAKED'),
+):
+    REVIEWED_SELECTIONS[_name] = {'alias': _name, 'eu_food_id': _identifier, 'food_name': _label, 'note': 'reviewed 2026-11-26'}
+# Frozen kumara chips are oven fries; the 2026-11-05 entry pointed at crisps (532 kcal/100 g).
+REVIEWED_SELECTIONS['kumara sweet-potato chips'] = {**REVIEWED_SELECTIONS['oven sweet potato fries'], 'alias': 'kumara sweet-potato chips',
+    'approximate': 'Frozen kumara (sweet potato) chips estimated with oven-baked sweet potato fries.'}
+APPROXIMATE_NAMES['kumara sweet-potato chips'] = REVIEWED_SELECTIONS['kumara sweet-potato chips']['approximate']
 REVIEWED_SELECTIONS['pittas or flatbreads'] = {**REVIEWED_SELECTIONS['pittas'], 'alias': 'pittas or flatbreads'}
 REVIEWED_SELECTIONS['low-fat cheese spread triangle'] = {**REVIEWED_SELECTIONS['cheese spread triangle'], 'alias': 'low-fat cheese spread triangle'}
 
@@ -190,7 +200,7 @@ def preferred_name(name, region):
     return key if region in {'irish', 'eu'} and key in {'wholemeal flour', 'light cream cheese'} else None
 
 
-_COOKED = re.compile(r'\b(?:steamed|microwav\w*|ready[- ]to[- ](?:heat|eat)|pre-?cooked|leftover|pouch(?:es)?)\b|\bcooked\b(?=.*\b(?:rice|quinoa|couscous|pasta|noodles?|spaghetti|macaroni|penne)\b)|\bcups?\b.*\bcooked\b', re.I)
+_COOKED = re.compile(r'\b(?:steamed|microwav\w*|ready[- ]to[- ](?:heat|eat)|pre-?cooked|leftover|pouch(?:es)?|\d+[- ]second)\b|\bcooked\b(?=.*\b(?:rice|quinoa|couscous|pasta|noodles?|spaghetti|macaroni|penne)\b)|\bcups?\b.*\bcooked\b', re.I)
 _FRESH_NOODLES = re.compile(r'\b(?:shelf-|fresh\b.*\b)(?:fresh\b.*)?noodles?\b|\bnoodles?,? fresh\b', re.I)
 _COOKED_FOODS = (
     (r'\brice noodles?\b|\bvermicelli\b', 'cooked rice noodles'),
@@ -224,7 +234,7 @@ _LEAN_FOODS = (
     (r'\bbeef\b', 'lean beef'),
 )
 _BONE_FOODS = (
-    (r'\blamb\b.*\bcutlets?\b', 'lamb cutlets with bone', 'trimmed lamb cutlets with bone'),
+    (r'\blamb\b.*\b(?:cutlets?|racks?)\b', 'lamb cutlets with bone', 'trimmed lamb cutlets with bone'),
     (r'\blamb\b.*\bchops?\b', 'lamb chops with bone', 'trimmed lamb chops with bone'),
     (r'\blamb\b.*\bshanks?\b', 'lamb shanks with bone', None),
     (r'\bpork\b.*\b(?:chops?|cutlets?)\b', 'pork chops with bone', 'trimmed pork chops'),
@@ -253,6 +263,30 @@ def _unspecified_food_name(text, matched):
     return None
 
 
+_PULSE = r'\b(?:beans?|lentils?|chick ?peas?|garbanzos?)\b'
+
+
+def _wrong_class_name(food, original, matched):
+    """Reviewed record where the match is another kind of food than the line states (calorie outliers, 26 Nov)."""
+    key = ' '.join(food.split())
+    # "butter or cannellini beans" -> Butter, "white or mixed beans" -> Sugar: a pulse line must land on a pulse.
+    if re.search(_PULSE, food) and re.match(r'(?:butter|sugar|margarine|honey|syrup|oil)\b', matched or '', re.I) \
+            and not re.search(_PULSE, matched, re.I):
+        return key if key in REVIEWED_SELECTIONS else None
+    if re.search(r'\b(?:peppers?|capsicums?)\b', f'{food} {original}', re.I) and re.search(
+            r'\b(?:roast(?:ed)?|grilled|chargrilled|strips?)\b', original, re.I) and re.search(r'black pepper|white pepper|ground', matched, re.I):
+        return 'roasted red peppers'
+    if re.search(r'\bfresh\b[^,]*\b(?:pasta|tagliatelle|fettuccine|linguine|pappardelle|lasagne)\b', original, re.I) and re.search(r'\bdr(?:y|ied)\b', matched, re.I):
+        return 'fresh pasta'
+    if re.search(r'\bsweet[- ]?potato|\bkumara\b', food) and re.search(r'\b(?:chips|fries|wedges)\b', food) and re.search(r'\bfrozen\b|\boven\b', original, re.I) \
+            and re.search(r'\bsnacks?\b|\bcrisps\b', matched, re.I):
+        return 'oven sweet potato fries'
+    if re.search(r'\bpork\b', food) and re.search(r'\bbelly\b', matched, re.I) and not re.search(
+            r'\b(?:belly|ground|minced?|smoked|cured|bacon|ribs?|ham)\b', f'{food} {original}', re.I):
+        return 'lean pork'
+    return None
+
+
 def stated_state_name(name, original, matched=''):
     """Reviewed record when the line states cooked, lean or bone-in food but the match ignores it."""
     text = f'{name} {original}'.casefold()
@@ -260,6 +294,9 @@ def stated_state_name(name, original, matched=''):
     unspecified = _unspecified_food_name(text, matched)
     if unspecified:
         return unspecified
+    wrong_class = _wrong_class_name(food, original, matched)
+    if wrong_class:
+        return wrong_class
     if re.search(r'\b(?:cooked|leftover|roast(?:ed)?)\b', original, re.I) and not re.search(r'\buncooked\b', original, re.I) \
             and re.search(r'\b(?:raw|fresh)\b', matched, re.I):
         cooked = next((key for pattern, key in _COOKED_STAPLES if re.search(pattern, food)), None)
@@ -281,13 +318,16 @@ def stated_state_name(name, original, matched=''):
         for pattern, key, trimmed_key in _BONE_FOODS:
             if re.search(pattern, food):
                 return trimmed_key if trimmed and trimmed_key else key
+        # "1.3kg chicken": a bare chicken weighed in kilograms is a whole bird with bone, not 1.3 kg of meat.
+        if re.fullmatch(r'(?:whole\s+)?chickens?', food.strip()) and re.search(r'\b\d+(?:\.\d+)?\s*kg\b', original, re.I):
+            return 'whole chicken with bone'
         if re.search(r'\bbone[- ]in\b|\bon the bone\b', original, re.I) and 'chicken' in food:
             return 'chicken pieces with bone'
         if re.search(r'\bbone[- ]in\b', original, re.I) and 'pork' in food:
             return 'pork chops with bone'
     if re.search(r'\b(?:sausages?|meatballs?|schnitzels?|burgers?|patt(?:y|ies))\b', food):
         return None
-    if re.search(r'\blean\b', original, re.I) and not re.search(r'\d\s*%|\blean\b', matched, re.I):
+    if re.search(r'\blean\b(?! and fat)|\btrimmed of (?:all )?(?:visible )?fat\b|\bfat[- ]trimmed\b', original, re.I) and not re.search(r'\d\s*%|\blean\b(?! and fat)', matched, re.I):
         if re.search(r'\d\s*%', original):
             return None
         return next((key for pattern, key in _LEAN_FOODS if re.search(pattern, food)), None)

@@ -195,7 +195,7 @@ def _build_where_clause(
 
     if filters.max_duration_minutes is not None:
         predicates.append(
-            "coalesce(toInteger(r.duration), 999999) <= $max_duration_minutes"
+            "toInteger(r.duration) > 0 AND toInteger(r.duration) <= $max_duration_minutes"
         )
         params["max_duration_minutes"] = int(filters.max_duration_minutes)
 

@@ -3,7 +3,7 @@ Claim tags on `plan_meals`.
 
 The corpus carries planning-relevant claims on the `tags` keyword field —
 `high_protein` (1676 recipes), `low_fat` (1081), `high_fibre` (457),
-`low_calorie` (184), `30_minutes_or_less` (2809) — and `plan_meals` had no way
+`low_calorie` (184) — and `plan_meals` had no way
 to ask for any of them. So a caller wanting "high protein meals" could express
 it as a diet tag (which no recipe carries, emptying every slot) or not at all.
 

@@ -206,6 +206,40 @@ def test_backfill_keeps_corrected_names_when_frozen_evidence_is_stale():
     assert originals==['100 g Pepper, capsicum, yellow, raw','150 g onion']
 
 
+def test_backfill_treats_a_changed_line_count_as_stale_frozen_evidence():
+    from scripts.composition.backfill_matching_profiles import bind_source_lines
+    evidence={'occurrences':[
+        {'parsed_name':'Butter','saved_weight_g':0.5,'original_text':'Butter'}]}
+    originals,frozen=bind_source_lines(['Butter','Sugar'],['',''],evidence,[],weights=[125.0,125.0])
+    assert frozen is None
+    assert originals==['Butter','']
+
+
+def test_backfill_drops_frozen_evidence_the_current_rule_reparses_differently():
+    from scripts.composition.backfill_matching_profiles import bind_source_lines
+    line='4 x large (75g) wholemeal pita breads'
+    evidence={'occurrences':[
+        {'parsed_name':'wholemeal pita breads','saved_weight_g':300.0,'original_text':line,
+         'quantity_evidence':{'kind':'explicit_source_mass','source_line':line,'weight_g':75.0}}]}
+    _,frozen=bind_source_lines(['wholemeal pita breads'],[''],evidence,[],weights=[300.0])
+    assert frozen is not None
+    # bracket after a count is the line total under the current rule, so the frozen per-piece
+    # evidence is stale and must be dropped, not raise in recipe_inputs
+    assert frozen['occurrences'][0]['quantity_evidence'] is None
+
+
+def test_backfill_prefers_graph_serves_over_stale_saved_serves():
+    from scripts.composition.backfill_matching_profiles import _serves_for
+    # "1 loaf (16 slices)": graph fixed to 16 by the snapshot sync, legacy row still says 1
+    assert _serves_for('r1', {}, {'r1': 16.0}, {'serves': 1.0}, {}) == 16.0
+    assert _serves_for('r1', {'r1': 8.0}, {'r1': 16.0}, {'serves': 1.0}, {}) == 8.0
+    assert _serves_for('r2', {}, {}, {'serves': 4.0}, {'serves': 2.0}) == 4.0
+    assert _serves_for('r3', {}, {}, {}, {}) is None
+    # Fractional source yields keep the legacy sanitize policy: round, estimate below 1.
+    assert _serves_for('r4', {}, {'r4': 2.5}, {'serves': 2.0}, {}, 300) == 2.0
+    assert _serves_for('r5', {}, {'r5': 0.5}, {'serves': 1.0}, {}, 120) == 1.0
+
+
 def test_archived_scrape_replaces_fragmented_graph_lines_by_unique_title(tmp_path):
     from scripts.composition.backfill_matching_profiles import archived_source_lines
     raw=tmp_path/'raw.json'
@@ -215,3 +249,11 @@ def test_archived_scrape_replaces_fragmented_graph_lines_by_unique_title(tmp_pat
           {'recipe_id':'2','source':'FoodHero','title':'Twin'},
           {'recipe_id':'3','source':'MyPlate','title':'Agua Fresca'}]
     assert archived_source_lines(rows,{'FoodHero':raw})=={'1':['1 to 2 Tablespoons lime juice']}
+
+
+def test_recomputing_an_identical_run_marks_it_latest():
+    # Run ids are content hashes; consumers pick the latest run by created_at, so a re-run
+    # that reproduces an older profile must move ahead of any newer, different run.
+    connection=Mock()
+    insert_run(connection,'recipe','eu','release','v',{'serves':2.0},{'clean_totals':{}})
+    assert 'DO UPDATE SET created_at=now()' in str(connection.execute.call_args_list[0].args[0])

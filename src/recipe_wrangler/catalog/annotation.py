@@ -66,6 +66,10 @@ Rules, in order of importance:
    and soy sauce does not make it Chinese.
 4. Assign at most 1 course_type, 2 cuisines, 4 flavor_profiles, and 2 moods.
 5. confidence is your own 0-1 estimate that the whole assignment is right.
+6. Use main-dish only for a recipe that is a complete plate on its own. A bare
+   sauce, gravy, marinade, rub, seasoning, bread, plain grain or potato side, or
+   vegetable-only side is a side. Pasta with its sauce, meatballs, fishcakes,
+   fritters, falafel, dumplings and sausage rolls are main dishes.
 
 {vocabulary_block()}
 
@@ -191,6 +195,15 @@ def suggest(
 
 
 
+def _name_group_support(names: Iterable[str]) -> dict[str, list[str]]:
+    """Groups that ingredient names state outright, with the names that state them."""
+    support: dict[str, set[str]] = {}
+    for name in names or ():
+        for group in V.name_food_groups(str(name)):
+            support.setdefault(group, set()).add(str(name))
+    return {group: sorted(found) for group, found in support.items()}
+
+
 def derive_food_groups(doc: dict[str, Any]) -> tuple[list[str], list[dict[str, Any]]]:
     """Food groups from FoodOn ancestry — deterministic, no model.
 
@@ -217,9 +230,9 @@ def derive_food_groups(doc: dict[str, Any]) -> tuple[list[str], list[dict[str, A
             paths, doc.get("ingredient_names") or ()
         )
         existing_groups = set(doc.get("existing_food_groups") or [])
-        groups = sorted(
-            existing_groups - rejected if existing_groups else set(groups)
-        )
+        groups = set(existing_groups - rejected if existing_groups else set(groups))
+        named = _name_group_support(doc.get("ingredient_names"))
+        groups = sorted(groups | set(named))
         evidence = [
             V.evidence_entry(
                 "food_groups",
@@ -233,6 +246,18 @@ def derive_food_groups(doc: dict[str, Any]) -> tuple[list[str], list[dict[str, A
             for group in groups
             if group in support
         ]
+        evidence.extend(
+            V.evidence_entry(
+                "food_groups",
+                group,
+                method="ingredient_name",
+                confidence=1.0,
+                sources=["ingredient_name"],
+                supporting_ingredients=named[group],
+            )
+            for group in groups
+            if group in named and group not in support
+        )
         newly_supported = {entry["value"] for entry in evidence}
         evidence.extend(
             entry
@@ -244,9 +269,11 @@ def derive_food_groups(doc: dict[str, Any]) -> tuple[list[str], list[dict[str, A
         return groups, evidence
 
     ancestors = doc.get("ingredient_class_ancestors") or []
+    named = _name_group_support(doc.get("ingredient_names"))
     groups = sorted(
         set(V.food_groups_from_foodon(ancestors))
         | set(doc.get("existing_food_groups") or [])
+        | set(named)
     )
 
     by_group: dict[str, list[str]] = {}
@@ -268,6 +295,18 @@ def derive_food_groups(doc: dict[str, Any]) -> tuple[list[str], list[dict[str, A
         for group in groups
         if group in by_group
     ]
+    evidence.extend(
+        V.evidence_entry(
+            "food_groups",
+            group,
+            method="ingredient_name",
+            confidence=1.0,
+            sources=["ingredient_name"],
+            supporting_ingredients=named[group],
+        )
+        for group in groups
+        if group in named and group not in by_group
+    )
     supported = {entry["value"] for entry in evidence}
     evidence.extend(
         entry

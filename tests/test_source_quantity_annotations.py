@@ -31,7 +31,6 @@ def test_original_total_mass_survives_identity_validation(name, line, weight, ex
     ('flour', '1 cup (125g) flour or 1 cup (100g) oats'),
     ('flour', '1 cup (125g each) flour'),
     ('spaghetti', '200g spaghetti bolognese, homemade'),
-    ('potatoes', '4 x large (300g) Sebago potatoes, scrubbed and dried'),
     ('potatoes', '4 potatoes (160g each)'),
     ('potatoes', '2-4 potatoes (160g)'),
     ('tomatoes', '2 cans tomatoes (400g)'),

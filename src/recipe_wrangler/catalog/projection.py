@@ -31,7 +31,7 @@ from recipe_wrangler.catalog import annotation, sources as S
 from recipe_wrangler.catalog.entities import nutri_label, recipe_entity
 from recipe_wrangler.catalog.nutrition import apply_profiles, load_profiles_for
 from recipe_wrangler.catalog.integrity import content_digest
-from recipe_wrangler.catalog.portion_display import ingredient_display_text
+from recipe_wrangler.catalog.portion_display import ingredient_display_text, usable_source_texts
 from recipe_wrangler.utils.consumer_suitability import (
     SUITABILITY_CLASSIFICATION_VERSION, PESCATARIAN_CLASSIFICATION_VERSION,
 )
@@ -218,6 +218,10 @@ def _clean_ingredients(values: object, *, source: str = "") -> list[dict[str, An
     if not isinstance(values, (list, tuple)):
         return []
     ingredients: list[dict[str, Any]] = []
+    source_texts = usable_source_texts(
+        [_clean(v.get("name")) if isinstance(v, dict) else "" for v in values],
+        [v.get("source_text") if isinstance(v, dict) else None for v in values],
+    )
     for fallback_position, value in enumerate(values):
         if not isinstance(value, dict):
             name = _clean(value)
@@ -245,7 +249,7 @@ def _clean_ingredients(values: object, *, source: str = "") -> list[dict[str, An
             ingredient_name=name,
             calculation_measurement=measurement,
             stored_display=value.get("display"),
-            source_text=value.get("source_text"),
+            source_text=source_texts[fallback_position],
             source=source,
         )
         if display_text:

@@ -29,7 +29,7 @@ class _Rehearsal(Exception):
     """Raised inside the promotion transaction so a rehearsal rolls everything back."""
 
 
-def prepare(promotion_id: str, release_id: str, mechanism_version: str | None=None) -> dict:
+def prepare(promotion_id: str, release_id: str, mechanism_version: str | None=None, recipe_ids: list[str] | None=None) -> dict:
     store.release(release_id)
     with get_engine().begin() as c:
         c.execute(text('''INSERT INTO matching_promotions
@@ -46,8 +46,9 @@ def prepare(promotion_id: str, release_id: str, mechanism_version: str | None=No
             run_id,recipe_id,nutrition_source,profile,mechanism_version FROM matching_profile_runs
             WHERE release_id=:release AND NOT profile ? 'production_prepared_from'
             AND (CAST(:version AS text) IS NULL OR mechanism_version=:version)
+            AND (CAST(:ids AS text[]) IS NULL OR recipe_id=ANY(CAST(:ids AS text[])))
             ORDER BY recipe_id,nutrition_source,created_at DESC,run_id DESC'''),
-            {'release':release_id,'version':mechanism_version}).mappings()
+            {'release':release_id,'version':mechanism_version,'ids':recipe_ids}).mappings()
         for batch in runs.partitions(100):
             with get_engine().begin() as c:
                 for run in batch:
@@ -170,10 +171,11 @@ if __name__=='__main__':
     parser.add_argument('--promotion-id',required=True)
     parser.add_argument('--release-id',default='2026-10-27-v11')
     parser.add_argument('--mechanism-version')
+    parser.add_argument('--recipe-ids',type=Path,help='file of recipe ids; prepare only these')
     parser.add_argument('--rehearse',action='store_true',help='promote inside a transaction that is rolled back')
     parser.add_argument('--report',type=Path,required=True)
     args=parser.parse_args()
-    report=(prepare(args.promotion_id,args.release_id,args.mechanism_version) if args.action=='prepare'
+    report=(prepare(args.promotion_id,args.release_id,args.mechanism_version,args.recipe_ids.read_text().split() if args.recipe_ids else None) if args.action=='prepare'
             else promote(args.promotion_id,args.rehearse) if args.action=='promote' else rollback(args.promotion_id))
     args.report.parent.mkdir(parents=True,exist_ok=True)
     args.report.write_text(json.dumps(report,indent=2))

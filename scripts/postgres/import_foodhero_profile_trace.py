@@ -2,7 +2,7 @@
 """Build FoodHero regional profiles in the Postgres trace table.
 
 Pipeline:
-1) Load data/recipes/foodhero/foodhero_recipes_clean.json
+1) Load data/recipes/foodhero/foodhero_recipes.json
 2) Drop recipes missing duration or serves
 3) Ignore notes
 4) Map structured fields directly to pipeline state (no LLM parse step)
@@ -26,6 +26,8 @@ from tqdm import tqdm
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src"))
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "import" / "foodhero"))
+from transform_foodhero_recipes_json import transform  # noqa: E402
 
 from recipe_wrangler.utils.env_loader import load_runtime_env  # noqa: E402
 load_runtime_env()
@@ -37,7 +39,7 @@ from recipe_wrangler.tools.recipe_profiling_chain import (  # noqa: E402
 from recipe_wrangler.tools.recipe_profiling_tool import _extract_clean_totals  # noqa: E402
 from recipe_wrangler.utils.nutrition_postgres import upsert_recipe_profiling_trace  # noqa: E402
 
-DEFAULT_INPUT = REPO_ROOT / "data" / "recipes" / "foodhero" / "foodhero_recipes_clean.json"
+DEFAULT_INPUT = REPO_ROOT / "data" / "recipes" / "foodhero" / "foodhero_recipes.json"
 DEFAULT_REGION = "IE"
 DEFAULT_SOURCE_LABEL = "FoodHero"
 DEFAULT_FAILURES_OUT = REPO_ROOT / "backups" / "foodhero_profile_failures.json"
@@ -185,7 +187,7 @@ def run_foodhero_import(
     dry_run: bool = True,
     failures_out: Path | None = DEFAULT_FAILURES_OUT,
 ) -> dict[str, Any]:
-    raw = json.loads(input_path.read_text(encoding="utf-8"))
+    raw = transform(json.loads(input_path.read_text(encoding="utf-8")))
     if not isinstance(raw, dict):
         raise ValueError("Expected top-level object in FoodHero clean JSON.")
 
@@ -292,7 +294,7 @@ def run_foodhero_import(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT, help="FoodHero clean JSON path")
+    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT, help="Raw FoodHero JSON path (normalized on load)")
     parser.add_argument("--region", default=DEFAULT_REGION, choices=["IE", "HU", "EU", "SI"])
     parser.add_argument("--source-label", default=DEFAULT_SOURCE_LABEL)
     parser.add_argument("--limit", type=int, default=None, help="Optional cap of recipes to process")

@@ -1,7 +1,7 @@
 name: recipe-wrangler-api
 services:
   recipe-wrangler-api:
-    image: wisefood/recipe-wrangler:matching-2026-11-26-v32
+    image: wisefood/recipe-wrangler:matching-2026-11-28-v33
     container_name: recipe-wrangler-api
     network_mode: host
     # Bound to localhost after the 2026-11-09 Elasticsearch wipe; reach it via ssh -L 8001:localhost:8001

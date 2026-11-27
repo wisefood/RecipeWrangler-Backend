@@ -212,6 +212,93 @@ def _contains_food_term(text: str, terms: Iterable[str]) -> bool:
     return False
 
 
+# Name rules on top of FoodOn ancestry. FoodOn's broad ancestors ("plant seed food
+# product", "plant seed or nut food product", "vegetable food product") are reached
+# by every seed-derived or plant-derived product, so flour, oils, vanilla, beans and
+# soy sauce all counted as nuts, grains or legumes. A group that comes from ancestry
+# alone is kept only when the ingredient name says it belongs to the group, and the
+# same name terms add the group for ingredients that have no useful link.
+_SPICE_SEED = r"cumin|fennel|celery|mustard|caraway|coriander|nigella|fenugreek|anise|dill"
+_NUT_RE = re.compile(
+    r"\b(nuts?|almonds?|walnuts?|cashews?|pecans?|pistachios?|hazelnuts?|peanuts?|macadamias?|brazil|pine ?nuts?|"
+    r"chestnuts?|sesame|tahini|sunflower|pumpkin seeds?|pepitas?|chia|flax|linseeds?|poppy|seeds?|lsa|muesli|"
+    r"trail mix|nut butter|peanut butter|praline|marzipan|nutella)\b"
+)
+_NOT_NUT_RE = re.compile(rf"\b(oil|extract|essence|flavou?ring|milk|{_SPICE_SEED})\b")
+_GRAIN_RE = re.compile(
+    r"\b(flour|rice|wheat|wholemeal|oats?|oatmeal|barley|bread|breadcrumbs?|crumbs?|pasta|spaghetti|noodles?|"
+    r"macaroni|couscous|quinoa|tortillas?|wraps?|pitas?|cereal|crackers?|rye|corn|cornmeal|cornflour|cornstarch|"
+    r"polenta|semolina|bulgur|burghul|farro|millet|buckwheat|pastry|filo|phyllo|biscuits?|cookies?|pizza base|"
+    r"crumpets?|muffins?|bagels?|rolls?|buns?|toast|croutons?|granola|muesli|popcorn|taco shells?|gnocchi|"
+    r"lasagn?e|orzo|vermicelli|udon|soba|pancakes?|crepes?|dumpling|wontons?|spelt|bran|malt|panko|cake|"
+    r"cornbread|stuffing|arborio|basmati|risotto|ramen|risoni|fettuccine|fettucine|linguine|penne|tagliatelle|"
+    r"rigatoni|fusilli|pappardelle)\b"
+)
+_NOT_GRAIN_RE = re.compile(r"\b(oil|extract|essence|sauce)\b")
+_NOT_GRAIN_EXCEPT_RE = re.compile(r"\b(flour|rice|noodles?)\b")
+_NOT_GRAIN_NAME_RE = re.compile(r"\b(vinegar|wine|paper|oil|bran oil|sauce|extract|noodle sauce)\b")
+_LEGUME_RE = re.compile(
+    r"\b(beans?|lentils?|chickpeas?|chick peas|garbanzos?|pulses?|dh?al|tofu|tempeh|hummus|falafel|edamame|"
+    r"soy ?milk|soymilk|soya|soy ?mince|lupin)\b"
+)
+_NOT_LEGUME_RE = re.compile(
+    r"\b(soy sauce|tamari|green beans?|french beans?|runner beans?|string beans?|bean sprouts?|vanilla|coffee|"
+    r"cocoa|jelly ?beans?|beans? and rice)\b"
+)
+_NOT_LEGUME_NAME_RE = re.compile(r"\b(sauce|paste|oil|milk|flour|noodles?)\b")
+_PEA_VEGETABLE_RE = re.compile(
+    r"\b(peas?|green beans?|snow peas?|sugar snap|edamame|mange ?tout|broad beans?|runner|french beans?|"
+    r"string beans?|bean sprouts?)\b"
+)
+_RHUBARB_RE = re.compile(r"\brhubarb\b")
+_POTATO_RE = re.compile(r"\b(potato(es)?|kumara|yams?)\b")
+_NOT_POTATO_RE = re.compile(r"\b(chips|crisps|flour|starch|salad|gnocchi|dressing|sauce|noodles?)\b")
+
+
+def name_food_groups(name: str) -> set[str]:
+    """Groups the ingredient name itself states (used when ancestry is missing or too broad)."""
+    lowered = str(name or "").casefold()
+    groups: set[str] = set()
+    if _RHUBARB_RE.search(lowered):
+        groups.add("vegetables")
+    if _POTATO_RE.search(lowered) and not _NOT_POTATO_RE.search(lowered):
+        groups.add("vegetables")
+    if _GRAIN_RE.search(lowered) and not _NOT_GRAIN_NAME_RE.search(lowered):
+        groups.add("grains")
+    if _NUT_RE.search(lowered) and not _NOT_NUT_RE.search(lowered):
+        groups.add("nuts_and_seeds")
+    if _LEGUME_RE.search(lowered) and not _NOT_LEGUME_RE.search(lowered) and not _NOT_LEGUME_NAME_RE.search(lowered):
+        groups.add("legumes")
+    return groups
+
+
+def _apply_name_rules(lowered: str, candidates: set[str], named_vegetable: bool) -> set[str]:
+    """Drop groups that came from broad ancestry alone and that the ingredient name does not state."""
+    if _RHUBARB_RE.search(lowered):
+        candidates.discard("fruit")
+        return candidates
+    if "nuts_and_seeds" in candidates and (not _NUT_RE.search(lowered) or _NOT_NUT_RE.search(lowered)):
+        candidates.discard("nuts_and_seeds")
+    if "grains" in candidates and (
+        not _GRAIN_RE.search(lowered)
+        or (_NOT_GRAIN_RE.search(lowered) and not _NOT_GRAIN_EXCEPT_RE.search(lowered))
+    ):
+        candidates.discard("grains")
+    if "vegetables" in candidates and "fruit" in candidates and not named_vegetable:
+        candidates.discard("vegetables")
+    if (
+        "vegetables" in candidates
+        and "legumes" in candidates
+        and _LEGUME_RE.search(lowered)
+        and not _PEA_VEGETABLE_RE.search(lowered)
+    ):
+        candidates.discard("vegetables")
+    if "legumes" in candidates and (_NOT_LEGUME_RE.search(lowered) or not _LEGUME_RE.search(lowered)):
+        candidates.discard("legumes")
+    return candidates
+
+
+
 def _resolve_ingredient_groups(name: str, distances: dict[str, int]) -> set[str]:
     """Select consumer-facing groups for one ingredient from FoodOn ancestry."""
     candidates = set(distances)
@@ -238,6 +325,8 @@ def _resolve_ingredient_groups(name: str, distances: dict[str, int]) -> set[str]
         candidates.discard("vegetables")
         candidates.add("herbs_and_spices")
         distances.setdefault("herbs_and_spices", distances["vegetables"])
+
+    candidates = _apply_name_rules(lowered, candidates, named_vegetable)
 
     # Do not choose one globally nearest group. FoodOn's paths describe several
     # independent culinary facts: cheese can legitimately be both dairy and a

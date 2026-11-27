@@ -254,7 +254,7 @@ class TestFoodGroupResolution:
             "ingredient_names": ["squash", "eggs", "walnuts"],
             "existing_food_groups": ["eggs", "meat", "seafood", "vegetables"],
         })
-        assert groups == ["eggs", "vegetables"]
+        assert groups == ["eggs", "nuts_and_seeds", "vegetables"]
 
     def test_culinary_vegetable_override_beats_botanical_fruit(self):
         groups, _ = A.derive_food_groups({"ingredient_foodon_paths": [
@@ -269,3 +269,47 @@ class TestFoodGroupResolution:
             self.path("broccoli", "FOODON_00001261", 2, "broccoli"),
         ]})
         assert groups == ["fruit", "vegetables"]
+
+
+class TestFoodGroupNameRules:
+    """Broad FoodOn ancestors alone must not assign nuts, grains, legumes or vegetables."""
+
+    @staticmethod
+    def derive(name, *ancestors):
+        paths = [
+            {"ingredient": name, "ingredient_id": name, "foodon_id": foodon_id, "distance": 3}
+            for foodon_id in ancestors
+        ]
+        return A.derive_food_groups({
+            "ingredient_foodon_paths": paths,
+            "ingredient_names": [name],
+            "existing_food_groups": [],
+        })[0]
+
+    def test_oil_and_flour_are_not_nuts(self):
+        assert self.derive("canola oil", "FOODON_00001173", "FOODON_03460177") == []
+        assert self.derive("flour", "FOODON_00001173", "FOODON_03460177") == ["grains"]
+
+    def test_walnuts_are_nuts_even_without_a_link(self):
+        assert A.derive_food_groups({"ingredient_names": ["walnuts"]})[0] == ["nuts_and_seeds"]
+
+    def test_coconut_is_not_a_nut_and_peanuts_are_not_legumes(self):
+        assert self.derive("coconut", "FOODON_03460177") == []
+        assert self.derive("peanuts", "FOODON_03460177", "FOODON_00001264") == ["nuts_and_seeds"]
+
+    def test_soy_sauce_and_green_beans_are_not_legumes(self):
+        assert self.derive("soy sauce", "FOODON_00001264") == []
+        assert self.derive("green beans", "FOODON_00001264") == []
+        assert self.derive("lentils", "FOODON_00001264") == ["legumes"]
+
+    def test_dried_beans_are_legumes_not_vegetables_and_peas_are_vegetables(self):
+        assert self.derive("black beans", "FOODON_00001264", "FOODON_00001261") == ["legumes"]
+        assert self.derive("peas", "FOODON_00001264", "FOODON_00001261") == ["vegetables"]
+
+    def test_fruit_juice_is_fruit_not_vegetable(self):
+        assert self.derive("fruit juice", "FOODON_00001057", "FOODON_00001261") == ["fruit"]
+
+    def test_rhubarb_and_potato_are_vegetables(self):
+        assert self.derive("rhubarb", "FOODON_00001057", "FOODON_00001261") == ["vegetables"]
+        assert A.derive_food_groups({"ingredient_names": ["new potatoes"]})[0] == ["vegetables"]
+        assert A.derive_food_groups({"ingredient_names": ["potato flour"]})[0] == ["grains"]
